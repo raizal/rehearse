@@ -141,6 +141,26 @@ describe('story S3: simulate lists design errors', () => {
     ]);
   });
 
+  it('C17 a box whose lane role is not the by role of its transition (R6)', () => {
+    // pay is in lane shop; the lifecycle says draft -> paid is by buyer.
+    const dir = makeApprovedEpic((d) => (d['entities.yaml'].entities[0].lifecycle.transitions[0].by = 'buyer'));
+    expect(simulateEpic(dir).findings).toEqual([
+      {
+        kind: 'lifecycle',
+        file: 'flow.yaml',
+        path: 'pay',
+        message: 'writes Order.status:draft->paid: the Order lifecycle says draft -> paid is by buyer, but box pay is in lane shop',
+        refs: ['S1'],
+      },
+    ]);
+  });
+
+  it('C17 a new item (->draft) has no lifecycle by role and is not checked', () => {
+    // cart (lane buyer) writes Order.status:->draft; moving it to lane shop changes nothing.
+    const dir = makeApprovedEpic((d) => (box(d, 'cart').lane = 'shop'));
+    expect(brief(simulateEpic(dir).findings).filter((f) => f.includes(' by '))).toEqual([]);
+  });
+
   it('S3-A3 a step that leaves by an error exit changes no state', () => {
     // cart takes empty-cart: its write Order.status:->draft does not happen.
     const { record } = loadEpic(makeApprovedEpic());
