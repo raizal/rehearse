@@ -70,6 +70,7 @@ describe('gate check', () => {
     const report = gateEpic(REAL_EPIC);
     expect(report.ok).toBe(false);
     expect(report.findings.length).toBeGreaterThan(0);
+    expect(new Set(report.findings.map((f) => f.kind))).toEqual(new Set(['gate']));
     expect(readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8')).toBe(before);
   });
 });

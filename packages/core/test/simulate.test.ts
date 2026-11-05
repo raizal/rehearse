@@ -281,8 +281,9 @@ describe('dogfood: simulate the rehearse record (D24)', () => {
     expect(report.stale).toEqual([]);
   });
 
-  it('every branch and error exit is covered, every state is reachable, every criterion is checked', () => {
-    expect(report.findings.filter((f) => f.kind !== 'contract')).toEqual([]);
+  it('C14 with the epicDir flow context the record gives no findings', () => {
+    expect(report.findings).toEqual([]);
+    expect(report.ok).toBe(true);
   });
 
   it('the permission matrix shows that only the builder lane changes Scenario.status to approved', () => {
