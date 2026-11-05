@@ -2,13 +2,15 @@
 // Remote access goes through `bb connect expose <port>`, never through this server.
 // The only writes are approve and sign-off, from the UI (R13, R14, D41). Each POST needs the
 // session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
-// key are the server process's, never the request's.
+// key are the server process's, never the request's. The code reads (`/api/code-index`,
+// `/api/box-code`) run git and need the same token and Origin check.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
+import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { buildTrustedEpicView } from './trust-view.js';
 
@@ -26,6 +28,8 @@ export interface ServeOptions {
   session?: ServerSession;
   /** Checks signatures. Default: the allowed_signers file of the EPIC folder's repo (D41). */
   verifier?: Verifier;
+  /** Runs git for the box code routes. Default: `git` from PATH (tests pass a fake). */
+  git?: GitRunner;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -58,23 +62,29 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
   '/api/epic': 'GET, HEAD',
   '/api/approve': 'POST',
   '/api/sign-off': 'POST',
+  '/api/code-index': 'GET',
+  '/api/box-code': 'GET',
 };
 
 /** The request handler, without listening. */
 export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res: ServerResponse) => void {
   const session = opts.session ?? createSession(opts.epicDir);
   const verifier = opts.verifier ?? defaultVerifier(opts.epicDir);
+  const git = opts.git ?? execGit;
   return (req, res) => {
     let path: string;
+    let query: URLSearchParams;
     try {
-      path = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      path = decodeURIComponent(url.pathname);
+      query = url.searchParams;
     } catch {
       send(res, 400, 'text/plain; charset=utf-8', 'bad path\n');
       return;
@@ -100,6 +110,22 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       }
       return;
     }
+    if (path === '/api/code-index' || path === '/api/box-code') {
+      // Code reads git history: the same session token and Origin check as a write.
+      if (!tokenMatches(session, req.headers[TOKEN_HEADER])) {
+        sendJson(res, 403, { error: `missing or wrong ${TOKEN_HEADER} header` });
+        return;
+      }
+      if (!sameOrigin(req)) {
+        sendJson(res, 403, { error: 'Origin does not match Host' });
+        return;
+      }
+      void readCode(path, query, opts.epicDir, git).then(
+        ([status, body]) => sendJson(res, status, body),
+        (e: unknown) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }),
+      );
+      return;
+    }
     if (path === '/api/approve' || path === '/api/sign-off') {
       const field = path === '/api/approve' ? 'scenarioIds' : 'storyIds';
       void readPost(req, session, field).then((ids) => {
@@ -117,6 +143,17 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
     }
     serveStatic(opts.uiDir, path, res);
   };
+}
+
+/** `GET /api/code-index` (every box: commits and files) or `GET /api/box-code?box=&before=&after=&file=`. */
+async function readCode(path: string, query: URLSearchParams, epicDir: string, git: GitRunner): Promise<[number, unknown]> {
+  const boxes = epicBoxPaths(epicDir);
+  if (path === '/api/code-index') return [200, await codeIndex(git, epicDir, boxes)];
+  const box = query.get('box');
+  if (box === null) return [400, { ok: false, error: 'box is required' }];
+  const opt = (name: string) => query.get(name) ?? undefined;
+  const result = await boxCode(git, epicDir, boxes, { box, before: opt('before'), after: opt('after'), file: opt('file') });
+  return result.ok ? [200, result] : [result.status, { ok: false, error: result.error }];
 }
 
 /** Run approve or sign-off as the server's identity, with the server's key. */

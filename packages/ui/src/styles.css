@@ -334,3 +334,71 @@ td.no-access { background: #fafbfc; }
 .ucd-actor-label { font-size: 12px; font-weight: 700; fill: var(--ink); }
 .ucd-actor-kind, .ucd-readonly { font-size: 11px; fill: var(--muted); }
 .ucd-readonly { font-weight: 700; }
+
+/* Story tabs and the Code tab (T11, design page 13). */
+.story-chips { display: flex; gap: 8px; margin: -4px 0 10px; }
+.code-chip { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #f0f1f4; color: var(--ink); }
+.story-tabs { display: flex; gap: 6px; margin: 0 0 12px; }
+.story-tab { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 5px 12px; font-size: 13px; color: var(--ink); cursor: pointer; }
+.story-tab.is-active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.story-code h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.code-strip { list-style: none; margin: 8px 0 14px; padding: 4px 0; display: flex; gap: 0; overflow-x: auto; }
+.code-strip li { display: flex; align-items: center; }
+.code-arrow { color: #8a93a6; padding: 0 10px; font-size: 18px; }
+.code-box { position: relative; display: flex; flex-direction: column; gap: 3px; min-width: 170px; text-align: left; border: 1.5px solid var(--accent); border-radius: 8px; background: #fff; padding: 10px 12px; cursor: pointer; color: var(--ink); }
+.code-box.is-decision { border-style: dashed; }
+.code-box.no-code { border-color: #c9ced8; }
+.code-box.is-changed { border-color: var(--current); }
+.code-box.is-open { box-shadow: 0 0 0 3px #bcd2f7; background: #f4f8ff; }
+.code-box:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.code-box-title { font-weight: 700; font-size: 13px; }
+.code-box-meta { font-size: 11px; color: var(--accent); }
+.code-box-files { font-size: 11px; color: var(--muted); background: #f0f1f4; border-radius: 4px; padding: 1px 6px; align-self: flex-start; margin-top: 4px; }
+.code-changed { position: absolute; top: -9px; right: 8px; font-size: 10px; font-weight: 700; color: #fff; background: var(--current); border-radius: 999px; padding: 1px 7px; }
+.code-panel { border: 2px solid var(--accent); border-radius: 10px; padding: 12px 16px; margin-top: 4px; }
+.code-panel h4 { margin: 0 0 10px; font-size: 18px; }
+.code-path { font-size: 11px; font-weight: 400; background: #f0f1f4; border-radius: 4px; padding: 1px 6px; }
+.compare-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #f6f7f9; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
+.compare-label { font-weight: 700; color: var(--muted); }
+.compare-side { display: flex; gap: 6px; align-items: center; font-weight: 600; }
+.compare-side select { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; max-width: 360px; }
+.plain-words { background: #eef4fd; border: 1px solid #c6d8f5; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+.plain-words h5 { margin: 0 0 6px; font-size: 13px; color: var(--accent); }
+.plain-words ol { margin: 0; padding-left: 22px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.record-id { font-size: 11px; border: 1px solid var(--ink); border-radius: 4px; padding: 0 5px; margin-left: 4px; color: var(--ink); }
+.code-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 12px; align-items: start; }
+.code-files { border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 12px; }
+.code-files h5 { margin: 6px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.code-files ul { list-style: none; margin: 0; padding: 0; }
+.code-file { display: grid; grid-template-columns: 1fr auto; width: 100%; text-align: left; border: 0; background: none; padding: 5px 6px; border-radius: 6px; cursor: pointer; color: var(--ink); }
+.code-file.is-open { background: #eef4fd; }
+.code-file.is-unchanged { color: var(--muted); cursor: default; }
+.code-file-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
+.code-file-dir { grid-column: 1 / -1; color: var(--muted); font-size: 11px; word-break: break-all; }
+.code-file-counts .is-add { color: var(--approved); }
+.code-file-counts .is-del { color: var(--error); }
+.code-diff { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; min-width: 0; }
+.code-diff-head { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.code-diff-file { font-weight: 700; font-size: 12px; }
+.diff-mode { margin-left: auto; display: flex; gap: 4px; }
+.diff-mode button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+.diff-mode button.is-active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.code-diff > p { padding: 0 10px; }
+.diff-table { width: 100%; border-collapse: collapse; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; display: block; overflow-x: auto; }
+.diff-table td { padding: 0 6px; white-space: pre; vertical-align: top; }
+.diff-table .ln { color: var(--muted); text-align: right; user-select: none; min-width: 32px; }
+.diff-table .sign { user-select: none; width: 12px; }
+.diff-table .code { width: 100%; }
+.diff-table.is-split .code { width: 50%; }
+.diff-line.is-add, .diff-table .code.is-add { background: #e6f6ec; }
+.diff-line.is-del, .diff-table .code.is-del { background: #fdecec; }
+.diff-line.is-add .sign { color: var(--approved); }
+.diff-line.is-del .sign { color: var(--error); }
+.diff-table .code.is-empty { background: #f6f7f9; }
+.diff-hunk td { background: #eef4fd; color: var(--accent); padding: 2px 8px; }
+.diff-fold button { border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; padding: 2px 30px; }
+.diff-fold button:hover { color: var(--accent); }
+.code-threads { margin-top: 12px; font-size: 13px; }
+.code-threads h5 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.code-threads ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.thread-link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--branch); }
