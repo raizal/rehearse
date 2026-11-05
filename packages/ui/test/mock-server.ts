@@ -1,0 +1,57 @@
+// A mock `fetch` that answers the review HTTP contract (T6 builds the real server side).
+// Each route can be replaced per test; every call is recorded.
+
+import { vi } from 'vitest';
+import type { ReviewEpicView, Session } from '../src/contract.js';
+import { FIXTURE_KEY } from './fixture.js';
+
+export interface Reply {
+  status: number;
+  body: unknown;
+}
+
+export interface Call {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body?: unknown;
+}
+
+export interface MockRoutes {
+  /** Answer of `GET api/epic`; called on each request, so a test can change the record between loads. */
+  epic: () => ReviewEpicView;
+  session?: () => Reply;
+  approve?: (body: { scenarioIds: string[] }) => Reply;
+  signOff?: (body: { storyIds: string[] }) => Reply;
+}
+
+export const SESSION: Session = {
+  token: 'tok-123',
+  identity: { by: 'builder@example.com', threadId: 'thr_test' },
+  signing: { ok: true, keyFingerprint: FIXTURE_KEY },
+};
+
+export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: string) => Call[]; gets: (url: string) => Call[] } {
+  const calls: Call[] = [];
+  const respond = ({ status, body }: Reply) => ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? 'GET';
+    const headers = Object.fromEntries(Object.entries((init?.headers as Record<string, string>) ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
+    const body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
+    calls.push({ method, url, headers, body });
+    if (url === 'api/epic' && method === 'GET') return respond({ status: 200, body: routes.epic() });
+    if (url === 'api/session' && method === 'GET') return respond(routes.session?.() ?? { status: 200, body: SESSION });
+    if (url === 'api/approve' && method === 'POST') {
+      return respond(routes.approve?.(body) ?? { status: 200, body: { ok: true, approved: body.scenarioIds } });
+    }
+    if (url === 'api/sign-off' && method === 'POST') return respond(routes.signOff?.(body) ?? { status: 500, body: { error: 'no route' } });
+    return respond({ status: 404, body: { error: `no endpoint ${url}` } });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return {
+    calls,
+    posts: (url) => calls.filter((c) => c.method === 'POST' && c.url === url),
+    gets: (url) => calls.filter((c) => c.method === 'GET' && c.url === url),
+  };
+}
