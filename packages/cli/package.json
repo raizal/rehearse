@@ -13,6 +13,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@rehearse/core": "workspace:*"
+    "@rehearse/core": "workspace:*",
+    "@rehearse/server": "workspace:*",
+    "@rehearse/ui": "workspace:*"
   }
 }

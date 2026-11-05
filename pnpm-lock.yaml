@@ -23,6 +23,12 @@ importers:
       '@rehearse/core':
         specifier: workspace:*
         version: link:../core
+      '@rehearse/server':
+        specifier: workspace:*
+        version: link:../server
+      '@rehearse/ui':
+        specifier: workspace:*
+        version: link:../ui
 
   packages/core:
     dependencies:

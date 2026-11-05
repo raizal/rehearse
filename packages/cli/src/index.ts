@@ -4,6 +4,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { reportToJson, reportToText, validateEpic } from '@rehearse/core';
+import { runServe } from './commands/serve.js';
 
 export interface Io {
   cwd: string;
@@ -18,6 +19,7 @@ export const USAGE = `Usage: rehearse <command> [options]
 
 Commands:
   validate <epic-dir-or-slug> [--json]   Check the record files of one EPIC (schema, references, flow structure).
+  serve [epic-dir-or-slug] [--port N]    Serve the review UI on 127.0.0.1 (default port 4700). Read-only.
 
 Exit codes: 0 OK, 1 findings, 2 usage error, 3 internal error.
 `;
@@ -43,6 +45,7 @@ export function run(argv: string[], io: Io): number {
     io.stdout(USAGE);
     return command === undefined ? EXIT.usage : EXIT.ok;
   }
+  if (command === 'serve') return runServe(rest, io);
   if (command !== 'validate') {
     io.stderr(`rehearse: unknown command ${command}\n\n${USAGE}`);
     return EXIT.usage;
