@@ -18,6 +18,7 @@
           "at": { "type": "string" },
           "kind": { "type": "string" },
           "gateChecks": { "type": "string" },
+          "hashRule": { "type": "integer", "enum": [1, 2] },
           "storyHashes": {
             "type": "object",
             "additionalProperties": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }

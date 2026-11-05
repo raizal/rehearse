@@ -37,3 +37,4 @@ export {
   type SimulationReport,
   type StaleScenario,
 } from './simulate/types.js';
+export * from './trust/index.js';
