@@ -6,17 +6,24 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.js';
 import type { ReviewEpicView, SignOffView } from '../src/contract.js';
-import { FIXTURE_KEY, reviewEpic } from './fixture.js';
+import { FIXTURE_KEY, reviewEpic, seeAll } from './fixture.js';
 import { mockServer, SESSION, type MockRoutes } from './mock-server.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  sessionStorage.clear();
 });
 
+/**
+ * The app on the flow view, with every step of every scenario seen (Approve is off until then;
+ * the gate itself is tested in storyboard.test.tsx).
+ */
 async function start(routes: Partial<MockRoutes> = {}, view: ReviewEpicView = reviewEpic()) {
+  seeAll(view);
   const server = mockServer({ epic: () => view, ...routes });
   const user = userEvent.setup();
   render(<App />);
+  fireEvent.click(screen.getByTestId('nav-flow'));
   await screen.findByTestId('box-cart');
   return { server, user, view };
 }
@@ -95,11 +102,16 @@ describe('approve (S6-A1)', () => {
     expect(screen.getByTestId('approve-S1-buy')).toHaveAccessibleName('Approve S1-buy (bad signature)');
   });
 
-  it('S6-A1: when signing is off, the buttons are disabled and the reason links to docs/signing.md', async () => {
+  it('S6-A1 (C29): when signing is off, the buttons are disabled and the setup steps are shown, with the guide path as text', async () => {
     const { server } = await start({ session: () => NO_SIGNING });
     const blocked = await screen.findByTestId('approve-signer-blocked');
     expect(blocked).toHaveTextContent('git user.signingkey is not set');
-    expect(screen.getByTestId('approve-signer-doc')).toHaveAttribute('href', 'docs/signing.md');
+    const help = screen.getByTestId('approve-signer-doc');
+    expect(help).toHaveTextContent('docs/signing.md');
+    expect(help).toHaveTextContent('git config --global gpg.format ssh');
+    expect(help).toHaveTextContent('.rehearse/allowed_signers');
+    // serve does not serve docs/ (R20): no link that would 404.
+    expect(within(help).queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByTestId('approve-S1-empty')).toBeDisabled();
     expect(screen.getByTestId('select-S1-empty')).toBeDisabled();
     expect(screen.getByTestId('approve-selected')).toBeDisabled();
@@ -129,7 +141,8 @@ describe('approve (S6-A1)', () => {
     await user.click(screen.getByTestId('approve-S1-empty'));
     const outcome = screen.getByTestId('approve-outcome');
     await waitFor(() => expect(outcome).toHaveTextContent('Signing is not available: ssh-agent has no key'));
-    expect(within(outcome).getByRole('link')).toHaveAttribute('href', 'docs/signing.md');
+    expect(within(outcome).getByTestId('approve-outcome-doc')).toHaveTextContent('docs/signing.md');
+    expect(within(outcome).queryByRole('link')).not.toBeInTheDocument();
 
     reply = { status: 403, body: { error: 'bad token' } };
     await user.click(screen.getByTestId('approve-S1-empty'));
@@ -192,6 +205,27 @@ describe('readiness (S8)', () => {
     expect(screen.getByTestId('readiness-no-proof-R3')).toHaveTextContent('no story links R3');
     expect(screen.getByTestId('readiness-no-proof-R2')).toHaveTextContent('no approved scenario that is not stale for S2');
     expect(screen.getByTestId('readiness-req-status-R1')).toHaveTextContent('proven');
+  });
+
+  it('S8-A1 (C28): an approval without a valid signature is not proof, and the view says "approval not signed"', async () => {
+    const view = reviewEpic();
+    view.approvals!['S1-buy']!.sigStatus = 'missing';
+    const { user } = await start({}, view);
+    await user.click(screen.getByTestId('nav-readiness'));
+    expect(screen.getByTestId('readiness-req-status-R1')).toHaveTextContent('no proof: approval not signed');
+    expect(screen.getByTestId('readiness-req-status-R1')).toHaveTextContent('S1-buy (signature missing)');
+    expect(screen.getByTestId('readiness-no-proof-reason-R1')).toHaveTextContent('approval not signed');
+    expect(screen.getByTestId('readiness-scenario-sig-R1-S1-buy')).toHaveTextContent('not signed');
+    // A reason that does not depend on signatures is kept, in words.
+    expect(screen.getByTestId('readiness-no-proof-reason-R3')).toHaveTextContent('no story');
+  });
+
+  it('S8-A1 (C28): with a valid signature the requirement is proven', async () => {
+    const { user } = await start();
+    await user.click(screen.getByTestId('nav-readiness'));
+    expect(screen.getByTestId('readiness-req-status-R1')).toHaveTextContent('proven');
+    expect(screen.getByTestId('readiness-scenario-sig-R1-S1-buy')).toHaveTextContent('signature valid');
+    expect(screen.queryByTestId('readiness-no-proof-R1')).not.toBeInTheDocument();
   });
 
   it('S8-A1: the chain shows requirement → stories → boxes → scenarios → status', async () => {
@@ -339,7 +373,7 @@ describe('sign-off (S9)', () => {
     await off.user.click(screen.getByTestId('signoff-story-S1'));
     expect(screen.getByTestId('signoff-button')).toBeDisabled();
     expect(screen.getByTestId('signoff-why')).toHaveTextContent('signing is not available');
-    expect(screen.getByTestId('signoff-signer-doc')).toHaveAttribute('href', 'docs/signing.md');
+    expect(screen.getByTestId('signoff-signer-doc')).toHaveTextContent('docs/signing.md');
   });
 
   it('S9-A2: a 503 from the server shows the reason', async () => {

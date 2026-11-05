@@ -45,7 +45,7 @@ describe('swimlanes (R9)', () => {
 
   it('boxes of one lane in the same column go to separate rows, so they do not overlap', () => {
     const diagram = { boxes: [box('a', 'x'), box('b', 'x'), box('c', 'y')], edges: [] };
-    const layout = swimlaneLayout(diagram, [{ role: 'x', label: 'X' }, { role: 'y', label: 'Y' }], new Map([['a', 0], ['b', 0], ['c', 0]]));
+    const layout = swimlaneLayout(diagram, [{ role: 'x', label: 'X', color: '#000' }, { role: 'y', label: 'Y', color: '#111' }], new Map([['a', 0], ['b', 0], ['c', 0]]));
     const [a, b] = layout.boxes;
     expect(a!.x).toBe(b!.x);
     expect(Math.abs(a!.y - b!.y)).toBeGreaterThanOrEqual(BOX_H);

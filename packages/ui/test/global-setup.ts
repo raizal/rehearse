@@ -7,8 +7,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TestProject } from 'vitest/node';
 import { gateRecord, loadEpic, readiness, simulateRecord, simulationFindings } from '@rehearse/core';
-import { makeEpic, scenario } from '../../core/test/helpers.js';
-import { buildEpicView } from '@rehearse/server';
+import { makeEpic, REAL_EPIC, scenario } from '../../core/test/helpers.js';
+import { buildEpicView, buildTrustedEpicView } from '@rehearse/server';
 import type { ApprovalView, ReviewEpicView } from '../src/contract.js';
 import { FIXTURE_KEY } from './fixture.js';
 
@@ -17,6 +17,8 @@ const ZERO_HASH = `sha256:${'0'.repeat(64)}`;
 
 export function setup(project: TestProject): void {
   project.provide('reviewEpic', buildReviewEpic());
+  // The real EPIC record of rehearse as serve sends it; its bootstrap approvals are not signed.
+  project.provide('realEpic', buildTrustedEpicView(REAL_EPIC, { verify: () => ({ status: 'missing' }) }) as ReviewEpicView);
 }
 
 /** Three caught in simulation, one caught after build (S8-A3). */

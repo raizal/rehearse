@@ -2,9 +2,10 @@
 // scenarios → status, requirements with no proof, boxes with no requirement, the
 // correction counts, and the gate findings by story.
 
-import type { GateReport, Readiness } from '@rehearse/core';
+import type { GateReport, SignedReadiness } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
-import { groupByStory } from '../model/review.js';
+import { proofReasonText, proofWithSignatures } from '../model/readiness.js';
+import { groupByStory, sigText } from '../model/review.js';
 import { FindingList } from './Review.js';
 
 export interface ReadinessViewProps {
@@ -21,7 +22,8 @@ function BoxLink({ path, testId, onOpenBox }: { path: string; testId: string; on
 }
 
 export function ReadinessView({ view, onOpenBox }: ReadinessViewProps) {
-  const r = view.readiness;
+  // Only an approval with a valid signature is proof (C28).
+  const r = proofWithSignatures(view.readiness, view.approvals);
   if (!r) {
     return (
       <section className="page" data-testid="readiness-view">
@@ -54,7 +56,7 @@ export function ReadinessView({ view, onOpenBox }: ReadinessViewProps) {
             <ul aria-labelledby="no-proof-h" data-testid="readiness-no-proof">
               {r.noProof.map((p) => (
                 <li key={p.id} data-testid={`readiness-no-proof-${p.id}`}>
-                  <strong>{p.id}</strong>: no proof — {p.message} <span className="muted small">({p.reason})</span>
+                  <strong>{p.id}</strong>: no proof, <span data-testid={`readiness-no-proof-reason-${p.id}`}>{proofReasonText(p.reason)}</span> — {p.message}
                 </li>
               ))}
             </ul>
@@ -100,7 +102,7 @@ export function ReadinessView({ view, onOpenBox }: ReadinessViewProps) {
   );
 }
 
-function Chain({ readiness, onOpenBox }: { readiness: Readiness; onOpenBox: (path: string) => void }) {
+function Chain({ readiness, onOpenBox }: { readiness: SignedReadiness; onOpenBox: (path: string) => void }) {
   if (readiness.requirements.length === 0) return <p className="muted">No requirements.</p>;
   return (
     <div className="table-wrap">
@@ -119,7 +121,11 @@ function Chain({ readiness, onOpenBox }: { readiness: Readiness; onOpenBox: (pat
                 <strong>{req.id}</strong> <span className="req-text">{req.text}</span>
               </th>
               <td data-testid={`readiness-req-status-${req.id}`}>
-                {req.proven ? <span className="badge status-approved">proven</span> : <span className="badge status-stale">no proof</span>}
+                {req.proven ? (
+                  <span className="badge status-approved">proven</span>
+                ) : (
+                  <span className="badge status-stale">no proof{req.reason ? `: ${proofReasonText(req.reason)}` : ''}</span>
+                )}
                 {req.message && <div className="small">{req.message}</div>}
               </td>
               <td>
@@ -151,6 +157,12 @@ function Chain({ readiness, onOpenBox }: { readiness: Readiness; onOpenBox: (pat
                         {s.scenarios.map((sc) => (
                           <span key={sc.id} className="chain-scenario" data-testid={`readiness-scenario-${req.id}-${sc.id}`}>
                             {sc.id} <span className={`badge status-${sc.status}`}>{sc.status}</span>
+                            {sc.status === 'approved' && sc.sigStatus !== undefined && (
+                              <span className="small muted" data-testid={`readiness-scenario-sig-${req.id}-${sc.id}`}>
+                                {' '}
+                                {sigText(sc.sigStatus)}
+                              </span>
+                            )}
                           </span>
                         ))}
                       </div>

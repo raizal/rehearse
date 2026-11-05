@@ -35,12 +35,15 @@ export interface ApproveControls {
   onApprove: (ids: Id[]) => void;
   /** Signing is off, or a request is running. */
   disabled: boolean;
+  /** Every step of the scenario was seen (storyboard or playback). Approve is off until then (S6-A1). */
+  isSeen?: (sv: ScenarioView) => boolean;
 }
 
 export function Playback({ scenarios, scenarioId, step, onPick, onStep, approve }: PlaybackProps) {
   const active = scenarios.find((s) => s.scenario.id === scenarioId);
   const steps = active && Array.isArray(active.scenario.steps) ? active.scenario.steps : [];
   const activeReason = active && approve?.reasonFor(active);
+  const activeUnseen = active && approve?.isSeen ? !approve.isSeen(active) : false;
   return (
     <section className="playback" data-testid="playback">
       <h2>Scenarios</h2>
@@ -48,6 +51,7 @@ export function Playback({ scenarios, scenarioId, step, onPick, onStep, approve 
         {scenarios.map((sv) => {
           const { scenario, status } = sv;
           const reason = approve?.reasonFor(sv);
+          const unseen = approve?.isSeen ? !approve.isSeen(sv) : false;
           return (
           <li key={scenario.id} className="scenario-item">
             <button
@@ -73,7 +77,7 @@ export function Playback({ scenarios, scenarioId, step, onPick, onStep, approve 
                         type="checkbox"
                         data-testid={`select-${scenario.id}`}
                         checked={approve.selected.has(scenario.id)}
-                        disabled={approve.disabled}
+                        disabled={approve.disabled || unseen}
                         onChange={() => approve.onToggle(scenario.id)}
                       />
                       <span className="sr-only">Select {scenario.id} to approve</span>
@@ -82,14 +86,15 @@ export function Playback({ scenarios, scenarioId, step, onPick, onStep, approve 
                       type="button"
                       className="action"
                       data-testid={`approve-${scenario.id}`}
-                      aria-label={`Approve ${scenario.id} (${reason})`}
-                      disabled={approve.disabled}
+                      aria-label={`Approve ${scenario.id} (${unseen ? 'see every step first' : reason})`}
+                      disabled={approve.disabled || unseen}
                       onClick={() => approve.onApprove([scenario.id])}
                     >
                       Approve
                     </button>
                     <span className="muted small" data-testid={`approve-reason-${scenario.id}`}>
                       {reason}
+                      {unseen && ', see every step first'}
                     </span>
                   </>
                 )}
@@ -130,8 +135,8 @@ export function Playback({ scenarios, scenarioId, step, onPick, onStep, approve 
               type="button"
               className="action"
               data-testid="playback-approve"
-              aria-label={`Approve ${active.scenario.id} (${activeReason})`}
-              disabled={approve.disabled}
+              aria-label={`Approve ${active.scenario.id} (${activeUnseen ? 'step through every step first' : activeReason})`}
+              disabled={approve.disabled || activeUnseen}
               onClick={() => approve.onApprove([active.scenario.id])}
             >
               Approve this scenario

@@ -21,7 +21,7 @@ function LaneView({ data }: NodeProps<LaneNode>) {
   const { lane, width, height } = data;
   return (
     <div className={`lane${lane.unknown ? ' lane-unknown' : ''}`} data-testid={`lane-${lane.role}`} data-role={lane.role} style={{ width, height }}>
-      <div className="lane-header">
+      <div className="lane-header" style={{ borderLeft: `6px solid ${lane.color}` }}>
         <span className="lane-label">{lane.label}</span>
         <span className="lane-kind">{lane.unknown ? 'unknown lane' : (lane.kind ?? '')}</span>
       </div>
