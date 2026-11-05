@@ -12,8 +12,8 @@
 }
 
 /* Every diagram sits in a card. */
-.bp-map-wrap, .ucd-wrap, .arch-wrap, .gd-wrap { overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-5) var(--s-6); }
-.bp-map, .how-map, .ucd, .gd { display: block; max-width: none; }
+.bp-map-wrap, .arch-wrap, .gd-wrap { overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-5) var(--s-6); }
+.bp-map, .how-map, .gd { display: block; max-width: none; }
 
 /* ---------------------------------------------------------------- lanes in SVG: role tint and role colour, in role order */
 .bp-row, .how-map .bp-row { fill: var(--bg); stroke: none; }
@@ -102,20 +102,6 @@
 .view-toggle { flex-direction: row; align-self: flex-start; display: inline-flex; gap: var(--s-1); padding: var(--s-1); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); }
 .view-toggle > .action { min-height: 28px; border: 0; border-radius: var(--r-pill); background: none; color: var(--muted); font-weight: var(--fw-medium); }
 .view-toggle > .action[aria-pressed='true'] { background: var(--accent); color: var(--card); font-weight: var(--fw-bold); }
-.ucd-usecase { cursor: pointer; }
-.ucd-boundary { fill: var(--card); stroke: var(--ink-2); stroke-width: 1.5; }
-.ucd-system { font-size: var(--fs-base); font-weight: var(--fw-bold); fill: var(--ink); }
-.ucd-group { fill: none; stroke-width: 2; stroke-dasharray: 6 4; }
-.ucd-group-label { font-size: var(--fs-sm); font-weight: var(--fw-bold); fill: var(--ink); }
-.ucd-link { stroke: var(--faint); stroke-width: 1.5; }
-.ucd-usecase ellipse { fill: var(--builder-tint); stroke: var(--builder); stroke-width: 2; }
-.ucd-usecase:hover ellipse { stroke: var(--ink); }
-.ucd-usecase-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); fill: var(--ink); }
-.ucd-tag { font-family: var(--mono); font-size: var(--fs-xs); fill: var(--ink); }
-.ucd-also, .ucd-actor-kind, .ucd-readonly { font-size: var(--fs-xs); fill: var(--muted); }
-.ucd-actor-icon { font-size: var(--fs-xl); }
-.ucd-actor-label { font-size: var(--fs-sm); font-weight: var(--fw-bold); fill: var(--ink); }
-.ucd-readonly { font-weight: var(--fw-bold); }
 
 /* ---------------------------------------------------------------- graph diagrams: user flow, data flow, system flowchart (pages 5–7) */
 .gd { font-size: var(--fs-sm); }

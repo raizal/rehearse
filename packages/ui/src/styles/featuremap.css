@@ -1,0 +1,80 @@
+/* Feature map (design page 1) and use cases (design page 4). */
+
+/* ---- page 1: the whole EPIC ---- */
+.fm-page { gap: var(--s-4); }
+.fm-page > .fm-sub { margin-top: calc(-1 * var(--s-3)); }
+.fm-stats { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.fm-stats li { padding: 3px var(--s-3); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); }
+.fm-body { display: grid; grid-template-columns: minmax(0, 1fr) 364px; gap: var(--s-5); align-items: stretch; margin-top: var(--s-2); }
+.fm-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-5) var(--s-6) var(--s-6); min-width: 0; }
+.fm-card h3 { font-size: 18px; font-weight: var(--fw-bold); }
+.fm-card h3 + p { margin-top: var(--s-1); font-size: var(--fs-md); }
+.fm-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-5); flex-wrap: wrap; margin-bottom: var(--s-5); }
+.fm-legend { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--s-8); font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--muted); }
+.fm-legend li { display: inline-flex; align-items: center; gap: var(--s-2); }
+.fm-key { display: inline-block; width: 16px; height: 16px; border-radius: var(--r-xs); border: 2px solid; }
+.fm-key-shared { border-color: var(--shared); background: var(--card); }
+.fm-key-selected { border-color: var(--selected); background: var(--note-tint); }
+.fm-map-wrap { overflow-x: auto; }
+.fm-map { display: block; width: 100%; height: auto; }
+.fm-role { font-size: 16px; font-weight: var(--fw-bold); }
+.fm-role-kind { font-size: var(--fs-sm); font-weight: var(--fw-medium); fill: var(--muted); }
+.fm-edge { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.fm-edge.is-back { stroke-dasharray: 6 4; }
+.fm-legend .fm-edge { stroke-width: 2; }
+.fm-head { fill: var(--muted); }
+.fm-process { cursor: pointer; }
+.fm-process > rect { fill: var(--card); stroke-width: 1.5; }
+.fm-process.is-shared > rect { stroke: var(--shared); stroke-width: 2.5; }
+.fm-process.is-selected > rect { fill: var(--note-tint); }
+.fm-process:hover > rect, .fm-process:focus-visible > rect { stroke: var(--ink); }
+.fm-process:focus-visible { outline: none; }
+.fm-process-title { font-size: var(--fs-md); font-weight: var(--fw-semibold); fill: var(--ink); }
+.fm-kind { font-size: var(--fs-xs); font-weight: var(--fw-medium); fill: var(--muted); }
+.fm-shared rect { fill: var(--shared); }
+.fm-shared text { font-size: var(--fs-2xs); font-weight: var(--fw-bold); fill: var(--card); }
+.fm-chip { cursor: pointer; }
+.fm-chip rect { stroke-width: 1.5; }
+.fm-chip text { font-size: var(--fs-xs); font-weight: var(--fw-bold); }
+.fm-chip.is-selected rect { fill: var(--selected); stroke: var(--selected); }
+.fm-chip.is-selected text { fill: var(--card); }
+.fm-features ul { list-style: none; margin: var(--s-4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.fm-features li { border: 1.5px solid transparent; border-radius: var(--r-md); }
+.fm-features li.is-selected { border-color: var(--selected); background: var(--note-tint); }
+.fm-story { width: 100%; display: grid; grid-template-columns: auto auto 1fr; column-gap: var(--s-3); row-gap: var(--s-2); align-items: center; padding: var(--s-2) var(--s-3) var(--s-3); border: 0; border-radius: var(--r-md); background: none; text-align: left; color: var(--ink); }
+.fm-story strong { font-size: 14px; font-weight: var(--fw-bold); min-width: 26px; }
+.fm-role-chip { justify-self: start; padding: 1px var(--s-2); border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+.fm-counts { justify-self: end; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--muted); }
+.fm-want { grid-column: 1 / -1; font-size: var(--fs-sm); line-height: 1.4; max-width: 300px; }
+@media (max-width: 1200px) {
+  .fm-body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- page 4: who may change which data ---- */
+.uc-page { gap: var(--s-4); }
+.uc-body { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: var(--s-6); align-items: start; margin-top: var(--s-4); }
+.uc-map { display: block; width: 100%; height: auto; }
+.uc-boundary { fill: var(--card); stroke: var(--line-strong); stroke-width: 1.5; }
+.uc-system { font-size: 14px; font-weight: var(--fw-bold); fill: var(--muted); }
+.uc-actor-label { font-size: 16px; font-weight: var(--fw-bold); }
+.uc-actor-kind { font-size: var(--fs-sm); font-weight: var(--fw-medium); fill: var(--muted); }
+.uc-readonly { font-size: var(--fs-sm); font-weight: var(--fw-medium); fill: var(--muted); }
+.uc-link { stroke-width: 1.5; fill: none; }
+.uc-data-link { stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+.ucd-usecase { cursor: pointer; }
+.ucd-usecase ellipse { stroke-width: 2; }
+.ucd-usecase:hover ellipse, .ucd-usecase:focus-visible ellipse { stroke: var(--ink); }
+.ucd-usecase:focus-visible { outline: none; }
+.uc-oval-title { font-size: 14px; font-weight: var(--fw-bold); fill: var(--ink); }
+.uc-oval-sub { font-size: var(--fs-xs); font-weight: var(--fw-medium); }
+.uc-data > rect:first-child { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; }
+.uc-data-head { fill: var(--subtle); }
+.uc-stereo { font-size: var(--fs-2xs); font-weight: var(--fw-semibold); fill: var(--muted); }
+.uc-data-name { font-size: 16px; font-weight: var(--fw-bold); fill: var(--ink); }
+.uc-check { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-4); font-size: var(--fs-sm); line-height: 1.4; display: flex; flex-direction: column; gap: var(--s-3); }
+.uc-check h3 { font-size: 14px; }
+.uc-check ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-3); }
+.uc-check .is-ok { color: var(--ok); font-weight: var(--fw-semibold); }
+@media (max-width: 1200px) {
+  .uc-body { grid-template-columns: minmax(0, 1fr); }
+}

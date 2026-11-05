@@ -58,8 +58,18 @@ describe('big picture (S4-A4)', () => {
     expect(screen.getByTestId('bp-line-S1')).toHaveTextContent('S1');
     const legend = screen.getByTestId('bp-legend');
     expect(within(legend).getByTestId('bp-story-S1')).toHaveTextContent('S1');
-    expect(within(legend).getByTestId('bp-story-S1')).toHaveTextContent('2 processes');
-    expect(screen.getByTestId('bp-shared-list')).toHaveTextContent('No process serves two stories.');
+    expect(within(legend).getByTestId('bp-story-S1')).toHaveTextContent('2 proc · 2 scen');
+    expect(within(legend).getByTestId('bp-story-S1')).toHaveAccessibleName(/\(2 processes, 2 scenarios\)$/);
+    expect(screen.queryByTestId(/^bp-shared-/)).not.toBeInTheDocument();
+    // T18a: the page header counts roles, stories, processes, scenarios and signed stories.
+    expect(screen.getByRole('heading', { level: 2, name: 'The whole EPIC' })).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem').filter((li) => li.closest('[data-testid="bp-stats"]')).map((li) => li.textContent)).toEqual([
+      '2 roles',
+      '2 stories',
+      '4 processes',
+      '3 scenarios',
+      '0 of 2 stories signed',
+    ]);
   });
 
   it('S4-A4: a process two stories use is marked "shared" with the story ids, in words', async () => {
@@ -68,7 +78,8 @@ describe('big picture (S4-A4)', () => {
     expect(screen.queryByTestId('bp-shared-cart')).not.toBeInTheDocument();
     expect(screen.getByTestId('bp-process-ship')).toHaveAccessibleName('Open process Ship the order (ship) in the flow view; process; serves S1, S2; shared');
     expect(screen.getByTestId('bp-line-S1')).toHaveAttribute('data-points', '3');
-    expect(screen.getByTestId('bp-shared-list')).toHaveTextContent('ship shared by S1S2');
+    // One chip per story under the shared box.
+    expect(screen.getByTestId('bp-line-S2')).toHaveTextContent('S2');
   });
 
   it('S4-A4: a click on a story opens its story view under Stories', async () => {
@@ -185,18 +196,22 @@ describe('story view (S4-A5)', () => {
 });
 
 describe('use cases (S7-A1)', () => {
-  it('S7-A1: actors on the left, one use case per writing box, grouped by story, with tags', async () => {
+  it('S7-A1: actors on the left, one use case per writing box with its stories, the data it changes on the right', async () => {
     const { user } = await start();
     await user.click(screen.getByTestId('nav-usecases'));
     expect(screen.getByTestId('usecase-show-diagram')).toHaveAttribute('aria-pressed', 'true');
     const builder = screen.getByTestId('usecase-actor-builder');
     expect(builder).toHaveTextContent('Builder');
     expect(builder).toHaveTextContent('human');
-    expect(within(screen.getByTestId('usecase-group-S1')).getByText(/^S1 · /)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Who may change which data' })).toBeInTheDocument();
     expect(screen.getAllByTestId(/^usecase-(cart|pay|ship)$/).map((el) => el.dataset.testid)).toEqual(['usecase-cart', 'usecase-pay', 'usecase-ship']);
-    expect(screen.getByTestId('usecase-tag-cart-0')).toHaveTextContent('writes Order.id');
-    expect(screen.getByTestId('usecase-tag-cart-1')).toHaveTextContent('Order.status new → draft');
-    expect(screen.getByTestId('usecase-tag-ship-0')).toHaveTextContent('Order.status paid → shipped');
+    expect(screen.getByTestId('usecase-cart')).toHaveTextContent('S1');
+    expect(screen.getByTestId('usecase-cart')).toHaveTextContent('writes Order.id, Order.status new → draft');
+    expect(screen.getByTestId('usecase-ship')).toHaveTextContent('Order.status paid → shipped');
+    expect(screen.getByTestId('usecase-data-Order')).toHaveTextContent('«data»Order');
+    expect(screen.getByTestId('usecase-data-link-cart-Order')).toHaveTextContent('cart changes writes Order.id, Order.status new → draft');
+    expect(screen.getByTestId('usecase-data-link-ship-Order')).toBeInTheDocument();
+    expect(screen.getByTestId('usecase-check')).toHaveTextContent('Check');
     expect(screen.getByTestId('usecase-link-builder-cart')).toBeInTheDocument();
     expect(screen.getByTestId('usecase-link-system-ship')).toBeInTheDocument();
     expect(screen.queryByTestId('usecase-link-builder-pay')).not.toBeInTheDocument();

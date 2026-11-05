@@ -6,9 +6,24 @@ import { describe, expect, it } from 'vitest';
 import type { Box } from '@rehearse/core';
 import type { ReviewEpicView } from '../src/contract.js';
 import { boxAt } from '../src/model/diagram.js';
-import { bigPicture, bigPictureLayout, BIG, flowOrder, flowPaths, servedStories, STORY_COLORS, storyStyle } from '../src/model/features.js';
+import {
+  bigPicture,
+  bigPictureStats,
+  boxTitleLines,
+  chipWidth,
+  featureColumns,
+  featureMapLayout,
+  flowOrder,
+  flowPaths,
+  FM,
+  laneTint,
+  mainEdges,
+  servedStories,
+  STORY_COLORS,
+  storyStyle,
+} from '../src/model/features.js';
 import { howLayout, storyDetail, writeChange } from '../src/model/storyview.js';
-import { useCaseDiagram, useCaseLayout, writeTag } from '../src/model/usecases.js';
+import { permissionChecks, systemName, UCD, useCaseDiagram, useCaseLayout, writeEntity, writeTag } from '../src/model/usecases.js';
 import { realEpic, reviewEpic } from './fixture.js';
 
 /** The shop fixture, with box ship/pack also serving S1: ship is then shared by S1 and S2. */
@@ -67,27 +82,105 @@ describe('big picture (S4-A4)', () => {
     ]);
   });
 
-  it('S4-A4: exact layout: one column per process, one row per role, one track per story', () => {
+  it('T18a: the arrows join main processes, skipping the decisions between them', () => {
     const view = sharedShop();
-    const lay = bigPictureLayout(bigPicture(view.flow, view.prd));
-    const rowH = BIG.pad * 2 + BIG.titleH + 2 * BIG.track;
-    expect(rowH).toBe(96);
-    expect(lay.rows.map((r) => [r.role, r.y, r.height])).toEqual([
-      ['builder', 0, 96],
-      ['system', 96, 96],
+    const bp = bigPicture(view.flow, view.prd);
+    expect(bp.edges).toEqual([
+      { from: 'cart', to: 'pay', back: false },
+      { from: 'pay', to: 'ship', back: false },
+      { from: 'ship', to: 'notify', back: false },
     ]);
-    expect(lay.width).toBe(BIG.header + 4 * BIG.colW);
-    expect(lay.height).toBe(192);
-    expect(lay.boxes.find((b) => b.id === 'cart')).toEqual({ id: 'cart', x: 153, y: 12, w: 124, h: 72 });
-    expect(lay.boxes.find((b) => b.id === 'ship')).toEqual({ id: 'ship', x: 453, y: 108, w: 124, h: 72 });
-    const s1 = lay.lines.find((l) => l.storyId === 'S1')!;
-    expect(s1.points).toEqual([
-      { x: 215, y: 69 },
-      { x: 365, y: 165 },
-      { x: 515, y: 165 },
+    expect([...featureColumns(bp)]).toEqual([
+      ['cart', 0],
+      ['pay', 1],
+      ['ship', 2],
+      ['notify', 3],
     ]);
-    // A story with one process is a dot.
-    expect(lay.lines.find((l) => l.storyId === 'S2')!.points).toEqual([{ x: 515, y: 175 }]);
+  });
+
+  it('T18a: a loop back is kept only when it joins two processes directly', () => {
+    const root = {
+      boxes: [
+        { id: 'a', kind: 'process' },
+        { id: 'b', kind: 'process' },
+        { id: 'ok', kind: 'decision' },
+        { id: 'c', kind: 'process' },
+      ] as Box[],
+      edges: [
+        { from: 'a', to: 'b' },
+        { from: 'b', to: 'ok' },
+        { from: 'ok', to: 'c', label: 'yes' },
+        { from: 'ok', to: 'a', label: 'no' },
+        { from: 'c', to: 'b', label: 'again' },
+      ],
+    };
+    const processes = ['a', 'b', 'c'].map((id, column) => ({ id, column }) as never);
+    expect(mainEdges(root, processes)).toEqual([
+      { from: 'a', to: 'b', back: false },
+      { from: 'b', to: 'c', back: false },
+      { from: 'c', to: 'b', back: true },
+    ]);
+  });
+
+  it('T18a: exact feature map layout: lanes as rows, boxes in columns, story chips under each box, orthogonal arrows', () => {
+    const view = sharedShop();
+    const lay = featureMapLayout(bigPicture(view.flow, view.prd));
+    expect(lay.width).toBe(FM.minWidth);
+    expect(lay.rows.map((r) => [r.role, r.y, r.height, r.tint])).toEqual([
+      ['builder', 0, 188, laneTint(lay.rows[0]!.color)],
+      ['system', 200, 188, laneTint(lay.rows[1]!.color)],
+    ]);
+    expect(lay.height).toBe(388);
+    expect(lay.boxes.find((b) => b.id === 'cart')).toEqual({ id: 'cart', column: 0, x: 116, y: 30, w: 128, h: 84 });
+    expect(lay.boxes.find((b) => b.id === 'ship')).toEqual({ id: 'ship', column: 2, x: 408, y: 230, w: 128, h: 84 });
+    // A shared box gets one chip per story, side by side.
+    expect(lay.chips.filter((c) => c.process === 'ship')).toEqual([
+      { storyId: 'S1', process: 'ship', x: 408, y: 322, w: chipWidth('S1') },
+      { storyId: 'S2', process: 'ship', x: 440, y: 322, w: chipWidth('S2') },
+    ]);
+    // Across lanes: an elbow in the gap after the source; in a lane: a straight line.
+    expect(lay.edges.map((e) => [e.from, e.to, e.points])).toEqual([
+      [
+        'cart',
+        'pay',
+        [
+          { x: 244, y: 72 },
+          { x: 253, y: 72 },
+          { x: 253, y: 272 },
+          { x: 262, y: 272 },
+        ],
+      ],
+      [
+        'pay',
+        'ship',
+        [
+          { x: 390, y: 272 },
+          { x: 408, y: 272 },
+        ],
+      ],
+      [
+        'ship',
+        'notify',
+        [
+          { x: 536, y: 272 },
+          { x: 554, y: 272 },
+        ],
+      ],
+    ]);
+    for (const e of lay.edges) for (let i = 1; i < e.points.length; i++) expect(e.points[i]!.x === e.points[i - 1]!.x || e.points[i]!.y === e.points[i - 1]!.y).toBe(true);
+  });
+
+  it('T18a: a box title wraps in at most three lines and says when it is cut', () => {
+    expect(boxTitleLines('Ship the order')).toEqual(['Ship the order']);
+    expect(boxTitleLines('Detect changed signed content')).toEqual(['Detect changed', 'signed content']);
+    expect(boxTitleLines('Log correction (caught-in-simulation)').length).toBeLessThanOrEqual(3);
+    for (const l of boxTitleLines('Log correction (caught-in-simulation)')) expect(l.length).toBeLessThanOrEqual(14);
+    expect(boxTitleLines('one two three four five six seven eight nine', 9).at(-1)).toMatch(/…$/);
+  });
+
+  it('T18a: the stat chips count roles, stories, processes, scenarios and signed stories', () => {
+    const view = sharedShop();
+    expect(bigPictureStats(bigPicture(view.flow, view.prd), view)).toEqual({ roles: 2, stories: 2, processes: 4, scenarios: 3, signed: 0 });
   });
 
   it('S4-A4: stories after the eighth keep a colour and get a dashed line, so colour is not the only cue', () => {
@@ -105,9 +198,14 @@ describe('big picture (S4-A4)', () => {
     expect(bp.stories.map((s) => s.id)).toEqual(view.prd!.stories.map((s) => s.id));
     for (const s of bp.stories) expect(s.processes.length, s.id).toBeGreaterThan(0);
     expect(bp.processes.find((p) => p.id === 'review')).toMatchObject({ shared: true, stories: ['S4', 'S5', 'S7', 'S8'] });
-    const lay = bigPictureLayout(bp);
+    const lay = featureMapLayout(bp);
     expect(lay.boxes).toHaveLength(main.length);
-    expect(lay.lines).toHaveLength(10);
+    // No two boxes share a cell, and every lane, CI too, has its box.
+    expect(new Set(lay.boxes.map((b) => `${b.x} ${b.y}`)).size).toBe(main.length);
+    expect(lay.rows.map((r) => lay.boxes.some((b) => b.y >= r.y && b.y < r.y + r.height))).toEqual([true, true, true, true]);
+    expect(Math.max(...lay.boxes.map((b) => b.x + b.w))).toBeLessThanOrEqual(lay.width);
+    expect(bp.edges.filter((e) => e.back)).toEqual([{ from: 'log-correction', to: 'draft-record', back: true }]);
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 10, processes: main.length });
   });
 });
 
@@ -196,18 +294,19 @@ describe('story view (S4-A5)', () => {
 });
 
 describe('use case diagram (S7-A1)', () => {
-  it('S7-A1: one use case per box that writes, grouped by story, with tags; actors link to the use cases of their lane', () => {
+  it('S7-A1: one use case per box that writes, ordered by lane then flow, with tags, stories and the data it changes', () => {
     const view = reviewEpic();
     const ucd = useCaseDiagram(view.simulation, view.flow, view.prd);
-    expect(ucd.groups.map((g) => [g.storyId, g.useCases.map((u) => [u.path, u.lane, u.tags])])).toEqual([
-      [
-        'S1',
-        [
-          ['cart', 'builder', ['writes Order.id', 'Order.status new → draft']],
-          ['pay', 'system', ['Order.status draft → paid']],
-        ],
-      ],
-      ['S2', [['ship', 'system', ['Order.status paid → shipped']]]],
+    expect(ucd.useCases.map((u) => [u.path, u.lane, u.tags, u.entities, u.stories])).toEqual([
+      ['cart', 'builder', ['writes Order.id', 'Order.status new → draft'], ['Order'], ['S1']],
+      ['pay', 'system', ['Order.status draft → paid'], ['Order'], ['S1']],
+      ['ship', 'system', ['Order.status paid → shipped'], ['Order'], ['S2']],
+    ]);
+    expect(ucd.entities).toEqual(['Order']);
+    expect(ucd.dataLinks).toEqual([
+      { path: 'cart', entity: 'Order', tags: ['writes Order.id', 'Order.status new → draft'] },
+      { path: 'pay', entity: 'Order', tags: ['Order.status draft → paid'] },
+      { path: 'ship', entity: 'Order', tags: ['Order.status paid → shipped'] },
     ]);
     expect(ucd.actors.map((a) => [a.role, a.kind, a.readOnly, a.useCases])).toEqual([
       ['builder', 'human', false, ['cart']],
@@ -224,8 +323,9 @@ describe('use case diagram (S7-A1)', () => {
     const view = reviewEpic();
     boxAt(view.flow, 'cart')!.writes = ['Order.status'];
     const ucd = useCaseDiagram(view.simulation, view.flow, view.prd);
-    expect(ucd.groups[0]!.useCases[0]).toMatchObject({ path: 'cart', lane: 'builder', tags: ['writes Order.status'] });
+    expect(ucd.useCases[0]).toMatchObject({ path: 'cart', lane: 'builder', tags: ['writes Order.status'], entities: ['Order'] });
     expect(writeTag('Story.status:draft->signed')).toBe('Story.status draft → signed');
+    expect(writeEntity('Story.status:draft->signed')).toBe('Story');
   });
 
   it('S7-A1: a role with no writes is read only', () => {
@@ -235,26 +335,35 @@ describe('use case diagram (S7-A1)', () => {
     sim.permissionBoxes.auditor = { Order: { read: ['pay'] } };
     const ucd = useCaseDiagram(sim, view.flow, view.prd);
     expect(ucd.actors.at(-1)).toMatchObject({ role: 'auditor', readOnly: true, reads: ['Order'], useCases: [] });
+    expect(permissionChecks(ucd).at(-1)).toEqual({ text: 'auditor changes no data.' });
   });
 
-  it('S7-A1: exact layout: actors on the left, ovals inside the boundary, a line per link', () => {
+  it('T18a: exact layout: actors on the left, ovals stacked in the boundary, data boxes on the right', () => {
     const view = reviewEpic();
     const lay = useCaseLayout(useCaseDiagram(view.simulation, view.flow, view.prd));
-    expect(lay.boundary).toEqual({ x: 200, y: 16, w: 600, h: 352 });
-    expect(lay.groups.map((g) => [g.storyId, g.y, g.h])).toEqual([
-      ['S1', 56, 176],
-      ['S2', 248, 104],
+    expect([lay.width, lay.height]).toEqual([UCD.width, UCD.minHeight]);
+    expect(lay.boundary).toEqual({ x: 480, y: 0, w: 760, h: 900 });
+    expect(lay.ovals.map((o) => [o.path, o.cx, o.cy, o.rx, o.ry])).toEqual([
+      ['cart', 740, 352, 180, 38],
+      ['pay', 740, 450, 180, 38],
+      ['ship', 740, 548, 180, 38],
     ]);
-    expect(lay.ovals.map((o) => [o.path, o.cx, o.cy])).toEqual([
-      ['cart', 360, 124],
-      ['pay', 360, 196],
-      ['ship', 360, 316],
+    expect(lay.actors).toEqual([
+      { role: 'builder', x: 120, y: 135 },
+      { role: 'system', x: 120, y: 585 },
     ]);
-    expect(lay.actors.map((a) => [a.role, a.x, a.y])).toEqual([
-      ['builder', 80, 124],
-      ['system', 80, 256],
-    ]);
-    expect(lay.links[0]).toEqual({ role: 'builder', path: 'cart', x1: 116, y1: 124, x2: 240, y2: 124 });
+    expect(lay.data).toEqual([{ entity: 'Order', x: 1340, y: 418, w: 260, h: 64 }]);
+    expect(lay.links[0]).toEqual({ role: 'builder', path: 'cart', x1: 160, y1: 199, x2: 560, y2: 352 });
+    expect(lay.dataLinks[0]).toEqual({ path: 'cart', entity: 'Order', x1: 920, y1: 352, x2: 1338, y2: 450 });
+    // Everything fits inside the diagram.
+    for (const d of lay.data) expect(d.x + d.w).toBeLessThanOrEqual(lay.width);
+    for (const o of lay.ovals) expect(o.cx + o.rx).toBeLessThanOrEqual(lay.boundary.x + lay.boundary.w);
+  });
+
+  it('T18a: the boundary is named after the EPIC folder without its date', () => {
+    expect(systemName('2026-11-05-rehearse', 'rehearse v1 — simulate')).toBe('rehearse record');
+    expect(systemName(undefined, 'Shop')).toBe('Shop record');
+    expect(systemName(undefined, undefined)).toBe('System record');
   });
 
   it('S7-A1: real EPIC: every role is an actor and every writing box is a use case', () => {
@@ -264,8 +373,20 @@ describe('use case diagram (S7-A1)', () => {
     const writers = new Set<string>();
     for (const byEntity of Object.values(view.simulation!.permissionBoxes))
       for (const byAction of Object.values(byEntity)) for (const p of [...(byAction.write ?? []), ...(byAction.transition ?? [])]) writers.add(p);
-    expect(ucd.groups.flatMap((g) => g.useCases.map((u) => u.path)).sort()).toEqual([...writers].sort());
+    expect(ucd.useCases.map((u) => u.path).sort()).toEqual([...writers].sort());
     expect(ucd.actors.find((a) => a.role === 'ci')).toMatchObject({ readOnly: true });
     expect(useCaseLayout(ucd).ovals).toHaveLength(writers.size);
+    // The data are ordered so that the dashed lines cross as little as possible.
+    expect(ucd.entities.slice(0, 2)).toEqual(['Approval', 'SignOff']);
+  });
+
+  it('T18a: real EPIC: the Check note says in words who never and who alone changes which data', () => {
+    const view = realEpic();
+    expect(permissionChecks(useCaseDiagram(view.simulation, view.flow, view.prd))).toEqual([
+      { text: 'Agent never changes Approval or SignOff.', ok: true },
+      { text: 'Only Builder changes Approval and SignOff.' },
+      { text: 'Only Agent changes Requirement, Box, Example and Correction.' },
+      { text: 'CI changes no data.' },
+    ]);
   });
 });

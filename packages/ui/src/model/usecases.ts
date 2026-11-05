@@ -1,12 +1,11 @@
-// The use case diagram (S7-A1, D42), built from the permission data simulate sends
-// (`permissionMatrix`, `permissionBoxes`). Actors are the roles; one use case per box that
-// writes data or makes a transition, grouped by story; each use case is tagged with the data
-// it changes; a line goes from each actor to the use cases of its lane.
+// The use case diagram (S7-A1, D42, design page 4), built from the permission data simulate
+// sends (`permissionMatrix`, `permissionBoxes`). Actors are the roles; one use case per box that
+// writes data or makes a transition, ordered by lane, then flow; each use case points at the data
+// (entities) it changes; a line goes from each actor to the use cases of its lane.
 
 import type { Flow, Id, PermissionBoxes, PermissionMatrix, Prd, RoleKind } from '@rehearse/core';
 import { boxAt, laneColor, lanesFor, parentPath, roleName } from './diagram.js';
 import { byStoryOrder, flowPaths, servedStories, storyOrder } from './features.js';
-import { storiesOf } from './review.js';
 import { writeChange } from './storyview.js';
 
 export interface Simulation {
@@ -26,17 +25,10 @@ export interface UseCase {
   lane: Id;
   /** What it changes, one tag per write. */
   tags: string[];
-  /** Its group. */
-  story?: Id;
-  /** Other stories it serves. */
-  alsoStories: Id[];
-}
-
-export interface UseCaseGroup {
-  /** Undefined for use cases that serve no story. */
-  storyId?: Id;
-  want?: string;
-  useCases: UseCase[];
+  /** The data (entities) it changes, in write order. */
+  entities: Id[];
+  /** The stories it serves, in prd.yaml order. */
+  stories: Id[];
 }
 
 export interface Actor {
@@ -52,10 +44,26 @@ export interface Actor {
   useCases: string[];
 }
 
+/** A dashed line from a use case to the data it changes, with the changes as tags. */
+export interface DataLink {
+  path: string;
+  entity: Id;
+  tags: string[];
+}
+
 export interface UseCaseDiagram {
   actors: Actor[];
-  groups: UseCaseGroup[];
+  /** Ordered by actor (lane order), then flow order. */
+  useCases: UseCase[];
+  /** The data that some use case changes, ordered so that lines cross as little as possible. */
+  entities: Id[];
   links: { role: Id; path: string }[];
+  dataLinks: DataLink[];
+}
+
+/** The entity of a write: `Story.status:draft->signed` → `Story`. */
+export function writeEntity(text: string): Id {
+  return writeChange(text).target.split('.')[0]!;
 }
 
 /** The stories a box belongs to: those it serves, else those of its nearest parent that names some. */
@@ -78,44 +86,46 @@ export function useCaseDiagram(simulation: Simulation | undefined, flow: Flow | 
       for (const path of [...(byAction?.write ?? []), ...(byAction?.transition ?? [])]) if (!laneOf.has(path)) laneOf.set(path, role);
     }
   }
+  const lanes = lanesFor(flow, prd, flow?.root, true);
+  const roles = [...lanes.map((l) => l.role), ...[...new Set([...Object.keys(matrix), ...laneOf.values()])].filter((r) => !lanes.some((l) => l.role === r)).sort()];
   const order = flowPaths(flow);
   const at = (p: string) => {
     const i = order.indexOf(p);
     return i < 0 ? order.length : i;
   };
-  const paths = [...laneOf.keys()].sort((a, b) => at(a) - at(b) || a.localeCompare(b));
-  const sorted = storyOrder(prd, paths.flatMap((p) => storiesFor(flow, p)));
-  const cmp = byStoryOrder(sorted);
+  const paths = [...laneOf.keys()].sort((a, b) => roles.indexOf(laneOf.get(a)!) - roles.indexOf(laneOf.get(b)!) || at(a) - at(b) || a.localeCompare(b));
+  const cmp = byStoryOrder(storyOrder(prd, paths.flatMap((p) => storiesFor(flow, p))));
 
   const useCases: UseCase[] = paths.map((path) => {
     const box = boxAt(flow, path);
     const writes = Array.isArray(box?.writes) ? box.writes.filter((w): w is string => typeof w === 'string') : [];
-    const stories = storiesFor(flow, path).sort(cmp);
     return {
       path,
       title: typeof box?.title === 'string' ? box.title : path,
       lane: laneOf.get(path)!,
       tags: writes.map(writeTag),
-      ...(stories[0] !== undefined ? { story: stories[0] } : {}),
-      alsoStories: stories.slice(1),
+      entities: [...new Set(writes.map(writeEntity))],
+      stories: storiesFor(flow, path).sort(cmp),
     };
   });
-  const wants = new Map(storiesOf(prd).map((s) => [s.id, s.want]));
-  const groups: UseCaseGroup[] = [];
-  for (const id of [...sorted, undefined]) {
-    const list = useCases.filter((u) => u.story === id);
-    if (list.length === 0) continue;
-    const want = id === undefined ? undefined : wants.get(id);
-    groups.push({ ...(id !== undefined ? { storyId: id } : {}), ...(want !== undefined ? { want } : {}), useCases: list });
-  }
 
-  const ordered = groups.flatMap((g) => g.useCases);
-  const lanes = lanesFor(flow, prd, flow?.root, true);
-  const roles = [...lanes.map((l) => l.role), ...Object.keys(matrix).filter((r) => !lanes.some((l) => l.role === r)).sort()];
+  const dataLinks: DataLink[] = useCases.flatMap((u) => {
+    const box = boxAt(flow, u.path);
+    const writes = Array.isArray(box?.writes) ? box.writes.filter((w): w is string => typeof w === 'string') : [];
+    return u.entities.map((entity) => ({ path: u.path, entity, tags: writes.filter((w) => writeEntity(w) === entity).map(writeTag) }));
+  });
+  // Each entity at the mean place of the use cases that change it; ties in first-use order.
+  const firstUse = [...new Set(useCases.flatMap((u) => u.entities))];
+  const mean = (e: Id) => {
+    const idx = useCases.flatMap((u, i) => (u.entities.includes(e) ? [i] : []));
+    return idx.reduce((sum, i) => sum + i, 0) / idx.length;
+  };
+  const entities = [...firstUse].sort((a, b) => mean(a) - mean(b) || firstUse.indexOf(a) - firstUse.indexOf(b));
+
   const actors: Actor[] = roles.map((role) => {
     const lane = lanes.find((l) => l.role === role);
     const byEntity = matrix[role] ?? {};
-    const writes = Object.values(byEntity).some((actions) => actions.includes('write') || actions.includes('transition'));
+    const writes = Object.values(byEntity).some((actions) => actions.includes('write') || actions.includes('transition')) || useCases.some((u) => u.lane === role);
     const kind = lane?.kind ?? (Array.isArray(prd?.roles) ? prd.roles.find((r) => r.id === role)?.kind : undefined);
     return {
       role,
@@ -124,87 +134,122 @@ export function useCaseDiagram(simulation: Simulation | undefined, flow: Flow | 
       color: lane?.color ?? laneColor(flow, role),
       readOnly: !writes,
       reads: Object.keys(byEntity).filter((e) => byEntity[e]!.includes('read')),
-      useCases: ordered.filter((u) => u.lane === role).map((u) => u.path),
+      useCases: useCases.filter((u) => u.lane === role).map((u) => u.path),
     };
   });
   const links = actors.flatMap((a) => a.useCases.map((path) => ({ role: a.role, path })));
-  return { actors, groups, links };
+  return { actors, useCases, entities, links, dataLinks };
+}
+
+/** The name of the system boundary: the EPIC folder name without its date, else the title. */
+export function systemName(epic: string | undefined, title: string | undefined): string {
+  const short = epic?.replace(/^\d{4}-\d{2}-\d{2}-/, '');
+  return `${short || title || 'System'} record`;
+}
+
+/** One line of the "Check" note: `ok` lines say a rule holds, in words. */
+export interface CheckLine {
+  text: string;
+  ok?: boolean;
+}
+
+function list(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} or ${items.at(-1)}`;
+}
+
+function andList(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+}
+
+/**
+ * What the diagram shows about who may change what, in words: each agent never changes the data
+ * that only people change; the data that one role alone changes; the roles that change no data.
+ */
+export function permissionChecks(d: UseCaseDiagram): CheckLine[] {
+  const writers = new Map<Id, Set<Id>>(d.entities.map((e) => [e, new Set()]));
+  for (const u of d.useCases) for (const e of u.entities) writers.get(e)?.add(u.lane);
+  const kind = new Map(d.actors.map((a) => [a.role, a.kind]));
+  const label = new Map(d.actors.map((a) => [a.role, a.label]));
+  const out: CheckLine[] = [];
+  const humanOnly = d.entities.filter((e) => [...writers.get(e)!].every((r) => kind.get(r) === 'human'));
+  for (const a of d.actors.filter((a) => a.kind === 'agent')) {
+    if (humanOnly.length > 0) out.push({ text: `${a.label} never changes ${list(humanOnly)}.`, ok: true });
+  }
+  const byOne = new Map<Id, Id[]>();
+  for (const e of d.entities) {
+    const w = [...writers.get(e)!];
+    if (w.length === 1) byOne.set(w[0]!, [...(byOne.get(w[0]!) ?? []), e]);
+  }
+  for (const [role, es] of byOne) out.push({ text: `Only ${label.get(role) ?? role} changes ${andList(es)}.` });
+  for (const a of d.actors.filter((a) => a.readOnly)) out.push({ text: `${a.label} changes no data.` });
+  return out;
 }
 
 // ---------------------------------------------------------------- layout
 
-/** Sizes of the use case diagram, in SVG units. */
+/** Sizes of the use case diagram, in SVG units (design page 4, with the page margin taken off). */
 export const UCD = {
-  actorX: 80,
-  /** Half width of an actor figure with its label. */
-  actorHalf: 36,
-  actorGap: 96,
-  boundaryX: 200,
-  boundaryW: 600,
-  top: 16,
+  width: 1600,
+  actorX: 120,
+  boundaryX: 480,
+  boundaryW: 760,
   /** Room for the system name at the top of the boundary. */
-  boundaryHead: 40,
-  groupHead: 32,
-  groupGap: 16,
-  ovalRx: 120,
-  ovalRy: 28,
-  ovalInset: 40,
-  row: 72,
-  tagH: 18,
+  boundaryHead: 56,
+  ovalX: 560,
+  ovalW: 360,
+  ovalH: 76,
+  ovalGap: 22,
+  dataX: 1340,
+  dataW: 260,
+  dataH: 64,
+  dataHead: 22,
+  /** Least gap between two data boxes. */
+  dataGap: 24,
+  /** Height of one actor figure with its name and kind. */
+  actorH: 200,
+  minHeight: 900,
 } as const;
 
 export interface UseCaseLayout {
   width: number;
   height: number;
   boundary: { x: number; y: number; w: number; h: number };
-  groups: { storyId?: Id; x: number; y: number; w: number; h: number }[];
   ovals: { path: string; cx: number; cy: number; rx: number; ry: number }[];
+  /** Actor figures: the head's top at `y`; the shoulders, where lines start, at `y + 64`. */
   actors: { role: Id; x: number; y: number }[];
+  data: { entity: Id; x: number; y: number; w: number; h: number }[];
   links: { role: Id; path: string; x1: number; y1: number; x2: number; y2: number }[];
+  dataLinks: { path: string; entity: Id; x1: number; y1: number; x2: number; y2: number }[];
 }
 
 /**
- * Groups stacked inside the system boundary, one use case per row with its tags on the right.
- * Each actor sits at the mean height of its use cases, at least `actorGap` below the one above;
- * read-only actors come after.
+ * Three columns: actors spread evenly down the left, the use case ovals stacked in the middle of
+ * the system boundary, the data boxes spread evenly down the right. A solid line joins each actor
+ * to its use cases; a dashed arrow goes from each use case to the data it changes.
  */
 export function useCaseLayout(d: UseCaseDiagram): UseCaseLayout {
-  const groups: UseCaseLayout['groups'] = [];
-  const ovals: UseCaseLayout['ovals'] = [];
-  let y = UCD.top + UCD.boundaryHead;
-  for (const g of d.groups) {
-    const top = y;
-    y += UCD.groupHead;
-    for (const u of g.useCases) {
-      const h = Math.max(UCD.row, u.tags.length * UCD.tagH + UCD.tagH);
-      ovals.push({ path: u.path, cx: UCD.boundaryX + UCD.ovalInset + UCD.ovalRx, cy: y + h / 2, rx: UCD.ovalRx, ry: UCD.ovalRy });
-      y += h;
-    }
-    groups.push({ ...(g.storyId !== undefined ? { storyId: g.storyId } : {}), x: UCD.boundaryX + 16, y: top, w: UCD.boundaryW - 32, h: y - top });
-    y += UCD.groupGap;
-  }
-  const boundary = { x: UCD.boundaryX, y: UCD.top, w: UCD.boundaryW, h: Math.max(y, UCD.top + UCD.boundaryHead + UCD.groupGap) - UCD.top };
+  const n = d.useCases.length;
+  const stack = n * (UCD.ovalH + UCD.ovalGap) - (n > 0 ? UCD.ovalGap : 0);
+  const height = Math.max(UCD.minHeight, UCD.boundaryHead + stack + 40, d.entities.length * (UCD.dataH + UCD.dataGap) + UCD.dataGap, d.actors.length * UCD.actorH);
+  const top = Math.max(UCD.boundaryHead, (height - stack) / 2);
+  const ovals = d.useCases.map((u, i) => ({ path: u.path, cx: UCD.ovalX + UCD.ovalW / 2, cy: top + i * (UCD.ovalH + UCD.ovalGap) + UCD.ovalH / 2, rx: UCD.ovalW / 2, ry: UCD.ovalH / 2 }));
+  const rgap = height / Math.max(1, d.actors.length);
+  const actors = d.actors.map((a, i) => ({ role: a.role, x: UCD.actorX, y: Math.round(i * rgap + rgap / 2 - 90) }));
+  const m = d.entities.length;
+  const eg = (height - m * UCD.dataH) / (m + 1);
+  const data = d.entities.map((entity, i) => ({ entity, x: UCD.dataX, y: Math.round(eg + i * (UCD.dataH + eg)), w: UCD.dataW, h: UCD.dataH }));
   const oval = new Map(ovals.map((o) => [o.path, o]));
-
-  const actors: UseCaseLayout['actors'] = [];
-  let last = -Infinity;
-  const place = (role: Id, want: number) => {
-    const at = Math.max(want, last + UCD.actorGap, UCD.top + UCD.boundaryHead);
-    actors.push({ role, x: UCD.actorX, y: at });
-    last = at;
-  };
-  for (const a of d.actors.filter((a) => a.useCases.length > 0)) {
-    const ys = a.useCases.map((p) => oval.get(p)?.cy).filter((v): v is number => v !== undefined);
-    place(a.role, ys.reduce((s, v) => s + v, 0) / Math.max(1, ys.length));
-  }
-  for (const a of d.actors.filter((a) => a.useCases.length === 0)) place(a.role, last + UCD.actorGap);
   const actorAt = new Map(actors.map((a) => [a.role, a]));
-
+  const dataAt = new Map(data.map((x) => [x.entity, x]));
   const links = d.links.flatMap((l) => {
     const a = actorAt.get(l.role);
     const o = oval.get(l.path);
-    return a && o ? [{ role: l.role, path: l.path, x1: a.x + UCD.actorHalf, y1: a.y, x2: o.cx - o.rx, y2: o.cy }] : [];
+    return a && o ? [{ role: l.role, path: l.path, x1: a.x + 40, y1: a.y + 64, x2: o.cx - o.rx, y2: o.cy }] : [];
   });
-  const height = Math.max(boundary.y + boundary.h, ...actors.map((a) => a.y + 60)) + UCD.top;
-  return { width: UCD.boundaryX + UCD.boundaryW + UCD.top, height, boundary, groups, ovals, actors, links };
+  const dataLinks = d.dataLinks.flatMap((l) => {
+    const o = oval.get(l.path);
+    const e = dataAt.get(l.entity);
+    return o && e ? [{ path: l.path, entity: l.entity, x1: o.cx + o.rx, y1: o.cy, x2: e.x - 2, y2: e.y + e.h / 2 }] : [];
+  });
+  return { width: UCD.width, height, boundary: { x: UCD.boundaryX, y: 0, w: UCD.boundaryW, h: height }, ovals, actors, data, links, dataLinks };
 }

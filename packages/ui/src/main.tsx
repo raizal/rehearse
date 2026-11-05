@@ -5,6 +5,7 @@ import './styles.css';
 import './styles/story.css';
 import './styles/diagrams.css';
 import './styles/docs.css';
+import './styles/featuremap.css';
 import { App } from './App.js';
 
 createRoot(document.getElementById('root')!).render(
