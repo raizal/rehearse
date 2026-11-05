@@ -74,35 +74,36 @@ export function Storyboard(props: StoryboardProps) {
         <ReviewQueue {...props} storyId={storyId} groups={groups} />
       </aside>
       <div className="card-wrap">
-        {storyId !== undefined && <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} />}
         {storyId !== undefined && (
-          <section className="story-scenarios" data-testid="story-scenarios" aria-labelledby="story-scenarios-h">
-            <h3 id="story-scenarios-h">
-              Scenarios of {storyId} ({ofStory.length})
-            </h3>
-            {ofStory.length === 0 && <p className="muted">This story has no scenarios.</p>}
-            <ul className="story-scenario-list">
-              {ofStory.map((sv) => {
-                const id = sv.scenario.id;
-                if (id === active?.scenario.id) return <li key={id}>{card(sv)}</li>;
-                const state = approvalState(sv, props.approve.approvals);
-                return (
-                  <li key={id}>
-                    <button type="button" className="scenario story-scenario" data-testid={`story-scenario-${id}`} aria-label={`Open the card of ${id}: ${sv.scenario.title} (${state.text})`} onClick={() => props.onPick(id)}>
-                      <span className="scenario-head">
-                        <span className="scenario-id">{id}</span>
-                        <span className={`badge ${MARK_CLASS[state.kind]}`}>
-                          <span aria-hidden="true">{MARK[state.kind]} </span>
-                          {state.text}
+          <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)}>
+            <section className="story-scenarios" data-testid="story-scenarios" aria-labelledby="story-scenarios-h">
+              <h3 id="story-scenarios-h">
+                Scenarios of {storyId} ({ofStory.length})
+              </h3>
+              {ofStory.length === 0 && <p className="muted">This story has no scenarios.</p>}
+              <ul className="story-scenario-list">
+                {ofStory.map((sv) => {
+                  const id = sv.scenario.id;
+                  if (id === active?.scenario.id) return <li key={id}>{card(sv)}</li>;
+                  const state = approvalState(sv, props.approve.approvals);
+                  return (
+                    <li key={id}>
+                      <button type="button" className="scenario story-scenario" data-testid={`story-scenario-${id}`} aria-label={`Open the card of ${id}: ${sv.scenario.title} (${state.text})`} onClick={() => props.onPick(id)}>
+                        <span className="scenario-head">
+                          <span className="scenario-id">{id}</span>
+                          <span className={`badge ${MARK_CLASS[state.kind]}`}>
+                            <span aria-hidden="true">{MARK[state.kind]} </span>
+                            {state.text}
+                          </span>
                         </span>
-                      </span>
-                      <span className="scenario-title">{sv.scenario.title}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+                        <span className="scenario-title">{sv.scenario.title}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          </StoryView>
         )}
         {storyId !== undefined ? null : active ? (
           card(active)
