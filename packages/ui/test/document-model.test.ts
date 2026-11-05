@@ -181,9 +181,9 @@ describe('T15 feature 4: Tech spec (shop)', () => {
       ['Parcel', []],
     ]);
     expect(cards[1]!.fields).toEqual([
-      { name: 'order', type: 'ref Order', refs: ['Order'] },
-      { name: 'items', type: 'list string', refs: [] },
-      { name: 'orders', type: 'list ref Order?', refs: ['Order'] },
+      { name: 'order', type: 'ref Order', plain: '', refs: ['Order'] },
+      { name: 'items', type: 'list string', plain: 'list string', refs: [] },
+      { name: 'orders', type: 'list ref Order?', plain: 'list, optional', refs: ['Order'] },
     ]);
   });
 

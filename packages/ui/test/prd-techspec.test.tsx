@@ -42,14 +42,16 @@ describe('T15 feature 2: links', () => {
   it('T15 2 one legend under each page title says what each colour opens', async () => {
     const { user } = await start();
     const legend = screen.getByTestId('link-legend');
+    // Each item is a sample chip from the record, its kind in words for screen readers, and where it goes.
     expect(within(legend).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'requirement → Readiness row',
-      'story → Story view',
-      'box → Flow / Tech spec contract',
-      'scenario → Storyboard',
-      'entity → Tech spec entity',
-      'decision → Decision log',
+      'requirement R1 → Readiness row',
+      'story S1 → Story view',
+      'box cart → Flow / Tech spec contract',
+      'scenario S1-buy → Storyboard',
+      'entity Order → Tech spec entity',
+      'decision D1 → Decision log',
     ]);
+    expect(screen.getByTestId('doc-source')).toHaveTextContent('Source: prd.yaml');
     await user.click(screen.getByTestId('nav-techspec'));
     expect(within(await screen.findByTestId('techspec-view')).getByTestId('link-legend')).toBeInTheDocument();
   });
@@ -98,9 +100,9 @@ describe('T15 feature 2: links', () => {
     const card = screen.getByTestId('prd-story-S1');
     await user.hover(within(card).getByTestId('link-box-pay'));
     const pop = within(card).getByRole('group', { name: 'Contract of box pay' });
-    expect(pop).toHaveTextContent('lane: System');
-    expect(pop).toHaveTextContent('in → out: orderId → orderId');
-    expect(pop).toHaveTextContent('writes: Order.status: draft → paid');
+    expect(pop).toHaveTextContent('System lane');
+    expect(pop).toHaveTextContent('in orderId → out orderId');
+    expect(pop).toHaveTextContent(/writes\s*Order\.status: draft → paid/);
     await user.unhover(within(card).getByTestId('link-box-pay'));
     expect(within(card).queryByRole('group', { name: 'Contract of box pay' })).toBeNull();
 
@@ -121,8 +123,9 @@ describe('T15 feature 3: PRD page', () => {
     await start();
     expect(within(screen.getByTestId('prd-contents')).getAllByRole('link').map((a) => a.textContent)).toEqual(['Goal', 'Roles2', 'Requirements3', 'Stories2', 'Out of scope0', 'Resolved questions0']);
     const page = screen.getByTestId('prd-view');
-    expect(within(page).getByRole('heading', { level: 1 })).toHaveTextContent('PRD · Shop checkout');
-    expect(page).toHaveTextContent(/Builder\s*human/);
+    expect(within(page).getByRole('heading', { level: 1 })).toHaveTextContent('PRD');
+    expect(within(page).getByRole('heading', { level: 2, name: 'Shop checkout' })).toBeInTheDocument();
+    expect(page).toHaveTextContent(/Builder · human/);
   });
 
   it('T15 3 the requirements table: kind, text, stories and proof with whether approvals are signed', async () => {
@@ -140,7 +143,7 @@ describe('T15 feature 3: PRD page', () => {
     const { user } = await start(view);
     const table = screen.getByTestId('prd-requirements');
     expect(within(table).getAllByTestId(/^prd-req-/)).toHaveLength(6);
-    await user.click(screen.getByRole('button', { name: 'Show 3 more' }));
+    await user.click(screen.getByRole('button', { name: 'Show 3 more requirements' }));
     expect(within(table).getAllByTestId(/^prd-req-/)).toHaveLength(9);
     await user.click(screen.getByRole('button', { name: 'functional 3' }));
     expect(screen.getByRole('button', { name: 'functional 3' })).toHaveAttribute('aria-pressed', 'true');
@@ -169,7 +172,7 @@ describe('T15 feature 3: PRD page', () => {
     expect(within(trace).getByTestId('link-story-S2')).toBeInTheDocument();
     expect(within(trace).getByTestId('link-scenario-S2-out-of-stock')).toBeInTheDocument();
     expect(trace).toHaveTextContent('stale');
-    await user.click(within(panel).getByRole('button', { name: 'Open in Readiness' }));
+    await user.click(within(panel).getByRole('button', { name: /^Open in Readiness/ }));
     expect(await screen.findByTestId('readiness-req-R2')).toBeInTheDocument();
   });
 
@@ -177,7 +180,7 @@ describe('T15 feature 3: PRD page', () => {
     const view = realEpic();
     render(<PrdView view={view} onGo={() => undefined} />);
     for (const s of view.prd!.stories) expect(screen.getByTestId(`prd-story-${s.id}`)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Show \d+ more$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Show \d+ more requirements$/ })).toBeInTheDocument();
   });
 });
 
@@ -196,7 +199,7 @@ describe('T15 feature 4: Tech spec page', () => {
     expect(within(table).queryByTestId('ts-box-start')).toBeNull();
     expect(within(table).getByTestId('ts-box-pay')).toHaveTextContent('orderId → orderId');
     expect(within(table).getByTestId('ts-box-pay')).toHaveTextContent('Order.status: draft → paid');
-    await user.click(screen.getByRole('button', { name: 'Show 4 more (decisions, start and end boxes)' }));
+    await user.click(screen.getByRole('button', { name: /^Show \d+ more boxes/ }));
     expect(within(table).getByTestId('ts-box-start')).toBeInTheDocument();
   });
 
@@ -217,11 +220,14 @@ describe('T15 feature 4: Tech spec page', () => {
     expect(screen.getByTestId('ts-panel-cart')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Select box pay' }));
     const panel = screen.getByTestId('ts-panel-pay');
-    expect(panel).toHaveTextContent('orderId → orderId');
+    const contract = within(panel).getByRole('group', { name: 'Contract' });
+    expect(contract).toHaveTextContent('inputsorderId');
+    expect(contract).toHaveTextContent('outputsorderId');
+    expect(contract).toHaveTextContent('Order.status: draft → paid');
     expect(within(panel).getByTestId('link-requirement-R1')).toBeInTheDocument();
     expect(within(panel).getByTestId('link-scenario-S1-buy')).toBeInTheDocument();
     expect(within(panel).getByTestId('change-rule')).toHaveTextContent('makes S1 and its scenarios stale');
-    await user.click(within(panel).getByRole('button', { name: 'Open in Flow' }));
+    await user.click(within(within(panel).getByRole('list', { name: 'Shown in the tool' })).getByRole('button', { name: /^Open in Flow/ }));
     expect(await screen.findByTestId('flow-view')).toBeInTheDocument();
   });
 

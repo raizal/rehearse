@@ -150,3 +150,50 @@ export function citedDecisions(text: string | undefined, known: KnownIds): Id[] 
   for (const p of textParts(text ?? '', known)) if (typeof p !== 'string' && p.kind === 'decision' && !out.includes(p.id)) out.push(p.id);
   return out;
 }
+
+// ---------------------------------------------------------------- page header (T18, design pages 9, 10)
+
+export interface LegendSample {
+  kind: LinkKind;
+  /** An id of this kind from the record, shown as a sample chip; none when the record has none. */
+  sample?: string;
+  goes: string;
+}
+
+/** One sample chip per link kind for the "Link colours:" line, taken from the record. */
+export function legendSamples(known: KnownIds, prefer: Partial<Record<LinkKind, string>> = {}): LegendSample[] {
+  const pool: Record<LinkKind, Iterable<string>> = {
+    requirement: known.requirements,
+    story: known.stories,
+    box: [...known.boxes].filter((b) => !b.includes('/')),
+    scenario: known.scenarios,
+    entity: known.entities,
+    decision: known.decisions,
+  };
+  return LINK_KINDS.map((kind) => {
+    const sample = prefer[kind] ?? [...pool[kind]][0];
+    return { kind, ...(sample ? { sample } : {}), goes: LINK_GOES[kind] };
+  });
+}
+
+/** The link colour of a place: a Readiness row is a requirement, a Storyboard a scenario, … */
+export function placeKind(place: Place): LinkKind {
+  switch (place.view) {
+    case 'readiness':
+    case 'prd':
+      return 'requirement';
+    case 'story':
+      return 'story';
+    case 'storyboard':
+      return 'scenario';
+    case 'techspec':
+      return /^entity:/.test(place.focus ?? '') ? 'entity' : /^(decision|correction):/.test(place.focus ?? '') ? 'decision' : 'box';
+    default:
+      return 'box';
+  }
+}
+
+/** The width of an id chip in px: 11 px monospace, 8 px padding each side. */
+export function chipWidth(text: string): number {
+  return Math.ceil(text.length * 6.7) + 16;
+}

@@ -7,8 +7,8 @@ import type { Box, EntityDef, Flow, Id, Requirement } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
 import { boxAt, roleName } from './diagram.js';
 import { flowPaths, MAIN_KINDS, servedStories } from './features.js';
-import { citedDecisions, knownIds, type KnownIds } from './links.js';
-import { boxScenarios, proofOf, storiesOfRequirement, type Contents, type ProofCount } from './prd.js';
+import { citedDecisions, knownIds, type KnownIds, type LinkRef } from './links.js';
+import { boxScenarios, proofOf, storiesOfRequirement, storyBoxes, type Contents, type ProofCount } from './prd.js';
 import { storiesOf } from './review.js';
 import { writeChange, type WriteChange } from './storyview.js';
 
@@ -96,6 +96,8 @@ export interface EntityField {
   type: string;
   /** Entities the type names, e.g. `list ref Story` → Story. */
   refs: Id[];
+  /** The type without the entities it names, e.g. `list ref Story` → `list`; drawn before the entity links. */
+  plain: string;
 }
 
 export interface EntityCard {
@@ -111,13 +113,25 @@ export function entityCards(view: ReviewEpicView): EntityCard[] {
   const paths = flowPaths(view.flow);
   return entities.map((entity) => ({
     entity,
-    fields: Object.entries(entity.fields ?? {}).map(([name, type]) => ({
-      name,
-      type: String(type),
-      refs: [...String(type).matchAll(/\b([A-Z][A-Za-z0-9]*)\b/g)].map((m) => m[1]!).filter((r, i, a) => ids.has(r) && a.indexOf(r) === i),
-    })),
+    fields: Object.entries(entity.fields ?? {}).map(([name, type]) => {
+      const refs = [...String(type).matchAll(/\b([A-Z][A-Za-z0-9]*)\b/g)].map((m) => m[1]!).filter((r, i, a) => ids.has(r) && a.indexOf(r) === i);
+      return { name, type: String(type), refs, plain: typePlain(String(type), refs) };
+    }),
     writtenBy: paths.filter((p) => list(boxAt(view.flow, p)?.writes).some((w) => w.startsWith(`${entity.id}.`))),
   }));
+}
+
+/** A field type without the entities it names: `list ref Story` → `list`, `ref Approval?` → `optional`. */
+export function typePlain(type: string, refs: Id[]): string {
+  let out = type;
+  let optional = false;
+  for (const r of refs)
+    out = out.replace(new RegExp(`\\b(ref\\s+)?${r}\\b(\\?)?`, 'g'), (_m, _ref, q) => {
+      if (q) optional = true;
+      return '';
+    });
+  out = out.replace(/\s+/g, ' ').trim();
+  return optional ? (out ? `${out}, optional` : 'optional') : out;
 }
 
 // ---------------------------------------------------------------- lifecycles
@@ -295,3 +309,45 @@ export function changeRule(stories: Id[]): string {
   if (stories.length === 0) return 'A change to this contract goes in corrections.md with a reason (D7). No story uses the box yet.';
   return `A change to this contract goes in corrections.md with a reason, and makes ${stories.join(', ')} and ${stories.length === 1 ? 'its' : 'their'} scenarios stale (D7, D23).`;
 }
+
+// ---------------------------------------------------------------- the page (T18, design page 10)
+
+/** Entities a box writes, once each, in its order: `Scenario.status:draft->approved` → Scenario. */
+export function writtenEntities(row: ContractRow): Id[] {
+  const out: Id[] = [];
+  for (const w of row.writes) {
+    const e = w.target.split('.')[0]!;
+    if (e && !out.includes(e)) out.push(e);
+  }
+  return out;
+}
+
+/** The first rows of the contracts table: the jobs at the root; the rest is behind "show more". */
+export function isFirstRow(row: ContractRow): boolean {
+  return row.main && row.depth === 0;
+}
+
+/** What the Tech spec says about an id from the PRD: the boxes of its stories, the entities they write, the decisions they trace to. */
+export interface SpecLinks {
+  entities: Id[];
+  boxes: string[];
+  decisions: Id[];
+}
+
+export function specLinks(view: ReviewEpicView, ref: LinkRef, known: KnownIds = knownIds(view)): SpecLinks {
+  const stories = ref.kind === 'requirement' ? storiesOfRequirement(view, ref.id).map((s) => s.id) : ref.kind === 'story' ? [ref.id.replace(/-A\d+$/, '')] : [];
+  const paths = new Set(stories.flatMap((s) => storyBoxes(view, s)));
+  const rows = boxContracts(view).filter((r) => paths.has(r.path));
+  const entities: Id[] = [];
+  for (const r of rows) for (const e of writtenEntities(r)) if (known.entities.has(e) && !entities.includes(e)) entities.push(e);
+  const decisions: Id[] = [];
+  const add = (d: Id) => {
+    if (!decisions.includes(d)) decisions.push(d);
+  };
+  for (const r of rows) for (const d of boxDecisions(view, r.path, known)) add(d);
+  if (ref.kind === 'requirement') for (const d of citedDecisions(view.prd?.requirements.find((x) => x.id === ref.id)?.text, known)) add(d);
+  return { entities: entities.sort(), boxes: rows.map((r) => r.path), decisions: decisions.sort((a, b) => a[0]!.localeCompare(b[0]!) || Number(a.slice(1)) - Number(b.slice(1))) };
+}
+
+/** The line under the Tech spec title. */
+export const TECH_SUMMARY = 'flow.yaml + entities.yaml + non-functional requirements. Not prose (D20). Every name opens the place in rehearse where it lives.';
