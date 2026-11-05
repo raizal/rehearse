@@ -27,9 +27,8 @@ entities:
     fields:
       from: ref GraphNode
       to: ref GraphNode
-      # Question: G4 does not name the kind of the commit → code link or of the record links
-      # (story → requirement, box → story, scenario → box). Proposed: `changes` for commit → code,
-      # and `references` for the record links.
+      # changes: commit → code. references: code references, and the record links
+      # (story → requirement, box → story, scenario → box), with source `record`. (G30)
       kind: enum[defines, imports, calls, references, extends, implements, tests, builds, changes, http-calls]
       trust: enum[exact, name-match, unresolved]
       # exact: a resolver (ts-morph, Pyright, OpenAPI operationId) confirmed it.
@@ -74,6 +73,8 @@ entities:
       target: string          # words for find; a node ID, name or box path for the others
       to: string?             # second node, for path
       budget: number?         # tokens, for context (G6)
+      depth: number?          # edges to follow in each direction, for near; default 1 (G26)
+      rebuild: boolean?       # --rebuild: make a cold index before the answer (G29)
       json: boolean
       from: enum[cli, panel]
 
@@ -86,8 +87,8 @@ entities:
       nodes: list ref GraphNode
       edges: list ref GraphEdge
       bundle: ref ContextBundle?
-      notes: list string      # e.g. "no venv found" (G19), "not found"
-      exitCode: number
+      notes: list string      # e.g. "no venv found" (G19), "not found" (G27), "no path" (G28)
+      exitCode: number        # 1 for "not found" and "no path" (G27, G28)
 
   - id: ContextBundle
     file: 'none (part of QueryAnswer)'

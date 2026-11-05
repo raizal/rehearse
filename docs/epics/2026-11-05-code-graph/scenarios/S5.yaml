@@ -40,7 +40,7 @@ scenarios:
       - { name: update-graph/rank }
       - name: update-graph/write
         example: { id: write-db, given: { }, then: { files: [.rehearse/graph.db], gitStatus: clean } }
-        # Question: .rehearse/graph.db* must be in .gitignore. See prd S5-A2.
+        # gitStatus is clean because `rehearse new` put .rehearse/graph.db* in .gitignore (G29).
       - { name: update-graph/fresh }
       - { name: asked, branch: "yes" }
       - { name: run-query/target }
@@ -50,3 +50,28 @@ scenarios:
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S5-A2, state: { graphDbExists: true, IndexRun.mode: cold, answered: true, gitStatusNewFiles: 0 } }
+
+  - id: S5-rebuild
+    title: Agent asks for a full rebuild with --rebuild
+    status: draft
+    steps:
+      - { name: start }
+      - name: ask
+        example: { id: ask-rebuild, given: { verb: find, target: "order by id", rebuild: true }, then: { query: { verb: find, target: "order by id", rebuild: true } } }
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-rebuild, given: { changedOnDisk: [], query: { rebuild: true } }, then: { mode: cold, changed: [src/orders.ts, src/pay.ts, api/orders.py], removed: [] } }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: find }
+      - { name: run-query/find }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S5-A3, state: { IndexRun.mode: cold, IndexRun.status: written, answered: true } }

@@ -6,7 +6,7 @@ scenarios:
     steps:
       - { name: bench-start }
       - name: bench
-        example: { id: bench-cold, given: { fixture: "generated repo, 1000 files" }, then: { exitCode: 0, timings: { coldMs: 21000 } } }
+        example: { id: bench-cold, given: { fixture: "generated repo, 1000 files, fixed seed" }, then: { exitCode: 0, timings: { coldMs: 21000 } } }
       - { name: bench-ok, branch: "yes" }
       - { name: bench-pass }
     expect: { criterion: S10-A1, state: { coldMsBelow: 30000, exitCode: 0 } }
@@ -28,7 +28,7 @@ scenarios:
     steps:
       - { name: bench-start }
       - name: bench
-        example: { id: bench-slow, given: { fixture: "generated repo, 1000 files" }, then: { exitCode: 1, timings: { coldMs: 41000 } } }
+        example: { id: bench-slow, given: { fixture: "generated repo, 1000 files, fixed seed" }, then: { exitCode: 1, timings: { coldMs: 41000 } } }
       - { name: bench-ok, branch: "no" }
       - { name: bench-fail }
     expect: { state: { buildFailed: true, coldMs: 41000 } }

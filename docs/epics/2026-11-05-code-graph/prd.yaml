@@ -1,6 +1,6 @@
 # rehearse code graph — EPIC (PRD)
 # Status: draft. Agents wrote it; the builder has not signed it off.
-# Why: see brainstorm.md (decision IDs G1…G19). The v1 decisions D19, D40, D44 and
+# Why: see brainstorm.md (decision IDs G1…G31). The v1 decisions D19, D40, D44 and
 # D45 are in ../2026-11-05-rehearse/brainstorm.md.
 
 epic:
@@ -11,23 +11,18 @@ epic:
     builder sees the code below a leaf box. Both come from one small,
     deterministic graph of code, record and commits. No LLM builds, updates,
     searches or queries the graph.
-  # Question: the brainstorm gives three goals but no success measure. Proposed: the
-  # measure below, made from the speed targets (G11) and the trust marks (G10).
   successMeasure: >-
-    On the benchmark, each speed target of G11 holds, every edge has a trust
-    mark, and every `context` bundle fits its budget.
+    On the fixture repo, an agent answers a question with `context` in fewer
+    tokens than with grep and cat, and the answer is the same and correct. (G21)
   outOfScope:
     - Layer 2 (LLM summaries, docs extraction, community names).
     - Embeddings. Search is BM25 only. (G2)
     - The MCP server. It comes later, over the same core. (G7)
     - Clusters (communities). PageRank only. (G14)
     - The pyrefly benchmark and the ty resolver. (G15)
-    # Question: D40 says the D29 code pull also uses the graph. G1–G19 do not put it in this
-    # EPIC. Proposed: out of scope here; the code pull gets its own EPIC.
-    - The code pull for the as-is system map (D29).
-    # Question: G17 says that to make the OpenAPI spec is an opt-in CI step. Proposed: rehearse
-    # reads a spec that exists; the CI step that makes it is a documented recipe, not code here.
-    - The CI step that makes an OpenAPI spec from FastAPI.
+    - The code pull for the as-is system map (D29). It gets its own EPIC. (G22)
+    - A CI step that makes an OpenAPI spec from FastAPI. rehearse reads a spec only when the repo has one. (G23)
+    - Test adapters for test frameworks other than Vitest and pytest, and the adapters that run tests (D27). (G25)
 
 roles:
   - id: agent
@@ -72,15 +67,18 @@ requirements:
     kind: functional
     text: >-
       The graph is in `.rehearse/graph.db` (node:sqlite with FTS5). It is a
-      cache: git ignores it, and a full rebuild makes it again. (G3)
+      cache: git ignores it, and a full rebuild makes it again. Each query
+      verb has a `--rebuild` option that makes a cold index before the answer.
+      `rehearse new` adds `.rehearse/graph.db*` to `.gitignore`. (G3, G29)
   - id: R5
     kind: functional
     text: >-
       Node kinds are code (file, module, class, function, method, route,
       test), record (requirement, story, box, scenario) and commit. Edge kinds
       are defines, imports, calls, references, extends, implements, tests,
-      builds (box → code), commit → code links and http-calls. The CLI and
-      the panel use the same graph. (G4, G8)
+      builds (box → code), changes (commit → code) and http-calls. The record
+      links (story → requirement, box → story, scenario → box) are
+      `references` edges. The CLI and the panel use the same graph. (G4, G8, G30)
   - id: R6
     kind: functional
     text: >-
@@ -97,9 +95,10 @@ requirements:
     kind: performance
     text: >-
       A cold index takes less than 30 seconds for each 1,000 files. (G11)
-    # Question: G11 does not name the fixture or the machine. Proposed: a generated repo of
-    # 1,000 files (half TypeScript, half Python) on a developer laptop, like v1 R17.
-    provenBy: benchmark on a generated fixture of 1,000 files
+    provenBy: >-
+      benchmark on a repo of 1,000 files (half TypeScript, half Python) that a
+      generator makes from a fixed seed, on a developer laptop until the repo
+      has CI (G24)
   - id: R9
     kind: performance
     text: >-
@@ -148,11 +147,9 @@ requirements:
   - id: R15
     kind: functional
     text: >-
-      `tests` edges link a test to the code it tests, for Vitest tests and
-      for pytest tests. (G18)
-    # Question: G18 says a pytest adapter is planned together with the Vitest adapter (D27).
-    # D27's adapter runs tests, and v1 keeps it in "later". Proposed: this EPIC makes only the
-    # static `tests` edges (a test → the code it calls); the run adapters stay later.
+      `tests` edges link a test to the code it calls, for Vitest tests and
+      for pytest tests. Only Vitest and pytest have a test adapter. The
+      adapter makes static edges and runs no test. (G18, G25)
   # --- Product ---
   - id: R16
     kind: functional
@@ -163,12 +160,10 @@ requirements:
   - id: R17
     kind: security
     text: >-
-      The serve routes that answer graph queries for the panel need the
-      session token and the same-origin check, like the other routes of
-      D45. Serve still listens on 127.0.0.1 only. (G8, D45)
-    # Question: D45 lists every serve route, and a route that the record does not list has no
-    # review (C33). Proposed: one new route, `GET /api/graph?verb=show|near&target=…`, added to
-    # D45 by a new decision G20.
+      Serve has one graph route, `GET /api/graph?verb=show|near&target=…`,
+      for the panel. It needs the session token and the same-origin check,
+      like the other routes of D45. Serve still listens on 127.0.0.1 only.
+      (G8, G20, D45)
     provenBy: unit check of the graph route without a token and with a foreign Origin
   - id: R18
     kind: functional
@@ -206,14 +201,15 @@ stories:
       - id: S2-A2
         given: getOrderById has a caller, a callee, a test and a box that builds it
         when: the agent runs `rehearse near getOrderById`
-        then: the answer lists the caller, the callee, the test and the box, each with the edge kind and trust mark
-        # Question: G1 does not say how far `near` goes. Proposed: one edge in each direction by
-        # default, and `--depth <n>` for more.
+        then: the answer lists the caller, the callee, the test and the box, each with the edge kind and trust mark, and no node that is two edges away (G26)
       - id: S2-A3
         given: no node has the name noSuchThing
         when: the agent runs `rehearse show noSuchThing`
-        then: exit code 1, the answer says "not found", and no file changes
-        # Question: proposed: exit code 1 for an unknown target, the same as a v1 finding.
+        then: exit code 1, the answer says "not found", and no file changes (G27)
+      - id: S2-A4
+        given: getOrder calls loadOrder, and loadOrder calls getOrderById
+        when: the agent runs `rehearse near getOrderById --depth 2 --json`
+        then: the answer lists loadOrder (one edge away) and getOrder (two edges away), each with the edge kind and trust mark (G26)
 
   - id: S3
     role: agent
@@ -225,8 +221,10 @@ stories:
         given: the route handler getOrder calls loadOrder, and loadOrder calls getOrderById
         when: the agent runs `rehearse path getOrder getOrderById --json`
         then: the answer lists the two calls edges in order, each with its trust mark
-        # Question: G1 does not say what `path` gives when no path exists. Proposed: exit code 0,
-        # an empty path and the note "no path".
+      - id: S3-A2
+        given: getOrderById and charge are in the graph, and no edges connect them
+        when: the agent runs `rehearse path getOrderById charge --json`
+        then: exit code 1, the answer has no edges and the note "no path", and no file changes (G28)
 
   - id: S4
     role: agent
@@ -260,10 +258,11 @@ stories:
       - id: S5-A2
         given: a repo with no .rehearse/graph.db
         when: the agent runs the first query
-        then: a cold index makes .rehearse/graph.db, the query gets its answer, and `git status` shows no new file
-        # Question: G1 has no verb for a full rebuild. Proposed: delete .rehearse/graph.db; the
-        # next query makes a cold index. Also proposed: this EPIC adds `.rehearse/graph.db*` to
-        # the repo .gitignore (not all of .rehearse/: allowed_signers is there, D41).
+        then: a cold index makes .rehearse/graph.db, the query gets its answer, and `git status` shows no new file, because `rehearse new` put `.rehearse/graph.db*` in .gitignore (G29)
+      - id: S5-A3
+        given: an indexed repo in which no file changed
+        when: the agent runs `rehearse find "order by id" --rebuild`
+        then: the update is a cold index of every file (IndexRun.mode is cold), not a no-change run, and the query gets its answer (G29)
 
   - id: S6
     role: agent

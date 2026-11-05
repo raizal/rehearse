@@ -29,3 +29,9 @@ and no approval was made. That run gave 1 finding.
   - What: The example `scope-monorepo` gave `files` as a sentence. `update-graph/hash-files` needs `list string`.
   - Why: An example is test data for the box contract (D10). Prose in place of a value hides the contract.
   - Fix: `files` is now a list of two paths, one from each tsconfig.
+
+## 2026-11-06 — validate and simulate after the owner's answers G20–G31 (T21)
+
+`rehearse validate` gave no findings. The simulate engine ran again on an in-memory copy
+in which each draft counts as approved (29 scenarios, the 3 new ones included). No file was
+written and no approval was made. That run gave no findings, so this run adds no entry.
