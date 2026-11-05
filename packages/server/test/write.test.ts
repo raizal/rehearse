@@ -228,4 +228,19 @@ describe('rehearse serve: GET /api/epic trust state', () => {
     expect(Object.values(view.approvals).filter((a) => (a as { sigStatus: string }).sigStatus === 'missing')).toHaveLength(28);
     expect(view.gate.signers).toEqual([]);
   });
+
+  it('S8-A1 (C28): readiness counts only approvals with a valid signature as proof', async () => {
+    running = await startServer({ epicDir: REAL_EPIC, uiDir: UI, port: 0, session: session({ ok: false, reason: 'test' }) });
+    const view = await (await fetch(new URL('api/epic', running.url))).json();
+    expect(view.readiness.noProof.length).toBe(view.readiness.requirements.length);
+    expect(view.readiness.noProof[0]).toMatchObject({ reason: 'approval-not-signed' });
+    expect(view.readiness.noProof[0].message).toMatch(/^approval not signed: .*\(signature missing\)/);
+  });
+
+  it('S8-A1 (C28): with signed approvals, readiness proves the requirements and names the sigStatus of each scenario', async () => {
+    const { url } = await serve(approvedEpic());
+    const view = await (await fetch(new URL('api/epic', url))).json();
+    expect(view.readiness.noProof).toEqual([]);
+    expect(view.readiness.requirements[0].stories[0].scenarios[0]).toMatchObject({ status: 'approved', sigStatus: 'valid' });
+  });
 });

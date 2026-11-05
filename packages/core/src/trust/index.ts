@@ -7,6 +7,16 @@ export { findingStories, gateEpic, gateItems, gateRecord, simulationFindings, ty
 export { approveScenarios, currentIdentity, signOff, type ApproveResult, type SignOffResult, type WriteOptions } from './write.js';
 export { CORRECTIONS_FILE, countCorrectionTags, parseCorrections, readiness } from './readiness.js';
 export {
+  signedReadiness,
+  withSignatures,
+  type ScenarioSig,
+  type SignedProofReason,
+  type SignedReadiness,
+  type SignedReadinessRequirement,
+  type SignedReadinessScenario,
+  type SignedReadinessStory,
+} from './signed-readiness.js';
+export {
   ALLOWED_SIGNERS_FILE,
   allowedSignersPath,
   approvalPayload,
