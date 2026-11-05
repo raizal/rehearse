@@ -146,7 +146,7 @@ root:
           - { id: matrix,      kind: output, lane: builder, title: Permission matrix,
               inputs: { epicDir: string }, outputs: { cells: "list string" }, reads: [Report.permissionMatrix] }
           - { id: readiness,   kind: output, lane: builder, title: Readiness chain and correction counts,
-              inputs: { epicDir: string }, outputs: { decision: "enum[approve, change]" }, reads: [Requirement.*, Story.*, Scenario.status, Correction.tag] }
+              inputs: { epicDir: string }, outputs: { decision: "enum[approve, change]" }, reads: [Requirement.*, Story.*, Scenario.status, Approval.sig, Correction.tag] }   # C28: only a valid signature is proof
         edges:
           - { from: swimlanes, to: playback }
           - { from: playback,  to: matrix }
@@ -167,6 +167,8 @@ root:
       outputs: { approvals: list Approval }
       writes:  ["Scenario.status:draft->approved", "Scenario.status:stale->approved", Approval.*]
       # No error exit: the CLI has no approve command (R13).
+      # The UI shows a storyboard card per scenario and turns Approve on only after
+      # every step was seen (C30). That is a review aid kept in the browser, not a trust control.
 
     - id: gate
       kind: process

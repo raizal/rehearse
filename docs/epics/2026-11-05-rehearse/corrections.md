@@ -128,17 +128,17 @@ These came from agents who built the code, not from a rehearse check.
   - What: The server checks Origin against Host. That does not stop DNS rebinding, and a proxy such as `bb connect expose` may rewrite Host, so every POST could get 403 there.
   - Why: The session token is the real guard. The Origin check must not block the remote path.
   - Fix: Test approve and sign-off through `bb connect expose` before the first remote sign-off. Change the check if it blocks.
-- **C28** `caught-after-build` · R11, box `review/readiness` · OPEN
+- **C28** `caught-after-build` · R11, box `review/readiness` · DONE in T9 (thread thr_sgk9fwxd5q)
   - What: Readiness counts a requirement as proven when its scenarios are approved, even if the approvals are unsigned. The gate fails on the same record.
-  - Fix: Readiness uses only approvals with `sigStatus: valid`.
-- **C29** `caught-after-build` · box `approve`, D41 · OPEN
+  - Fix: Readiness uses only approvals with `sigStatus: valid`. R11 and `review/readiness` say so.
+- **C29** `caught-after-build` · box `approve`, D41 · DONE in T9
   - What: The UI links to `docs/signing.md` when signing is off, but `rehearse serve` does not serve `docs/`, so the link is dead.
-  - Fix: Serve prints the path, and the UI shows it as text, or serve serves that one file.
+  - Fix: The UI shows the guide path as text with the short steps. Serve does not serve `docs/`: a static route would widen its surface (R20).
 
-- **C30** `caught-after-build` · S6, box `approve`, box `review/playback` · OPEN (T9)
+- **C30** `caught-after-build` · S6, box `approve`, box `review/playback` · DONE in T9
   - What: The owner opened the approve view and saw only scenario titles. They could not tell what they approved.
   - Why: S6 says what approval writes, but not what the approver must see first. An approval without review is not evidence either.
-  - Fix (owner's choice): a storyboard card for each scenario (story, criterion, path map, step panels, result) and a review queue by story. Approve is active only after every step was seen.
+  - Fix (owner's choice): a storyboard card for each scenario (story, criterion, path map, step panels, result) and a review queue by story. Approve is active only after every step was seen. The seen state stays in the browser: it is a review aid, not evidence. The `approve` box has a note.
 
 Count so far: 16 `caught-in-simulation` (C1–C16), 14 `caught-after-build` (C17–C30).
 

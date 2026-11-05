@@ -105,7 +105,8 @@ requirements:
       The readiness view shows the chain requirement → story → box → scenario
       → result, and flags requirements with no proof and boxes with no
       requirement. Start, end and decision boxes are not in the list "no
-      requirement". (D11, C24)
+      requirement". Only a scenario approved with a valid signature is
+      proof; an unsigned approval shows "approval not signed". (D11, C24, C28)
   - id: R12
     kind: functional
     text: >-

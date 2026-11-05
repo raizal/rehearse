@@ -72,7 +72,9 @@ describe('rehearse serve', () => {
     expect(parseServeArgs([SHOP], REPO)).toEqual({ epicDir: SHOP, port: DEFAULT_PORT });
     expect(parseServeArgs(['--port', '8123', SHOP], REPO)).toEqual({ epicDir: SHOP, port: 8123 });
     expect(parseServeArgs([], SHOP)).toEqual({ epicDir: SHOP, port: DEFAULT_PORT });
-    expect(parseServeArgs([], REPO)).toEqual({ epicDir: REAL_EPIC.replace(/\/$/, ''), port: DEFAULT_PORT });
+    const one = mkdtempSync(join(tmpdir(), 'rehearse-one-'));
+    mkdirSync(join(one, 'docs', 'epics', 'a'), { recursive: true });
+    expect(parseServeArgs([], one)).toEqual({ epicDir: join(one, 'docs', 'epics', 'a'), port: DEFAULT_PORT });
     const two = mkdtempSync(join(tmpdir(), 'rehearse-two-'));
     mkdirSync(join(two, 'docs', 'epics', 'a'), { recursive: true });
     mkdirSync(join(two, 'docs', 'epics', 'b'), { recursive: true });
