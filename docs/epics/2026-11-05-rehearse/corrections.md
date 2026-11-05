@@ -112,6 +112,29 @@ These came from agents who built the code, not from a rehearse check.
   - What: R11 did not say whether start, end and decision boxes count as "no requirement".
   - Fix: R11 says they are not in that list.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 8 `caught-after-build` (C17–C24).
-
 After T5: `rehearse simulate` gives no findings on this record. `rehearse gate check` gives 10 `gate` findings: S1, S2, S3 and S8 are stale, and the other 6 stories were signed under hash rule 1. The builder must sign off again in the UI (wave 2).
+
+## 2026-11-05 — found while building wave 2 (T6, T7, T8)
+
+These came from agents who built the code, not from a rehearse check.
+
+- **C25** `caught-after-build` · D41
+  - What: D41 said validate verifies signatures. Validate checks the record only; the gate verifies signatures (T6).
+  - Fix: D41 says the gate (and so CI) verifies them.
+- **C26** `caught-after-build` · D31, R12
+  - What: D31 did not say how the bb panel reaches serve for a remote viewer. Also, serve takes one EPIC, so the plugin runs one serve process per repo and EPIC, not one per repo as the T8 brief said.
+  - Fix: D31 says the panel uses the bb connect address. R12 already says "serves one UI" and needs no change.
+- **C27** `caught-after-build` · R13, box `approve`, box `sign-off` · OPEN
+  - What: The server checks Origin against Host. That does not stop DNS rebinding, and a proxy such as `bb connect expose` may rewrite Host, so every POST could get 403 there.
+  - Why: The session token is the real guard. The Origin check must not block the remote path.
+  - Fix: Test approve and sign-off through `bb connect expose` before the first remote sign-off. Change the check if it blocks.
+- **C28** `caught-after-build` · R11, box `review/readiness` · OPEN
+  - What: Readiness counts a requirement as proven when its scenarios are approved, even if the approvals are unsigned. The gate fails on the same record.
+  - Fix: Readiness uses only approvals with `sigStatus: valid`.
+- **C29** `caught-after-build` · box `approve`, D41 · OPEN
+  - What: The UI links to `docs/signing.md` when signing is off, but `rehearse serve` does not serve `docs/`, so the link is dead.
+  - Fix: Serve prints the path, and the UI shows it as text, or serve serves that one file.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 13 `caught-after-build` (C17–C29).
+
+After wave 2 (T6, T7, T8): `rehearse gate check` gives 38 `gate` findings: 28 approvals have no signature (D41), 6 stories are stale (S1, S2, S3, S6, S8, S9) and the other 4 were signed under hash rule 1. The builder sets up signing, approves the scenarios again and signs off in the UI.

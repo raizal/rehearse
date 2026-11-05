@@ -25,7 +25,7 @@ Commands:
   simulate <epic-dir-or-slug> [--json]   Simulate the scenarios: contracts, coverage, lifecycles, acceptance, permission matrix.
   gate check <epic-dir-or-slug> [--json] Check the gate: traced, sim-clean, no-stale. Never signs off.
   new <slug> --title "<title>"           Create docs/epics/<slug>/ (slug YYYY-MM-DD-<kebab>) at the git top-level.
-  serve [epic-dir-or-slug] [--port N]    Serve the review UI on 127.0.0.1 (default port 4700). Read-only.
+  serve [epic-dir-or-slug] [--port N]    Serve the review UI on 127.0.0.1 (default port 4700).
 
 Exit codes: 0 OK, 1 findings, 2 usage error, 3 internal error.
 `;
