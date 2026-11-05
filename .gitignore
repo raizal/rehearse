@@ -3,3 +3,6 @@ node_modules/
 dist/
 .pnpm-store/
 *.tsbuildinfo
+
+# Story → bb thread links (T12): a thread id only means something to the bb install that made it.
+.rehearse/story-threads.json

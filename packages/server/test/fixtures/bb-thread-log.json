@@ -1,0 +1,220 @@
+[
+  {
+    "id": "evt_3qykmq6ekq",
+    "scope": {
+      "kind": "thread"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 1,
+    "createdAt": 1793886951268,
+    "type": "client/turn/requested",
+    "data": {
+      "direction": "outbound",
+      "requestId": "creq_38tbssrc3d",
+      "source": "spawn",
+      "initiator": "user",
+      "senderThreadId": null,
+      "systemMessageKind": "unlabeled",
+      "systemMessageSubject": null,
+      "input": [
+        {
+          "type": "text",
+          "text": "# T12: the story thread panel, collapsible (design pages 13 and 15)\n\nRepo: product-development-tools."
+        }
+      ],
+      "target": {
+        "kind": "thread-start"
+      },
+      "request": {
+        "method": "thread/start",
+        "params": {}
+      },
+      "execution": {
+        "model": "claude-opus-5-5",
+        "serviceTier": "default",
+        "reasoningLevel": "medium",
+        "permissionMode": "auto",
+        "source": "client/turn/requested"
+      }
+    }
+  },
+  {
+    "id": "evt_zsgr78airg",
+    "scope": {
+      "kind": "thread"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 17,
+    "createdAt": 1793886954659,
+    "type": "thread/contextWindowUsage/updated",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "contextWindowUsage": {
+        "usedTokens": null,
+        "modelContextWindow": null,
+        "estimated": true
+      }
+    }
+  },
+  {
+    "id": "evt_43fk498h6p",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 19,
+    "createdAt": 1793886954661,
+    "type": "turn/started",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b"
+    }
+  },
+  {
+    "id": "evt_sbrgb4yphz",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 20,
+    "createdAt": 1793886954661,
+    "type": "turn/input/accepted",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "clientRequestId": "creq_38tbssrc3d"
+    }
+  },
+  {
+    "id": "evt_ccm6uvdb72",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 27,
+    "createdAt": 1793886958306,
+    "type": "item/completed",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "item": {
+        "type": "reasoning",
+        "id": "dad5402856-i1",
+        "summary": [],
+        "content": [
+          "Reading the repo first."
+        ]
+      }
+    }
+  },
+  {
+    "id": "evt_8xdsxp496v",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 30,
+    "createdAt": 1793886961922,
+    "type": "item/completed",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "item": {
+        "type": "commandExecution",
+        "id": "dad5402856-i2",
+        "command": "git log --oneline -3",
+        "cwd": "",
+        "status": "completed",
+        "approvalStatus": null,
+        "aggregatedOutput": "02211cd Merge design/review-pages\n",
+        "exitCode": 0,
+        "presentation": {
+          "label": {
+            "pending": "Running command",
+            "completed": "Ran command"
+          },
+          "icon": {
+            "glyph": "Terminal"
+          },
+          "title": "git log --oneline -3"
+        }
+      }
+    }
+  },
+  {
+    "id": "evt_bvkgz8ctkj",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 57,
+    "createdAt": 1793886976861,
+    "type": "item/started",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "item": {
+        "type": "agentMessage",
+        "id": "dad5402856-i11",
+        "text": ""
+      }
+    }
+  },
+  {
+    "id": "evt_bj4ba232hb",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 60,
+    "createdAt": 1793886976861,
+    "type": "item/completed",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "item": {
+        "type": "agentMessage",
+        "id": "dad5402856-i11",
+        "text": "Now the bb plugin and the bb CLI."
+      }
+    }
+  },
+  {
+    "id": "evt_6zjrppsxyn",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 71,
+    "createdAt": 1793886985236,
+    "type": "item/started",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "item": {
+        "type": "agentMessage",
+        "id": "dad5402856-i15",
+        "text": ""
+      }
+    }
+  },
+  {
+    "id": "evt_vy7c3yubvh",
+    "scope": {
+      "kind": "turn",
+      "turnId": "dad5402856-t1"
+    },
+    "threadId": "thr_sz8f4bedm4",
+    "seq": 74,
+    "createdAt": 1793886985239,
+    "type": "item/completed",
+    "data": {
+      "providerThreadId": "858a89c7-cf69-443b-9f3b-3f944c4c296b",
+      "item": {
+        "type": "agentMessage",
+        "id": "dad5402856-i15",
+        "text": "Capture JSON shapes from my own thread (read-only)."
+      }
+    }
+  }
+]
