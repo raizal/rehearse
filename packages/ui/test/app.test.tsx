@@ -2,16 +2,20 @@
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../src/App.js';
 import { reviewEpic } from './fixture.js';
 
 // Clicks on boxes use fireEvent: d3-zoom's mousedown handler needs event.view, which user-event leaves null in jsdom.
+// The storyboard is the default view; these tests are about the flow view, so they open it.
 function renderApp() {
   const view = reviewEpic();
   render(<App load={() => Promise.resolve(view)} />);
+  fireEvent.click(screen.getByTestId('nav-flow'));
   return { view, user: userEvent.setup() };
 }
+
+afterEach(() => sessionStorage.clear());
 
 describe('review panel: swimlanes and drill-down (S4)', () => {
   it('S4-A1: the panel shows two lanes in lane order, and each box is in the lane of its role', async () => {
@@ -52,7 +56,7 @@ describe('review panel: swimlanes and drill-down (S4)', () => {
     expect(screen.getByTestId('app')).toHaveClass('app');
     expect(screen.getByTestId('epic-title')).toHaveTextContent('Shop checkout');
     expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-    for (const tab of ['matrix', 'readiness', 'signoff']) expect(screen.getByTestId(`nav-${tab}`)).toBeEnabled();
+    for (const tab of ['storyboard', 'matrix', 'readiness', 'signoff']) expect(screen.getByTestId(`nav-${tab}`)).toBeEnabled();
     expect(screen.getByTestId('report-status')).toHaveTextContent('validate: OK');
   });
 

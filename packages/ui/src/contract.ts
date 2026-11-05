@@ -2,7 +2,7 @@
 // The server builds these; the UI only reads them. Fields the server adds to
 // `GET /api/epic` are optional here, so the UI also works with an older server.
 
-import type { Finding, GateReport, Id, Identity, PermissionBoxes, PermissionMatrix, Readiness, SignOffWithRule } from '@rehearse/core';
+import type { Finding, GateReport, Id, Identity, PermissionBoxes, PermissionMatrix, SignedReadiness, SignOffWithRule } from '@rehearse/core';
 import type { EpicView } from '@rehearse/server';
 
 /** Result of the SSH signature check of an approval or a sign-off (D41). */
@@ -37,7 +37,8 @@ export interface SignOffView extends SignOffWithRule {
 export interface ReviewFields {
   /** Gate report, computed with simulate. */
   gate: GateReport;
-  readiness: Readiness;
+  /** A newer server counts only approvals with a valid signature as proof (C28); the UI does too. */
+  readiness: SignedReadiness;
   simulation: { permissionMatrix: PermissionMatrix; permissionBoxes: PermissionBoxes };
   /** scenario id → approval. */
   approvals: Record<Id, ApprovalView>;
@@ -71,5 +72,8 @@ export type PostOutcome<T> =
   /** Any other failure. */
   | { kind: 'error'; message: string };
 
-/** The page that explains how to set up signing (D41). */
+/**
+ * The guide to signing setup (D41), in the rehearse repo. `rehearse serve` does not serve it,
+ * so the UI shows the path as text with the steps in short form (C29).
+ */
 export const SIGNING_DOC = 'docs/signing.md';

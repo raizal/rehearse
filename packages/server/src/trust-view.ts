@@ -8,15 +8,15 @@ import {
   gateSigners,
   loadEpic,
   makeReport,
-  readiness,
+  signedReadiness,
   simulateRecord,
   simulationFindings,
   type Id,
   type PermissionBoxes,
   type PermissionMatrix,
-  type Readiness,
   type RecordSignatures,
   type SignedGateReport,
+  type SignedReadiness,
   type SignedSignOff,
   type SigStatus,
   type SimulationReport,
@@ -37,7 +37,8 @@ export type SignOffView = SignedSignOff & { sigStatus: SigStatus; signer?: strin
 export interface TrustedEpicView extends EpicView {
   /** Gate report, computed with simulate and signature checks. */
   gate: SignedGateReport;
-  readiness: Readiness;
+  /** Readiness where only an approval with a valid signature is proof (C28). */
+  readiness: SignedReadiness;
   /** Empty when the record has schema errors (simulate does not run then). */
   simulation: { permissionMatrix: PermissionMatrix; permissionBoxes: PermissionBoxes };
   /** Each scenario that has an approval, by scenario id. */
@@ -66,7 +67,7 @@ export function buildTrustedEpicView(dir: string, verifier: Verifier): TrustedEp
   return {
     ...base,
     gate,
-    readiness: readiness(record, gate),
+    readiness: signedReadiness(record, sigs, gate),
     simulation: { permissionMatrix: sim?.permissionMatrix ?? {}, permissionBoxes: sim?.permissionBoxes ?? {} },
     approvals,
     signOffs,

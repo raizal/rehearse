@@ -14,7 +14,37 @@ export function signingBlocked(state: SessionState): string | undefined {
   return state.session.signing.ok ? undefined : state.session.signing.reason;
 }
 
-/** Who signs and with which key; or why signing is off, with a link to the setup guide. */
+/**
+ * How to set up signing, in short, from docs/signing.md (C29). `rehearse serve` serves the UI and
+ * the API only, and the guide lives in the rehearse repo, not in the EPIC's repo; so the UI names
+ * the path as text and gives the steps here.
+ */
+export function SigningHelp({ testId }: { testId: string }) {
+  return (
+    <details className="signing-help" data-testid={testId}>
+      <summary>How to set up signing</summary>
+      <ol>
+        <li>
+          Tell git to sign with an SSH key: <code>git config --global gpg.format ssh</code> and{' '}
+          <code>git config --global user.signingkey ~/.ssh/id_ed25519.pub</code>.
+        </li>
+        <li>
+          Keep the private key in ssh-agent (<code>ssh-add ~/.ssh/id_ed25519</code>) or behind a passphrase. Do not use a key file with no passphrase.
+        </li>
+        <li>
+          Add your key to <code>.rehearse/allowed_signers</code> at the repo root, as{' '}
+          <code>{'<your git user.email> namespaces="rehearse" <public key>'}</code>, and commit it in a pull request.
+        </li>
+        <li>Start <code>rehearse serve</code> yourself, in a terminal that can reach your ssh-agent, then reload this page.</li>
+      </ol>
+      <p className="muted small">
+        Full guide: <code>{SIGNING_DOC}</code> in the rehearse repo.
+      </p>
+    </details>
+  );
+}
+
+/** Who signs and with which key; or why signing is off, with the setup steps. */
 export function SignerInfo({ state, testId }: { state: SessionState; testId: string }) {
   const blocked = signingBlocked(state);
   const session = state.kind === 'ready' ? state.session : undefined;
@@ -33,12 +63,10 @@ export function SignerInfo({ state, testId }: { state: SessionState; testId: str
       )}
       {blocked && (
         <p className="warn" role="status" data-testid={`${testId}-blocked`}>
-          Signing is not available: {blocked}.{' '}
-          <a href={SIGNING_DOC} data-testid={`${testId}-doc`} target="_blank" rel="noreferrer">
-            How to set up signing ({SIGNING_DOC})
-          </a>
+          Signing is not available: {blocked}.
         </p>
       )}
+      {blocked && <SigningHelp testId={`${testId}-doc`} />}
     </div>
   );
 }
@@ -84,12 +112,10 @@ export function OutcomeMessage({ outcome, okText, testId }: { outcome: PostOutco
         </>
       )}
       {outcome?.kind === 'unavailable' && (
-        <p className="warn">
-          Signing is not available: {outcome.reason}.{' '}
-          <a href={SIGNING_DOC} target="_blank" rel="noreferrer">
-            How to set up signing
-          </a>
-        </p>
+        <>
+          <p className="warn">Signing is not available: {outcome.reason}.</p>
+          <SigningHelp testId={`${testId}-doc`} />
+        </>
       )}
       {outcome?.kind === 'forbidden' && <p className="warn">Forbidden: {outcome.message}</p>}
       {outcome?.kind === 'error' && <p className="warn">Error: {outcome.message}</p>}

@@ -10,6 +10,29 @@ export interface LaneInfo {
   kind?: RoleKind;
   /** True for a lane that a box names but flow.yaml does not list (validate reports it). */
   unknown?: boolean;
+  /** Lane colour, the same in the flow view and the storyboard. */
+  color: string;
+}
+
+/** Lane colours by flow.yaml lane order. Each lane also shows its role name, so colour is never the only cue. */
+export const LANE_COLORS = ['#2f6fde', '#1f8a4c', '#b5651d', '#7a4cc2', '#c23b7a', '#0f8b8d', '#8a6d00', '#5b6b8c'];
+/** Colour of a lane that flow.yaml does not list. */
+export const UNKNOWN_LANE_COLOR = '#8a93a6';
+
+function declaredLanes(flow: Flow | undefined) {
+  return (Array.isArray(flow?.lanes) ? [...flow.lanes] : []).filter((l) => l && typeof l.role === 'string').sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+/** The colour of the lane of `role`: by its place in flow.yaml lane order. */
+export function laneColor(flow: Flow | undefined, role: string | undefined): string {
+  const i = declaredLanes(flow).findIndex((l) => l.role === role);
+  return i < 0 ? UNKNOWN_LANE_COLOR : LANE_COLORS[i % LANE_COLORS.length]!;
+}
+
+/** Role name from prd.yaml, else the role id. */
+export function roleName(prd: Prd | undefined, role: string | undefined): string {
+  const found = Array.isArray(prd?.roles) ? prd.roles.find((r) => r && r.id === role) : undefined;
+  return found?.name ?? role ?? '?';
 }
 
 export interface Crumb {
@@ -71,9 +94,7 @@ export function breadcrumb(flow: Flow | undefined, path: string): Crumb[] {
  */
 export function lanesFor(flow: Flow | undefined, prd: Prd | undefined, diagram: Diagram | undefined, isRoot: boolean): LaneInfo[] {
   const roles = new Map((Array.isArray(prd?.roles) ? prd.roles : []).map((r) => [r.id, r]));
-  const declared = (Array.isArray(flow?.lanes) ? [...flow.lanes] : [])
-    .filter((l) => l && typeof l.role === 'string')
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const declared = declaredLanes(flow);
   const used = new Set(boxes(diagram).map((b) => b.lane));
   const lanes: LaneInfo[] = [];
   const seen = new Set<string>();
@@ -81,12 +102,13 @@ export function lanesFor(flow: Flow | undefined, prd: Prd | undefined, diagram: 
     if (seen.has(l.role) || (!isRoot && !used.has(l.role))) continue;
     seen.add(l.role);
     const role = roles.get(l.role);
-    lanes.push(role ? { role: l.role, label: role.name, kind: role.kind } : { role: l.role, label: l.role });
+    const color = laneColor(flow, l.role);
+    lanes.push(role ? { role: l.role, label: role.name, kind: role.kind, color } : { role: l.role, label: l.role, color });
   }
   for (const b of boxes(diagram)) {
     if (typeof b.lane !== 'string' || seen.has(b.lane)) continue;
     seen.add(b.lane);
-    lanes.push({ role: b.lane, label: b.lane, unknown: true });
+    lanes.push({ role: b.lane, label: b.lane, unknown: true, color: UNKNOWN_LANE_COLOR });
   }
   return lanes;
 }
