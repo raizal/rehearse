@@ -20,9 +20,9 @@ describe('gate check', () => {
     const report = gateEpic(dir);
     expect(report.ok).toBe(false);
     expect(report.findings).toEqual([
-      { kind: 'coverage', file: 'prd.yaml', path: 'S1', message: 'S1 has no approved scenario that is not stale', refs: ['S1'] },
-      { kind: 'coverage', file: 'prd.yaml', path: 'S2', message: 'S2 has no approved scenario that is not stale', refs: ['S2'] },
-      { kind: 'coverage', file: 'prd.yaml', path: 'requirements[2]', message: 'R3 has no story', refs: ['R3'] },
+      { kind: 'gate', file: 'prd.yaml', path: 'S1', message: 'S1 has no approved scenario that is not stale', refs: ['S1'] },
+      { kind: 'gate', file: 'prd.yaml', path: 'S2', message: 'S2 has no approved scenario that is not stale', refs: ['S2'] },
+      { kind: 'gate', file: 'prd.yaml', path: 'requirements[2]', message: 'R3 has no story', refs: ['R3'] },
     ]);
   });
 
@@ -30,6 +30,12 @@ describe('gate check', () => {
     const { record } = loadEpic(approvedEpic());
     const report = gateRecord(record, [CONTRACT]);
     expect(report).toEqual({ command: 'gate', ok: false, findings: [CONTRACT] });
+  });
+
+  it('C22 gate findings have kind gate; simulation findings keep their own kind', () => {
+    const dir = makeEpic({ edit: (d) => d['prd.yaml'].requirements.push({ id: 'R3', kind: 'functional', text: 'Refunds.' }) });
+    const report = gateRecord(loadEpic(dir).record, [CONTRACT]);
+    expect(report.findings.map((f) => f.kind).sort()).toEqual(['contract', 'gate', 'gate', 'gate']);
   });
 
   it('uses the simulator when one is given', () => {
@@ -52,7 +58,7 @@ describe('gate check', () => {
     const report = gateEpic(BOOTSTRAP_EPIC);
     expect(report.ok).toBe(false);
     expect(report.findings.map((f) => `${f.kind} ${f.file} ${f.path}`)).toEqual(
-      ['S1', 'S10', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9'].map((s) => `lifecycle signoff.yaml ${s}`),
+      ['S1', 'S10', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9'].map((s) => `gate signoff.yaml ${s}`),
     );
     expect(report.findings[0]!.message).toBe('signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
     expect(reportToJson(gateEpic(BOOTSTRAP_EPIC))).toBe(reportToJson(report));

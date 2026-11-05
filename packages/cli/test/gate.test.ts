@@ -30,7 +30,7 @@ describe('rehearse gate check', () => {
   it('exit 1 with findings on a draft record', () => {
     const { code, out } = cli(['gate', 'check', makeEpic()]);
     expect(code).toBe(1);
-    expect(out).toContain('prd.yaml: S1: coverage: S1 has no approved scenario that is not stale');
+    expect(out).toContain('prd.yaml: S1: gate: S1 has no approved scenario that is not stale');
   });
 
   it('exit 2 on a usage error', () => {
@@ -44,7 +44,7 @@ describe('rehearse gate check', () => {
     const before = readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8');
     const { code, out } = cli(['gate', 'check', '2026-11-05-rehearse']);
     expect(code).toBe(1);
-    expect(out).toContain('signoff.yaml: S4: lifecycle: signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
+    expect(out).toContain('signoff.yaml: S4: gate: signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
     expect(out).toMatch(/gate: \d+ findings/);
     const a = cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out;
     expect(cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out).toBe(a);
