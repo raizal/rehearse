@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { approveScenarios } from '@rehearse/core';
 import { makeEpic, REAL_EPIC } from '../../core/test/helpers.js';
+import { approvedEpic } from '../../core/test/trust/helpers.js';
+import { KEY } from '../../core/test/trust/keys.js';
 import { run, USAGE } from '../src/index.js';
 
 const REPO = fileURLToPath(new URL('../../..', import.meta.url));
@@ -18,13 +19,22 @@ function cli(args: string[], cwd = REPO): { code: number; out: string; err: stri
 }
 
 describe('rehearse gate check', () => {
-  it('exit 0 on an approved, valid record that simulates clean', () => {
-    const dir = makeEpic();
-    approveScenarios(dir, ['S1-buy', 'S1-empty', 'S2-out-of-stock'], { by: 'a@b.c' });
+  it('exit 0 on a signed, approved, valid record that simulates clean; it shows each signer key', () => {
+    const dir = approvedEpic();
     const { code, out } = cli(['gate', 'check', dir]);
     expect(code).toBe(0);
-    expect(out).toBe('gate: OK, no findings\n');
-    expect(JSON.parse(cli(['gate', 'check', dir, '--json']).out)).toEqual({ command: 'gate', ok: true, findings: [], simulation: 'simulate' });
+    expect(out).toBe(
+      'gate: OK, no findings\n' +
+        'signers (check each key; a change to .rehearse/allowed_signers needs human review):\n' +
+        `  a@b.c ${KEY.signer.keyFingerprint}: 3 approvals, 0 sign-offs\n`,
+    );
+    expect(JSON.parse(cli(['gate', 'check', dir, '--json']).out)).toEqual({
+      command: 'gate',
+      ok: true,
+      findings: [],
+      simulation: 'simulate',
+      signers: [{ by: 'a@b.c', fingerprint: KEY.signer.keyFingerprint, approvals: ['S1-buy', 'S1-empty', 'S2-out-of-stock'], signOffs: [] }],
+    });
   });
 
   it('exit 1 with findings on a draft record', () => {
@@ -46,6 +56,9 @@ describe('rehearse gate check', () => {
     expect(code).toBe(1);
     expect(out).toContain('signoff.yaml: S4: gate: signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
     expect(out).toMatch(/gate: \d+ findings/);
+    // D41: no bootstrap approval carries a signature, so none is evidence yet.
+    expect(out.match(/is not evidence: sigStatus missing/g)).toHaveLength(28);
+    expect(out).toContain('signers: none\n');
     const a = cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out;
     expect(cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out).toBe(a);
     expect(readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8')).toBe(before);

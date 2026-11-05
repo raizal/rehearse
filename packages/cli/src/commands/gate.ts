@@ -1,7 +1,8 @@
 // `rehearse gate check <epic-dir-or-slug> [--json]` (R14, R19). Checks only: the CLI never signs off.
 // sim-clean runs the simulator, so the gate fails on any validate or simulate finding.
+// Only approvals and sign-offs with a valid signature count; the report lists each signer's key (D41).
 
-import { gateEpic, reportToJson, reportToText, simulateRecord } from '@rehearse/core';
+import { gateEpic, reportToJson, reportToText, signersToText, simulateRecord } from '@rehearse/core';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
 
 export function runGate(args: string[], io: Io): number {
@@ -25,6 +26,6 @@ export function runGate(args: string[], io: Io): number {
     io.stderr(`rehearse gate: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
   }
-  io.stdout(json ? reportToJson(report) : reportToText(report));
+  io.stdout(json ? reportToJson(report) : reportToText(report) + signersToText(report.signers));
   return report.ok ? EXIT.ok : EXIT.findings;
 }
