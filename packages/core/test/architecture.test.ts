@@ -196,6 +196,10 @@ describe('T16 1 record format: docs/system/ and the EPIC change', () => {
     expect(parseDecisionIds('# x\n- **D4 As-is**: a\n- **G13 Record links**: b\n  - **D19 Code**: c\nD20 is not a decision line\n')).toEqual(['D19', 'D4', 'G13']);
   });
 
+  it('T19 a line with more ids (D2/D6/D12) gives each id', () => {
+    expect(parseDecisionIds('- **D2/D6/D12 Relation**: a\n')).toEqual(['D12', 'D2', 'D6']);
+  });
+
   it('T16 1 systemDirFor finds docs/system/ from an EPIC folder', () => {
     expect(systemDirFor('/r/docs/epics/2026-11-05-x')).toBe('/r/docs/system');
   });

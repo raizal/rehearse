@@ -12,6 +12,7 @@ import {
   countsText,
   diffDrawing,
   drawingOf,
+  partCountsText,
   linkWord,
   statusLook,
   storyNote,
@@ -126,6 +127,19 @@ describe('T16 3 before / after (page 11)', () => {
     const parts = c.architecture.parts.filter((p) => !['person'].includes((p.after ?? p.before)!.kind ?? '') && p.id !== 'ci');
     expect(countsText(countStatuses(parts))).toBe('2 added · 4 changed · 5 same');
     expect(countsText({ added: 0, changed: 0, same: 0, removed: 0 })).toBe('no change');
+  });
+
+  it('T19 the count leaves out planned parts (CI with no workflow) and says so', () => {
+    const plain = structuredClone(c.architecture);
+    expect(partCountsText(plain)).toBe(countsText(countStatuses(plain.parts.filter((p: any) => (p.after ?? p.before)!.kind !== 'person'))));
+    const planned = structuredClone(c.architecture);
+    for (const p of planned.parts) {
+      for (const side of [p.before, p.after]) if (side && side.zone === 'ci') side.planned = true;
+    }
+    const n = planned.parts.filter((p: any) => (p.after ?? p.before)!.zone === 'ci').length;
+    expect(n).toBeGreaterThan(0);
+    const zone = planned.zones.find((z: any) => z.id === 'ci')!;
+    expect(partCountsText(planned)).toMatch(new RegExp(` · ${(zone.after ?? zone.before)!.name} left out: ${n} planned part${n === 1 ? '' : 's'} not built yet$`));
   });
 
   it('T16 3 change rows: change, part, before, after, why, story; parts, then links, boxes and entities', () => {

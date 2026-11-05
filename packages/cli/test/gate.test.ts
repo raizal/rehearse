@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { makeEpic, REAL_EPIC } from '../../core/test/helpers.js';
+import { makeEpic, REAL_EPIC, unsignedRealEpic } from '../../core/test/helpers.js';
 import { approvedEpic } from '../../core/test/trust/helpers.js';
 import { KEY } from '../../core/test/trust/keys.js';
 import { run, USAGE } from '../src/index.js';
@@ -50,19 +50,27 @@ describe('rehearse gate check', () => {
     expect(cli(['gate', 'check', 'no-such-epic']).code).toBe(2);
   });
 
-  it('dogfood: the first EPIC is not clean, the rule-1 bootstrap must be signed again; nothing is written', () => {
-    const before = readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8');
-    const { code, out } = cli(['gate', 'check', '2026-11-05-rehearse']);
+  it('dogfood: the first EPIC is not clean, each story must be signed again; nothing is written', () => {
+    // A copy of the first EPIC with every signature removed, so the test does not depend on what the owner signed.
+    const dir = unsignedRealEpic();
+    const before = readFileSync(join(dir, 'signoff.yaml'), 'utf8');
+    const { code, out } = cli(['gate', 'check', dir]);
     expect(code).toBe(1);
-    // Each story is either stale (its rule-1 content changed) or still signed under rule 1 (C11).
-    expect(out).toMatch(/signoff\.yaml: S\d+: gate: signed under hash rule 1, which does not cover boxes and lane roles \(C11\); must be signed again/);
+    // Each story is stale, signed under hash rule 1 (C11), or its latest sign-off has no valid signature (D41).
+    const stories = [...readFileSync(join(dir, 'prd.yaml'), 'utf8').matchAll(/^ {2}- id: (S\d+)$/gm)].map((m) => m[1]!);
+    expect(stories.length).toBeGreaterThan(0);
+    for (const s of stories) expect(out, s).toMatch(new RegExp(`signoff\\.yaml: ${s}: gate: .*must be signed again`));
     expect(out).toMatch(/gate: \d+ findings/);
-    // D41: no bootstrap approval carries a signature, so none is evidence yet.
+    // D41: an approval without a signature is not evidence.
     expect(out.match(/is not evidence: sigStatus missing/g)?.length).toBeGreaterThan(0);
     expect(out).toContain('signers: none\n');
-    const a = cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out;
-    expect(cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out).toBe(a);
-    expect(readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8')).toBe(before);
+    const a = cli(['gate', 'check', dir, '--json']).out;
+    expect(cli(['gate', 'check', dir, '--json']).out).toBe(a);
+    expect(readFileSync(join(dir, 'signoff.yaml'), 'utf8')).toBe(before);
+    // The real record: gate check writes nothing and validate passes.
+    const real = readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8');
+    expect(cli(['gate', 'check', '2026-11-05-rehearse']).code).toBe(1);
+    expect(readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8')).toBe(real);
     expect(cli(['validate', '2026-11-05-rehearse']).code).toBe(0);
   });
 });

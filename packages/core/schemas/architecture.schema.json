@@ -37,6 +37,7 @@
         "about": { "type": "string" },
         "trust": { "type": "string" },
         "color": { "$ref": "#/definitions/color" },
+        "planned": { "type": "boolean" },
         "what": { "type": "string" },
         "why": { "$ref": "#/definitions/why" },
         "stories": { "$ref": "#/definitions/stories" }
@@ -57,6 +58,7 @@
         "about": { "type": "string" },
         "code": { "$ref": "#/definitions/stringList" },
         "color": { "$ref": "#/definitions/color" },
+        "planned": { "type": "boolean" },
         "what": { "type": "string" },
         "why": { "$ref": "#/definitions/why" },
         "stories": { "$ref": "#/definitions/stories" }

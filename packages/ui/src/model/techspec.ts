@@ -68,9 +68,10 @@ export function boxRequirements(view: ReviewEpicView, path: string): Id[] {
   return out.sort((a, b) => order.indexOf(a) - order.indexOf(b));
 }
 
-/** Decisions a box traces to (cited by its requirements), and corrections about the box. */
+/** Decisions a box names (`decisions:`), decisions cited by its requirements, and corrections about the box. */
 export function boxDecisions(view: ReviewEpicView, path: string, known: KnownIds = knownIds(view)): Id[] {
-  const out: Id[] = [];
+  // The decisions the box names itself come first (T15).
+  const out: Id[] = [...new Set(boxAt(view.flow, path)?.decisions ?? [])];
   for (const r of boxRequirements(view, path)) {
     const text = view.prd?.requirements.find((x) => x.id === r)?.text;
     for (const d of citedDecisions(text, known)) if (!out.includes(d)) out.push(d);

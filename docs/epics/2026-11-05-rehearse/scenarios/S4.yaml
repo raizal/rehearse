@@ -18,9 +18,10 @@ scenarios:
     status: approved
     approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:9c8d31904ad814cf27d3349ad80bc8b5f0a802db29c8d5e38c539f3924a0352d', note: bootstrap }
     steps:
-      - name: review/swimlanes
-        example: { id: drill-in, given: { click: simulate }, then: { shown: simulate/children, breadcrumb: [ root, simulate ] } }
-    expect: { criterion: S4-A2, state: { breadcrumb: [ root, simulate ] } }
+      - { name: review/swimlanes }
+      - name: review/drill
+        example: { id: drill-in, given: { click: ship }, then: { shown: ship/children, breadcrumb: [root, ship] } }
+    expect: { criterion: S4-A2, state: { breadcrumb: [root, ship] } }
 
   - id: S4-browser
     title: Builder opens the served UI in a browser
@@ -45,9 +46,10 @@ scenarios:
     title: Builder sees the whole EPIC and the processes that features share
     status: approved
     steps:
-      - name: review/swimlanes
-        example: { id: big-picture, given: { stories: { S1: [ new-epic, validate ], S2: [ draft-record, validate ] } }, then: { roles: all, processes: in-flow-order, lines: [ S1, S2 ], shared: { validate: [ S1, S2 ] } } }
-    expect: { criterion: S4-A4, state: { shared: { validate: [ S1, S2 ] } } }
+      - { name: review/swimlanes }
+      - name: review/big-picture
+        example: { id: big-picture, given: { stories: { S1: [new-epic, validate], S2: [draft-record, validate] } }, then: { roles: all, processes: in-flow-order, lines: [S1, S2], shared: { validate: [S1, S2] } } }
+    expect: { criterion: S4-A4, state: { shared: { validate: [S1, S2] } } }
     approval:
       by: raizal.pregnanta@systemearth.com
       at: '2026-11-05T16:25:59Z'
@@ -64,9 +66,10 @@ scenarios:
     title: Builder opens one story and sees what, how and output
     status: approved
     steps:
-      - name: review/swimlanes
-        example: { id: story-view, given: { story: S9, boxes: [ content-changed, gate, sign-off ], writes: [ "Story.status:draft->signed" ] }, then: { what: S9, how: [ content-changed, gate, sign-off ], output: { Story.status: "draft → signed" }, then: scenarios } }
-    expect: { criterion: S4-A5, state: { panels: [ what, how, output ], output: { Story.status: "draft → signed" } } }
+      - { name: review/swimlanes }
+      - name: review/story-view
+        example: { id: story-view, given: { story: S9, boxes: [content-changed, gate, sign-off], writes: ["Story.status:draft->signed"] }, then: { what: S9, how: [content-changed, gate, sign-off], output: { Story.status: "draft → signed" }, then: scenarios, thread: { column: 3, collapsible: true, key: "]" } } }
+    expect: { criterion: S4-A5, state: { panels: [what, how, output], output: { Story.status: "draft → signed" }, threadColumn: collapsible } }
     approval:
       by: raizal.pregnanta@systemearth.com
       at: '2026-11-05T16:26:02Z'
@@ -78,3 +81,13 @@ scenarios:
         MjU1MTkAAABAVkNok1ctCSWNZp13kiBsSk/ytQwgV+f8DxKArTM+ZCu47ePPHjEeeEpioa
         DoipJ9yAjVINT6pobu1DR3cl9ZDg==
         -----END SSH SIGNATURE-----
+
+  - id: S4-story-tests
+    title: Builder opens the Tests tab of a story
+    status: draft
+    steps:
+      - { name: review/swimlanes }
+      - { name: review/story-view }
+      - name: review/story-tests
+        example: { id: tests-tab, given: { story: S1, results: none }, then: { tests: ["S1-create: not run"], player: birdview } }
+    expect: { criterion: S4-A6, state: { rows: one-per-scenario, statusInWords: true } }

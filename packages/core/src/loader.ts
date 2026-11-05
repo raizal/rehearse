@@ -17,6 +17,7 @@ import {
   type ScenarioFile,
   type SignOffLog,
 } from './types.js';
+import { indexBoxes } from './flow-index.js';
 import { asArray, isObject } from './util.js';
 import { parseYaml } from './yaml.js';
 import { decisionIds, loadSystem, systemDirFor } from './architecture/load.js';
@@ -88,6 +89,10 @@ export function loadEpic(dir: string): LoadResult {
     const flow = clone(raw[RECORD_FILES.flow]) as Flow;
     if (isObject(flow) && isObject(flow.root)) addPaths(flow.root, '');
     record.flow = flow;
+    // validate checks the decisions that boxes name, so it needs the decision log too.
+    if (record.decisions === undefined && [...indexBoxes(flow).values()].some((e) => asArray(e.box.decisions).length > 0)) {
+      record.decisions = decisionIds(abs);
+    }
   }
   for (const file of scenarioNames) {
     const value = raw[file];

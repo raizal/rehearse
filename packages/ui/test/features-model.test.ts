@@ -197,7 +197,7 @@ describe('big picture (S4-A4)', () => {
     expect(bp.processes.slice(0, 3).map((p) => p.id)).toEqual(['new-epic', 'draft-record', 'validate']);
     expect(bp.stories.map((s) => s.id)).toEqual(view.prd!.stories.map((s) => s.id));
     for (const s of bp.stories) expect(s.processes.length, s.id).toBeGreaterThan(0);
-    expect(bp.processes.find((p) => p.id === 'review')).toMatchObject({ shared: true, stories: ['S4', 'S5', 'S7', 'S8'] });
+    expect(bp.processes.find((p) => p.id === 'review')).toMatchObject({ shared: true, stories: ['S4', 'S5', 'S6', 'S7', 'S8'] });
     const lay = featureMapLayout(bp);
     expect(lay.boxes).toHaveLength(main.length);
     // No two boxes share a cell, and every lane, CI too, has its box.

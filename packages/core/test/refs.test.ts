@@ -76,6 +76,16 @@ describe('references (R3)', () => {
     ]);
   });
 
+  it('T19 box → decision of brainstorm.md (T15)', () => {
+    const r = validateFixture({
+      edit: (d) => (box(d, 'pay').decisions = ['D1', 'D6', 'D9']),
+      rawFiles: { 'brainstorm.md': '# shop\n\n- **D1 Pay first**: a\n- **D2/D6 Stock**: b\n' },
+    });
+    expect(r.findings).toEqual([
+      { kind: 'reference', file: 'flow.yaml', path: 'pay', message: 'decision D9 unknown (no brainstorm.md in docs/epics/ has it)', refs: ['D9'] },
+    ]);
+  });
+
   it('duplicate ids', () => {
     const r = validateFixture({
       edit: (d) => {

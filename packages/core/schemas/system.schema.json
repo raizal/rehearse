@@ -31,7 +31,8 @@
         "name": { "type": "string", "minLength": 1 },
         "about": { "type": "string" },
         "trust": { "type": "string" },
-        "color": { "$ref": "#/definitions/color" }
+        "color": { "$ref": "#/definitions/color" },
+        "planned": { "type": "boolean", "$comment": "D43: true when the part is drawn but has no code yet (for example CI with no workflow)." }
       }
     },
     "component": {
@@ -45,7 +46,8 @@
         "zone": { "type": "string" },
         "about": { "type": "string" },
         "code": { "$ref": "#/definitions/stringList" },
-        "color": { "$ref": "#/definitions/color" }
+        "color": { "$ref": "#/definitions/color" },
+        "planned": { "type": "boolean", "$comment": "D43: true when the part is drawn but has no code yet (for example CI with no workflow)." }
       }
     },
     "link": {

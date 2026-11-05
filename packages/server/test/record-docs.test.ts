@@ -89,6 +89,18 @@ describe('T15 feature 5: corrections', () => {
   });
 });
 
+describe('T19: the status of a correction has a fixed place', () => {
+  it('T19 a `- Status:` line gives the status, wins over the head line and is not a note', () => {
+    const log = parseCorrectionLog(
+      '## s\n\n- **C1** `caught-after-build` · box `pay` · OPEN\n  - Status: DONE in T19\n  - What: x\n- **C2** `caught-after-build` · R1\n  - What: y\n  - Status: OPEN\n',
+    );
+    expect(log).toEqual([
+      { id: 'C1', tag: 'caught-after-build', about: 'box `pay`', status: 'DONE in T19', section: 's', notes: [{ label: 'What', text: 'x' }] },
+      { id: 'C2', tag: 'caught-after-build', about: 'R1', status: 'OPEN', section: 's', notes: [{ label: 'What', text: 'y' }] },
+    ]);
+  });
+});
+
 describe('T15 feature 5: the real EPIC', () => {
   const brainstorm = readFileSync(join(REAL_EPIC, 'brainstorm.md'), 'utf8');
   const corrections = readFileSync(join(REAL_EPIC, 'corrections.md'), 'utf8');

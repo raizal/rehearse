@@ -1,5 +1,5 @@
 # rehearse v1 as built: where each part runs, what it talks to, and which trust zone it is in.
-# Drawn from design page 8 and checked against packages/ (D43, proposed). An EPIC that changes
+# Drawn from design page 8 and checked against packages/ (D43). An EPIC that changes
 # the system says only its change in its own architecture.yaml; the review UI applies it on top.
 version: 1
 title: rehearse v1 as built
@@ -21,8 +21,9 @@ zones:
     color: green
   - id: ci
     name: CI
-    about: on every pull request
+    about: 'planned: on every pull request. The repo has no .github/workflows yet (C38).'
     color: amber
+    planned: true
 components:
   # people and outside systems
   - { id: builder, name: Builder, kind: person, about: 'reviews, approves, signs', color: blue }
@@ -94,15 +95,18 @@ components:
     name: CI runner
     zone: ci
     about: checks out the PR head
+    planned: true
   - id: gate
     name: rehearse gate check
     zone: ci
     about: '@rehearse/cli + core · exit 0: PR may merge, exit 1: PR blocked'
     code: [packages/cli/src/commands/gate.ts, packages/core/src/trust/gate.ts]
+    planned: true   # the command is built; no CI workflow runs it yet
   - id: ssh-verify
     name: ssh-keygen -Y verify
     zone: ci
     about: against allowed_signers
+    planned: true
 links:
   - { from: builder, to: panel, label: opens }
   - { from: panel, to: plugin-server, label: RPC }

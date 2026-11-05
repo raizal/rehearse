@@ -119,6 +119,8 @@ export interface Lifecycle {
 export interface EntityDef {
   id: Id;
   about?: string;
+  /** The record file that holds the entity, e.g. `prd.yaml`. */
+  file?: string;
   /** field name → type string, e.g. `enum[draft, signed]`, `list ref Story`, `string?`. */
   fields: Record<string, string>;
   lifecycle?: Lifecycle;
@@ -167,6 +169,10 @@ export interface Box {
   errorExits?: string[];
   examples?: Example[];
   children?: Diagram;
+  /** The package whose code runs the box, e.g. `core`. */
+  package?: string;
+  /** Decisions of brainstorm.md that the box rests on, e.g. `D41`. validate checks each id. */
+  decisions?: Id[];
 }
 
 export interface Edge {
@@ -320,7 +326,7 @@ export interface EpicRecord {
   architecture?: ArchitectureChange;
   /** docs/system/, read only when the EPIC has architecture.yaml. */
   system?: SystemRecord;
-  /** Decision ids (D4, G2) of the brainstorm.md files in docs/epics/, read only when the EPIC has architecture.yaml. */
+  /** Decision ids (D4, G2) of the brainstorm.md files in docs/epics/, read only when the EPIC has architecture.yaml or a box names `decisions`. */
   decisions?: string[];
   /** Parsed YAML of every file that parsed, keyed by relative path, before the loader adds fields. */
   raw: Record<string, unknown>;
