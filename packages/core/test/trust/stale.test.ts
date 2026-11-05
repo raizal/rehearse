@@ -60,9 +60,10 @@ describe('story hash rule 2 (C11)', () => {
     }
   });
 
-  it('S9-A3 dogfood: the live first EPIC is stale only for stories whose rule-1 content changed after sign-off (C17–C24)', () => {
+  it('S9-A3 dogfood: the live first EPIC is stale only for stories whose rule-1 content changed after sign-off (C17–C24, D41)', () => {
     const result = detectStale(loadEpic(REAL_EPIC).record);
-    expect(result.staleStories).toEqual(['S1', 'S2', 'S3', 'S8']);
+    // S6 and S9: D41 changed the text of R13 and R14.
+    expect(result.staleStories).toEqual(['S1', 'S2', 'S3', 'S6', 'S8', 'S9']);
   });
 });
 
