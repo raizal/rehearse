@@ -1,12 +1,11 @@
-// R17 / S10-A2 for validate: 200 boxes and 100 approved scenarios in less than 2 seconds.
-// Simulate gets the same check with this generator after thread T2 merges.
+// R17 / S10-A2: validate and simulate each take less than 2 seconds for 200 boxes and 100 approved scenarios.
 
 import { performance } from 'node:perf_hooks';
 import { describe, expect, it } from 'vitest';
-import { indexBoxes, loadEpic, scenarioHash, validateEpic } from '../../src/index.js';
+import { indexBoxes, loadEpic, scenarioHash, simulateEpic, validateEpic } from '../../src/index.js';
 import { generateBenchEpic } from './generate.js';
 
-describe('R17: validate time limit on a generated record', () => {
+describe('R17: validate and simulate time limit on a generated record', () => {
   const bench = generateBenchEpic();
 
   it('the generator makes 200 boxes (some nested) and 100 approved scenarios with correct hashes', () => {
@@ -31,6 +30,14 @@ describe('R17: validate time limit on a generated record', () => {
     const report = validateEpic(bench.dir);
     const ms = performance.now() - t0;
     expect(report.findings).toEqual([]);
+    expect(ms).toBeLessThan(2000);
+  });
+
+  it('S10-A2 simulate finishes in less than 2 s for 200 boxes and 100 scenarios', () => {
+    const t0 = performance.now();
+    const report = simulateEpic(bench.dir);
+    const ms = performance.now() - t0;
+    expect(report.stale).toEqual([]);
     expect(ms).toBeLessThan(2000);
   });
 

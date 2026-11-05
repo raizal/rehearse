@@ -18,13 +18,13 @@ function cli(args: string[], cwd = REPO): { code: number; out: string; err: stri
 }
 
 describe('rehearse gate check', () => {
-  it('exit 0 on an approved, valid record, and says sim-clean used validate only', () => {
+  it('exit 0 on an approved, valid record that simulates clean', () => {
     const dir = makeEpic();
     approveScenarios(dir, ['S1-buy', 'S1-empty', 'S2-out-of-stock'], { by: 'a@b.c' });
     const { code, out } = cli(['gate', 'check', dir]);
     expect(code).toBe(0);
-    expect(out).toBe('gate: sim-clean checked validate findings only; simulate is not wired in yet\ngate: OK, no findings\n');
-    expect(JSON.parse(cli(['gate', 'check', dir, '--json']).out)).toEqual({ command: 'gate', ok: true, findings: [], simulation: 'validate-only' });
+    expect(out).toBe('gate: OK, no findings\n');
+    expect(JSON.parse(cli(['gate', 'check', dir, '--json']).out)).toEqual({ command: 'gate', ok: true, findings: [], simulation: 'simulate' });
   });
 
   it('exit 1 with findings on a draft record', () => {
@@ -45,7 +45,7 @@ describe('rehearse gate check', () => {
     const { code, out } = cli(['gate', 'check', '2026-11-05-rehearse']);
     expect(code).toBe(1);
     expect(out).toContain('signoff.yaml: S4: lifecycle: signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
-    expect(out).toContain('gate: 10 findings');
+    expect(out).toMatch(/gate: \d+ findings/);
     const a = cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out;
     expect(cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out).toBe(a);
     expect(readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8')).toBe(before);

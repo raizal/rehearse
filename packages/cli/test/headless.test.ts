@@ -95,4 +95,14 @@ describe('R19: rehearse runs headless with exit codes and a --json report, witho
     expect(JSON.parse(r.out)).toMatchObject({ ok: true, findings: [] });
     expect(ms).toBeLessThan(2000);
   });
+
+  it('S10-A2 the binary simulates 200 boxes and 100 scenarios in less than 2 s, node start included', () => {
+    const bench = generateBenchEpic();
+    const t0 = performance.now();
+    const r = bin(['simulate', bench.dir, '--json']);
+    const ms = performance.now() - t0;
+    expect(r.code === 0 || r.code === 1).toBe(true);
+    expect(JSON.parse(r.out)).toMatchObject({ command: 'simulate' });
+    expect(ms).toBeLessThan(2000);
+  });
 });

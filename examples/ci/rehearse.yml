@@ -28,7 +28,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r build
 
-      - name: rehearse validate each changed EPIC
+      - name: rehearse validate, simulate and gate check each changed EPIC
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -38,15 +38,18 @@ jobs:
           for slug in $slugs; do
             # A deleted EPIC has no folder to check.
             [ -d "docs/epics/$slug" ] || continue
-            echo "::group::rehearse validate $slug"
-            code=0
-            node packages/cli/bin/rehearse.js validate "$slug" --json > "rehearse-reports/$slug.validate.json" || code=$?
-            node packages/cli/bin/rehearse.js validate "$slug"
-            echo "::endgroup::"
-            if [ "$code" -ne 0 ]; then
-              echo "::error::rehearse validate $slug exited $code"
-              status=1
-            fi
+            for cmd in validate simulate "gate check"; do
+              name=${cmd% check}
+              echo "::group::rehearse $cmd $slug"
+              code=0
+              node packages/cli/bin/rehearse.js $cmd "$slug" --json > "rehearse-reports/$slug.$name.json" || code=$?
+              node packages/cli/bin/rehearse.js $cmd "$slug" || true
+              echo "::endgroup::"
+              if [ "$code" -ne 0 ]; then
+                echo "::error::rehearse $cmd $slug exited $code"
+                status=1
+              fi
+            done
           done
           exit $status
 

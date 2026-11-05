@@ -1,10 +1,8 @@
 // `rehearse gate check <epic-dir-or-slug> [--json]` (R14, R19). Checks only: the CLI never signs off.
+// sim-clean runs the simulator, so the gate fails on any validate or simulate finding.
 
-import { gateEpic, reportToJson, reportToText } from '@rehearse/core';
+import { gateEpic, reportToJson, reportToText, simulateRecord } from '@rehearse/core';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
-
-/** Note shown while sim-clean has no simulator: then it checks validate findings only. */
-export const VALIDATE_ONLY_NOTE = 'gate: sim-clean checked validate findings only; simulate is not wired in yet\n';
 
 export function runGate(args: string[], io: Io): number {
   const [sub, ...rest] = args;
@@ -22,12 +20,11 @@ export function runGate(args: string[], io: Io): number {
   }
   let report;
   try {
-    report = gateEpic(dir);
+    report = gateEpic(dir, simulateRecord);
   } catch (e) {
     io.stderr(`rehearse gate: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
   }
-  if (json) io.stdout(reportToJson(report));
-  else io.stdout((report.simulation === 'validate-only' ? VALIDATE_ONLY_NOTE : '') + reportToText(report));
+  io.stdout(json ? reportToJson(report) : reportToText(report));
   return report.ok ? EXIT.ok : EXIT.findings;
 }
