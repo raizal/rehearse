@@ -44,5 +44,5 @@ scenarios:
     status: draft
     steps:
       - name: review/swimlanes
-        example: { id: story-view, given: { story: S9, boxes: [approve, gate, sign-off], writes: ["Story.status:draft->signed"] }, then: { what: S9, how: [approve, gate, sign-off], output: { Story.status: "draft → signed" }, then: scenarios } }
+        example: { id: story-view, given: { story: S9, boxes: [content-changed, gate, sign-off], writes: ["Story.status:draft->signed"] }, then: { what: S9, how: [content-changed, gate, sign-off], output: { Story.status: "draft → signed" }, then: scenarios } }
     expect: { criterion: S4-A5, state: { panels: [what, how, output], output: { Story.status: "draft → signed" } } }
