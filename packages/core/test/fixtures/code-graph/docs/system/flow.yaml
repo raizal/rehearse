@@ -1,0 +1,29 @@
+version: 1
+epic: 2026-11-05-rehearse
+lanes:
+  - { role: agent, order: 1 }
+  - { role: rehearse, order: 2 }
+root:
+  boxes:
+    - { id: start, kind: start, lane: agent, title: Start }
+    - id: draft-record
+      kind: process
+      lane: agent
+      title: draft-record
+      stories: [S2]
+      inputs: { epicDir: string, findings: list }
+      outputs: { epicDir: string }
+    - id: validate
+      kind: process
+      lane: rehearse
+      title: validate
+      stories: [S2]
+      inputs: { epicDir: string }
+      outputs: { findings: list }
+    - { id: sign-off, kind: process, lane: rehearse, title: sign-off, stories: [S9], inputs: { epicDir: string }, outputs: { signature: string } }
+    - { id: done, kind: end, lane: rehearse, title: Done }
+  edges:
+    - { from: start, to: draft-record }
+    - { from: draft-record, to: validate, label: epicDir }
+    - { from: validate, to: sign-off }
+    - { from: sign-off, to: done }

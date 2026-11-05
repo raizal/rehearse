@@ -1,0 +1,8 @@
+entities:
+  - id: GraphNode
+    about: A code, record or commit node.
+    fields: { id: string, kind: 'enum[file, function, box, commit]' }
+  - id: Edge
+    fields: { from: ref GraphNode, to: ref GraphNode, trust: 'enum[exact, name-match, unresolved]' }
+  - id: Box
+    fields: { id: string, title: string, code: list ref GraphNode }

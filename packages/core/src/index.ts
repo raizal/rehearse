@@ -39,3 +39,4 @@ export {
 } from './simulate/types.js';
 export * from './trust/index.js';
 export { createEpic, EPIC_FILES, isEpicSlug, type NewEpicExit, type NewEpicResult } from './new.js';
+export * from './architecture/index.js';

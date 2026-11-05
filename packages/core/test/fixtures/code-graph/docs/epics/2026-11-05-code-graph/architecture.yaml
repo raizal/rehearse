@@ -1,0 +1,61 @@
+version: 1
+about: The code graph, after rehearse v1 (G9).
+components:
+  - id: graph
+    change: added
+    name: '@rehearse/graph'
+    zone: repo
+    about: tree-sitter · ts-morph · Pyright · BM25 · PageRank
+    what: 'indexer and queries: tree-sitter, ts-morph, Pyright; BM25; PageRank'
+    why: [G2, G4, G14, G15]
+    stories: [S1]
+  - id: graph-db
+    change: added
+    name: .rehearse/graph.db
+    kind: store
+    zone: repo
+    what: SQLite FTS5 cache; git ignores it; a rebuild makes it again
+    why: [G3, G5]
+    stories: [S1]
+  - id: cli
+    change: changed
+    about: new · validate · simulate · gate · serve · find · show · near · path · context
+    what: + find · show · near · path · context, each with --json
+    why: [G1, G7]
+    stories: [S1]
+  - id: serve
+    change: changed
+    about: UI + /api/* + file watcher, graph queries
+    what: + watches files, answers graph queries for the panel
+    why: [G5, G8]
+  - id: ui
+    change: changed
+    about: review views + code drill-down (D19)
+    what: '+ code drill-down below a leaf box: code, AST, call graph'
+    why: [D19, G8]
+  - id: repo
+    change: changed
+    about: YAML records, allowed_signers, commits + Flow-Box trailers
+    what: '+ reads Flow-Box: commit trailers for box → code links'
+    why: [G13]
+links:
+  - { from: cli, to: graph, change: added, label: find · context, why: [G1], stories: [S1] }
+  - { from: serve, to: graph, change: added, label: queries, why: [G8] }
+  - { from: graph, to: graph-db, change: added, label: cache, why: [G3], stories: [S1] }
+  - { from: graph, to: source, change: added, label: parse, why: [G15] }
+  - { from: graph, to: repo, change: added, label: trailers, why: [G13] }
+boxes:
+  - path: grep-code
+    change: removed
+    title: Agent reads code with grep and cat
+    what: outside rehearse · not in the record · no budget, no ranking
+    why: [G6]
+    stories: [S1]
+  - { path: ask-context, why: [G1, G6] }
+  - { path: check-freshness, why: [G5] }
+  - { path: rank-nodes, why: [G6, G14] }
+  - { path: fill-budget, why: [G6] }
+  - { path: draft-record, why: [G8] }
+entities:
+  - { id: GraphNode, why: [G4, G10], what: 'edge trust: exact · name-match · unresolved' }
+  - { id: Edge, why: [G4, G10] }

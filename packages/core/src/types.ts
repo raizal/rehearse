@@ -7,6 +7,8 @@
 // - The loader adds only `Box.path`, `Scenario.story` and `ScenarioFile.file`.
 // - Change this file only through a correction in corrections.md.
 
+import type { ArchitectureChange, SystemRecord } from './architecture/types.js';
+
 // ---------------------------------------------------------------- enums
 
 export type EpicStatus = 'draft' | 'signed' | 'partly-stale';
@@ -293,6 +295,8 @@ export const RECORD_FILES = {
   entities: 'entities.yaml',
   flow: 'flow.yaml',
   signoff: 'signoff.yaml',
+  /** Optional: what the EPIC adds to, changes in and removes from docs/system/ (D43). */
+  architecture: 'architecture.yaml',
   scenariosDir: 'scenarios',
 } as const;
 
@@ -312,6 +316,12 @@ export interface EpicRecord {
   signoff?: SignOffLog;
   /** Sorted by file name. */
   scenarioFiles: ScenarioFile[];
+  /** architecture.yaml: the EPIC's change to the system (D43). Optional. */
+  architecture?: ArchitectureChange;
+  /** docs/system/, read only when the EPIC has architecture.yaml. */
+  system?: SystemRecord;
+  /** Decision ids (D4, G2) of the brainstorm.md files in docs/epics/, read only when the EPIC has architecture.yaml. */
+  decisions?: string[];
   /** Parsed YAML of every file that parsed, keyed by relative path, before the loader adds fields. */
   raw: Record<string, unknown>;
 }

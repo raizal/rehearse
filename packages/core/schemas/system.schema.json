@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rehearse:system",
+  "title": "rehearse docs/system/architecture.yaml: the system as built (D4, D43)",
+  "type": "object",
+  "required": ["version", "zones", "components", "links"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "title": { "type": "string" },
+    "about": { "type": "string" },
+    "zones": { "type": "array", "items": { "$ref": "#/definitions/zone" } },
+    "components": { "type": "array", "items": { "$ref": "#/definitions/component" } },
+    "links": { "type": "array", "items": { "$ref": "#/definitions/link" } },
+    "notes": { "type": "array", "items": { "$ref": "#/definitions/note" } }
+  },
+  "definitions": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "color": { "enum": ["blue", "purple", "green", "amber", "grey"] },
+    "kind": {
+      "$comment": "component: runs code; store: files or a database; person: a person or role; outside: an outside system.",
+      "enum": ["component", "store", "person", "outside"]
+    },
+    "stringList": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "zone": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "about": { "type": "string" },
+        "trust": { "type": "string" },
+        "color": { "$ref": "#/definitions/color" }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/definitions/kind" },
+        "zone": { "type": "string" },
+        "about": { "type": "string" },
+        "code": { "$ref": "#/definitions/stringList" },
+        "color": { "$ref": "#/definitions/color" }
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "note": {
+      "type": "object",
+      "required": ["text"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "zone": { "type": "string" },
+        "kind": { "enum": ["info", "trust", "warning"] }
+      }
+    }
+  }
+}
