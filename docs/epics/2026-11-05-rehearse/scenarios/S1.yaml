@@ -3,19 +3,39 @@ scenarios:
   - id: S1-new
     title: Builder creates a new EPIC
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f10b9d30cd943c43a86c14532ce7a41abf614c78ee4eaeadb8f42f294cb64757', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T14:37:46Z'
+      hash: 'sha256:f10b9d30cd943c43a86c14532ce7a41abf614c78ee4eaeadb8f42f294cb64757'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA1b8I60BiMCVrBCWfEecoNv+yR/czgmEW0hO917h3Z7BGOw7zPxsgZmn0fO
+        Ylecb9GhgMKrMi6oUlsHqMh+ppAA==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: start }
       - name: new-epic
         example: { id: new-ok, given: { slug: 2026-11-05-demo, title: Demo, exists: false }, then: { epicDir: docs/epics/2026-11-05-demo } }
       - name: draft-record
         example: { id: draft-empty, given: { epicDir: docs/epics/2026-11-05-demo }, then: { epicDir: docs/epics/2026-11-05-demo } }
-    expect: { criterion: S1-A1, state: { Epic.status: draft, files: [brainstorm.md, prd.yaml, entities.yaml, flow.yaml, scenarios/, corrections.md] } }
+    expect: { criterion: S1-A1, state: { Epic.status: draft, files: [ brainstorm.md, prd.yaml, entities.yaml, flow.yaml, scenarios/, corrections.md ] } }
 
   - id: S1-exists
     title: Builder creates an EPIC that exists
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:3772d9a916bdaab70a23b3b9637bd62b9cd139ee21d19d00714c86a98bd6c459', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T15:46:42Z'
+      hash: 'sha256:3772d9a916bdaab70a23b3b9637bd62b9cd139ee21d19d00714c86a98bd6c459'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAAwP/pu7DBS6hgx6+zlTfM0IK7BIhzjF9cRdbVFFqQHRViBpxkg5pytSTyG
+        e68FMO9ABZ5TJZ49ATVJKTP550Dw==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: start }
       - name: new-epic
@@ -27,7 +47,17 @@ scenarios:
   - id: S1-bad-slug
     title: Builder uses a slug with no date
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:4a845470d6fddd82793d5f5098f2f44ac6ce0fd7c04f11b24d3c998372f8d666', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T15:47:59Z'
+      hash: 'sha256:4a845470d6fddd82793d5f5098f2f44ac6ce0fd7c04f11b24d3c998372f8d666'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAi93LmGF52n4cYg9KiyZIa5L9rvdvMZINExEX5tcDmWVSVgYkejiTWq8NaH
+        pfPWX/mqjrhkC2hGJEwt/F+vmNDw==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: start }
       - name: new-epic

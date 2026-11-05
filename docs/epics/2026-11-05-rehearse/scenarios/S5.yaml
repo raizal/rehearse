@@ -3,11 +3,21 @@ scenarios:
   - id: S5-playback
     title: Builder steps through a 3-step scenario
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:b4bf1406423c872aee7ef162eeff073e56a27a49f4593fb3a2119d3aef01143c', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T15:46:39Z'
+      hash: 'sha256:b4bf1406423c872aee7ef162eeff073e56a27a49f4593fb3a2119d3aef01143c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAYkJlqg6L8F/4NIdejGZp7M8qXt22k5pXOM5NQMp+DPFweFha5cpQE/cBIN
+        /KqRi1Wqw6LSEIQT8cke8bOJIsBg==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: review/swimlanes }
       - name: review/playback
-        example: { id: play-step-2, given: { scenario: shop-1, step: 2 }, then: { highlighted: pay, shows: [input, output, stateChange] } }
+        example: { id: play-step-2, given: { scenario: shop-1, step: 2 }, then: { highlighted: pay, shows: [ input, output, stateChange ] } }
       - { name: review/matrix }
       - { name: review/readiness }
       - name: happy

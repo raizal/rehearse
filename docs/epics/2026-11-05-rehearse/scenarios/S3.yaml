@@ -3,21 +3,31 @@ scenarios:
   - id: S3-contract
     title: Output shape does not fit the next input
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:a3dc6494efc979ef2e9b887ac8034ff33c724153ccd838ac5b6bd506dbbff026', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:25:11Z'
+      hash: 'sha256:a3dc6494efc979ef2e9b887ac8034ff33c724153ccd838ac5b6bd506dbbff026'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAIg+hiwsyGvjsCOPmeXSChbjiUMxsKh+uApr5PJkhnh9Ow13HJvu2b8oNvU
+        d1uYondREfGh4zUKPEa1T3p6E5BQ==
+        -----END SSH SIGNATURE-----
     steps:
       - name: valid
         branch: "yes"
         example: { id: valid-yes, given: { report: { ok: true } }, then: { branch: "yes" } }
       - name: simulate/load
-        example: { id: load-1, given: { epicDir: docs/epics/x }, then: { scenarios: [shop-1] } }
+        example: { id: load-1, given: { epicDir: docs/epics/x }, then: { scenarios: [ shop-1 ] } }
       - name: simulate/contracts
-        example: { id: contracts-mismatch, given: { scenarios: [shop-1] }, then: { findings: [{ kind: contract, path: "a -> b", message: "orderId: string does not fit number" }] } }
+        example: { id: contracts-mismatch, given: { scenarios: [ shop-1 ] }, then: { findings: [ { kind: contract, path: "a -> b", message: "orderId: string does not fit number" } ] } }
       - name: simulate/coverage
       - name: simulate/lifecycles
       - name: simulate/acceptance
       - name: simulate/permissions
       - name: simulate/report
-        example: { id: sreport-1, given: { findings: [contract] }, then: { report: { command: simulate, ok: false } } }
+        example: { id: sreport-1, given: { findings: [ contract ] }, then: { report: { command: simulate, ok: false } } }
       - name: design-errors
         branch: "yes"
       - name: log-correction
@@ -33,7 +43,7 @@ scenarios:
       - { name: simulate/load }
       - { name: simulate/contracts }
       - name: simulate/coverage
-        example: { id: coverage-gap, given: { scenarios: [shop-1] }, then: { findings: [{ kind: coverage, path: "in-stock", message: "branch no not reached" }] } }
+        example: { id: coverage-gap, given: { scenarios: [ shop-1 ] }, then: { findings: [ { kind: coverage, path: "in-stock", message: "branch no not reached" } ] } }
       - { name: simulate/lifecycles }
       - { name: simulate/acceptance }
       - { name: simulate/permissions }
@@ -50,7 +60,7 @@ scenarios:
       - { name: simulate/contracts }
       - { name: simulate/coverage }
       - name: simulate/lifecycles
-        example: { id: lifecycle-bad, given: { scenarios: [shop-2] }, then: { findings: [{ kind: lifecycle, path: ship, message: "Order.status draft -> shipped not permitted" }] } }
+        example: { id: lifecycle-bad, given: { scenarios: [ shop-2 ] }, then: { findings: [ { kind: lifecycle, path: ship, message: "Order.status draft -> shipped not permitted" } ] } }
       - { name: simulate/acceptance }
       - { name: simulate/permissions }
       - { name: simulate/report }
@@ -67,7 +77,7 @@ scenarios:
       - { name: simulate/coverage }
       - { name: simulate/lifecycles }
       - name: simulate/acceptance
-        example: { id: acceptance-diff, given: { scenarios: [shop-3] }, then: { findings: [{ kind: acceptance, refs: [S1-A1], message: "Order.status is draft, expected paid" }] } }
+        example: { id: acceptance-diff, given: { scenarios: [ shop-3 ] }, then: { findings: [ { kind: acceptance, refs: [ S1-A1 ], message: "Order.status is draft, expected paid" } ] } }
       - { name: simulate/permissions }
       - { name: simulate/report }
       - { name: design-errors, branch: "yes" }
@@ -85,5 +95,5 @@ scenarios:
       - { name: simulate/acceptance }
       - { name: simulate/permissions }
       - name: simulate/report
-        example: { id: sreport-sorted, given: { findings: [b, a] }, then: { report: { findings: [a, b] } } }
+        example: { id: sreport-sorted, given: { findings: [ b, a ] }, then: { report: { findings: [ a, b ] } } }
     expect: { criterion: S3-A5, state: { reportsByteIdentical: true } }

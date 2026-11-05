@@ -3,7 +3,17 @@ scenarios:
   - id: S10-fail
     title: CI finds a simulator error
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f9e538633d2e474418b8ac6d990a0e2f58328c5b9674b8a878b1ccbb31ebb428', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:27:08Z'
+      hash: 'sha256:f9e538633d2e474418b8ac6d990a0e2f58328c5b9674b8a878b1ccbb31ebb428'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAzsIlzVCTJRcbv7EkzjQk1E3PMLxFOLOmgipdHWI5McoiH4ve8HE/qReWO1
+        Uqkrxz099mhBtqH7xi1fsaDHtNAg==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: pr-opened }
       - name: ci-run
