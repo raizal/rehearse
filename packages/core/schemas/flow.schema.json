@@ -8,6 +8,7 @@
   "properties": {
     "version": { "const": 1 },
     "epic": { "type": "string" },
+    "context": { "$comment": "C14: every box has these fields as inputs without declaring them.", "$ref": "#/definitions/typeMap" },
     "lanes": {
       "type": "array",
       "minItems": 1,

@@ -185,6 +185,8 @@ export interface Diagram {
 export interface Flow {
   version: number;
   epic: string;
+  /** field → type. Every box has these fields as inputs without declaring them (C14). */
+  context?: Record<string, string>;
   lanes: Lane[];
   root: Diagram;
 }

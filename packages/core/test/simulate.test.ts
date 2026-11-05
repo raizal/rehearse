@@ -276,3 +276,32 @@ describe('dogfood: simulate the rehearse record (D24)', () => {
     expect(readFileSync(join(REAL_EPIC, 'flow.yaml'), 'utf8')).toContain('simulate');
   });
 });
+
+describe('simulate/contracts: flow context (C14)', () => {
+  const needsShopId = (d: any) => (box(d, 'pay').inputs.shopId = 'string');
+
+  it('C14 S3-A1 a box input that no box gives is missing without a flow context', () => {
+    const report = simulateEpic(makeApprovedEpic(needsShopId));
+    expect(brief(report.findings)).toEqual([
+      'contract flow.yaml cart: cart → pay: missing field shopId (pay needs shopId: string; cart gives orderId) in scenario S1-buy',
+    ]);
+  });
+
+  it('C14 a box input that is a context field is never missing', () => {
+    const report = simulateEpic(makeApprovedEpic((d) => (needsShopId(d), (d['flow.yaml'].context = { shopId: 'string' }))));
+    expect(brief(report.findings)).toEqual([]);
+    expect(report.ok).toBe(true);
+  });
+
+  it('C14 S3-A1 a box input whose type does not fit the context type is a contract finding', () => {
+    const report = simulateEpic(makeApprovedEpic((d) => (needsShopId(d), (d['flow.yaml'].context = { shopId: 'number' }))));
+    expect(report.findings).toEqual([
+      { kind: 'contract', file: 'flow.yaml', path: 'pay', message: 'field shopId: the flow context gives number, pay needs string', refs: ['S1'] },
+    ]);
+  });
+
+  it('C14 validate checks the context type strings like box inputs', () => {
+    const report = simulateEpic(makeApprovedEpic((d) => (d['flow.yaml'].context = { shopId: '' })));
+    expect(report.findings.map((f) => `${f.kind} ${f.file}`)).toEqual(['schema flow.yaml']);
+  });
+});
