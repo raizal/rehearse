@@ -31,7 +31,7 @@ export function checkSteps(record: EpicRecord): Finding[] {
         if (branch !== undefined && !options.some((o) => o.edge.label === branch)) {
           const labels = [...new Set(options.map((o) => o.edge.label).filter((l) => l !== undefined))];
           out.push({
-            kind: 'reference',
+            kind: 'structure',
             file: sf.file,
             path: at,
             message: `branch ${branch} is not a label of an edge from ${name}${labels.length ? ` (labels: ${labels.join(', ')})` : ''}`,
@@ -43,13 +43,13 @@ export function checkSteps(record: EpicRecord): Finding[] {
         const next = steps[i + 1];
         if (!isObject(next) || !isLeaf(next.name)) return;
         if (index.get(name)!.box.kind === 'decision' && branch === undefined) {
-          out.push({ kind: 'reference', file: sf.file, path: at, message: `decision ${name}: the step needs a branch`, refs: [] });
+          out.push({ kind: 'structure', file: sf.file, path: at, message: `decision ${name}: the step needs a branch`, refs: [] });
           return;
         }
         const hit = options.some((o) => o.to === next.name && (branch === undefined || o.edge.label === branch));
         if (!hit) {
           out.push({
-            kind: 'reference',
+            kind: 'structure',
             file: sf.file,
             path: at,
             message: `no edge from ${name} to ${next.name}${branch !== undefined ? ` with label ${branch}` : ''} (step ${i + 1} -> ${i + 2})`,

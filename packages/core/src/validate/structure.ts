@@ -12,7 +12,7 @@ import { asArray, isObject } from '../util.js';
 const FLOW = RECORD_FILES.flow;
 
 function finding(path: string, message: string): Finding {
-  return { kind: 'reference', file: FLOW, path, message, refs: [] };
+  return { kind: 'structure', file: FLOW, path, message, refs: [] };
 }
 
 export function checkStructure(record: EpicRecord): Finding[] {

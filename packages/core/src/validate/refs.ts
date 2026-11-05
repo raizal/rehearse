@@ -1,5 +1,5 @@
 // Box `validate/refs`: check references across files (R3, R21).
-// story → requirement, story → role, box → story, box → lane → role,
+// story → requirement, story → role, box → story, box → lane → role, lifecycle actor → role,
 // state access → entity field, scenario → story, criterion, box path.
 // The checks run on drafts that may also have schema findings, so they guard every access.
 
@@ -83,6 +83,14 @@ export function checkRefs(record: EpicRecord): Finding[] {
       const lc = e.lifecycle;
       if (isObject(lc) && typeof lc.field === 'string' && isObject(e.fields) && !(lc.field in e.fields)) {
         out.push(ref(ENTITIES, e.id, `lifecycle field ${lc.field} is not a field of ${e.id}`));
+      }
+      // Transition actor → role (C7).
+      if (prd && isObject(lc)) {
+        for (const t of asArray<Record<string, unknown>>(lc.transitions)) {
+          if (isObject(t) && typeof t.by === 'string' && !roleIds.has(t.by)) {
+            out.push(ref(ENTITIES, e.id, `lifecycle transition ${String(t.from)} -> ${String(t.to)}: role ${t.by} unknown`));
+          }
+        }
       }
     }
   }
