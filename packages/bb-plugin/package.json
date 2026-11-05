@@ -1,0 +1,34 @@
+{
+  "name": "bb-plugin-rehearse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb panel for rehearse: runs `rehearse serve` on the user's machine and shows its UI in a bb panel (R12, D26, D31).",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.47",
+    "bbPluginSdk": ">=0.6.75"
+  },
+  "bb": {
+    "name": "Rehearse",
+    "description": "Review an EPIC record as swimlanes in a bb panel. Runs `rehearse serve` for the project's repo and passes read-only commands to the rehearse CLI.",
+    "branding": {
+      "icon": "Workflow"
+    },
+    "server": "./server.ts",
+    "host": "./host.ts",
+    "app": "./app.tsx"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "bundle": "bb plugin build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.75",
+    "@types/react": "^19.3.0"
+  }
+}
