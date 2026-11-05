@@ -4,6 +4,8 @@
 import type { ComponentType } from 'react';
 import type { Id } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
+import { ArchitectureView } from './ArchitectureView.js';
+import { BeforeAfterView } from './BeforeAfterView.js';
 import { BigPicture } from './BigPicture.js';
 import { DataFlowView } from './DataFlowView.js';
 import { SystemFlowchartView } from './SystemFlowchartView.js';
@@ -20,6 +22,8 @@ export const BIG_VIEWS: readonly { id: string; label: string; View: ComponentTyp
   { id: 'userflow', label: 'User flow', View: UserFlowView },
   { id: 'dataflow', label: 'Data flow', View: DataFlowView },
   { id: 'sysflow', label: 'System flowchart', View: SystemFlowchartView },
+  { id: 'architecture', label: 'Architecture', View: ArchitectureView },
+  { id: 'before-after', label: 'Before / after', View: BeforeAfterView },
 ];
 
 export interface BigPictureViewsProps extends BigViewProps {

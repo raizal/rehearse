@@ -1,0 +1,5 @@
+entities:
+  - id: Story
+    fields: { id: string, want: string }
+  - id: Box
+    fields: { id: string, title: string }

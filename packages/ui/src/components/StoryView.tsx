@@ -1,8 +1,8 @@
 // One story (S4-A5, D42): WHAT (role, want, so that, the criteria as a checklist), HOW (a
 // swimlane of only the boxes that serve it, in flow order) and OUTPUT (each data change as
 // before → after, side effects, and what the user sees). The scenario cards come below it.
-// A tab bar splits the story: Overview (all of the above), Code (StoryCode.tsx) and Tests (T13:
-// the story's e2e tests in Birdview).
+// A tab bar splits the story: Overview (all of the above), Before / after (StoryBeforeAfter.tsx),
+// Code (StoryCode.tsx) and Tests (T13: the story's e2e tests in Birdview).
 
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import type { Id } from '@rehearse/core';
@@ -12,10 +12,12 @@ import { howLayout, storyDetail, type StoryDetail } from '../model/storyview.js'
 import { wrapLines } from '../model/text.js';
 import { CodeChip, StoryCode, useCodeIndex } from './StoryCode.js';
 import { StoryTests } from './StoryTests.js';
+import { StoryBeforeAfter } from './StoryBeforeAfter.js';
 import { svgButton } from './svg.js';
 
 export const STORY_TABS = [
   { id: 'overview', label: 'Overview' },
+  { id: 'before-after', label: 'Before / after' },
   { id: 'code', label: 'Code' },
   { id: 'tests', label: 'Tests' },
 ] as const;
@@ -74,6 +76,7 @@ export function StoryView({ view, storyId, onOpenBox, children, ...props }: Stor
               <Output d={d} onOpenBox={onOpenBox} />
             </div>
           )}
+          {tab === 'before-after' && <StoryBeforeAfter view={view} storyId={storyId} onOpenBox={onOpenBox} />}
           {tab === 'code' && <StoryCode d={d} index={code} />}
           {tab === 'tests' && <StoryTests storyId={storyId} scenarios={scenarios} />}
         </div>

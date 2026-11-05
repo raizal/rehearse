@@ -6,7 +6,7 @@ import { Ajv, type ErrorObject, type ValidateFunction } from 'ajv';
 import { RECORD_FILES, type EpicRecord, type Finding } from '../types.js';
 import { asArray, isObject } from '../util.js';
 
-export type SchemaName = 'prd' | 'entities' | 'flow' | 'scenario' | 'signoff';
+export type SchemaName = 'prd' | 'entities' | 'flow' | 'scenario' | 'signoff' | 'architecture' | 'system';
 
 /** Absolute URL of the JSON Schema file for one record file kind. */
 export function schemaUrl(name: SchemaName): URL {
@@ -20,7 +20,7 @@ function validator(name: SchemaName): ValidateFunction {
   if (!validators) {
     const ajv = new Ajv({ allErrors: true, strict: true, strictRequired: false });
     validators = new Map();
-    for (const n of ['prd', 'entities', 'flow', 'scenario', 'signoff'] as const) {
+    for (const n of ['prd', 'entities', 'flow', 'scenario', 'signoff', 'architecture', 'system'] as const) {
       validators.set(n, ajv.compile(JSON.parse(readFileSync(schemaUrl(n), 'utf8'))));
     }
   }
@@ -33,6 +33,7 @@ export function schemaFor(file: string): SchemaName | undefined {
   if (file === RECORD_FILES.entities) return 'entities';
   if (file === RECORD_FILES.flow) return 'flow';
   if (file === RECORD_FILES.signoff) return 'signoff';
+  if (file === RECORD_FILES.architecture) return 'architecture';
   if (file.startsWith(`${RECORD_FILES.scenariosDir}/`)) return 'scenario';
   return undefined;
 }

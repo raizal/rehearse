@@ -1,0 +1,32 @@
+version: 1
+title: rehearse v1 as built
+zones:
+  - { id: bb, name: bb, about: any machine, color: blue }
+  - { id: agent, name: Agent thread, about: sandbox, color: purple }
+  - { id: repo, name: Repo machine, about: your user account, color: green }
+  - { id: ci, name: CI, about: on every pull request, color: amber }
+components:
+  - { id: builder, name: Builder, kind: person, color: blue }
+  - { id: agent, name: Agent, kind: person, color: purple }
+  - { id: ci, name: CI, kind: outside, color: amber }
+  - { id: panel, name: bb panel, zone: bb }
+  - { id: host, name: host worker, zone: repo }
+  - { id: cli, name: rehearse CLI, zone: agent, about: new · validate · simulate · gate · serve }
+  - { id: gate, name: rehearse gate check, zone: ci, about: uses @rehearse/core }
+  - { id: ui, name: '@rehearse/ui', zone: repo, about: review views }
+  - { id: serve, name: rehearse serve, zone: repo, about: serves the UI and /api/* }
+  - { id: core, name: '@rehearse/core', zone: repo, about: loader · validate · simulate · trust }
+  - { id: repo, name: git repo, kind: store, zone: repo, about: 'YAML records, allowed_signers' }
+  - { id: source, name: TS + Python source, kind: outside, about: (+ venv) }
+links:
+  - { from: builder, to: panel }
+  - { from: panel, to: ui, label: iframe }
+  - { from: host, to: serve, label: spawns }
+  - { from: ui, to: serve }
+  - { from: serve, to: core }
+  - { from: agent, to: cli }
+  - { from: cli, to: core, label: uses }
+  - { from: core, to: repo, label: read / write YAML }
+  - { from: ci, to: gate }
+notes:
+  - { zone: repo, kind: trust, text: Signing happens only here. }

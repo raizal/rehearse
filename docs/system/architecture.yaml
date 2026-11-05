@@ -1,0 +1,130 @@
+# rehearse v1 as built: where each part runs, what it talks to, and which trust zone it is in.
+# Drawn from design page 8 and checked against packages/ (D43, proposed). An EPIC that changes
+# the system says only its change in its own architecture.yaml; the review UI applies it on top.
+version: 1
+title: rehearse v1 as built
+about: Only the repo machine zone can reach your SSH key.
+zones:
+  - id: bb
+    name: bb
+    about: any machine
+    color: blue
+  - id: agent
+    name: Agent thread
+    about: sandbox
+    trust: No approve and no sign-off command. No ssh-agent socket.
+    color: purple
+  - id: repo
+    name: Repo machine
+    about: your user account, outside the sandbox
+    trust: Can reach ssh-agent, so it is the only place that signs.
+    color: green
+  - id: ci
+    name: CI
+    about: on every pull request
+    color: amber
+components:
+  # people and outside systems
+  - { id: builder, name: Builder, kind: person, about: 'reviews, approves, signs', color: blue }
+  - { id: agent, name: Agent, kind: person, about: drafts the record, color: purple }
+  - { id: pull-request, name: Pull request, kind: outside, about: git host, color: amber }
+  # bb
+  - id: panel
+    name: bb panel or browser tab
+    zone: bb
+    about: iframe of the serve URL
+    code: [packages/bb-plugin/app.tsx, packages/bb-plugin/src/panel.ts]
+  - id: plugin-server
+    name: plugin server
+    zone: bb
+    about: 'RPC: projects, epics, open · bb rehearse validate | simulate | gate check | new'
+    code: [packages/bb-plugin/server.ts, packages/bb-plugin/src/run-cli.ts, packages/bb-plugin/src/epics.ts]
+  - id: bb-connect
+    name: bb connect
+    zone: bb
+    about: expose a port for a remote browser (C27)
+  # agent thread
+  - id: cli
+    name: rehearse CLI
+    zone: agent
+    about: new · validate · simulate · gate check · serve
+    code: [packages/cli/src/index.ts, packages/cli/src/commands]
+  # repo machine
+  - id: serve
+    name: rehearse serve
+    zone: repo
+    about: 127.0.0.1:<port> · session token · Origin check · /api/*
+    code: [packages/server/src/http.ts, packages/server/src/view.ts, packages/server/src/trust-view.ts, packages/server/src/session.ts]
+  - id: ui
+    name: '@rehearse/ui'
+    zone: repo
+    about: 'React app: Big picture, Stories, Use cases, Readiness, Sign off'
+    code: [packages/ui/src]
+  - id: ssh-agent
+    name: ssh-agent
+    zone: repo
+    about: holds your key (SSH_AUTH_SOCK)
+  - id: host
+    name: host worker
+    zone: repo
+    about: 'serve-manager: one process per EPIC · leases renew 15 s, end after 45 s · watchdog · free port · finds ssh-agent'
+    code: [packages/bb-plugin/host.ts, packages/bb-plugin/src/host-service.ts, packages/bb-plugin/src/serve-manager.ts, packages/bb-plugin/src/spawn-serve.ts, packages/bb-plugin/src/ssh-agent.ts, packages/bb-plugin/src/port.ts]
+  - id: core
+    name: '@rehearse/core'
+    zone: repo
+    about: 'loader · validate · simulate · trust: gate, readiness, story hash, stale, signature'
+    code: [packages/core/src]
+  - id: ssh-keygen
+    name: ssh-keygen
+    zone: repo
+    about: -Y sign / -Y verify · namespace rehearse
+    code: [packages/core/src/trust/signature.ts]
+  - id: bb-daemon
+    name: bb daemon
+    zone: repo
+    about: starts the host worker as you
+  - id: repo
+    name: git repo
+    kind: store
+    zone: repo
+    about: docs/epics/<slug>/*.yaml · .rehearse/allowed_signers
+    code: [docs/epics]
+  # CI
+  - id: ci-runner
+    name: CI runner
+    zone: ci
+    about: checks out the PR head
+  - id: gate
+    name: rehearse gate check
+    zone: ci
+    about: '@rehearse/cli + core · exit 0: PR may merge, exit 1: PR blocked'
+    code: [packages/cli/src/commands/gate.ts, packages/core/src/trust/gate.ts]
+  - id: ssh-verify
+    name: ssh-keygen -Y verify
+    zone: ci
+    about: against allowed_signers
+links:
+  - { from: builder, to: panel, label: opens }
+  - { from: panel, to: plugin-server, label: RPC }
+  - { from: panel, to: serve, label: HTTP }
+  - { from: plugin-server, to: host, label: 'host RPC: start, renew lease' }
+  - { from: bb-daemon, to: host, label: runs }
+  - { from: host, to: serve, label: spawns + watchdog }
+  - { from: serve, to: ui, label: serves }
+  - { from: serve, to: core, label: uses }
+  - { from: core, to: ssh-keygen, label: sign }
+  - { from: ssh-keygen, to: ssh-agent, label: key }
+  - { from: core, to: repo, label: read / write YAML }
+  - { from: agent, to: cli, label: runs }
+  - { from: cli, to: repo, label: edits YAML drafts (never approvals) }
+  - { from: repo, to: ci-runner, label: 'PR head: record + allowed_signers' }
+  - { from: pull-request, to: ci-runner }
+  - { from: ci-runner, to: gate }
+  - { from: gate, to: ssh-verify }
+notes:
+  - zone: repo
+    kind: trust
+    text: 'Signing happens only here: serve is started by the host worker as you, so it can reach ssh-agent. Agent threads cannot (D41).'
+  - zone: agent
+    kind: warning
+    text: No approve and no sign-off command. No ssh-agent socket.

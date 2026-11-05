@@ -3,7 +3,6 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { LineCounter, parseDocument, visit } from 'yaml';
 import {
   RECORD_FILES,
   type Box,
@@ -19,52 +18,13 @@ import {
   type SignOffLog,
 } from './types.js';
 import { asArray, isObject } from './util.js';
+import { parseYaml } from './yaml.js';
+import { decisionIds, loadSystem, systemDirFor } from './architecture/load.js';
+import type { ArchitectureChange } from './architecture/types.js';
+
+export { parseYaml };
 
 const REQUIRED_FILES = [RECORD_FILES.prd, RECORD_FILES.entities, RECORD_FILES.flow] as const;
-
-/** Parse YAML text. Returns the value, or a `yaml-syntax` finding for `file`. */
-export function parseYaml(text: string, file: string): { value?: unknown; finding?: Finding } {
-  const lineCounter = new LineCounter();
-  const doc = parseDocument(text, { prettyErrors: false, uniqueKeys: true, lineCounter });
-  const err = doc.errors[0];
-  if (err) {
-    const pos = lineCounter.linePos(err.pos[0]);
-    const where = ` (line ${pos.line}, column ${pos.col})`;
-    const reason = err.message.split('\n')[0] ?? err.message;
-    return {
-      finding: {
-        kind: 'schema',
-        file,
-        path: `line ${pos.line}`,
-        message: `yaml-syntax: ${reason}${where}`,
-        refs: [],
-      },
-    };
-  }
-  // An alias can make a cycle or share one object between two places. Record files do not need them.
-  let alias: string | undefined;
-  let aliasAt = 0;
-  visit(doc, {
-    Alias(_key, node) {
-      alias = node.source;
-      aliasAt = node.range?.[0] ?? 0;
-      return visit.BREAK;
-    },
-  });
-  if (alias !== undefined) {
-    const pos = lineCounter.linePos(aliasAt);
-    return {
-      finding: {
-        kind: 'schema',
-        file,
-        path: `line ${pos.line}`,
-        message: `yaml-syntax: alias *${alias} is not allowed in record files (line ${pos.line}, column ${pos.col})`,
-        refs: [],
-      },
-    };
-  }
-  return { value: doc.toJS() };
-}
 
 /** Load every record file of one EPIC folder. */
 export function loadEpic(dir: string): LoadResult {
@@ -97,6 +57,7 @@ export function loadEpic(dir: string): LoadResult {
 
   for (const f of REQUIRED_FILES) read(f, true);
   read(RECORD_FILES.signoff, false);
+  read(RECORD_FILES.architecture, false);
 
   const scenarioNames: string[] = [];
   const sdir = join(abs, RECORD_FILES.scenariosDir);
@@ -117,6 +78,12 @@ export function loadEpic(dir: string): LoadResult {
   if (raw[RECORD_FILES.prd] !== undefined) record.prd = clone(raw[RECORD_FILES.prd]) as Prd;
   if (raw[RECORD_FILES.entities] !== undefined) record.entities = clone(raw[RECORD_FILES.entities]) as EntityModel;
   if (raw[RECORD_FILES.signoff] !== undefined) record.signoff = clone(raw[RECORD_FILES.signoff]) as SignOffLog;
+  if (raw[RECORD_FILES.architecture] !== undefined) {
+    // The change needs the as-is to check its ids. Only an EPIC with a change reads docs/system/.
+    record.architecture = clone(raw[RECORD_FILES.architecture]) as ArchitectureChange;
+    record.system = loadSystem(systemDirFor(abs)).system;
+    record.decisions = decisionIds(abs);
+  }
   if (raw[RECORD_FILES.flow] !== undefined) {
     const flow = clone(raw[RECORD_FILES.flow]) as Flow;
     if (isObject(flow) && isObject(flow.root)) addPaths(flow.root, '');

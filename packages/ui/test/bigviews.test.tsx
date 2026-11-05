@@ -37,10 +37,10 @@ async function expectOpened(path: string) {
 }
 
 describe('view switcher', () => {
-  it('T14 1: Feature map, User flow, Data flow, System flowchart; the feature map first', async () => {
+  it('T14 1: Feature map, User flow, Data flow, System flowchart, Architecture, Before / after; the feature map first', async () => {
     const { user } = await start();
     const nav = screen.getByRole('navigation', { name: 'Big picture views' });
-    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Feature map', 'User flow', 'Data flow', 'System flowchart']);
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Feature map', 'User flow', 'Data flow', 'System flowchart', 'Architecture', 'Before / after']);
     expect(screen.getByTestId('bpv-features')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('bpv-userflow')).toHaveAttribute('aria-pressed', 'false');
     await pick(user, 'userflow', 'user-flow', 'uf');

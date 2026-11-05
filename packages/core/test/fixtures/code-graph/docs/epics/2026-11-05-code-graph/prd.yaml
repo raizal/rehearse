@@ -1,0 +1,18 @@
+epic:
+  slug: 2026-11-05-code-graph
+  title: rehearse code graph
+  goal: Agents and the panel get the right code from one graph.
+roles:
+  - { id: agent, name: Agent, kind: agent }
+  - { id: rehearse, name: rehearse, kind: system }
+requirements:
+  - { id: R1, kind: functional, text: An agent asks for the code around a target in a token budget. }
+  - { id: R2, kind: performance, text: A query takes less than 100 ms; a one-file update less than 300 ms., provenBy: bench }
+stories:
+  - id: S1
+    role: agent
+    want: '`rehearse context <target> --budget <tokens>`'
+    soThat: I get the right code in a fixed token budget
+    requirements: [R1, R2]
+    acceptance:
+      - { id: S1-A1, given: a fresh graph, when: the agent asks for context, then: the bundle fits the budget }

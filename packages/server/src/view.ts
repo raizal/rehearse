@@ -3,8 +3,20 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadEpic, scenarioHash, validateRecord } from '@rehearse/core';
-import type { EntityModel, Flow, Hash, Prd, Report, Scenario, ScenarioStatus, SignOffLog } from '@rehearse/core';
+import { checkSystem, compareSystem, loadEpic, loadSystem, makeReport, scenarioHash, systemDirFor, validateRecord } from '@rehearse/core';
+import type {
+  ArchitectureChange,
+  EntityModel,
+  Flow,
+  Hash,
+  Prd,
+  Report,
+  Scenario,
+  ScenarioStatus,
+  SignOffLog,
+  SystemArchitecture,
+  SystemCompare,
+} from '@rehearse/core';
 import { parseCorrectionLog, parseDecisions, type Correction, type Decision } from './record-docs.js';
 
 /** One scenario with the status the UI shows. */
@@ -36,6 +48,23 @@ export interface EpicView {
   decisions?: Decision[];
   /** The entries of corrections.md; empty when the file is missing. */
   corrections?: Correction[];
+  /** The EPIC's change to the system (architecture.yaml), when it has one. */
+  architecture?: ArchitectureChange;
+  /** docs/system/: the system as built, when the repo has the folder. */
+  system?: SystemView;
+  /** As-is + change → to-be, when there is an as-is architecture or a change. */
+  compare?: SystemCompare;
+}
+
+/** docs/system/ as the UI reads it. */
+export interface SystemView {
+  /** Repo path of the folder, `docs/system`. */
+  dir: string;
+  architecture?: SystemArchitecture;
+  flow?: Flow;
+  entities?: EntityModel;
+  /** Findings of docs/system/ itself. */
+  report: Report;
 }
 
 /** Status of a scenario after the stale check. */
@@ -67,6 +96,17 @@ export function buildEpicView(dir: string): EpicView {
   if (record.entities) view.entities = record.entities;
   if (record.flow) view.flow = record.flow;
   if (record.signoff) view.signoff = record.signoff;
+  if (record.architecture) view.architecture = record.architecture;
+  // The views read docs/system/ even when the EPIC has no change (page 8 draws the as-is).
+  const loadedSystem = loadSystem(systemDirFor(dir));
+  const system = loadedSystem.system;
+  if (system.exists) {
+    view.system = { dir: 'docs/system', report: makeReport('validate', [...loadedSystem.findings, ...checkSystem(system)]) };
+    if (system.architecture) view.system.architecture = system.architecture;
+    if (system.flow) view.system.flow = system.flow;
+    if (system.entities) view.system.entities = system.entities;
+  }
+  if (system.architecture || record.architecture) view.compare = compareSystem(system, record);
   return view;
 }
 

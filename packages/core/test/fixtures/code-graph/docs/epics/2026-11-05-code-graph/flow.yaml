@@ -1,0 +1,61 @@
+version: 1
+epic: 2026-11-05-code-graph
+lanes:
+  - { role: agent, order: 1 }
+  - { role: rehearse, order: 2 }
+root:
+  boxes:
+    - { id: start, kind: start, lane: agent, title: Start }
+    - id: ask-context
+      kind: input
+      lane: agent
+      title: ask for context
+      stories: [S1]
+      inputs: { target: string, budget: number }
+      outputs: { target: string, budget: number }
+    - id: check-freshness
+      kind: process
+      lane: rehearse
+      title: check freshness
+      stories: [S1]
+      inputs: { target: string }
+      outputs: { target: string }
+      writes: [GraphNode.*]
+    - id: rank-nodes
+      kind: process
+      lane: rehearse
+      title: rank nodes
+      stories: [S1]
+      inputs: { target: string }
+      outputs: { ranked: list }
+      reads: [GraphNode.*, Edge.*]
+    - id: fill-budget
+      kind: process
+      lane: rehearse
+      title: fill budget
+      stories: [S1]
+      inputs: { ranked: list, budget: number }
+      outputs: { contextBundle: string }
+    - id: draft-record
+      kind: process
+      lane: agent
+      title: draft-record
+      stories: [S1]
+      inputs: { epicDir: string, findings: list, contextBundle: string }
+      outputs: { epicDir: string }
+    - id: validate
+      kind: process
+      lane: rehearse
+      title: validate
+      stories: [S1]
+      inputs: { epicDir: string }
+      outputs: { findings: list }
+    - { id: done, kind: end, lane: rehearse, title: Done }
+  edges:
+    - { from: start, to: ask-context }
+    - { from: ask-context, to: check-freshness, label: 'target, budget' }
+    - { from: check-freshness, to: rank-nodes }
+    - { from: rank-nodes, to: fill-budget }
+    - { from: fill-budget, to: draft-record, label: contextBundle }
+    - { from: draft-record, to: validate, label: epicDir }
+    - { from: validate, to: done }

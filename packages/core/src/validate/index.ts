@@ -1,5 +1,6 @@
 // Box `validate`: parse → schema → refs → report. No network, no LLM (R18).
 
+import { checkArchitectureChange } from '../architecture/validate.js';
 import { loadEpic } from '../loader.js';
 import type { LoadResult, Report } from '../types.js';
 import { checkRefs } from './refs.js';
@@ -17,6 +18,7 @@ export function validateRecord(loaded: LoadResult): Report {
     ...checkRefs(record),
     ...checkStructure(record),
     ...checkSteps(record),
+    ...checkArchitectureChange(record),
   ]);
 }
 

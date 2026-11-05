@@ -9,6 +9,8 @@ declare module 'vitest' {
   export interface ProvidedContext {
     reviewEpic: ReviewEpicView;
     realEpic: ReviewEpicView;
+    codeGraphEpic: ReviewEpicView;
+    codeGraphNoPrd: ReviewEpicView;
   }
 }
 
@@ -22,6 +24,16 @@ export function reviewEpic(): ReviewEpicView {
 /** The real EPIC (docs/epics/2026-11-05-rehearse) as the server sends it. */
 export function realEpic(): ReviewEpicView {
   return structuredClone(inject('realEpic'));
+}
+
+/** T16: the code-graph fixture EPIC, which changes docs/system/ (design pages 11 and 12). */
+export function codeGraphEpic(): ReviewEpicView {
+  return structuredClone(inject('codeGraphEpic'));
+}
+
+/** The same EPIC before prd.yaml: only brainstorm.md decisions, no stories. */
+export function codeGraphNoPrd(): ReviewEpicView {
+  return structuredClone(inject('codeGraphNoPrd'));
 }
 
 /**
