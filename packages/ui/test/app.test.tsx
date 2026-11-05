@@ -56,7 +56,7 @@ describe('review panel: swimlanes and drill-down (S4)', () => {
     expect(screen.getByTestId('app')).toHaveClass('app');
     expect(screen.getByTestId('epic-title')).toHaveTextContent('Shop checkout');
     expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-    for (const tab of ['storyboard', 'matrix', 'readiness', 'signoff']) expect(screen.getByTestId(`nav-${tab}`)).toBeEnabled();
+    for (const tab of ['bigpicture', 'stories', 'usecases', 'readiness', 'signoff']) expect(screen.getByTestId(`nav-${tab}`)).toBeEnabled();
     expect(screen.getByTestId('report-status')).toHaveTextContent('validate: OK');
   });
 

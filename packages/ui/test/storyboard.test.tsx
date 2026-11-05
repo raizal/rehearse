@@ -1,4 +1,4 @@
-// The storyboard: the default view for approval (S6-A1). One card per scenario (story,
+// The storyboard under Stories (S6-A1). One card per scenario (story,
 // criterion, path map, step panels, end state, Approve), the review queue grouped by story,
 // and the "seen every step" gate on Approve. Seen state is browser-only and never sent.
 
@@ -22,6 +22,9 @@ async function start(routes: Partial<MockRoutes> = {}, view: ReviewEpicView = re
   const server = mockServer({ epic: () => view, ...routes });
   const user = userEvent.setup();
   render(<App />);
+  // The review opens on the big picture (D42); the storyboard cards are under Stories.
+  await screen.findByTestId('big-picture');
+  await user.click(screen.getByTestId('nav-stories'));
   await screen.findByTestId('story-card');
   await screen.findByTestId('approve-signer-key');
   return { server, user, view };
@@ -38,10 +41,10 @@ async function stepThrough(user: ReturnType<typeof userEvent.setup>) {
   for (let i = 0; i < total; i++) await user.click(screen.getByTestId('card-next-step'));
 }
 
-describe('storyboard is the default view (S6-A1)', () => {
-  it('S6-A1: opens on the storyboard, with progress and the queue grouped by story', async () => {
+describe('storyboard under Stories (S6-A1)', () => {
+  it('S6-A1: Stories opens on the storyboard, with progress and the queue grouped by story', async () => {
     await start();
-    expect(screen.getByTestId('nav-storyboard')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('nav-stories')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('queue-progress')).toHaveTextContent('1 / 3 approved with a valid signature');
     const s1 = screen.getByTestId('queue-group-S1');
     expect(within(s1).getAllByTestId(/^queue-item-/).map((el) => el.dataset.testid)).toEqual(['queue-item-S1-buy', 'queue-item-S1-empty']);

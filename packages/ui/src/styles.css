@@ -261,3 +261,76 @@ td.no-access { background: #fafbfc; }
   .storyboard { grid-template-columns: 1fr; overflow: auto; }
   .step-example { grid-template-columns: 1fr; }
 }
+
+/* Review from big to small (D42). Every SVG button shows a focus ring for the keyboard. */
+[role='button']:focus { outline: none; }
+[role='button']:focus-visible rect, [role='button']:focus-visible ellipse { stroke: var(--accent); stroke-width: 3; }
+
+/* Big picture (S4-A4). */
+.big-picture { max-width: none; }
+.bp-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: 16px; align-items: start; }
+.bp-map-wrap, .how-wrap, .ucd-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.bp-map, .how-map, .ucd { display: block; max-width: none; }
+.bp-row { fill: var(--lane-a); stroke: var(--line); }
+.bp-role-icon { font-size: 18px; }
+.bp-role-label { font-size: 14px; font-weight: 700; fill: var(--ink); }
+.bp-role-kind { font-size: 12px; fill: var(--muted); }
+.bp-process, .how-box, .ucd-usecase { cursor: pointer; }
+.bp-process rect { fill: #fff; stroke: #c9ced8; stroke-width: 1.5; }
+.bp-process.is-shared rect { stroke: var(--ink); stroke-width: 2; }
+.bp-process:hover rect, .how-box:hover rect, .ucd-usecase:hover ellipse { stroke: var(--accent); }
+.bp-process-title { font-size: 12px; font-weight: 600; fill: var(--ink); }
+.bp-shared { font-size: 11px; font-weight: 700; fill: var(--ink); }
+.bp-line { fill: none; stroke-width: 3; stroke-linecap: round; opacity: 0.9; }
+.bp-line-label { font-size: 10px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.bp-marks circle { stroke: #fff; stroke-width: 1.5; }
+.bp-legend h3 { margin: 0 0 8px; font-size: 14px; }
+.bp-legend ul { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.bp-story { width: 100%; text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 6px 8px; display: grid; grid-template-columns: 36px auto 1fr; column-gap: 6px; align-items: center; }
+.bp-story:hover, .bp-story:focus-visible { border-color: var(--accent); }
+.bp-story .small { grid-column: 2 / -1; }
+.bp-want { font-size: 12px; }
+.bp-chip { display: inline-block; border: 2px solid var(--line); border-radius: 999px; padding: 0 6px; margin-right: 4px; font-size: 11px; font-weight: 700; }
+
+/* Story view (S4-A5). */
+.queue-story { border: 0; background: none; padding: 0; text-align: left; font-weight: 700; display: flex; flex-direction: column; color: var(--ink); }
+.queue-story:hover, .queue-story.is-active { color: var(--accent); }
+.queue-want { font-weight: 400; font-size: 12px; color: var(--muted); }
+.story-view { max-width: 1100px; margin: 0 auto 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; }
+.story-view h2 { margin: 0 0 10px; font-size: 18px; }
+.story-panels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.story-panel h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.story-panel h4 { margin: 10px 0 4px; font-size: 13px; }
+.story-how { grid-column: 1 / -1; }
+.checklist, .output-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.checklist li { display: flex; gap: 8px; align-items: flex-start; }
+.check { font-size: 18px; line-height: 1; }
+.checklist .is-checked .check { color: var(--approved); }
+.how-box rect { fill: #fff; stroke: #c9ced8; stroke-width: 1.5; }
+.how-box.is-nested rect { stroke-dasharray: 4 3; }
+.how-parent { font-size: 11px; fill: var(--muted); }
+.how-edge path { fill: none; stroke: #8a93a6; stroke-width: 1.5; }
+.how-edge.is-error path { stroke: var(--error); }
+.how-edge.is-branch path { stroke: var(--branch); }
+.how-edge.is-via path { stroke-dasharray: 5 4; }
+.change { font-weight: 600; }
+.story-scenarios { max-width: 1100px; margin: 0 auto; }
+.story-scenarios h3 { margin: 0 0 8px; }
+.story-scenario-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* Use cases (S7-A1). */
+.view-toggle { display: flex; gap: 4px; min-height: 0; padding-bottom: 0; }
+.view-toggle [aria-pressed='true'] { border-color: var(--accent); background: #e9f0fc; color: var(--accent); font-weight: 600; }
+.ucd-boundary { fill: #fbfcfe; stroke: var(--ink); stroke-width: 1.5; }
+.ucd-system { font-size: 14px; font-weight: 700; fill: var(--ink); }
+.ucd-group { fill: none; stroke-width: 2; stroke-dasharray: 6 4; }
+.ucd-group-label { font-size: 12px; font-weight: 700; fill: var(--ink); }
+.ucd-link { stroke: #8a93a6; stroke-width: 1.5; }
+.ucd-usecase ellipse { fill: #fff; stroke: var(--ink); stroke-width: 1.5; }
+.ucd-usecase-title { font-size: 12px; font-weight: 600; fill: var(--ink); }
+.ucd-tag { font-size: 11px; font-family: ui-monospace, Menlo, monospace; fill: var(--ink); }
+.ucd-also { font-size: 11px; fill: var(--muted); }
+.ucd-actor-icon { font-size: 18px; }
+.ucd-actor-label { font-size: 12px; font-weight: 700; fill: var(--ink); }
+.ucd-actor-kind, .ucd-readonly { font-size: 11px; fill: var(--muted); }
+.ucd-readonly { font-weight: 700; }

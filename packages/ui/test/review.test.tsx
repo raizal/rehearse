@@ -150,11 +150,17 @@ describe('approve (S6-A1)', () => {
   });
 });
 
+/** The permission matrix is the "Table" of the use case view (D42). */
+async function openMatrix(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByTestId('nav-usecases'));
+  await user.click(screen.getByTestId('usecase-show-table'));
+}
+
 describe('permission matrix (S7-A1)', () => {
   it('S7-A1: the cell builder × Order × write is marked, with a link to box cart that opens it in the flow view', async () => {
     const { user } = await start();
-    await user.click(screen.getByTestId('nav-matrix'));
-    expect(screen.getByTestId('nav-matrix')).toHaveAttribute('aria-current', 'page');
+    await openMatrix(user);
+    expect(screen.getByTestId('nav-usecases')).toHaveAttribute('aria-current', 'page');
     const cell = screen.getByTestId('matrix-cell-builder-Order');
     expect(within(cell).getByTestId('matrix-action-builder-Order-write')).toHaveTextContent('write');
     expect(within(cell).getByTestId('matrix-action-builder-Order-transition')).toBeInTheDocument();
@@ -174,7 +180,7 @@ describe('permission matrix (S7-A1)', () => {
     const view = reviewEpic();
     view.simulation!.permissionBoxes.system!.Order!.write = ['pay', 'ship/send'];
     const { user } = await start({}, view);
-    await user.click(screen.getByTestId('nav-matrix'));
+    await openMatrix(user);
     await user.click(screen.getByTestId('matrix-box-system-Order-write-ship/send'));
     expect(await screen.findByTestId('box-ship/send')).toBeInTheDocument();
     expect(screen.getByTestId('breadcrumb-ship')).toBeInTheDocument();
@@ -186,7 +192,7 @@ describe('permission matrix (S7-A1)', () => {
     view.simulation!.permissionMatrix.system!.Parcel = ['read'];
     view.simulation!.permissionBoxes.system!.Parcel = { read: ['ship/pack'] };
     const { user } = await start({}, view);
-    await user.click(screen.getByTestId('nav-matrix'));
+    await openMatrix(user);
     expect(screen.getByTestId('matrix-cell-builder-Parcel')).toHaveTextContent('no access');
   });
 });
@@ -396,7 +402,7 @@ describe('accessibility', () => {
     expect(screen.getByTestId('approve-selected')).toHaveAccessibleName('Approve the selected scenarios (none selected)');
     await user.click(screen.getByTestId('nav-signoff'));
     expect(screen.getByTestId('signoff-story-S1')).toHaveAccessibleName(/S1/);
-    expect(screen.getByRole('button', { name: 'Sign off' })).toBe(screen.getByTestId('signoff-button'));
+    expect(within(screen.getByTestId('signoff-view')).getByRole('button', { name: 'Sign off' })).toBe(screen.getByTestId('signoff-button'));
     await user.click(screen.getByTestId('nav-readiness'));
     for (const el of screen.getAllByText(/^(proven|no proof)$/)) expect(el.textContent).toMatch(/proven|no proof/);
   });
@@ -416,7 +422,7 @@ describe('accessibility', () => {
   it('arrow keys do not step playback while another view is open', async () => {
     const { user } = await start();
     await user.click(screen.getByTestId('scenario-S1-buy'));
-    await user.click(screen.getByTestId('nav-matrix'));
+    await openMatrix(user);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     await user.click(screen.getByTestId('nav-flow'));
     expect(await screen.findByTestId('playback-step')).toHaveTextContent('Step 1 of 4');

@@ -8,6 +8,7 @@ import type { Diagram, Flow, Prd } from '@rehearse/core';
 import { lanesFor } from '../model/diagram.js';
 import { BOX_H, BOX_W, layoutDiagram, type SwimlaneLayout } from '../model/layout.js';
 import type { MapDiagram } from '../model/storyboard.js';
+import { wrapLines } from '../model/text.js';
 
 const SCALE = 0.62;
 const layouts = new WeakMap<Diagram, Promise<SwimlaneLayout>>();
@@ -20,21 +21,6 @@ function cachedLayout(flow: Flow | undefined, prd: Prd | undefined, map: MapDiag
     layouts.set(map.diagram, p);
   }
   return p;
-}
-
-/** Up to two lines of about `width` characters. */
-function lines(text: string, width: number): string[] {
-  const out: string[] = [];
-  let line = '';
-  for (const word of text.split(/\s+/)) {
-    if (line && (line + ' ' + word).length > width) {
-      out.push(line);
-      line = word;
-    } else line = line ? `${line} ${word}` : word;
-  }
-  if (line) out.push(line);
-  if (out.length > 2) return [out[0]!, `${out[1]!.slice(0, width - 1)}…`];
-  return out;
 }
 
 export function PathMap({ flow, prd, maps, testId }: { flow: Flow | undefined; prd: Prd | undefined; maps: MapDiagram[]; testId: string }) {
@@ -137,7 +123,7 @@ function MapSvg({ map, layout, marker, label, testId }: { map: MapDiagram; layou
           <g key={b.id} className={b.onPath ? 'map-box on-path' : 'map-box'} data-testid={`${testId}-box-${b.id}`} data-on-path={b.onPath ? 'true' : 'false'}>
             <title>{`${b.box.title} (${b.path})${b.onPath ? `, step ${b.steps.join(', ')}` : ', not on the path'}`}</title>
             <rect x={p.x} y={p.y} width={BOX_W} height={BOX_H} rx={8} style={b.onPath ? { stroke: p.color, fill: `${p.color}1f` } : undefined} />
-            {lines(b.box.title, 26).map((t, i) => (
+            {wrapLines(b.box.title, 26).map((t, i) => (
               <text key={i} x={p.x + 10} y={p.y + 30 + i * 18} className="map-box-title">
                 {t}
               </text>

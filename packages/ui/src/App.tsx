@@ -1,6 +1,8 @@
 // The rehearse review shell. One UI for the bb panel and a full-screen browser tab (R12, D31).
-// Storyboard (the default view for approval), flow view (swimlanes, drill-down, playback,
-// approve), permission matrix, readiness and sign-off. Approve and sign-off are UI buttons only, signed by the serve process (R13, R14, D41).
+// Review from big to small (D42): the big picture (the default view: roles, main processes and
+// one line per story), stories (the queue, the story view and its storyboard cards), use cases
+// (who may change what; the permission matrix behind a toggle), readiness, sign-off, and the
+// flow view (swimlanes, drill-down, playback, approve). Approve and sign-off are UI buttons only, signed by the serve process (R13, R14, D41).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -9,14 +11,15 @@ import { fetchEpic, fetchSession, postApprove, postSignOff } from './api.js';
 import type { ScenarioView } from './api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
 import { ApproveBar } from './components/Approve.js';
+import { BigPicture } from './components/BigPicture.js';
 import { BoxContract } from './components/DetailPane.js';
 import { FlowView } from './components/FlowView.js';
-import { MatrixView } from './components/MatrixView.js';
 import { Playback, StepDetail, type ApproveControls } from './components/Playback.js';
 import { ReadinessView } from './components/ReadinessView.js';
 import { signingBlocked, type SessionState } from './components/Review.js';
 import { SignOffView } from './components/SignOffView.js';
 import { Storyboard } from './components/Storyboard.js';
+import { UseCaseView } from './components/UseCaseView.js';
 import { boxAt, diagramAt, parentPath } from './model/diagram.js';
 import { stepCount, stepView } from './model/playback.js';
 import { approveReason } from './model/review.js';
@@ -24,11 +27,12 @@ import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState }
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
 
 const TABS = [
-  { id: 'storyboard', label: 'Storyboard' },
-  { id: 'flow', label: 'Flow' },
-  { id: 'matrix', label: 'Permission matrix' },
+  { id: 'bigpicture', label: 'Big picture' },
+  { id: 'stories', label: 'Stories' },
+  { id: 'usecases', label: 'Use cases' },
   { id: 'readiness', label: 'Readiness' },
-  { id: 'signoff', label: 'Sign-off' },
+  { id: 'signoff', label: 'Sign off' },
+  { id: 'flow', label: 'Flow' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -45,7 +49,7 @@ const HTTP_API: ReviewApi = { session: fetchSession, approve: postApprove, signO
 
 export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise<ReviewEpicView>; api?: ReviewApi }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
-  const [tab, setTab] = useState<Tab>('storyboard');
+  const [tab, setTab] = useState<Tab>('bigpicture');
   const [session, setSession] = useState<SessionState>({ kind: 'loading' });
   const [picked, setPicked] = useState<ReadonlySet<Id>>(new Set());
   const [busy, setBusy] = useState<'approve' | 'signoff' | undefined>();
@@ -56,6 +60,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const [scenarioId, setScenarioId] = useState<string | undefined>();
   const [step, setStep] = useState(0);
   const [cardId, setCardId] = useState<Id | undefined>();
+  const [storyId, setStoryId] = useState<Id | undefined>();
   // Steps seen per scenario: browser only (sessionStorage), not evidence, never sent (S6-A1).
   const [seen, setSeen] = useState<{ slug: string | undefined; state: SeenState }>({ slug: undefined, state: {} });
 
@@ -94,6 +99,22 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   // The storyboard opens on the first scenario with no valid signed approval.
   const queue = useMemo(() => (view ? reviewQueue(view.prd, view.scenarios).flatMap((g) => g.scenarios) : []), [view]);
   const card = queue.find((sv) => sv.scenario.id === cardId) ?? queue.find((sv) => sv.scenario.id === nextToApprove(queue, undefined, view?.approvals)) ?? queue[0];
+  // A picked story opens on its first scenario to approve, else its first scenario.
+  const pickStory = useCallback(
+    (id: Id) => {
+      const own = queue.filter((sv) => sv.scenario.story === id);
+      setStoryId(id);
+      setCardId(own.find((sv) => sv.scenario.id === nextToApprove(own, undefined, view?.approvals))?.scenario.id ?? own[0]?.scenario.id);
+    },
+    [queue, view],
+  );
+  const pickCard = useCallback(
+    (id: Id) => {
+      setCardId(id);
+      setStoryId(queue.find((sv) => sv.scenario.id === id)?.scenario.story);
+    },
+    [queue],
+  );
   const active = view?.scenarios.find((s) => s.scenario.id === scenarioId);
   const current = useMemo(() => (active ? stepView(flow, active.scenario, step) : undefined), [active, flow, step]);
 
@@ -133,7 +154,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     return () => window.removeEventListener('keydown', onKey);
   }, [active, goToStep, step, tab]);
 
-  // A box link in the matrix or readiness view opens the box in the flow view.
+  // A box link in the big picture, story, use case or readiness view opens the box in the flow view.
   const openBox = useCallback(
     (path: string) => {
       const parent = parentPath(path);
@@ -241,12 +262,27 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           Could not load the EPIC record: {state.message}
         </div>
       )}
-      {view && approveControls && tab === 'storyboard' && (
+      {view && tab === 'bigpicture' && (
+        <main className="page-wrap">
+          <BigPicture
+            view={view}
+            onOpenStory={(id) => {
+              pickStory(id);
+              setTab('stories');
+            }}
+            onOpenBox={openBox}
+          />
+        </main>
+      )}
+      {view && approveControls && tab === 'stories' && (
         <Storyboard
           view={view}
           session={session}
-          scenarioId={card?.scenario.id}
-          onPick={setCardId}
+          scenarioId={storyId === undefined || card?.scenario.story === storyId ? card?.scenario.id : undefined}
+          storyId={storyId ?? card?.scenario.story}
+          onPick={pickCard}
+          onPickStory={pickStory}
+          onOpenBox={openBox}
           seen={seenState}
           onSeen={markStep}
           approve={approveControls}
@@ -256,9 +292,9 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           onOpenFlow={openInFlow}
         />
       )}
-      {view && tab === 'matrix' && (
+      {view && tab === 'usecases' && (
         <main className="page-wrap">
-          <MatrixView simulation={view.simulation} flow={flow} prd={view.prd} entities={view.entities} onOpenBox={openBox} />
+          <UseCaseView simulation={view.simulation} flow={flow} prd={view.prd} entities={view.entities} onOpenBox={openBox} />
         </main>
       )}
       {view && tab === 'readiness' && (
