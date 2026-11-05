@@ -1,0 +1,58 @@
+# Sample GitHub Actions workflow: box `ci-run` (story S10, R19).
+# Copy it to .github/workflows/rehearse.yml. It runs headless, without bb:
+# the exit code decides (0 OK → PR may merge, 1 findings, 2 usage, 3 internal error),
+# and each report is kept as a JSON artifact.
+# This repository has no remote, so the workflow is an example only.
+
+name: rehearse
+
+on:
+  pull_request:
+    paths: ['docs/epics/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the diff below needs the base branch
+
+      - uses: pnpm/action-setup@v4 # reads packageManager from package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+
+      - name: rehearse validate each changed EPIC
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p rehearse-reports
+          slugs=$(git diff --name-only "$BASE"...HEAD -- docs/epics/ | cut -d/ -f3 | sort -u)
+          status=0
+          for slug in $slugs; do
+            # A deleted EPIC has no folder to check.
+            [ -d "docs/epics/$slug" ] || continue
+            echo "::group::rehearse validate $slug"
+            code=0
+            node packages/cli/bin/rehearse.js validate "$slug" --json > "rehearse-reports/$slug.validate.json" || code=$?
+            node packages/cli/bin/rehearse.js validate "$slug"
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              echo "::error::rehearse validate $slug exited $code"
+              status=1
+            fi
+          done
+          exit $status
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rehearse-reports
+          path: rehearse-reports/
+          if-no-files-found: ignore
