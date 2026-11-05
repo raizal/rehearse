@@ -23,7 +23,9 @@ export const USAGE = `Usage: rehearse <command> [options]
 
 Commands:
   validate <epic-dir-or-slug> [--json]   Check the record files of one EPIC (schema, references, flow structure).
-  simulate <epic-dir-or-slug> [--json]   Simulate the scenarios: contracts, coverage, lifecycles, acceptance, permission matrix.
+  simulate <epic-dir-or-slug> [--drafts] [--json]
+                                         Simulate the scenarios: contracts, coverage, lifecycles, acceptance, permission matrix.
+                                         --drafts counts draft and stale scenarios too: findings only, never evidence.
   gate check <epic-dir-or-slug> [--json] Check the gate: traced, sim-clean, no-stale. Never signs off.
   new <slug> --title "<title>"           Create docs/epics/<slug>/ (slug YYYY-MM-DD-<kebab>) at the git top-level.
   serve [epic-dir-or-slug] [--port N] [--birdview-port N]

@@ -13,6 +13,7 @@ import { enumValues } from '../validate/refs.js';
 import { RECORD_FILES, type Box, type EntityDef, type EntityModel, type Finding, type Lifecycle } from '../types.js';
 import { asArray, cmp, isObject } from '../util.js';
 import { parseAccess, type Access } from './access.js';
+import { named } from './load.js';
 import type { LoadedScenario } from './types.js';
 import { walkScenario } from './walk.js';
 
@@ -65,7 +66,9 @@ export function checkLifecycles(
   }
 
   // Along each scenario.
-  for (const { file, scenario } of scenarios) {
+  for (const loaded of scenarios) {
+    const { file, scenario } = loaded;
+    const name = named(loaded);
     const state: Record<string, unknown> = {};
     for (const step of walkScenario(index, scenario)) {
       setState(state, step.example?.given);
@@ -79,14 +82,14 @@ export function checkLifecycles(
             const match = cur === undefined ? undefined : (writes.find((w) => w.from === cur) ?? writes.find((w) => w.from === ''));
             if (cur !== undefined && !match) {
               const w = writes[0]!;
-              out.push(stepFinding(file, step.at, scenario.story, `${scenario.id}: box ${boxPath} writes ${writes.map(show).join(', ')}, but ${key} is ${cur} here, so the step changes ${key} ${arrow(cur, w.to!)}${m && !permitted(m.lifecycle, cur, w.to!) ? `, which the ${m.entity} lifecycle does not permit${permittedHint(m.lifecycle, cur)}` : ''}`));
+              out.push(stepFinding(file, step.at, scenario.story, `${name}: box ${boxPath} writes ${writes.map(show).join(', ')}, but ${key} is ${cur} here, so the step changes ${key} ${arrow(cur, w.to!)}${m && !permitted(m.lifecycle, cur, w.to!) ? `, which the ${m.entity} lifecycle does not permit${permittedHint(m.lifecycle, cur)}` : ''}`));
               state[key] = w.to;
               continue;
             }
             // The matching transition, or each declared one when the state is not known yet.
             for (const w of match ? [match] : writes) {
               if (m && !permitted(m.lifecycle, w.from!, w.to!)) {
-                out.push(stepFinding(file, step.at, scenario.story, `${scenario.id}: box ${boxPath} changes ${key} ${arrow(w.from!, w.to!)}, which the ${m.entity} lifecycle does not permit${permittedHint(m.lifecycle, w.from!)}`));
+                out.push(stepFinding(file, step.at, scenario.story, `${name}: box ${boxPath} changes ${key} ${arrow(w.from!, w.to!)}, which the ${m.entity} lifecycle does not permit${permittedHint(m.lifecycle, w.from!)}`));
               }
             }
             const tos = new Set((match ? [match] : writes).map((w) => w.to));
