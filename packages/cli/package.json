@@ -1,0 +1,18 @@
+{
+  "name": "@rehearse/cli",
+  "version": "0.1.0",
+  "description": "The rehearse binary. A thin wrapper over @rehearse/core.",
+  "type": "module",
+  "bin": { "rehearse": "./bin/rehearse.js" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["bin", "dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@rehearse/core": "workspace:*"
+  }
+}
