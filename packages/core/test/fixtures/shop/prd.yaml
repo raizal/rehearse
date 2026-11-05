@@ -1,0 +1,25 @@
+epic:
+  slug: 2026-11-05-shop
+  title: Shop checkout
+  goal: A buyer can pay for an order, and the shop ships it.
+roles:
+  - { id: buyer, name: Buyer, kind: human }
+  - { id: shop,  name: Shop,  kind: system }
+requirements:
+  - { id: R1, kind: functional, text: The buyer pays for an order. }
+  - { id: R2, kind: functional, text: The shop ships a paid order. }
+stories:
+  - id: S1
+    role: buyer
+    want: to pay for my cart
+    soThat: I get my items
+    requirements: [R1]
+    acceptance:
+      - { id: S1-A1, given: a cart with items, when: the buyer pays, then: the order is shipped }
+  - id: S2
+    role: shop
+    want: to ship paid orders
+    soThat: buyers get their items
+    requirements: [R2]
+    acceptance:
+      - { id: S2-A1, given: a paid order, when: the item is in stock, then: the order is shipped }

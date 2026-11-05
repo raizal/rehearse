@@ -1,0 +1,22 @@
+story: S1
+scenarios:
+  - id: S1-buy
+    title: Buyer pays and the order ships
+    status: draft
+    steps:
+      - { name: start }
+      - name: cart
+        example: { id: cart-ok, given: { items: [a] }, then: { orderId: o1 } }
+      - { name: pay }
+      - { name: in-stock, branch: "yes" }
+      - { name: ship/pack }
+      - { name: ship/send }
+      - { name: done }
+    expect: { criterion: S1-A1, state: { Order.status: shipped } }
+  - id: S1-empty
+    title: Buyer checks out an empty cart
+    status: draft
+    steps:
+      - { name: start }
+      - { name: cart, branch: empty-cart }
+      - { name: failed }

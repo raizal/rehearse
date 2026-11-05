@@ -1,0 +1,51 @@
+version: 1
+epic: 2026-11-05-shop
+lanes:
+  - { role: buyer, order: 1 }
+  - { role: shop,  order: 2 }
+root:
+  boxes:
+    - { id: start, kind: start, lane: buyer, title: Buyer opens the cart }
+    - id: cart
+      kind: input
+      lane: buyer
+      title: Check out the cart
+      stories: [S1]
+      inputs: { items: list string }
+      outputs: { orderId: string }
+      writes: [Order.id, "Order.status:->draft"]
+      errorExits: [empty-cart]
+    - id: pay
+      kind: process
+      lane: shop
+      title: Charge the buyer
+      stories: [S1]
+      inputs: { orderId: string }
+      outputs: { orderId: string }
+      reads: [Order.status]
+      writes: ["Order.status:draft->paid"]
+    - { id: in-stock, kind: decision, lane: shop, title: Item in stock?, inputs: { orderId: string } }
+    - id: ship
+      kind: process
+      lane: shop
+      title: Ship the order
+      stories: [S2]
+      inputs: { orderId: string }
+      outputs: { trackingId: string }
+      writes: ["Order.status:paid->shipped"]
+      children:
+        boxes:
+          - { id: pack, kind: process, lane: shop, title: Pack, inputs: { orderId: string }, outputs: { parcel: string } }
+          - { id: send, kind: output,  lane: shop, title: Send, inputs: { parcel: string }, outputs: { trackingId: string } }
+        edges:
+          - { from: pack, to: send }
+    - { id: done,   kind: end, lane: shop,  title: Order shipped }
+    - { id: failed, kind: end, lane: buyer, title: No order }
+  edges:
+    - { from: start,    to: cart }
+    - { from: cart,     to: pay }
+    - { from: cart,     to: failed, label: empty-cart, kind: error }
+    - { from: pay,      to: in-stock }
+    - { from: in-stock, to: ship,   label: "yes", kind: branch }
+    - { from: in-stock, to: failed, label: "no",  kind: branch }
+    - { from: ship,     to: done }

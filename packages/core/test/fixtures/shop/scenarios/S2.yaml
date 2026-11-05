@@ -1,0 +1,10 @@
+story: S2
+scenarios:
+  - id: S2-out-of-stock
+    title: Item is not in stock
+    status: draft
+    steps:
+      - { name: pay }
+      - { name: in-stock, branch: "no" }
+      - { name: failed }
+    expect: { criterion: S2-A1, state: { Order.status: paid } }

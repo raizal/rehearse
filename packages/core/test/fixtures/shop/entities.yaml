@@ -1,0 +1,11 @@
+entities:
+  - id: Order
+    fields:
+      id: string
+      status: enum[draft, paid, shipped]
+    lifecycle:
+      field: status
+      initial: draft
+      transitions:
+        - { from: draft, to: paid,    by: buyer }
+        - { from: paid,  to: shipped, by: shop }
