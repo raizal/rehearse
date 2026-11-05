@@ -18,7 +18,7 @@ entities:
       initial: draft
       transitions:
         - { from: draft,        to: signed,       by: builder, when: all gate checks pass and every story is signed }
-        - { from: signed,       to: partly-stale, by: system,  when: signed content of one or more stories changes }
+        - { from: signed,       to: partly-stale, by: rehearse,  when: signed content of one or more stories changes }
         - { from: partly-stale, to: signed,       by: builder, when: every stale story is signed again }
     # `frozen` (at finalize) comes after v1, with the finalize command.
 
@@ -52,7 +52,7 @@ entities:
       initial: draft
       transitions:
         - { from: draft,  to: signed, by: builder, when: gate sign-off }
-        - { from: signed, to: stale,  by: system,  when: the hash of the story or its linked items changes (D23) }
+        - { from: signed, to: stale,  by: rehearse,  when: the hash of the story or its linked items changes (D23) }
         - { from: stale,  to: signed, by: builder, when: gate sign-off for this story }
 
   - id: AcceptanceCriterion
@@ -121,7 +121,7 @@ entities:
       initial: draft
       transitions:
         - { from: draft,    to: approved, by: builder, when: UI approve button (R13) }
-        - { from: approved, to: stale,    by: system,  when: content hash differs from approval hash }
+        - { from: approved, to: stale,    by: rehearse,  when: content hash differs from approval hash }
         - { from: stale,    to: approved, by: builder, when: UI approve button }
 
   - id: ScenarioStep
@@ -149,7 +149,7 @@ entities:
   - id: Finding
     about: One line of a simulation or validation report.
     fields:
-      kind: enum[schema, reference, contract, coverage, lifecycle, acceptance]
+      kind: enum[schema, reference, structure, contract, coverage, lifecycle, acceptance]
       file: string
       path: string            # box path, scenario id or YAML path
       message: string

@@ -97,7 +97,7 @@ root:
               inputs: { scenarios: list Scenario }, outputs: { findings: list Finding }, reads: [AcceptanceCriterion.expectedState] }
           - { id: permissions, kind: process, lane: rehearse, title: Build permission matrix,
               inputs: { epicDir: string }, outputs: { matrix: map }, reads: [Lane.role, Box.reads, Box.writes] }
-          - { id: report,      kind: output,  lane: rehearse, title: Write sorted, deterministic report,
+          - { id: report,      kind: output,  lane: rehearse, title: "Write sorted, deterministic report",
               inputs: { findings: list Finding, matrix: map }, outputs: { report: Report } }
         edges:
           - { from: load,        to: contracts }
@@ -133,10 +133,14 @@ root:
       reads:   [Box.*, Scenario.*, Report.permissionMatrix, Correction.tag]
       children:
         boxes:
-          - { id: swimlanes,   kind: output, lane: builder, title: Swimlanes and drill-down }
-          - { id: playback,    kind: output, lane: builder, title: Play a scenario step by step }
-          - { id: matrix,      kind: output, lane: builder, title: Permission matrix }
-          - { id: readiness,   kind: output, lane: builder, title: Readiness chain and correction counts }
+          - { id: swimlanes,   kind: output, lane: builder, title: Swimlanes and drill-down,
+              inputs: { epicDir: string }, outputs: { view: "enum[root, nested]" }, reads: [Box.*, Lane.*] }
+          - { id: playback,    kind: output, lane: builder, title: Play a scenario step by step,
+              inputs: { scenarioId: string, step: number }, outputs: { highlighted: string }, reads: [Scenario.*, Example.*] }
+          - { id: matrix,      kind: output, lane: builder, title: Permission matrix,
+              inputs: { report: Report }, outputs: { cells: "list string" }, reads: [Report.permissionMatrix] }
+          - { id: readiness,   kind: output, lane: builder, title: Readiness chain and correction counts,
+              inputs: { epicDir: string }, outputs: { decision: "enum[approve, change]" }, reads: [Requirement.*, Story.*, Scenario.status, Correction.tag] }
         edges:
           - { from: swimlanes, to: playback }
           - { from: playback,  to: matrix }
@@ -168,10 +172,14 @@ root:
       reads:   [Requirement.*, Story.*, Scenario.status, Report.findings]
       children:
         boxes:
-          - { id: traced,     kind: process, lane: rehearse, title: Every requirement has a story, and every story has an approved scenario }
-          - { id: sim-clean,  kind: process, lane: rehearse, title: Simulation has no findings }
-          - { id: no-stale,   kind: process, lane: rehearse, title: No stale scenario }
-          - { id: report,     kind: output,  lane: rehearse, title: Gate report }
+          - { id: traced,     kind: process, lane: rehearse, title: "Every requirement has a story, and every story has an approved scenario",
+              inputs: { epicDir: string }, outputs: { findings: list Finding }, reads: [Requirement.*, Story.*, Scenario.status] }
+          - { id: sim-clean,  kind: process, lane: rehearse, title: Simulation has no findings,
+              inputs: { findings: list Finding }, outputs: { findings: list Finding }, reads: [Report.findings] }
+          - { id: no-stale,   kind: process, lane: rehearse, title: No stale scenario,
+              inputs: { findings: list Finding }, outputs: { findings: list Finding }, reads: [Scenario.status, Story.status] }
+          - { id: report,     kind: output,  lane: rehearse, title: Gate report,
+              inputs: { findings: list Finding }, outputs: { report: Report } }
         edges:
           - { from: traced,    to: sim-clean }
           - { from: sim-clean, to: no-stale }

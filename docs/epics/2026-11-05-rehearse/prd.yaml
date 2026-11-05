@@ -22,13 +22,20 @@ epic:
 roles:
   - id: builder
     name: Builder
+    kind: human
     about: The owner. Approves scenarios, reviews the flow, signs off the gate.
   - id: agent
     name: Agent
+    kind: agent
     about: An AI agent. Writes drafts of record files. Never approves or signs off.
   - id: ci
     name: CI
+    kind: system
     about: A headless run in a pipeline. Runs checks only.
+  - id: rehearse
+    name: rehearse
+    kind: system
+    about: The tool itself. Validates, simulates, detects stale content.
 
 requirements:
   # --- Record and schema ---
