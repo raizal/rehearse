@@ -14,19 +14,24 @@ import { ApproveBar } from './components/Approve.js';
 import { BigPictureViews } from './components/BigPictureViews.js';
 import { BoxContract } from './components/DetailPane.js';
 import { FlowView } from './components/FlowView.js';
+import { PrdView } from './components/PrdView.js';
 import { Playback, StepDetail, type ApproveControls } from './components/Playback.js';
 import { ReadinessView } from './components/ReadinessView.js';
 import { signingBlocked, type SessionState } from './components/Review.js';
 import { SignOffView } from './components/SignOffView.js';
 import { Storyboard } from './components/Storyboard.js';
+import { TechSpecView } from './components/TechSpecView.js';
 import { UseCaseView } from './components/UseCaseView.js';
 import { boxAt, diagramAt, parentPath } from './model/diagram.js';
+import type { Place } from './model/links.js';
 import { stepCount, stepView } from './model/playback.js';
 import { approveReason } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
 
 const TABS = [
+  { id: 'prd', label: 'PRD' },
+  { id: 'techspec', label: 'Tech spec' },
   { id: 'bigpicture', label: 'Big picture' },
   { id: 'stories', label: 'Stories' },
   { id: 'usecases', label: 'Use cases' },
@@ -62,6 +67,9 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const [step, setStep] = useState(0);
   const [cardId, setCardId] = useState<Id | undefined>();
   const [storyId, setStoryId] = useState<Id | undefined>();
+  // Where an id link on the PRD or Tech spec page went (T15): an item on those pages, or a readiness row.
+  const [docFocus, setDocFocus] = useState<string | undefined>();
+  const [readinessRow, setReadinessRow] = useState<Id | undefined>();
   // Steps seen per scenario: browser only (sessionStorage), not evidence, never sent (S6-A1).
   const [seen, setSeen] = useState<{ slug: string | undefined; state: SeenState }>({ slug: undefined, state: {} });
 
@@ -166,6 +174,30 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     [flow],
   );
 
+  // An id link on the PRD or Tech spec page opens the place where the id lives (T15).
+  const go = useCallback(
+    (place: Place) => {
+      if (place.view === 'story') {
+        pickStory(place.story);
+        setTab('stories');
+      } else if (place.view === 'storyboard') {
+        pickCard(place.scenario);
+        setTab('stories');
+      } else if (place.view === 'flow') openBox(place.box);
+      else if (place.view === 'readiness') {
+        setReadinessRow(place.requirement);
+        setTab('readiness');
+      } else if (place.view === 'prd' || place.view === 'techspec') {
+        setDocFocus(place.focus);
+        setTab(place.view);
+      } else setTab(place.view);
+    },
+    [pickStory, pickCard, openBox],
+  );
+  useEffect(() => {
+    if (tab === 'readiness' && readinessRow) document.querySelector(`[data-testid="readiness-req-${readinessRow}"]`)?.scrollIntoView?.({ block: 'center' });
+  }, [tab, readinessRow]);
+
   const token = session.kind === 'ready' ? session.session.token : undefined;
   const actionsOff = signingBlocked(session) !== undefined || busy !== undefined || token === undefined;
 
@@ -262,6 +294,16 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
         <div className="status-msg error" data-testid="load-error">
           Could not load the EPIC record: {state.message}
         </div>
+      )}
+      {view && tab === 'prd' && (
+        <main className="page-wrap">
+          <PrdView view={view} focus={docFocus} onGo={go} />
+        </main>
+      )}
+      {view && tab === 'techspec' && (
+        <main className="page-wrap">
+          <TechSpecView view={view} focus={docFocus} onGo={go} />
+        </main>
       )}
       {view && tab === 'bigpicture' && (
         <main className="page-wrap">

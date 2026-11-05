@@ -1,8 +1,11 @@
 // The read model that `GET /api/epic` returns: the loaded record, its validate
 // report and the review status of each scenario. The UI only reads this.
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadEpic, scenarioHash, validateRecord } from '@rehearse/core';
 import type { EntityModel, Flow, Hash, Prd, Report, Scenario, ScenarioStatus, SignOffLog } from '@rehearse/core';
+import { parseCorrectionLog, parseDecisions, type Correction, type Decision } from './record-docs.js';
 
 /** One scenario with the status the UI shows. */
 export interface ScenarioView {
@@ -29,6 +32,10 @@ export interface EpicView {
   scenarios: ScenarioView[];
   /** Validate report of the record as it is on disk now. */
   report: Report;
+  /** The decision log of brainstorm.md; empty when the file is missing. Optional: an older server does not send it. */
+  decisions?: Decision[];
+  /** The entries of corrections.md; empty when the file is missing. */
+  corrections?: Correction[];
 }
 
 /** Status of a scenario after the stale check. */
@@ -49,10 +56,20 @@ export function buildEpicView(dir: string): EpicView {
       scenarios.push({ scenario, file: file.file, hash, status: scenarioStatus(scenario, hash) });
     }
   }
-  const view: EpicView = { slug: record.slug, scenarios, report: validateRecord(loaded) };
+  const view: EpicView = {
+    slug: record.slug,
+    scenarios,
+    report: validateRecord(loaded),
+    decisions: parseDecisions(readText(join(dir, 'brainstorm.md'))),
+    corrections: parseCorrectionLog(readText(join(dir, 'corrections.md'))),
+  };
   if (record.prd) view.prd = record.prd;
   if (record.entities) view.entities = record.entities;
   if (record.flow) view.flow = record.flow;
   if (record.signoff) view.signoff = record.signoff;
   return view;
+}
+
+function readText(file: string): string {
+  return existsSync(file) ? readFileSync(file, 'utf8') : '';
 }
