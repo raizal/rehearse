@@ -2,10 +2,12 @@
 # Status: draft.
 # Field types: string, number, boolean, datetime, hash, enum[...], ref <Entity>,
 # list <type>, map <type>. A `?` after a type means optional.
+# `file` names the record file that holds the entity (C36).
 # A lifecycle lists every permitted transition. Any other transition is an error.
 
 entities:
   - id: Epic
+    file: prd.yaml
     about: One feature change. One folder in docs/epics/<slug>/.
     fields:
       slug: string            # YYYY-MM-DD-<kebab>
@@ -23,6 +25,7 @@ entities:
     # `frozen` (at finalize) comes after v1, with the finalize command.
 
   - id: Role
+    file: prd.yaml
     about: An actor. One swimlane in the flow. (D13)
     fields:
       id: string
@@ -31,6 +34,7 @@ entities:
       about: string?
 
   - id: Requirement
+    file: prd.yaml
     fields:
       id: string              # R1, R2, …
       kind: enum[functional, performance, security, permission]
@@ -38,6 +42,7 @@ entities:
       provenBy: string?       # required when kind is not functional (D22)
 
   - id: Story
+    file: prd.yaml
     fields:
       id: string              # S1, S2, …
       role: ref Role
@@ -56,6 +61,7 @@ entities:
         - { from: stale,  to: signed, by: builder, when: gate sign-off for this story }
 
   - id: AcceptanceCriterion
+    file: prd.yaml
     fields:
       id: string              # S3-A1
       given: string
@@ -64,11 +70,13 @@ entities:
       expectedState: map string?   # machine-checkable end state for R7
 
   - id: Lane
+    file: flow.yaml
     fields:
       role: ref Role
       order: number
 
   - id: Box
+    file: flow.yaml
     about: One job in the flow. Has children when it has 3 or more steps.
     fields:
       id: string              # ^[a-z0-9][a-z0-9-]*$, unique in its diagram
@@ -83,10 +91,13 @@ entities:
       writes: list string     # Entity.field or Entity.status:from->to
       sideEffects: list string
       errorExits: list string # each one is an edge with this label
+      package: string?        # the package that builds the box (C36)
+      decisions: list string? # the decisions behind the box, ids of brainstorm.md (C37)
       examples: list ref Example
       children: ref Diagram?
 
   - id: Edge
+    file: flow.yaml
     fields:
       from: ref Box
       to: ref Box
@@ -94,11 +105,13 @@ entities:
       kind: enum[normal, branch, error]
 
   - id: Diagram
+    file: flow.yaml
     fields:
       boxes: list ref Box
       edges: list ref Edge
 
   - id: Example
+    file: 'scenarios/<story>.yaml'
     about: One given/when/then on one box. Becomes a unit test later. (D15)
     fields:
       id: string
@@ -108,6 +121,7 @@ entities:
       stateAfter: map string?
 
   - id: Scenario
+    file: 'scenarios/<story>.yaml'
     about: A path through the flow for one story. Becomes an e2e test later.
     fields:
       id: string
@@ -125,12 +139,14 @@ entities:
         - { from: stale,    to: approved, by: builder, when: UI approve button }
 
   - id: ScenarioStep
+    file: 'scenarios/<story>.yaml'
     fields:
       name: string            # box path (R21)
       example: ref Example
       branch: string?         # label of the edge taken
 
   - id: Approval
+    file: 'scenarios/<story>.yaml'
     about: Immutable event. Only the UI writes it.
     fields:
       by: string              # git user.email
@@ -140,6 +156,7 @@ entities:
       sig: string?            # SSH signature, namespace rehearse (D41). Missing → not evidence.
 
   - id: SignOff
+    file: signoff.yaml
     about: Immutable event. Only the UI writes it. (R14)
     fields:
       by: string
@@ -150,6 +167,7 @@ entities:
       sig: string?            # SSH signature, namespace rehearse (D41). Missing → not trusted.
 
   - id: Finding
+    file: 'none (a report on stdout; --json)'
     about: One line of a simulation or validation report.
     fields:
       kind: enum[schema, reference, structure, contract, coverage, lifecycle, acceptance, gate]   # gate: C22
@@ -159,6 +177,7 @@ entities:
       refs: list string       # requirement, story, criterion ids
 
   - id: Report
+    file: 'none (a report on stdout; --json)'
     about: Output of validate or simulate. Same record → byte-identical report (R18).
     fields:
       command: enum[validate, simulate, gate]
@@ -167,6 +186,7 @@ entities:
       permissionMatrix: map string?   # role → entity → actions (R8)
 
   - id: Correction
+    file: corrections.md
     about: One entry in corrections.md. (D7, D34)
     fields:
       at: datetime
@@ -174,3 +194,4 @@ entities:
       what: string
       why: string
       boxes: list ref Box
+      status: string?         # the `- Status:` line: OPEN, or DONE and where (C37)

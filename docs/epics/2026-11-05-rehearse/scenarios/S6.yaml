@@ -9,8 +9,13 @@ scenarios:
       - name: happy
         branch: approve
         example: { id: approve, given: { decision: approve }, then: { branch: approve } }
+      - name: signing-key
+        branch: "yes"
+        example: { id: key-set, given: { signingKey: "~/.ssh/id_ed25519.pub" }, then: { branch: "yes" } }
       - name: approve
         example: { id: approve-1, given: { scenarioIds: [shop-1], user: a@b.c, threadId: thr_x }, then: { approvals: [{ by: a@b.c, threadId: thr_x, hash: h1 }] } }
+      - name: more-scenarios
+        branch: "no"
       - name: gate/traced
         example: { id: traced-gap, given: { requirements: [R1, R2], stories: { S1: [R1] } }, then: { findings: [{ kind: reference, message: "R2 has no story" }] } }
       - { name: gate/sim-clean }
@@ -40,3 +45,28 @@ scenarios:
         example: { id: scenario-changed, given: { approvalHash: h1, contentHash: h2 }, then: { staleScenarios: [shop-1], staleStories: [] } }
       - { name: review/swimlanes }
     expect: { criterion: S6-A3, state: { Scenario.status: stale, simulatorUsesIt: false } }
+
+  - id: S6-no-key
+    title: No signing key, so Approve stays off
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: happy, branch: approve }
+      - name: signing-key
+        branch: "no"
+        example: { id: no-key, given: { signingKey: null }, then: { branch: "no" } }
+      - { name: no-key }
+    expect: { criterion: S6-A4, state: { approveButton: off, guide: docs/signing.md } }
+
+  - id: S6-more
+    title: Builder approves one of two drafts and goes back to the review
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: happy, branch: approve }
+      - { name: signing-key, branch: "yes" }
+      - name: approve
+        example: { id: approve-first, given: { scenarioIds: [shop-1] }, then: { approvals: [{ by: a@b.c, hash: h1 }] } }
+      - { name: more-scenarios, branch: "yes" }
+      - { name: review/swimlanes }
+    expect: { criterion: S6-A5, state: { Scenario.status: approved, drafts: 1 } }

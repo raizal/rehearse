@@ -1,6 +1,6 @@
 # rehearse — EPIC (PRD), version 1
 # Status: signed (bootstrap). See signoff.yaml.
-# Why: see brainstorm.md (decision IDs D1…D39).
+# Why: see brainstorm.md (decision IDs D1…D46).
 
 epic:
   slug: 2026-11-05-rehearse
@@ -30,8 +30,8 @@ roles:
     about: An AI agent. Writes drafts of record files. Never approves or signs off.
   - id: ci
     name: CI
-    kind: system
-    about: A headless run in a pipeline. Runs checks only.
+    kind: external
+    about: A headless run in a pipeline, outside rehearse. Runs checks only. (C36)
   - id: rehearse
     name: rehearse
     kind: system
@@ -253,7 +253,11 @@ stories:
       - id: S4-A5
         given: a story with a box that writes Story.status:draft->signed
         when: the builder opens that story
-        then: the view shows WHAT (the story and its criteria), HOW (a swimlane of only its boxes, in order) and OUTPUT (Story.status draft → signed), then its scenarios (D42)
+        then: the view shows WHAT (the story and its criteria), HOW (a swimlane of only its boxes, in order) and OUTPUT (Story.status draft → signed), then its scenarios (D42). A third column shows the story thread; it collapses, and the `]` key opens and closes it (C34)
+      - id: S4-A6
+        given: a story with scenarios
+        when: the builder opens the Tests tab of that story
+        then: the tab shows one row for each scenario with its e2e test status in words (passed, failed, running, not run or no test), and the Birdview player when it can play this EPIC (C35)
       - id: S4-A3
         given: '`rehearse serve` runs'
         when: the builder opens its URL in a browser
@@ -288,6 +292,14 @@ stories:
         given: an approved scenario
         when: its content changes
         then: the scenario becomes stale and the simulator ignores it as evidence
+      - id: S6-A4
+        given: no git signing key (user.signingkey) is set
+        when: the builder opens a draft scenario to approve it
+        then: Approve stays off and the panel shows the signing guide as text (C29, C36)
+      - id: S6-A5
+        given: two draft scenarios
+        when: the builder approves the first one
+        then: the panel goes back to the review, and the gate runs only when no scenario is left to approve (C36)
 
   - id: S7
     role: builder
