@@ -104,7 +104,7 @@ export interface LifecycleTransition {
   from: string;
   to: string;
   by: string;
-  when: string;
+  when?: string;
 }
 
 export interface Lifecycle {

@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { LineCounter, parseDocument } from 'yaml';
+import { LineCounter, parseDocument, visit } from 'yaml';
 import {
   RECORD_FILES,
   type Box,
@@ -41,6 +41,28 @@ export function parseYaml(text: string, file: string): { value?: unknown; findin
       },
     };
   }
+  // An alias can make a cycle or share one object between two places. Record files do not need them.
+  let alias: string | undefined;
+  let aliasAt = 0;
+  visit(doc, {
+    Alias(_key, node) {
+      alias = node.source;
+      aliasAt = node.range?.[0] ?? 0;
+      return visit.BREAK;
+    },
+  });
+  if (alias !== undefined) {
+    const pos = lineCounter.linePos(aliasAt);
+    return {
+      finding: {
+        kind: 'schema',
+        file,
+        path: `line ${pos.line}`,
+        message: `yaml-syntax: alias *${alias} is not allowed in record files (line ${pos.line}, column ${pos.col})`,
+        refs: [],
+      },
+    };
+  }
   return { value: doc.toJS() };
 }
 
@@ -56,7 +78,15 @@ export function loadEpic(dir: string): LoadResult {
       if (required) findings.push({ kind: 'schema', file, path: '', message: 'file missing', refs: [] });
       return undefined;
     }
-    const { value, finding } = parseYaml(readFileSync(full, 'utf8'), file);
+    let text: string;
+    try {
+      text = readFileSync(full, 'utf8');
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code ?? 'error';
+      findings.push({ kind: 'schema', file, path: '', message: `cannot read file (${code})`, refs: [] });
+      return undefined;
+    }
+    const { value, finding } = parseYaml(text, file);
     if (finding) {
       findings.push(finding);
       return undefined;
@@ -72,7 +102,8 @@ export function loadEpic(dir: string): LoadResult {
   const sdir = join(abs, RECORD_FILES.scenariosDir);
   if (existsSync(sdir) && statSync(sdir).isDirectory()) {
     for (const name of readdirSync(sdir).sort()) {
-      if (name.endsWith('.yaml') || name.endsWith('.yml')) scenarioNames.push(`${RECORD_FILES.scenariosDir}/${name}`);
+      if (!name.endsWith('.yaml') && !name.endsWith('.yml')) continue;
+      if (statSync(join(sdir, name)).isFile()) scenarioNames.push(`${RECORD_FILES.scenariosDir}/${name}`);
     }
   }
   for (const f of scenarioNames) read(f, false);

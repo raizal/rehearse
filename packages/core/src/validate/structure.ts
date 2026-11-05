@@ -4,8 +4,8 @@
 // - A decision has 2 or more labeled branches to different boxes.
 // - Each error exit has an edge with kind `error` that does not loop to its own box. (C2, C3)
 
-import { edgeKind, entryChildren, exitChildren, knownEdges } from '../flow-index.js';
-import { RECORD_FILES, type Box, type Diagram, type EpicRecord, type Finding } from '../types.js';
+import { edgeKind, entryChildren, exitChildren, hasChildren, knownEdges } from '../flow-index.js';
+import { RECORD_FILES, type Box, type Diagram, type Edge, type EpicRecord, type Finding } from '../types.js';
 import { asArray, isObject } from '../util.js';
 
 const FLOW = RECORD_FILES.flow;
@@ -63,8 +63,10 @@ function checkDiagram(diagram: Diagram, prefix: string, isRoot: boolean, out: Fi
     }
 
     const exits = asArray<string>(box.errorExits).filter((x) => typeof x === 'string');
+    // All edges from the box, also those to an unknown box: refs reports those, so do not report the exit again.
+    const allOuts = asArray<Edge>(diagram.edges).filter((e) => isObject(e) && e.from === box.id);
     for (const x of exits) {
-      const errEdges = outs.filter((e) => edgeKind(e) === 'error' && e.label === x);
+      const errEdges = allOuts.filter((e) => edgeKind(e) === 'error' && e.label === x);
       if (errEdges.length === 0) {
         out.push(finding(path, `error exit ${x} has no edge with kind error and label ${x}`));
       } else if (errEdges.some((e) => e.to === box.id)) {
@@ -77,7 +79,7 @@ function checkDiagram(diagram: Diagram, prefix: string, isRoot: boolean, out: Fi
       }
     }
 
-    if (isObject(box.children) && asArray(box.children.boxes).length > 0) {
+    if (hasChildren(box)) {
       const children = box.children as Diagram;
       if (entryChildren(children).length === 0) out.push(finding(path, 'children have no entry box (a child with no incoming edge)'));
       if (exitChildren(children).length === 0) out.push(finding(path, 'children have no exit box (a child with no outgoing edge)'));

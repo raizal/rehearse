@@ -11,15 +11,15 @@ export interface Io {
   stderr: (text: string) => void;
 }
 
-/** Exit codes: 0 OK, 1 findings, 2 usage error. */
-export const EXIT = { ok: 0, findings: 1, usage: 2 } as const;
+/** Exit codes: 0 OK, 1 findings, 2 usage error, 3 internal error (a bug in rehearse, not in the record). */
+export const EXIT = { ok: 0, findings: 1, usage: 2, internal: 3 } as const;
 
 export const USAGE = `Usage: rehearse <command> [options]
 
 Commands:
   validate <epic-dir-or-slug> [--json]   Check the record files of one EPIC (schema, references, flow structure).
 
-Exit codes: 0 OK, 1 findings, 2 usage error.
+Exit codes: 0 OK, 1 findings, 2 usage error, 3 internal error.
 `;
 
 /** An EPIC folder path, or a slug looked up as docs/epics/<slug> in cwd and its parents. */
@@ -59,7 +59,13 @@ export function run(argv: string[], io: Io): number {
     io.stderr(`rehearse validate: no EPIC folder ${positional[0]} (not a folder, and not found as docs/epics/${positional[0]})\n`);
     return EXIT.usage;
   }
-  const report = validateEpic(dir);
+  let report;
+  try {
+    report = validateEpic(dir);
+  } catch (e) {
+    io.stderr(`rehearse validate: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
+    return EXIT.internal;
+  }
   io.stdout(json ? reportToJson(report) : reportToText(report));
   return report.ok ? EXIT.ok : EXIT.findings;
 }

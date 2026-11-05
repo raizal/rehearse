@@ -3,7 +3,7 @@
 // state access → entity field, scenario → story, criterion, box path.
 // The checks run on drafts that may also have schema findings, so they guard every access.
 
-import { indexBoxes, type BoxEntry } from '../flow-index.js';
+import { hasChildren, indexBoxes, type BoxEntry } from '../flow-index.js';
 import {
   RECORD_FILES,
   type AcceptanceCriterion,
@@ -81,7 +81,7 @@ export function checkRefs(record: EpicRecord): Finding[] {
       if (typeof e.id !== 'string') continue;
       if (!entities.has(e.id)) entities.set(e.id, e);
       const lc = e.lifecycle;
-      if (isObject(lc) && typeof lc.field === 'string' && isObject(e.fields) && !(lc.field in e.fields)) {
+      if (isObject(lc) && typeof lc.field === 'string' && isObject(e.fields) && !Object.hasOwn(e.fields, lc.field)) {
         out.push(ref(ENTITIES, e.id, `lifecycle field ${lc.field} is not a field of ${e.id}`));
       }
       // Transition actor → role (C7).
@@ -156,7 +156,7 @@ export function checkRefs(record: EpicRecord): Finding[] {
           out.push(ref(file, at, `box path ${step.name} unknown`));
           return;
         }
-        if (isObject(entry.box.children)) {
+        if (hasChildren(entry.box)) {
           out.push(ref(file, at, `box path ${step.name} has children: name a leaf box, not a parent (${leafHint(entry, index)})`));
         }
         const ex = step.example;
