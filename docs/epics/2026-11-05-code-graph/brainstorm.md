@@ -55,6 +55,24 @@ Out of scope: layer 2 (LLM summaries, docs extraction, community names).
 - **G8 One graph**: The panel drill-down (D19) and the agent queries use the same graph.
 - **G9 Separate EPIC**: The code graph is its own EPIC, after rehearse v1. v1 keeps it in "later".
 
+### Owner answers to the questions of the draft record (T20)
+
+Source of G20–G31: owner accepted T20's proposal, 2026-11-06. Each answer replaces one
+question comment of the draft record.
+
+- **G20 Graph serve route**: Serve gets one new route: `GET /api/graph?verb=show|near&target=…`. It needs the session token and the Origin check, like every route of D45. This decision adds the route to the D45 list. Source: owner accepted T20's proposal, 2026-11-06.
+- **G21 Success measure**: On the fixture repo, an agent answers a question with `context` in fewer tokens than with grep and cat, and the answer is the same and correct. Source: owner accepted T20's proposal, 2026-11-06.
+- **G22 No code pull**: The code pull for the as-is system map (D29) is out of scope for this EPIC. It gets its own EPIC. Source: owner accepted T20's proposal, 2026-11-06.
+- **G23 OpenAPI spec**: rehearse reads an OpenAPI spec only when the repo has one. This EPIC adds no CI step that makes the spec (see G17). Source: owner accepted T20's proposal, 2026-11-06.
+- **G24 Benchmark fixture**: The benchmark repo has 1,000 files (half TypeScript, half Python). A generator makes it from a fixed seed, so each run uses the same files. The `graph-bench` component stays `planned` until the repo has CI (C38 of v1). Source: owner accepted T20's proposal, 2026-11-06.
+- **G25 Test adapters**: Only Vitest and pytest get a test adapter. The adapter makes static `tests` edges (a test → the code it calls). The adapters that run tests (D27) stay in "later". Source: owner accepted T20's proposal, 2026-11-06.
+- **G26 `near` depth**: `near` follows one edge in each direction by default. `--depth <n>` follows n edges. Source: owner accepted T20's proposal, 2026-11-06.
+- **G27 Unknown target**: When no node matches the target, the verb ends with exit code 1 and the note "not found", the same as a v1 finding. Source: owner accepted T20's proposal, 2026-11-06.
+- **G28 No path**: When `path` finds no path between the two nodes, it ends with exit code 1 and the note "no path". Source: owner accepted T20's proposal, 2026-11-06.
+- **G29 Rebuild**: Each query verb has a `--rebuild` option. It makes a cold index before the answer. `rehearse new` adds `.rehearse/graph.db*` to `.gitignore`, not all of `.rehearse/` (`allowed_signers` is there, D41). Source: owner accepted T20's proposal, 2026-11-06.
+- **G30 Link edge kinds**: The commit → code link has the edge kind `changes`. The record links (story → requirement, box → story, scenario → box) have the edge kind `references`. Source: owner accepted T20's proposal, 2026-11-06.
+- **G31 Trust zone**: The `graph` component is in zone `repo`. This is not a trust-zone problem: the graph does no signing and no approval, and it only reads the repo and writes its cache. Source: owner accepted T20's proposal, 2026-11-06.
+
 ## Open
 
-None. Next step: write `prd.yaml` for this EPIC.
+None. The draft record has no open question.

@@ -42,8 +42,9 @@ root:
       package: cli
       title: Run find, show, near, path or context
       stories: [S1, S2, S3, S4, S5]
-      decisions: [G1, G7]
-      inputs:  { verb: "enum[find, show, near, path, context]", target: string, to: "string?", budget: "number?", json: "boolean?" }
+      decisions: [G1, G7, G26, G29]
+      inputs:  { verb: "enum[find, show, near, path, context]", target: string, to: "string?", budget: "number?",
+                 depth: "number?", rebuild: "boolean?", json: "boolean?" }
       outputs: { query: GraphQuery }
       # Missing or bad arguments are a usage error (exit 2), not an error exit. (C20)
 
@@ -70,8 +71,9 @@ root:
       package: server
       title: Check the session token and origin of the graph request
       stories: [S9]
-      decisions: [G8, D45]
+      decisions: [G8, G20, D45]
       inputs:  { query: GraphQuery, token: "string?", origin: "string?" }
+      # The one graph route: GET /api/graph?verb=show|near&target=… (G20).
       outputs: { query: GraphQuery }
       errorExits: [forbidden]
 
@@ -129,7 +131,7 @@ root:
             package: graph
             title: Compare file content hashes
             stories: [S5]
-            decisions: [G5]
+            decisions: [G5, G29]
             inputs:  { files: "list string", tsconfigs: "list string", venv: "string?" }
             outputs: { mode: "enum[cold, update, none]", changed: "list string", removed: "list string",
                        tsconfigs: "list string", venv: "string?", run: IndexRun }
@@ -137,6 +139,7 @@ root:
             writes:  ["IndexRun.status:->running", IndexRun.mode, IndexRun.trigger, IndexRun.files,
                       IndexRun.changedFiles, IndexRun.venv, IndexRun.startedAt]
             # No graph.db, or an empty one, means mode cold: every file is new.
+            # query.rebuild (--rebuild) also means mode cold, whatever the hashes say (G29).
           - id: mode
             kind: decision
             lane: rehearse
@@ -174,11 +177,13 @@ root:
             package: graph
             title: "Add links: http-calls, tests, builds, commits, record"
             stories: [S7, S8]
-            decisions: [G4, G13, G17, G18]
+            decisions: [G4, G13, G17, G18, G23, G25, G30]
             inputs:  { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
             outputs: { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
             sideEffects: [runs git log for Flow-Box trailers and git blame on the changed lines,
-                          reads docs/epics/*/ record files and OpenAPI specs]
+                          reads docs/epics/*/ record files, and reads an OpenAPI spec only when the repo has one (G23)]
+            # Test adapters: Vitest and pytest only, static edges, no test run (G25).
+            # Edge kinds: changes for commit → code, references for the record links (G30).
           - id: rank
             kind: process
             lane: rehearse
@@ -261,9 +266,10 @@ root:
             package: graph
             title: Find the target node (find has none)
             stories: [S2]
-            decisions: [G10]
+            decisions: [G10, G27]
             inputs:  { query: GraphQuery }
             outputs: { query: GraphQuery, node: "GraphNode?", to: "GraphNode?" }
+            # not-found: exit code 1 and the note "not found" (G27).
             reads:   [GraphNode.id, GraphNode.name]
             errorExits: [not-found]
           - id: verb
@@ -298,8 +304,8 @@ root:
             package: graph
             title: The nodes linked to the target, with edge kind and trust
             stories: [S2, S7, S8]
-            decisions: [G1, G4]
-            inputs:  { node: GraphNode }
+            decisions: [G1, G4, G26]
+            inputs:  { node: GraphNode, query: GraphQuery }   # query.depth: default 1 (G26)
             outputs: { nodes: "list GraphNode", edges: "list GraphEdge" }
             reads:   [GraphNode.*, GraphEdge.*]
           - id: path
@@ -308,10 +314,12 @@ root:
             package: graph
             title: Shortest path between two nodes
             stories: [S3]
-            decisions: [G1]
+            decisions: [G1, G28]
             inputs:  { node: GraphNode, to: GraphNode }
             outputs: { edges: "list GraphEdge" }
             reads:   [GraphEdge.*]
+            errorExits: [no-path]
+            # no-path: exit code 1 and the note "no path" (G28).
           - id: context
             kind: process
             lane: rehearse
@@ -343,6 +351,7 @@ root:
           - { from: show,    to: answer }
           - { from: near,    to: answer }
           - { from: path,    to: answer }
+          - { from: path,    to: answer,  label: no-path, kind: error }
           - { from: context, to: answer }
 
     - id: asker
@@ -387,8 +396,8 @@ root:
       package: graph
       title: "Benchmark: cold index, one-file update, queries"
       stories: [S10]
-      decisions: [G11]
-      inputs:  { fixture: string }
+      decisions: [G11, G24]
+      inputs:  { fixture: string }   # 1,000 generated files, fixed seed (G24)
       outputs: { exitCode: number, timings: map }
       reads:   [IndexRun.mode, IndexRun.files, IndexRun.ms]
       writes:  []

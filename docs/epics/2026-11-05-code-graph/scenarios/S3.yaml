@@ -14,3 +14,20 @@ scenarios:
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S3-A1, state: { edges: ["getOrder -> loadOrder", "loadOrder -> getOrderById"], eachEdgeHas: [trust] } }
+
+  - id: S3-no-path
+    title: Agent asks for a path between two nodes that do not connect
+    status: draft
+    steps:
+      - { name: asked, branch: "yes" }
+      - name: run-query/target
+        example: { id: target-two-apart, given: { query: { verb: path, target: getOrderById, to: charge } }, then: { node: getOrderById, to: charge } }
+      - { name: run-query/verb, branch: path }
+      - name: run-query/path
+        branch: no-path
+        example: { id: path-none, given: { node: getOrderById, to: charge }, then: { exit: no-path } }
+      - name: run-query/answer
+        example: { id: answer-no-path, given: { }, then: { answer: { ok: false, edges: [], notes: ["no path"], exitCode: 1 } } }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S3-A2, state: { exitCode: 1, message: "no path", edges: 0, filesChanged: 0 } }

@@ -42,3 +42,17 @@ scenarios:
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S2-A3, state: { exitCode: 1, message: "not found", filesChanged: 0 } }
+
+  - id: S2-near-depth
+    title: Agent asks for the nodes two edges away with --depth 2
+    status: draft
+    steps:
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: near }
+      - name: run-query/near
+        example: { id: near-depth-2, given: { node: getOrderById, query: { verb: near, target: getOrderById, depth: 2 } }, then: { edges: [ { kind: calls, from: loadOrder, to: getOrderById, trust: exact }, { kind: calls, from: getOrder, to: loadOrder, trust: exact } ] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S2-A4, state: { linked: [loadOrder, getOrder], eachEdgeHas: [kind, trust] } }
