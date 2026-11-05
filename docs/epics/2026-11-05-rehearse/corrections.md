@@ -71,7 +71,7 @@ validator and the prototypes found none of them.
 - **C13** `caught-in-simulation` · box `validate/schema`
   - What: `refs` needs `docs`, but `schema` gave only `findings`.
   - Fix: `schema` outputs `{docs, findings}`.
-- **C14** `caught-in-simulation` · edges into `draft-record`, `simulate/load`, `gate/traced` and `review/*` · OPEN, for thread T5
+- **C14** `caught-in-simulation` · edges into `draft-record`, `simulate/load`, `gate/traced` and `review/*` · DONE in T5 (thread thr_u4qmrgqjri)
   - What: `epicDir` was lost on 8 root edges, for example `valid → draft-record` and `content-changed → review/swimlanes`.
   - Why: Every box works on one EPIC folder. To repeat `epicDir` in every contract adds noise and hides the real data.
   - Fix (T5): Flow-level `context: { epicDir: string }`. Every box has the context fields as inputs without declaring them.
@@ -87,7 +87,7 @@ validator and the prototypes found none of them.
 
 These came from agents who built the code, not from a rehearse check.
 
-- **C17** `caught-after-build` · R6 · OPEN, for thread T5
+- **C17** `caught-after-build` · R6 · DONE in T5
   - What: No check compares the `by` role of a lifecycle transition with the lane of the box that makes it. In the shop fixture, `pay` is in lane `shop`, but its transition says `by: buyer`.
   - Fix: R6 adds the check. T5 builds it.
 - **C18** `caught-after-build` · R1, box `new-epic`
@@ -102,7 +102,7 @@ These came from agents who built the code, not from a rehearse check.
 - **C21** `caught-after-build` · S1-A1, S2-A1, S3-A1
   - What: The criteria said `bb rehearse`, but the binary is `rehearse`.
   - Fix: The criteria say `rehearse`. The `bb rehearse` form comes with the bb plugin (D26).
-- **C22** `caught-after-build` · entity `Finding` · OPEN, for thread T5
+- **C22** `caught-after-build` · entity `Finding` · DONE in T5
   - What: Gate findings had no kind. T4 used `coverage` and `lifecycle`.
   - Fix: Add `gate` to Finding.kind. All gate findings use it.
 - **C23** `caught-after-build` · entity `SignOff`
@@ -113,3 +113,5 @@ These came from agents who built the code, not from a rehearse check.
   - Fix: R11 says they are not in that list.
 
 Count so far: 16 `caught-in-simulation` (C1–C16), 8 `caught-after-build` (C17–C24).
+
+After T5: `rehearse simulate` gives no findings on this record. `rehearse gate check` gives 10 `gate` findings: S1, S2, S3 and S8 are stale, and the other 6 stories were signed under hash rule 1. The builder must sign off again in the UI (wave 2).
