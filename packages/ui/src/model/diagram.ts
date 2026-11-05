@@ -15,9 +15,9 @@ export interface LaneInfo {
 }
 
 /** Lane colours by flow.yaml lane order. Each lane also shows its role name, so colour is never the only cue. */
-export const LANE_COLORS = ['#2f6fde', '#1f8a4c', '#b5651d', '#7a4cc2', '#c23b7a', '#0f8b8d', '#8a6d00', '#5b6b8c'];
+export const LANE_COLORS = ['#2563EB', '#7C3AED', '#059669', '#D97706', '#DB2777', '#0891B2', '#B45309', '#475569'];
 /** Colour of a lane that flow.yaml does not list. */
-export const UNKNOWN_LANE_COLOR = '#8a93a6';
+export const UNKNOWN_LANE_COLOR = '#94A3B8';
 
 function declaredLanes(flow: Flow | undefined) {
   return (Array.isArray(flow?.lanes) ? [...flow.lanes] : []).filter((l) => l && typeof l.role === 'string').sort((a, b) => (a.order ?? 0) - (b.order ?? 0));

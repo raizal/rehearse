@@ -14,3 +14,11 @@ export function wrapLines(text: string, width: number, max = 2): string[] {
   if (out.length > max) return [...out.slice(0, max - 1), `${out[max - 1]!.slice(0, width - 1)}…`];
   return out;
 }
+
+/** A key fingerprint short enough for a chip: "SHA256:9fQ…k2". Keys of 8 characters or fewer stay whole. */
+export function shortKey(key: string): string {
+  const at = key.indexOf(':');
+  const algo = at < 0 ? '' : key.slice(0, at + 1);
+  const hash = key.slice(algo.length);
+  return hash.length <= 8 ? key : `${algo}${hash.slice(0, 3)}…${hash.slice(-2)}`;
+}
