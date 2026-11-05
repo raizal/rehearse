@@ -1,0 +1,44 @@
+story: S2
+scenarios:
+  - id: S2-show
+    title: Agent shows one function with its edges and trust marks
+    status: draft
+    steps:
+      - { name: asked, branch: "yes" }
+      - name: run-query/target
+        example: { id: target-found, given: { query: { verb: show, target: getOrderById } }, then: { node: { name: getOrderById } } }
+      - { name: run-query/verb, branch: show }
+      - name: run-query/show
+        example: { id: show-1, given: { node: getOrderById }, then: { nodes: [ { id: "scip-typescript npm app 1.0 src/orders.ts/getOrderById().", file: src/orders.ts, range: "12-20" } ], edges: [ { kind: calls, to: loadRow, trust: exact } ] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S2-A1, state: { code: true, file: src/orders.ts, scipId: true, eachEdgeHas: [kind, trust] } }
+
+  - id: S2-near
+    title: Agent lists the caller, callee, test and box of a function
+    status: draft
+    steps:
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: near }
+      - name: run-query/near
+        example: { id: near-1, given: { node: getOrderById }, then: { edges: [ { kind: calls, from: loadOrder, trust: exact }, { kind: calls, to: loadRow, trust: exact }, { kind: tests, from: "orders.test.ts", trust: exact }, { kind: builds, from: "box orders/get", trust: exact } ] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S2-A2, state: { linked: [loadOrder, loadRow, orders.test.ts, orders/get], eachEdgeHas: [kind, trust] } }
+
+  - id: S2-not-found
+    title: Agent asks for a node that does not exist
+    status: draft
+    steps:
+      - { name: asked, branch: "yes" }
+      - name: run-query/target
+        branch: not-found
+        example: { id: target-missing, given: { query: { verb: show, target: noSuchThing } }, then: { exit: not-found } }
+      - name: run-query/answer
+        example: { id: answer-not-found, given: { }, then: { answer: { ok: false, notes: ["not found"], exitCode: 1 } } }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S2-A3, state: { exitCode: 1, message: "not found", filesChanged: 0 } }

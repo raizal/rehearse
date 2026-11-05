@@ -1,0 +1,34 @@
+story: S10
+scenarios:
+  - id: S10-cold-bench
+    title: CI measures a cold index of 1,000 files
+    status: draft
+    steps:
+      - { name: bench-start }
+      - name: bench
+        example: { id: bench-cold, given: { fixture: "generated repo, 1000 files" }, then: { exitCode: 0, timings: { coldMs: 21000 } } }
+      - { name: bench-ok, branch: "yes" }
+      - { name: bench-pass }
+    expect: { criterion: S10-A1, state: { coldMsBelow: 30000, exitCode: 0 } }
+
+  - id: S10-warm-bench
+    title: CI measures an update of one file and the queries
+    status: draft
+    steps:
+      - { name: bench-start }
+      - name: bench
+        example: { id: bench-warm, given: { fixture: "same repo, 1 file changed" }, then: { exitCode: 0, timings: { updateMs: 180, queryMsMax: 40 } } }
+      - { name: bench-ok, branch: "yes" }
+      - { name: bench-pass }
+    expect: { criterion: S10-A2, state: { updateMsBelow: 300, queryMsBelow: 100, exitCode: 0 } }
+
+  - id: S10-too-slow
+    title: CI fails the build when the cold index is too slow
+    status: draft
+    steps:
+      - { name: bench-start }
+      - name: bench
+        example: { id: bench-slow, given: { fixture: "generated repo, 1000 files" }, then: { exitCode: 1, timings: { coldMs: 41000 } } }
+      - { name: bench-ok, branch: "no" }
+      - { name: bench-fail }
+    expect: { state: { buildFailed: true, coldMs: 41000 } }

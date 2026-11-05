@@ -1,0 +1,100 @@
+# rehearse code graph — entity model (D21)
+# Status: draft.
+# Field types: string, number, boolean, datetime, hash, enum[...], ref <Entity>,
+# list <type>, map <type>. A `?` after a type means optional.
+# `file` names the place that holds the entity (C36). The graph is a cache in
+# .rehearse/graph.db (G3), not a record file: a full rebuild makes it again.
+# A lifecycle lists every permitted transition. Any other transition is an error.
+
+entities:
+  - id: GraphNode
+    file: '.rehearse/graph.db (table nodes)'
+    about: One node of the graph. Code, record or commit. (G4)
+    fields:
+      id: string              # SCIP-style symbol ID (G10), e.g. `scip-typescript npm app 1.0 src/orders.ts/getOrderById().`
+      kind: enum[file, module, class, function, method, route, test, requirement, story, box, scenario, commit]
+      name: string
+      terms: string           # the name split into words for FTS5: getOrderById → get order by id (G2)
+      language: enum[typescript, python, record, git]
+      file: string?           # repo path; missing on a target-only node
+      range: string?          # start line and end line in the file
+      targetOnly: boolean     # a symbol in node_modules or the venv: an edge target only, not indexed (G12)
+      rank: number            # PageRank (G14)
+
+  - id: GraphEdge
+    file: '.rehearse/graph.db (table edges)'
+    about: One link between two nodes. Every edge has a trust mark. (G4, G10)
+    fields:
+      from: ref GraphNode
+      to: ref GraphNode
+      # Question: G4 does not name the kind of the commit → code link or of the record links
+      # (story → requirement, box → story, scenario → box). Proposed: `changes` for commit → code,
+      # and `references` for the record links.
+      kind: enum[defines, imports, calls, references, extends, implements, tests, builds, changes, http-calls]
+      trust: enum[exact, name-match, unresolved]
+      # exact: a resolver (ts-morph, Pyright, OpenAPI operationId) confirmed it.
+      # name-match: tree-sitter or a static match found the same name only.
+      # unresolved: the target is not known, e.g. a third-party package with no venv (G19).
+      source: enum[tree-sitter, ts-morph, scip-python, basedpyright, openapi, git, record]
+
+  - id: FileHash
+    file: '.rehearse/graph.db (table files)'
+    about: The content hash of one indexed file. A query compares it to find changed files. (G5)
+    fields:
+      path: string
+      hash: hash
+      language: enum[typescript, python, record]
+      indexedAt: datetime
+
+  - id: IndexRun
+    file: '.rehearse/graph.db (table runs)'
+    about: One update of the graph, cold or for changed files. The benchmark reads its times. (G5, G11)
+    fields:
+      mode: enum[cold, update, none]
+      trigger: enum[query, watch, bench]
+      files: number           # files in scope
+      changedFiles: number
+      resolvers: list string  # e.g. [tree-sitter, ts-morph, scip-python] on a cold index (G15)
+      venv: string?           # the Python environment found, or missing: "no venv found" (G19)
+      startedAt: datetime
+      ms: number
+      status: enum[running, written, unchanged]
+    lifecycle:
+      field: status
+      initial: running
+      transitions:
+        - { from: running, to: written,   by: rehearse, when: "graph.db has the new nodes, edges and file hashes" }
+        - { from: running, to: unchanged, by: rehearse, when: no file hash changed }
+
+  - id: GraphQuery
+    file: 'none (CLI arguments, or a serve request from the panel)'
+    about: One question to the graph. (G1, G8)
+    fields:
+      verb: enum[find, show, near, path, context]
+      target: string          # words for find; a node ID, name or box path for the others
+      to: string?             # second node, for path
+      budget: number?         # tokens, for context (G6)
+      json: boolean
+      from: enum[cli, panel]
+
+  - id: QueryAnswer
+    file: 'none (stdout; --json)'
+    about: The answer to one GraphQuery. Same graph and same query → byte-identical answer.
+    fields:
+      verb: enum[find, show, near, path, context]
+      ok: boolean
+      nodes: list ref GraphNode
+      edges: list ref GraphEdge
+      bundle: ref ContextBundle?
+      notes: list string      # e.g. "no venv found" (G19), "not found"
+      exitCode: number
+
+  - id: ContextBundle
+    file: 'none (part of QueryAnswer)'
+    about: The code around a target that fits a token budget. (G6)
+    fields:
+      target: ref GraphNode
+      budget: number
+      tokens: number          # characters ÷ 4
+      items: list ref GraphNode   # the target first, then by graph distance and PageRank
+      notes: list string

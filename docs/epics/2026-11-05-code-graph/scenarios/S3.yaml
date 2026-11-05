@@ -1,0 +1,16 @@
+story: S3
+scenarios:
+  - id: S3-path
+    title: Agent follows a request from the route to the database code
+    status: draft
+    steps:
+      - { name: asked, branch: "yes" }
+      - name: run-query/target
+        example: { id: target-two, given: { query: { verb: path, target: getOrder, to: getOrderById } }, then: { node: getOrder, to: getOrderById } }
+      - { name: run-query/verb, branch: path }
+      - name: run-query/path
+        example: { id: path-1, given: { node: getOrder, to: getOrderById }, then: { edges: [ { from: getOrder, to: loadOrder, kind: calls, trust: exact }, { from: loadOrder, to: getOrderById, kind: calls, trust: exact } ] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S3-A1, state: { edges: ["getOrder -> loadOrder", "loadOrder -> getOrderById"], eachEdgeHas: [trust] } }

@@ -1,0 +1,86 @@
+# The change of the code-graph EPIC to docs/system/architecture.yaml (D43).
+# The review UI applies it on top of the as-is system. Each item says why (G-ids) and
+# which stories need it.
+version: 1
+about: rehearse v1, with a code graph that agents and the builder can ask (G9).
+components:
+  - id: graph
+    change: added
+    name: '@rehearse/graph'
+    zone: repo
+    about: 'index: tree-sitter · ts-morph · scip-python · basedpyright · OpenAPI · git trailers; query: BM25 · PageRank · find · show · near · path · context'
+    code: [packages/graph/src]
+    what: 'New package. It is not a module of core: core stays small for CI, and the graph has WASM, ts-morph and Python resolver dependencies, its own store and its own speed targets.'
+    why: [G2, G4, G10, G14, G15, G16, G17, G19]
+    stories: [S1, S2, S3, S4, S6, S7, S8]
+  - id: graph-db
+    change: added
+    name: .rehearse/graph.db
+    kind: store
+    zone: repo
+    about: 'SQLite + FTS5: nodes, edges, file hashes, index runs'
+    what: A cache, not a record file. Git ignores it. A rebuild makes it again.
+    why: [G3, G5]
+    stories: [S5]
+  - id: graph-bench
+    change: added
+    name: graph benchmark
+    zone: ci
+    about: 'cold index of 1,000 files < 30 s · update < 300 ms · query < 100 ms'
+    what: A CI step that fails the build when the graph is too slow.
+    planned: true
+    why: [G11]
+    stories: [S10]
+  - id: cli
+    change: changed
+    about: new · validate · simulate · gate check · serve · find · show · near · path · context
+    what: '+ find · show · near · path · context, each with --json'
+    why: [G1, G7]
+    stories: [S1, S2, S3, S4]
+  - id: serve
+    change: changed
+    about: 127.0.0.1:<port> · session token · Origin check · /api/* · graph route · file watcher
+    what: '+ watches the source files and updates the graph; + answers graph queries for the panel, with the session token and the Origin check'
+    why: [G5, G8, D45]
+    stories: [S9]
+  - id: ui
+    change: changed
+    about: 'React app: Big picture, Stories, Use cases, Readiness, Sign off · code drill-down'
+    what: '+ code drill-down below a leaf box: code, AST, call graph, read only'
+    why: [G8, D19, D44]
+    stories: [S9]
+  - id: repo
+    change: changed
+    about: docs/epics/<slug>/*.yaml · .rehearse/allowed_signers · source code · commits with Flow-Box trailers
+    what: '+ the graph reads the source code and the Flow-Box: commit trailers'
+    why: [G13, D44]
+    stories: [S8]
+links:
+  - { from: cli, to: graph, change: added, label: find · show · near · path · context, why: [G1, G7], stories: [S1, S2, S3, S4] }
+  - { from: serve, to: graph, change: added, label: 'queries · update on save', why: [G5, G8], stories: [S9] }
+  - { from: graph, to: graph-db, change: added, label: read / write cache, why: [G3, G5], stories: [S5] }
+  - { from: graph, to: repo, change: added, label: 'parse source · Flow-Box trailers · record YAML', why: [G4, G13, G15], stories: [S6, S8] }
+  - { from: ci-runner, to: graph-bench, change: added, label: runs, why: [G11], stories: [S10] }
+boxes:
+  - { path: ask, why: [G1, G7], stories: [S1, S2, S3, S4, S5] }
+  - { path: drill-code, why: [G8], stories: [S9] }
+  - { path: serve-query, why: [G8, D45], stories: [S9] }
+  - { path: watch, why: [G5], stories: [S9] }
+  - { path: update-graph, what: 'freshness check before each query: hash the files, update only the changed ones', why: [G3, G5], stories: [S5, S6, S7, S8, S9] }
+  - { path: update-graph/scope, why: [G12, G19], stories: [S6] }
+  - { path: update-graph/bulk-index, what: 'bulk resolvers on a cold index, no LSP request for each call site', why: [G15, G16], stories: [S6] }
+  - { path: update-graph/link, why: [G4, G13, G17, G18], stories: [S7, S8] }
+  - { path: update-graph/rank, why: [G14], stories: [S4] }
+  - { path: run-query, why: [G1, G8], stories: [S1, S2, S3, S4, S9] }
+  - { path: run-query/find, why: [G2], stories: [S1] }
+  - { path: run-query/context, why: [G6, G14, G19], stories: [S4] }
+  - { path: code-view, why: [G8, D19, D44], stories: [S9] }
+  - { path: bench, why: [G11], stories: [S10] }
+entities:
+  - { id: GraphNode, what: 'SCIP-style ID; target-only nodes for node_modules and the venv', why: [G4, G10, G12], stories: [S2, S6] }
+  - { id: GraphEdge, what: 'edge trust: exact · name-match · unresolved', why: [G4, G10], stories: [S2, S6, S7, S8] }
+  - { id: FileHash, why: [G5], stories: [S5] }
+  - { id: IndexRun, why: [G5, G11], stories: [S5, S10] }
+  - { id: GraphQuery, why: [G1, G8], stories: [S1, S9] }
+  - { id: QueryAnswer, why: [G1, G7], stories: [S1, S2, S3] }
+  - { id: ContextBundle, why: [G6, G14], stories: [S4] }

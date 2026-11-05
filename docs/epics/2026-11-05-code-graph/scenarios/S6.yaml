@@ -1,0 +1,64 @@
+story: S6
+scenarios:
+  - id: S6-scope
+    title: The index reads the tsconfig files and keeps node_modules out
+    status: draft
+    steps:
+      - name: update-graph/scope
+        example: { id: scope-monorepo, given: { tsconfigs: [packages/a/tsconfig.json, packages/b/tsconfig.build.json], dirs: [node_modules] }, then: { tsconfigs: [packages/a/tsconfig.json, packages/b/tsconfig.build.json], files: [packages/a/src/index.ts, packages/b/src/index.ts] } }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - name: update-graph/bulk-index
+        example: { id: bulk-target-only, given: { call: "lodash.get()" }, then: { nodes: [ { name: "lodash.get", targetOnly: true } ] } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S6-A1, state: { indexedTsconfigs: 2, nodeModulesFilesIndexed: 0, lodashGet: target-only } }
+
+  - id: S6-trust-ts
+    title: A resolved call is exact and a computed call is name-match
+    status: draft
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - name: update-graph/bulk-index
+        example: { id: bulk-trust, given: { calls: ["loadRow(id)", "handlers[name](id)"] }, then: { edges: [ { to: loadRow, kind: calls, trust: exact, source: ts-morph }, { to: handle, kind: calls, trust: name-match, source: tree-sitter } ] } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S6-A2, state: { firstEdge: exact, secondEdge: name-match } }
+
+  - id: S6-python-venv
+    title: Python calls into the venv are exact on a host with no Python
+    status: draft
+    steps:
+      - name: update-graph/scope
+        example: { id: scope-venv, given: { dirs: [.venv], hostPython: none }, then: { venv: .venv } }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - name: update-graph/bulk-index
+        example: { id: bulk-python, given: { calls: ["load_row(id)", "requests.get(url)"] }, then: { edges: [ { to: load_row, trust: exact }, { to: "requests.get", trust: exact } ], run: { resolvers: [tree-sitter, scip-python, basedpyright] } } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S6-A3, state: { repoCalls: exact, requestsCalls: exact, resolvers: "scip-python and basedpyright from npm" } }
+
+  - id: S6-bulk-resolvers
+    title: A cold index uses the bulk resolvers and no LSP request for each call site
+    status: draft
+    steps:
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-no-db-2, given: { graphDb: missing }, then: { mode: cold } }
+      - { name: update-graph/mode, branch: cold }
+      - name: update-graph/bulk-index
+        example: { id: bulk-resolvers, given: { }, then: { run: { mode: cold, resolvers: [tree-sitter, ts-morph, scip-python] }, lspRequestsPerCallSite: 0 } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S6-A4, state: { IndexRun.resolvers: [tree-sitter, ts-morph, scip-python], lspRequestsPerCallSite: 0 } }
