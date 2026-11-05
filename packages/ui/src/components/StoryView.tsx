@@ -1,33 +1,57 @@
 // One story (S4-A5, D42): WHAT (role, want, so that, the criteria as a checklist), HOW (a
 // swimlane of only the boxes that serve it, in flow order) and OUTPUT (each data change as
 // before → after, side effects, and what the user sees). The scenario cards come below it.
+// Tabs: Overview (all of the above), Before / after (T16, StoryBeforeAfter), Code (T11), Tests (T13).
 
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import type { Id } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
 import { ROLE_ICON } from '../model/features.js';
 import { howLayout, storyDetail, type StoryDetail } from '../model/storyview.js';
 import { wrapLines } from '../model/text.js';
+import { StoryBeforeAfter } from './StoryBeforeAfter.js';
 import { svgButton } from './svg.js';
 
 export interface StoryViewProps {
   view: ReviewEpicView;
   storyId: Id;
   onOpenBox: (path: string) => void;
+  /** Shown under the Overview panels (the scenario cards). */
+  children?: ReactNode;
 }
 
-export function StoryView({ view, storyId, onOpenBox }: StoryViewProps) {
+const STORY_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'before-after', label: 'Before / after' },
+] as const;
+type StoryTab = (typeof STORY_TABS)[number]['id'];
+
+export function StoryView({ view, storyId, onOpenBox, children }: StoryViewProps) {
   const d = useMemo(() => storyDetail(view, storyId), [view, storyId]);
+  const [tab, setTab] = useState<StoryTab>('overview');
   return (
     <article className="story-view" data-testid="story-view" aria-labelledby="story-view-title">
       <h2 id="story-view-title">
         Story <code>{storyId}</code> {d.story?.want ?? ''}
       </h2>
-      <div className="story-panels">
-        <What d={d} />
-        <How d={d} onOpenBox={onOpenBox} />
-        <Output d={d} onOpenBox={onOpenBox} />
-      </div>
+      <nav className="tabs story-tabs" aria-label={`Views of ${storyId}`}>
+        {STORY_TABS.map((t) => (
+          <button key={t.id} type="button" className={t.id === tab ? 'tab is-active' : 'tab'} aria-current={t.id === tab ? 'page' : undefined} data-testid={`story-tab-${t.id}`} onClick={() => setTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </nav>
+      {tab === 'overview' && (
+        <>
+          <div className="story-panels">
+            <What d={d} />
+            <How d={d} onOpenBox={onOpenBox} />
+            <Output d={d} onOpenBox={onOpenBox} />
+          </div>
+          {children}
+        </>
+      )}
+      {tab === 'before-after' && <StoryBeforeAfter view={view} storyId={storyId} onOpenBox={onOpenBox} />}
     </article>
   );
 }

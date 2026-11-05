@@ -3,8 +3,10 @@
 // that are approved (S5-A1), draft and stale. The review fields of the HTTP contract
 // (gate, readiness, simulation, approvals, sign-offs) come from @rehearse/core, as the server builds them.
 
-import { writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { TestProject } from 'vitest/node';
 import { gateRecord, loadEpic, readiness, simulateRecord, simulationFindings } from '@rehearse/core';
 import { makeEpic, REAL_EPIC, scenario } from '../../core/test/helpers.js';
@@ -19,6 +21,14 @@ export function setup(project: TestProject): void {
   project.provide('reviewEpic', buildReviewEpic());
   // The real EPIC record of rehearse as serve sends it; its bootstrap approvals are not signed.
   project.provide('realEpic', buildTrustedEpicView(REAL_EPIC, { verify: () => ({ status: 'missing' }) }) as ReviewEpicView);
+  // T16: an EPIC that changes the system (the code graph of design page 11), with and without prd.yaml.
+  const codeGraph = fileURLToPath(new URL('../../core/test/fixtures/code-graph', import.meta.url));
+  const epic = (root: string) => join(root, 'docs/epics/2026-11-05-code-graph');
+  project.provide('codeGraphEpic', buildEpicView(epic(codeGraph)));
+  const noPrd = join(mkdtempSync(join(tmpdir(), 'rehearse-ui-cg-')), 'repo');
+  cpSync(codeGraph, noPrd, { recursive: true });
+  rmSync(join(epic(noPrd), 'prd.yaml'));
+  project.provide('codeGraphNoPrd', buildEpicView(epic(noPrd)));
 }
 
 /** Three caught in simulation, one caught after build (S8-A3). */

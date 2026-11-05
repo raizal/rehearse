@@ -74,8 +74,8 @@ export function Storyboard(props: StoryboardProps) {
         <ReviewQueue {...props} storyId={storyId} groups={groups} />
       </aside>
       <div className="card-wrap">
-        {storyId !== undefined && <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} />}
         {storyId !== undefined && (
+          <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)}>
           <section className="story-scenarios" data-testid="story-scenarios" aria-labelledby="story-scenarios-h">
             <h3 id="story-scenarios-h">
               Scenarios of {storyId} ({ofStory.length})
@@ -103,6 +103,7 @@ export function Storyboard(props: StoryboardProps) {
               })}
             </ul>
           </section>
+          </StoryView>
         )}
         {storyId !== undefined ? null : active ? (
           card(active)

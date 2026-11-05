@@ -11,6 +11,8 @@ import { fetchEpic, fetchSession, postApprove, postSignOff } from './api.js';
 import type { ScenarioView } from './api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
 import { ApproveBar } from './components/Approve.js';
+import { ArchitectureView } from './components/ArchitectureView.js';
+import { BeforeAfterView } from './components/BeforeAfterView.js';
 import { BigPicture } from './components/BigPicture.js';
 import { BoxContract } from './components/DetailPane.js';
 import { FlowView } from './components/FlowView.js';
@@ -35,6 +37,13 @@ const TABS = [
   { id: 'flow', label: 'Flow' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
+// Views of the big picture. T14 adds User flow, Data flow and System flowchart; T16 adds these two.
+const BIG_VIEWS = [
+  { id: 'features', label: 'Feature map' },
+  { id: 'architecture', label: 'Architecture' },
+  { id: 'before-after', label: 'Before / after' },
+] as const;
+type BigView = (typeof BIG_VIEWS)[number]['id'];
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; view: ReviewEpicView };
 
@@ -50,6 +59,7 @@ const HTTP_API: ReviewApi = { session: fetchSession, approve: postApprove, signO
 export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise<ReviewEpicView>; api?: ReviewApi }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [tab, setTab] = useState<Tab>('bigpicture');
+  const [bigView, setBigView] = useState<BigView>('features');
   const [session, setSession] = useState<SessionState>({ kind: 'loading' });
   const [picked, setPicked] = useState<ReadonlySet<Id>>(new Set());
   const [busy, setBusy] = useState<'approve' | 'signoff' | undefined>();
@@ -264,14 +274,25 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       )}
       {view && tab === 'bigpicture' && (
         <main className="page-wrap">
-          <BigPicture
-            view={view}
-            onOpenStory={(id) => {
-              pickStory(id);
-              setTab('stories');
-            }}
-            onOpenBox={openBox}
-          />
+          <nav className="tabs big-views" data-testid="big-views" aria-label="Big picture views">
+            {BIG_VIEWS.map((v) => (
+              <button key={v.id} type="button" className={v.id === bigView ? 'tab is-active' : 'tab'} aria-current={v.id === bigView ? 'page' : undefined} data-testid={`big-view-${v.id}`} onClick={() => setBigView(v.id)}>
+                {v.label}
+              </button>
+            ))}
+          </nav>
+          {bigView === 'features' && (
+            <BigPicture
+              view={view}
+              onOpenStory={(id) => {
+                pickStory(id);
+                setTab('stories');
+              }}
+              onOpenBox={openBox}
+            />
+          )}
+          {bigView === 'architecture' && <ArchitectureView view={view} />}
+          {bigView === 'before-after' && <BeforeAfterView view={view} />}
         </main>
       )}
       {view && approveControls && tab === 'stories' && (
