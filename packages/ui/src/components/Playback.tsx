@@ -1,7 +1,11 @@
 // Scenario picker with status badges, step controls (S5-A1), and the step detail.
+// With `approve`, each scenario that needs it gets an Approve button and a checkbox (S6-A1).
 
+import type { Id } from '@rehearse/core';
 import type { ScenarioView } from '../api.js';
+import type { ApprovalView } from '../contract.js';
 import type { StepView } from '../model/playback.js';
+import { ApprovalSig } from './Review.js';
 import { KeyValues, Tags } from './Values.js';
 
 export function StatusBadge({ status, id }: { status: string; id: string }) {
@@ -18,17 +22,34 @@ export interface PlaybackProps {
   step: number;
   onPick: (id: string | undefined) => void;
   onStep: (index: number) => void;
+  approve?: ApproveControls;
 }
 
-export function Playback({ scenarios, scenarioId, step, onPick, onStep }: PlaybackProps) {
+/** Approve controls on the scenario list and in playback (S6-A1). */
+export interface ApproveControls {
+  /** Why the scenario can be approved (draft, stale, bad signature), or undefined. */
+  reasonFor: (sv: ScenarioView) => string | undefined;
+  approvals?: Record<Id, ApprovalView>;
+  selected: ReadonlySet<Id>;
+  onToggle: (id: Id) => void;
+  onApprove: (ids: Id[]) => void;
+  /** Signing is off, or a request is running. */
+  disabled: boolean;
+}
+
+export function Playback({ scenarios, scenarioId, step, onPick, onStep, approve }: PlaybackProps) {
   const active = scenarios.find((s) => s.scenario.id === scenarioId);
   const steps = active && Array.isArray(active.scenario.steps) ? active.scenario.steps : [];
+  const activeReason = active && approve?.reasonFor(active);
   return (
     <section className="playback" data-testid="playback">
       <h2>Scenarios</h2>
       <ul className="scenario-list" data-testid="scenario-list">
-        {scenarios.map(({ scenario, status }) => (
-          <li key={scenario.id}>
+        {scenarios.map((sv) => {
+          const { scenario, status } = sv;
+          const reason = approve?.reasonFor(sv);
+          return (
+          <li key={scenario.id} className="scenario-item">
             <button
               type="button"
               className={scenario.id === scenarioId ? 'scenario is-active' : 'scenario'}
@@ -42,8 +63,41 @@ export function Playback({ scenarios, scenarioId, step, onPick, onStep }: Playba
               </span>
               <span className="scenario-title">{scenario.title}</span>
             </button>
+            {approve && (approve.approvals?.[scenario.id] || reason) && (
+              <div className="scenario-review">
+                <ApprovalSig id={scenario.id} approval={approve.approvals?.[scenario.id]} />
+                {reason && (
+                  <>
+                    <label className="select">
+                      <input
+                        type="checkbox"
+                        data-testid={`select-${scenario.id}`}
+                        checked={approve.selected.has(scenario.id)}
+                        disabled={approve.disabled}
+                        onChange={() => approve.onToggle(scenario.id)}
+                      />
+                      <span className="sr-only">Select {scenario.id} to approve</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="action"
+                      data-testid={`approve-${scenario.id}`}
+                      aria-label={`Approve ${scenario.id} (${reason})`}
+                      disabled={approve.disabled}
+                      onClick={() => approve.onApprove([scenario.id])}
+                    >
+                      Approve
+                    </button>
+                    <span className="muted small" data-testid={`approve-reason-${scenario.id}`}>
+                      {reason}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
           </li>
-        ))}
+          );
+        })}
         {scenarios.length === 0 && <li className="muted">No scenarios.</li>}
       </ul>
 
@@ -71,6 +125,18 @@ export function Playback({ scenarios, scenarioId, step, onPick, onStep }: Playba
               </li>
             ))}
           </ol>
+          {approve && activeReason && (
+            <button
+              type="button"
+              className="action"
+              data-testid="playback-approve"
+              aria-label={`Approve ${active.scenario.id} (${activeReason})`}
+              disabled={approve.disabled}
+              onClick={() => approve.onApprove([active.scenario.id])}
+            >
+              Approve this scenario
+            </button>
+          )}
           <button type="button" className="link" data-testid="playback-stop" onClick={() => onPick(undefined)}>
             Stop playback
           </button>

@@ -1,28 +1,51 @@
 // The rehearse review shell. One UI for the bb panel and a full-screen browser tab (R12, D31).
-// Wave 1 has the flow view (swimlanes, drill-down, playback). The other tabs are
-// placeholders for wave 2: permission matrix, readiness, approve and sign-off.
+// Flow view (swimlanes, drill-down, playback, approve), permission matrix, readiness and
+// sign-off. Approve and sign-off are UI buttons only, signed by the serve process (R13, R14, D41).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import type { Scenario } from '@rehearse/core';
-import { fetchEpic, type EpicView } from './api.js';
+import type { Id, Scenario } from '@rehearse/core';
+import { fetchEpic, fetchSession, postApprove, postSignOff } from './api.js';
+import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
+import { ApproveBar } from './components/Approve.js';
 import { BoxContract } from './components/DetailPane.js';
 import { FlowView } from './components/FlowView.js';
-import { Playback, StepDetail } from './components/Playback.js';
-import { boxAt, diagramAt } from './model/diagram.js';
+import { MatrixView } from './components/MatrixView.js';
+import { Playback, StepDetail, type ApproveControls } from './components/Playback.js';
+import { ReadinessView } from './components/ReadinessView.js';
+import { signingBlocked, type SessionState } from './components/Review.js';
+import { SignOffView } from './components/SignOffView.js';
+import { boxAt, diagramAt, parentPath } from './model/diagram.js';
 import { stepCount, stepView } from './model/playback.js';
+import { approveReason } from './model/review.js';
 
 const TABS = [
-  { id: 'flow', label: 'Flow', ready: true },
-  { id: 'matrix', label: 'Permission matrix', ready: false },
-  { id: 'readiness', label: 'Readiness', ready: false },
-  { id: 'signoff', label: 'Sign-off', ready: false },
+  { id: 'flow', label: 'Flow' },
+  { id: 'matrix', label: 'Permission matrix' },
+  { id: 'readiness', label: 'Readiness' },
+  { id: 'signoff', label: 'Sign-off' },
 ] as const;
+type Tab = (typeof TABS)[number]['id'];
 
-type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; view: EpicView };
+type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; view: ReviewEpicView };
 
-export function App({ load = fetchEpic }: { load?: () => Promise<EpicView> }) {
+/** The write side of `rehearse serve`. Tests replace `fetch`, not this. */
+export interface ReviewApi {
+  session: () => Promise<Session>;
+  approve: (token: string, scenarioIds: Id[]) => Promise<PostOutcome<ApproveOk>>;
+  signOff: (token: string, storyIds: Id[]) => Promise<PostOutcome<SignOffOk>>;
+}
+
+const HTTP_API: ReviewApi = { session: fetchSession, approve: postApprove, signOff: postSignOff };
+
+export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise<ReviewEpicView>; api?: ReviewApi }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [tab, setTab] = useState<Tab>('flow');
+  const [session, setSession] = useState<SessionState>({ kind: 'loading' });
+  const [picked, setPicked] = useState<ReadonlySet<Id>>(new Set());
+  const [busy, setBusy] = useState<'approve' | 'signoff' | undefined>();
+  const [approveOutcome, setApproveOutcome] = useState<PostOutcome<ApproveOk> | undefined>();
+  const [signOffOutcome, setSignOffOutcome] = useState<PostOutcome<SignOffOk> | undefined>();
   const [diagramPath, setDiagramPath] = useState('');
   const [selected, setSelected] = useState<string | undefined>();
   const [scenarioId, setScenarioId] = useState<string | undefined>();
@@ -35,6 +58,12 @@ export function App({ load = fetchEpic }: { load?: () => Promise<EpicView> }) {
     );
   }, [load]);
   useEffect(reload, [reload]);
+  useEffect(() => {
+    api.session().then(
+      (s) => setSession({ kind: 'ready', session: s }),
+      (e: unknown) => setSession({ kind: 'error', message: e instanceof Error ? e.message : String(e) }),
+    );
+  }, [api]);
 
   const view = state.kind === 'ready' ? state.view : undefined;
   const flow = view?.flow;
@@ -64,7 +93,7 @@ export function App({ load = fetchEpic }: { load?: () => Promise<EpicView> }) {
   );
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || tab !== 'flow') return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select')) return;
       if (e.key === 'ArrowRight') goToStep(step + 1);
@@ -72,7 +101,63 @@ export function App({ load = fetchEpic }: { load?: () => Promise<EpicView> }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, goToStep, step]);
+  }, [active, goToStep, step, tab]);
+
+  // A box link in the matrix or readiness view opens the box in the flow view.
+  const openBox = useCallback(
+    (path: string) => {
+      const parent = parentPath(path);
+      setDiagramPath(diagramAt(flow, parent) ? parent : '');
+      setSelected(path);
+      setTab('flow');
+    },
+    [flow],
+  );
+
+  const token = session.kind === 'ready' ? session.session.token : undefined;
+  const actionsOff = signingBlocked(session) !== undefined || busy !== undefined || token === undefined;
+
+  const approve = useCallback(
+    async (ids: Id[]) => {
+      if (!token || ids.length === 0) return;
+      setBusy('approve');
+      setApproveOutcome(undefined);
+      const outcome = await api.approve(token, ids);
+      setBusy(undefined);
+      setApproveOutcome(outcome);
+      if (outcome.kind === 'ok') {
+        setPicked(new Set());
+        reload();
+      }
+    },
+    [api, token, reload],
+  );
+  const signOff = useCallback(
+    async (ids: Id[]) => {
+      if (!token) return;
+      setBusy('signoff');
+      setSignOffOutcome(undefined);
+      const outcome = await api.signOff(token, ids);
+      setBusy(undefined);
+      setSignOffOutcome(outcome);
+      if (outcome.kind === 'ok') reload();
+    },
+    [api, token, reload],
+  );
+  const approveControls: ApproveControls | undefined = view && {
+    reasonFor: (sv) => approveReason(sv, view.approvals),
+    approvals: view.approvals,
+    selected: picked,
+    onToggle: (id) =>
+      setPicked((old) => {
+        const next = new Set(old);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    onApprove: (ids) => void approve(ids),
+    disabled: actionsOff,
+  };
 
   const report = view?.report;
   return (
@@ -88,11 +173,10 @@ export function App({ load = fetchEpic }: { load?: () => Promise<EpicView> }) {
             <button
               key={t.id}
               type="button"
-              className={t.id === 'flow' ? 'tab is-active' : 'tab'}
+              className={t.id === tab ? 'tab is-active' : 'tab'}
               data-testid={`nav-${t.id}`}
-              disabled={!t.ready}
-              aria-current={t.id === 'flow' ? 'page' : undefined}
-              title={t.ready ? t.label : `${t.label} (coming in wave 2)`}
+              aria-current={t.id === tab ? 'page' : undefined}
+              onClick={() => setTab(t.id)}
             >
               {t.label}
             </button>
@@ -116,10 +200,26 @@ export function App({ load = fetchEpic }: { load?: () => Promise<EpicView> }) {
           Could not load the EPIC record: {state.message}
         </div>
       )}
-      {view && (
+      {view && tab === 'matrix' && (
+        <main className="page-wrap">
+          <MatrixView simulation={view.simulation} flow={flow} prd={view.prd} entities={view.entities} onOpenBox={openBox} />
+        </main>
+      )}
+      {view && tab === 'readiness' && (
+        <main className="page-wrap">
+          <ReadinessView view={view} onOpenBox={openBox} />
+        </main>
+      )}
+      {view && tab === 'signoff' && (
+        <main className="page-wrap">
+          <SignOffView view={view} session={session} busy={busy !== undefined} outcome={signOffOutcome} onSignOff={(ids) => void signOff(ids)} />
+        </main>
+      )}
+      {view && tab === 'flow' && (
         <main className="workspace">
           <aside className="left">
-            <Playback scenarios={view.scenarios} scenarioId={scenarioId} step={step} onPick={pick} onStep={goToStep} />
+            <ApproveBar session={session} selected={picked} disabled={actionsOff} busy={busy === 'approve'} outcome={approveOutcome} onApprove={(ids) => void approve(ids)} />
+            <Playback scenarios={view.scenarios} scenarioId={scenarioId} step={step} onPick={pick} onStep={goToStep} approve={approveControls} />
           </aside>
           <ReactFlowProvider>
             <FlowView

@@ -46,13 +46,13 @@ describe('review panel: swimlanes and drill-down (S4)', () => {
     expect(screen.queryByTestId('box-ship/pack')).not.toBeInTheDocument();
   });
 
-  it('S4-A3: the app fills the window, with room for the wave-2 views in the nav', async () => {
+  it('S4-A3: the app fills the window, and the nav opens every view', async () => {
     renderApp();
     await screen.findByTestId('box-cart');
     expect(screen.getByTestId('app')).toHaveClass('app');
     expect(screen.getByTestId('epic-title')).toHaveTextContent('Shop checkout');
     expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-    for (const tab of ['matrix', 'readiness', 'signoff']) expect(screen.getByTestId(`nav-${tab}`)).toBeDisabled();
+    for (const tab of ['matrix', 'readiness', 'signoff']) expect(screen.getByTestId(`nav-${tab}`)).toBeEnabled();
     expect(screen.getByTestId('report-status')).toHaveTextContent('validate: OK');
   });
 
