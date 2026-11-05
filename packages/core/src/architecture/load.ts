@@ -46,10 +46,10 @@ export function loadSystem(dir: string): SystemLoadResult {
   return { system, findings };
 }
 
-/** Ids of the decisions in a brainstorm log: each `- **D4 Title**` or `- **G2 Title**` line. */
+/** Ids of the decisions in a brainstorm log: each `- **D4 Title**`, `- **G2 Title**` or `- **D2/D6 Title**` line. */
 export function parseDecisionIds(markdown: string): string[] {
   const out = new Set<string>();
-  for (const m of markdown.matchAll(/^\s*[-*]\s+\*\*([A-Z]+[0-9]+)\b/gm)) out.add(m[1]!);
+  for (const m of markdown.matchAll(/^\s*[-*]\s+\*\*([A-Z]+[0-9]+(?:\/[A-Z]+[0-9]+)*)\b/gm)) for (const id of m[1]!.split('/')) out.add(id);
   return [...out].sort();
 }
 

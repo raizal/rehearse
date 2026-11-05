@@ -283,14 +283,22 @@ describe('dogfood: simulate the rehearse record (D24)', () => {
     for (const s of report.stale) expect(s.reason, s.scenario).toMatch(/content changed after approval/);
   });
 
-  it('C14 with the epicDir flow context the record gives no design findings, only criteria that wait for approval', () => {
-    for (const f of report.findings) expect(f.message, f.path).toMatch(/no approved scenario checks it/);
+  it('C14 with the epicDir flow context the record gives no design findings, only criteria and branches that wait for approval', () => {
+    // A branch may wait for approval too (T19): a draft or stale scenario of the record takes it.
+    const steps = loadEpic(REAL_EPIC).record.scenarioFiles.flatMap((f) => f.scenarios.flatMap((s) => s.steps ?? []));
+    for (const f of report.findings) {
+      const branch = /^branch (.+) of decision (\S+) \(to \S+\): no approved scenario takes it$/.exec(f.message);
+      if (branch) expect(steps.some((s) => s.name === branch[2] && s.branch === branch[1]), f.message).toBe(true);
+      else expect(f.message, f.path).toMatch(/no approved scenario checks it/);
+    }
   });
 
   it('the permission matrix shows that only the builder lane changes Scenario.status to approved', () => {
     expect(report.permissionBoxes.builder!.Scenario!.transition).toEqual(['approve']);
     expect(report.permissionBoxes.agent!.Scenario!.transition).toEqual(['draft-record']);
-    expect(report.permissionMatrix.ci).toBeUndefined();
+    // CI reads the record and changes nothing (C36).
+    expect(report.permissionMatrix.ci?.Scenario).toEqual(['read']);
+    for (const [entity, actions] of Object.entries(report.permissionMatrix.ci ?? {})) expect(actions, entity).toEqual(['read']);
   });
 
   it('S3-A5 two runs on the real record are byte-identical', () => {

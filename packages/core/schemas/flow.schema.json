@@ -68,6 +68,12 @@
         "sideEffects": { "$ref": "#/definitions/stringList" },
         "errorExits": { "$ref": "#/definitions/stringList" },
         "examples": { "type": "array", "items": { "$ref": "#/definitions/example" } },
+        "package": { "$comment": "T14: the package whose code runs the box.", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "decisions": {
+          "$comment": "T15: the decisions (brainstorm.md) that the box rests on. validate checks each id.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" }
+        },
         "children": { "$ref": "#/definitions/diagram" }
       },
       "allOf": [

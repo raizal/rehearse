@@ -132,6 +132,25 @@ export function countStatuses(items: { status: DiffStatus }[]): DiffCounts {
   return n;
 }
 
+/**
+ * Page 11's count of parts: the parts the diagram draws, not people. A planned part (drawn, but not
+ * built yet, for example CI with no workflow; D46) is left out, and the text says so.
+ */
+export function partCountsText(c: ArchitectureCompare): string {
+  const of = (p: { before?: Part; after?: Part }) => p.after ?? p.before;
+  const drawn = c.parts.filter((p) => of(p)?.kind !== 'person');
+  const planned = drawn.filter((p) => of(p)?.planned === true);
+  const text = countsText(countStatuses(drawn.filter((p) => !planned.includes(p))));
+  if (planned.length === 0) return text;
+  const zoneName = (id: Id) => {
+    const z = c.zones.find((x) => x.id === id);
+    return (z?.after ?? z?.before)?.name ?? id;
+  };
+  const zones = [...new Set(planned.map((p) => of(p)?.zone).filter((z): z is Id => typeof z === 'string'))].map(zoneName);
+  const n = `${planned.length} planned ${planned.length === 1 ? 'part' : 'parts'}`;
+  return `${text} · ${zones.length ? `${zones.join(', ')} left out` : 'left out'}: ${n} not built yet`;
+}
+
 /** "2 added · 4 changed · 5 same"; zero counts are left out. */
 export function countsText(n: DiffCounts): string {
   const parts = (['added', 'changed', 'same', 'removed'] as const).filter((k) => n[k] > 0).map((k) => `${n[k]} ${k}`);

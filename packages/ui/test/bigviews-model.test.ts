@@ -92,7 +92,8 @@ describe('user flow (design page 5)', () => {
     const ids = new Set(uf.nodes.map((n) => n.id));
     for (const e of uf.edges) expect(ids.has(e.from) && ids.has(e.to), `${e.from} → ${e.to}`).toBe(true);
     expect(edgeRows(uf)).toContainEqual(['gate-ok', 'review', 'no', 'branch']);
-    expect(edgeRows(uf)).toContainEqual(['happy', 'approve', 'approve', 'branch']);
+    expect(edgeRows(uf)).toContainEqual(['happy', 'signing-key', 'approve', 'branch']);
+    expect(edgeRows(uf)).toContainEqual(['more-scenarios', 'review', 'yes', 'branch']);
     expect(edgeRows(uf)).toContainEqual(['new-epic', 'rejected', 'epic-exists, bad-slug', 'error']);
     // CI never meets a human box.
     expect(uf.offPath.every((r) => r.lane === 'CI')).toBe(true);
@@ -158,7 +159,8 @@ describe('data flow (design page 6)', () => {
     expect([...df.processes.map((p) => p.path), ...df.noData.map((r) => r.path)].sort()).toEqual(main.sort());
     expect(df.processes.map((p) => p.number)).toEqual(df.processes.map((_, i) => `${i + 1}.0`));
     expect(df.stores.map((s) => s.number)).toEqual(df.stores.map((_, i) => `D${i + 1}`));
-    expect(df.nodes.filter((n) => n.shape === 'entity').map((n) => n.id)).toEqual(['x:builder', 'x:agent']);
+    // CI is an external entity: ci-run reads the record (C36).
+    expect(df.nodes.filter((n) => n.shape === 'entity').map((n) => n.id)).toEqual(['x:builder', 'x:agent', 'x:ci']);
     const ids = new Set(df.nodes.map((n) => n.id));
     for (const e of df.edges) expect(ids.has(e.from) && ids.has(e.to), `${e.from} → ${e.to}`).toBe(true);
     expect(df.onlyWriters.map((w) => w.entity)).toContain('Approval');

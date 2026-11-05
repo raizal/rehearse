@@ -25,7 +25,7 @@ export interface Correction {
   tag: string;
   /** What the entry is about, e.g. ``box `approve` ``. */
   about: string;
-  /** e.g. `DONE in T9` or `OPEN`, when the head line has one. */
+  /** e.g. `DONE in T9` or `OPEN`: the entry's `- Status:` line, else the end of its head line. */
   status?: string;
   /** The `##` heading the entry is under. */
   section: string;
@@ -108,7 +108,11 @@ export function parseCorrectionLog(text: string): Correction[] {
     }
     if (!entry) continue;
     const n = NOTE_LINE.exec(line);
-    if (n) {
+    if (n && n[1] === 'Status') {
+      // The fixed place of the status (T15): a `- Status:` line. It wins over the head line.
+      entry.status = n[2]!.trim();
+      note = undefined;
+    } else if (n) {
       note = { label: n[1]!, text: n[2]!.trim() };
       entry.notes.push(note);
     } else if (note && /^\s{4,}\S/.test(line)) {

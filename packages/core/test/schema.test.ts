@@ -44,6 +44,27 @@ describe('schema (R2)', () => {
     expect(brief(r.findings)).toEqual(['schema flow.yaml in-stock: missing field inputs (at root.boxes[3])']);
   });
 
+  it('T19 a box may name its package and its decisions; an entity may name its file (T14, T15)', () => {
+    const ok = validateFixture({
+      edit: (d) => {
+        box(d, 'pay').package = 'core';
+        box(d, 'pay').decisions = [];
+        d['entities.yaml'].entities[0].file = 'prd.yaml';
+      },
+    });
+    expect(ok.findings).toEqual([]);
+    const bad = validateFixture({
+      edit: (d) => {
+        box(d, 'pay').package = 'Core Lib';
+        box(d, 'pay').decisions = ['d4'];
+      },
+    });
+    expect(brief(bad.findings).map((f) => f.replace(/ \(at .*\)$/, ''))).toEqual([
+      'schema flow.yaml pay: field package must match ^[a-z0-9][a-z0-9-]*$',
+      'schema flow.yaml pay: value must match ^[A-Z]+[0-9]+$',
+    ]);
+  });
+
   it('a missing record file is a finding', () => {
     const dir = makeEpic();
     rmSync(`${dir}/entities.yaml`);

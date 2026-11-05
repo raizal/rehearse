@@ -19,6 +19,8 @@ export interface Zone {
   /** What the zone can or cannot reach, in words. */
   trust?: string;
   color?: ArchColor;
+  /** Drawn, but no code builds it yet (D43). */
+  planned?: boolean;
 }
 
 /** A component, store, person or outside system. */
@@ -33,6 +35,8 @@ export interface Part {
   /** Repo paths of the code that builds it. */
   code?: string[];
   color?: ArchColor;
+  /** Drawn, but no code builds it yet (D43). */
+  planned?: boolean;
 }
 
 /** A call or data link between two parts. A link is known by its two ends. */

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RECORD_FILES } from '@rehearse/core';
-import { makeEpic, REAL_EPIC } from '../../core/test/helpers.js';
+import { makeEpic, REAL_EPIC, unsignedApprovals, unsignedRealEpic } from '../../core/test/helpers.js';
 import { approvedEpic, ME, SHOP_SCENARIOS } from '../../core/test/trust/helpers.js';
 import { inRepo, KEY, STRANGER, VERIFIER } from '../../core/test/trust/keys.js';
 import { newToken, startServer, type RunningServer, type ServerSession } from '../src/index.js';
@@ -220,8 +220,15 @@ describe('rehearse serve: GET /api/epic trust state', () => {
     );
   });
 
-  it('D41: on the real EPIC, /api/epic reports every bootstrap approval as unsigned', async () => {
+  it('D41: on the real EPIC, /api/epic reports every approval without a signature as unsigned', async () => {
+    // The real record: each approval that carries no sig (the bootstrap ones) is not valid.
     running = await startServer({ epicDir: REAL_EPIC, uiDir: UI, port: 0, session: session({ ok: false, reason: 'test' }) });
+    const real = await (await fetch(new URL('api/epic', running.url))).json();
+    const noSig = unsignedApprovals(REAL_EPIC);
+    for (const id of noSig) expect(real.approvals[id]?.sigStatus, id).toBe('missing');
+    await running.close();
+    // The same record with every signature removed: nothing is evidence, whatever the owner signed.
+    running = await startServer({ epicDir: unsignedRealEpic(), uiDir: UI, port: 0, session: session({ ok: false, reason: 'test' }) });
     const view = await (await fetch(new URL('api/epic', running.url))).json();
     const unsigned = view.gate.findings.filter((f: { message: string }) => f.message.includes('is not evidence: sigStatus missing'));
     const missing = Object.values(view.approvals).filter((a) => (a as { sigStatus: string }).sigStatus === 'missing');
@@ -232,7 +239,8 @@ describe('rehearse serve: GET /api/epic trust state', () => {
   });
 
   it('S8-A1 (C28): readiness counts only approvals with a valid signature as proof', async () => {
-    running = await startServer({ epicDir: REAL_EPIC, uiDir: UI, port: 0, session: session({ ok: false, reason: 'test' }) });
+    // The real EPIC with its signatures removed: every requirement loses its proof.
+    running = await startServer({ epicDir: unsignedRealEpic(), uiDir: UI, port: 0, session: session({ ok: false, reason: 'test' }) });
     const view = await (await fetch(new URL('api/epic', running.url))).json();
     expect(view.readiness.noProof.length).toBe(view.readiness.requirements.length);
     expect(view.readiness.noProof[0]).toMatchObject({ reason: 'approval-not-signed' });

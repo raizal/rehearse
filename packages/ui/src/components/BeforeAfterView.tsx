@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import type { DiffStatus, SystemCompare } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
-import { archLayout, changeRows, countStatuses, countsText, diffDrawing, storyNote, type DiffSide } from '../model/architecture.js';
+import { archLayout, changeRows, diffDrawing, partCountsText, storyNote, type DiffSide } from '../model/architecture.js';
 import { ArchDiagram, ArchLegend, NoArchitecture, StatusBadge } from './ArchitectureView.js';
 
 const SUBJECTS = [
@@ -164,8 +164,8 @@ function CardCompare({ items, mode, testId, noun }: { items: CardItem[]; mode: M
 
 function ChangeTable({ c, hasPrd }: { c: SystemCompare; hasPrd: boolean }) {
   const rows = useMemo(() => changeRows(c), [c]);
-  // Page 11 counts the parts the diagram draws: not people.
-  const counts = countsText(countStatuses(c.architecture.parts.filter((p) => (p.after ?? p.before)?.kind !== 'person')));
+  // Page 11 counts the parts the diagram draws: not people, and not planned parts (it says so).
+  const counts = partCountsText(c.architecture);
   const note = storyNote(hasPrd, rows);
   return (
     <section className="ba-changes" data-testid="ba-changes" aria-labelledby="ba-changes-h">

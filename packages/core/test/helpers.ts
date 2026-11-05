@@ -1,8 +1,8 @@
 // Fixture EPICs for tests: the small `shop` EPIC, changed per test, written to a temp folder.
 
-import { cpSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse, stringify } from 'yaml';
 import { validateEpic } from '../src/index.js';
@@ -36,6 +36,40 @@ export function makeEpic(opts: FixtureOptions = {}): string {
   }
   for (const [f, text] of Object.entries(opts.rawFiles ?? {})) writeFileSync(join(dir, f), text);
   return dir;
+}
+
+/**
+ * A copy of the real EPIC (and docs/system/) in a temp repo, with every approval and sign-off
+ * signature removed. Tests that need "nothing is signed" use it, so they stay true after the
+ * owner signs approvals in the real record.
+ */
+export function unsignedRealEpic(): string {
+  const root = mkdtempSync(join(tmpdir(), 'rehearse-unsigned-'));
+  const dir = join(root, 'docs', 'epics', basename(REAL_EPIC));
+  cpSync(REAL_EPIC, dir, { recursive: true });
+  const system = join(REAL_EPIC, '..', '..', 'system');
+  if (existsSync(system)) cpSync(system, join(root, 'docs', 'system'), { recursive: true });
+  const strip = (file: string, list: (doc: any) => any[]): void => {
+    const path = join(dir, file);
+    if (!existsSync(path)) return;
+    const doc = parse(readFileSync(path, 'utf8'));
+    for (const item of list(doc)) if (item && typeof item === 'object') delete item.sig;
+    writeFileSync(path, stringify(doc));
+  };
+  for (const f of readdirSync(join(dir, 'scenarios')).filter((n) => n.endsWith('.yaml'))) {
+    strip(`scenarios/${f}`, (doc) => (doc?.scenarios ?? []).map((sc: any) => sc?.approval));
+  }
+  strip('signoff.yaml', (doc) => doc?.signOffs ?? []);
+  return dir;
+}
+
+/** Scenario ids of an EPIC whose approval has no `sig`. */
+export function unsignedApprovals(dir: string): string[] {
+  return readdirSync(join(dir, 'scenarios'))
+    .filter((f) => f.endsWith('.yaml'))
+    .flatMap((f) => (parse(readFileSync(join(dir, 'scenarios', f), 'utf8'))?.scenarios ?? []) as { id: string; approval?: { sig?: string } }[])
+    .filter((s) => s.approval && !s.approval.sig)
+    .map((s) => s.id);
 }
 
 export function validateFixture(opts: FixtureOptions = {}): Report {

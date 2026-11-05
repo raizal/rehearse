@@ -113,6 +113,7 @@ export function checkRefs(record: EpicRecord): Finding[] {
       out.push(ref(FLOW, 'epic', `epic ${flow.epic} does not match prd.yaml epic.slug ${String(prd.epic.slug)}`));
     }
     checkDiagramIds(flow.root, '', out);
+    const decisions = new Set(asArray<string>(record.decisions));
 
     for (const { box, path } of index.values()) {
       if (typeof box.lane === 'string' && !laneRoles.has(box.lane)) {
@@ -121,6 +122,14 @@ export function checkRefs(record: EpicRecord): Finding[] {
       if (prd) {
         for (const s of asArray(box.stories)) {
           if (typeof s === 'string' && !storyById.has(s)) out.push(ref(FLOW, path, `story ${s} unknown`, [s]));
+        }
+      }
+      // A box names the decisions it rests on (T15). No decision log in docs/epics/: nothing to check against.
+      if (decisions.size > 0) {
+        for (const d of asArray(box.decisions)) {
+          if (typeof d === 'string' && !decisions.has(d)) {
+            out.push(ref(FLOW, path, `decision ${d} unknown (no brainstorm.md in docs/epics/ has it)`, [d]));
+          }
         }
       }
       if (model) {

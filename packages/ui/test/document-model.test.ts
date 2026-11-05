@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { Box, Diagram } from '@rehearse/core';
 import type { ReviewEpicView } from '../src/contract.js';
 import { citedDecisions, knownIds, linkName, placeOf, textParts } from '../src/model/links.js';
+import { boxAt } from '../src/model/diagram.js';
 import { boxScenarios, gateNote, openPlaces, prdDoc, requirementProof, storyBoxes, traceOf } from '../src/model/prd.js';
 import {
   boxContracts,
@@ -168,6 +169,11 @@ describe('T15 feature 4: Tech spec (shop)', () => {
     expect(boxRequirements(view, 'pay')).toEqual(['R1']);
     expect(boxDecisions(view, 'pay')).toEqual(['D1', 'C9']);
     expect(boxDecisions(view, 'ship/send')).toEqual(['C9']);
+    // A box may name its decisions (T19); they come first.
+    const named = reviewEpic();
+    named.prd!.requirements[0]!.text = 'The buyer pays. (D1)';
+    boxAt(named.flow, 'pay')!.decisions = ['D3', 'D1'];
+    expect(boxDecisions(named, 'pay')).toEqual(['D3', 'D1']);
     expect(changeRule(['S6'])).toBe('A change to this contract goes in corrections.md with a reason, and makes S6 and its scenarios stale (D7, D23).');
     expect(changeRule([])).toBe('A change to this contract goes in corrections.md with a reason (D7). No story uses the box yet.');
   });
