@@ -17,7 +17,7 @@ import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQu
 import { ApproveBar } from './Approve.js';
 import { PathMap } from './PathMap.js';
 import { StoryThread } from './StoryThread.js';
-import { StoryView } from './StoryView.js';
+import { StoryView, type StoryTab } from './StoryView.js';
 import type { ApproveControls } from './Playback.js';
 import type { SessionState } from './Review.js';
 import { KeyValues } from './Values.js';
@@ -56,6 +56,7 @@ export interface StoryboardProps {
 export function Storyboard(props: StoryboardProps) {
   const { view, scenarioId, seen } = props;
   const groups = useMemo(() => reviewQueue(view.prd, view.scenarios), [view]);
+  const [storyTab, setStoryTab] = useState<StoryTab>('overview');
   const active = view.scenarios.find((s) => s.scenario.id === scenarioId);
   const storyId = props.storyId ?? active?.scenario.story;
   const ofStory = view.scenarios.filter((sv) => storyId !== undefined && sv.scenario.story === storyId);
@@ -76,36 +77,35 @@ export function Storyboard(props: StoryboardProps) {
         <ReviewQueue {...props} storyId={storyId} groups={groups} />
       </aside>
       <div className="card-wrap">
-        {storyId !== undefined && (
-          <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)}>
-            <section className="story-scenarios" data-testid="story-scenarios" aria-labelledby="story-scenarios-h">
-              <h3 id="story-scenarios-h">
-                Scenarios of {storyId} ({ofStory.length})
-              </h3>
-              {ofStory.length === 0 && <p className="muted">This story has no scenarios.</p>}
-              <ul className="story-scenario-list">
-                {ofStory.map((sv) => {
-                  const id = sv.scenario.id;
-                  if (id === active?.scenario.id) return <li key={id}>{card(sv)}</li>;
-                  const state = approvalState(sv, props.approve.approvals);
-                  return (
-                    <li key={id}>
-                      <button type="button" className="scenario story-scenario" data-testid={`story-scenario-${id}`} aria-label={`Open the card of ${id}: ${sv.scenario.title} (${state.text})`} onClick={() => props.onPick(id)}>
-                        <span className="scenario-head">
-                          <span className="scenario-id">{id}</span>
-                          <span className={`badge ${MARK_CLASS[state.kind]}`}>
-                            <span aria-hidden="true">{MARK[state.kind]} </span>
-                            {state.text}
-                          </span>
+        {storyId !== undefined && <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} tab={storyTab} onTab={setStoryTab} />}
+        {storyId !== undefined && storyTab === 'overview' && (
+          <section className="story-scenarios" data-testid="story-scenarios" aria-labelledby="story-scenarios-h">
+            <h3 id="story-scenarios-h">
+              Scenarios of {storyId} ({ofStory.length})
+            </h3>
+            {ofStory.length === 0 && <p className="muted">This story has no scenarios.</p>}
+            <ul className="story-scenario-list">
+              {ofStory.map((sv) => {
+                const id = sv.scenario.id;
+                if (id === active?.scenario.id) return <li key={id}>{card(sv)}</li>;
+                const state = approvalState(sv, props.approve.approvals);
+                return (
+                  <li key={id}>
+                    <button type="button" className="scenario story-scenario" data-testid={`story-scenario-${id}`} aria-label={`Open the card of ${id}: ${sv.scenario.title} (${state.text})`} onClick={() => props.onPick(id)}>
+                      <span className="scenario-head">
+                        <span className="scenario-id">{id}</span>
+                        <span className={`badge ${MARK_CLASS[state.kind]}`}>
+                          <span aria-hidden="true">{MARK[state.kind]} </span>
+                          {state.text}
                         </span>
-                        <span className="scenario-title">{sv.scenario.title}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          </StoryView>
+                      </span>
+                      <span className="scenario-title">{sv.scenario.title}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         )}
         {storyId !== undefined ? null : active ? (
           card(active)
@@ -116,7 +116,7 @@ export function Storyboard(props: StoryboardProps) {
         )}
       </div>
       {storyId !== undefined && (
-        <StoryThread storyId={storyId} token={props.session.kind === 'ready' ? props.session.session.token : undefined} context={contextLabel({ tab: 'overview', detail: active?.scenario.id })} />
+        <StoryThread storyId={storyId} token={props.session.kind === 'ready' ? props.session.session.token : undefined} context={contextLabel({ tab: storyTab, detail: active?.scenario.id })} />
       )}
     </main>
   );

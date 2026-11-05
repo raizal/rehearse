@@ -69,16 +69,21 @@ describe('rehearse serve', () => {
   });
 
   it('parses the EPIC and the port; without an EPIC it uses the folder, or the only EPIC in docs/epics', () => {
-    expect(parseServeArgs([SHOP], REPO)).toEqual({ epicDir: SHOP, port: DEFAULT_PORT });
-    expect(parseServeArgs(['--port', '8123', SHOP], REPO)).toEqual({ epicDir: SHOP, port: 8123 });
-    expect(parseServeArgs([], SHOP)).toEqual({ epicDir: SHOP, port: DEFAULT_PORT });
+    expect(parseServeArgs([SHOP], REPO)).toEqual({ epicDir: SHOP, port: DEFAULT_PORT, birdviewPort: 3298 });
+    expect(parseServeArgs(['--port', '8123', SHOP], REPO)).toEqual({ epicDir: SHOP, port: 8123, birdviewPort: 3298 });
+    expect(parseServeArgs([], SHOP)).toEqual({ epicDir: SHOP, port: DEFAULT_PORT, birdviewPort: 3298 });
     const one = mkdtempSync(join(tmpdir(), 'rehearse-one-'));
     mkdirSync(join(one, 'docs', 'epics', 'a'), { recursive: true });
-    expect(parseServeArgs([], one)).toEqual({ epicDir: join(one, 'docs', 'epics', 'a'), port: DEFAULT_PORT });
+    expect(parseServeArgs([], one)).toEqual({ epicDir: join(one, 'docs', 'epics', 'a'), port: DEFAULT_PORT, birdviewPort: 3298 });
     const two = mkdtempSync(join(tmpdir(), 'rehearse-two-'));
     mkdirSync(join(two, 'docs', 'epics', 'a'), { recursive: true });
     mkdirSync(join(two, 'docs', 'epics', 'b'), { recursive: true });
     expect(parseServeArgs([], two)).toBe('name the EPIC to serve: a, b');
+  });
+
+  it('T13 3.10 --birdview-port sets the port of the Birdview player (default 3298)', () => {
+    expect(parseServeArgs(['--birdview-port', '4444', SHOP], REPO)).toEqual({ epicDir: SHOP, port: DEFAULT_PORT, birdviewPort: 4444 });
+    for (const bad of [['--birdview-port'], ['--birdview-port', '0'], ['--birdview-port', 'x']]) expect(parseServeArgs([...bad, SHOP], REPO)).toContain('--birdview-port needs a number');
   });
 
   it('usage errors exit 2 without starting a server', () => {

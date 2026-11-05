@@ -4,7 +4,8 @@
 // panel (T12) writes local state only (.rehearse/story-threads.json) and runs `bb`. Each POST needs
 // the session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
 // key are the server process's, never the request's. The code reads (`/api/code-index`,
-// `/api/box-code`) and the story-thread reads run git or bb and need the same token and Origin check.
+// `/api/box-code`) and the story-thread reads run git or bb; the Birdview routes read the e2e player and forward an allowlist
+// of its actions, on 127.0.0.1 only. All of them need the same token and Origin check.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -12,6 +13,7 @@ import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
+import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { createStoryThreads, processRunner, StoryThreadError, type Runner, type StoryThreadService } from './story-thread.js';
 import { buildTrustedEpicView } from './trust-view.js';
@@ -36,6 +38,8 @@ export interface ServeOptions {
   run?: Runner;
   /** bb project for new story threads. Default: REHEARSE_BB_PROJECT, else BB_PROJECT_ID. */
   bbProject?: string;
+  /** The Birdview e2e player. Default: port 3298 and the nearest `e2e/` test project above the EPIC folder. */
+  birdview?: BirdviewSetup;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -68,7 +72,7 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
@@ -82,7 +86,11 @@ const ROUTES: Record<string, string> = {
   '/api/story-thread/start': 'POST',
   '/api/story-thread/send': 'POST',
   '/api/story-thread/open': 'POST',
+  '/api/birdview': 'GET',
+  '/api/birdview/action': 'POST',
 };
+
+const STORY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 /** The request handler, without listening. */
 export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res: ServerResponse) => void {
@@ -91,6 +99,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const git = opts.git ?? execGit;
   const bbProject = opts.bbProject ?? (process.env.REHEARSE_BB_PROJECT || process.env.BB_PROJECT_ID || undefined);
   const threads = createStoryThreads({ epicDir: opts.epicDir, run: opts.run ?? processRunner(), ...(bbProject ? { bbProject } : {}) });
+  const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
   return (req, res) => {
     let path: string;
     let query: URLSearchParams;
@@ -137,6 +146,36 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
         ([status, body]) => sendJson(res, status, body),
         (e: unknown) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }),
       );
+      return;
+    }
+    if (path === '/api/birdview') {
+      const refused = checkRequest(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { error: refused.error });
+        return;
+      }
+      const story = new URL(req.url ?? '/', 'http://localhost').searchParams.get('story') ?? '';
+      if (!STORY_ID.test(story)) {
+        sendJson(res, 400, { error: 'query must be ?story=<story id>' });
+        return;
+      }
+      void birdviewInfo(birdview, story).then(
+        (info) => sendJson(res, 200, info),
+        (e: unknown) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }),
+      );
+      return;
+    }
+    if (path === '/api/birdview/action') {
+      void readJsonPost(req, session).then((body) => {
+        if ('status' in body) {
+          sendJson(res, body.status, { ok: false, error: body.error });
+          return;
+        }
+        void playerAction(birdview, body.json).then(
+          ([status, out]) => sendJson(res, status, out),
+          (e: unknown) => sendJson(res, 502, { ok: false, error: `the player did not answer: ${e instanceof Error ? e.message : String(e)}` }),
+        );
+      });
       return;
     }
     if (path === '/api/approve' || path === '/api/sign-off') {
@@ -280,6 +319,27 @@ async function readPost(req: IncomingMessage, session: ServerSession, field: str
   const ids = body.json[field];
   if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) return { status: 400, error: `body must be { "${field}": string[] }` };
   return ids as Id[];
+}
+
+/**
+ * `{ action, storyId }`: forward an allowed action to the player, only when it plays this EPIC's
+ * test project. `playlist-select` picks the story's playlist (its id is the story id).
+ */
+async function playerAction(setup: BirdviewSetup, body: Record<string, unknown>): Promise<[number, unknown]> {
+  const action = body.action;
+  if (typeof action !== 'string' || !(PLAYER_ACTIONS as readonly string[]).includes(action)) {
+    return [400, { ok: false, error: `action must be one of ${PLAYER_ACTIONS.join(', ')}` }];
+  }
+  const storyId = body.storyId;
+  if (typeof storyId !== 'string' || !STORY_ID.test(storyId)) return [400, { ok: false, error: 'storyId must be a story id' }];
+  const client = setup.client ?? httpPlayerClient(setup.port);
+  const [state, head] = await Promise.all([client.state(), client.setup()]);
+  const view = playerView(setup.projectDir, state, head, []);
+  if (view.kind !== 'ours') return [409, { ok: false, error: `the player plays another project (${view.kind === 'other' ? view.projectDir || 'none set' : 'off'})` }];
+  const out = await client.action(action as PlayerAction, { id: storyId });
+  const error = typeof out.body === 'object' && out.body !== null ? (out.body as { error?: unknown }).error : undefined;
+  if (out.status !== 200 || typeof error === 'string') return [502, { ok: false, error: `player: ${typeof error === 'string' ? error : `HTTP ${out.status}`}` }];
+  return [200, { ok: true }];
 }
 
 /** Discard the body of a refused request, so the connection can answer. */

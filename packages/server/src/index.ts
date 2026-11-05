@@ -51,3 +51,23 @@ export {
   type StoryBrief,
   type StoryThreadView,
 } from './story-thread.js';
+export {
+  birdviewInfo,
+  DEFAULT_BIRDVIEW_PORT,
+  defaultPlaylistsDir,
+  findTestProject,
+  httpPlayerClient,
+  parseSse,
+  PLAYER_ACTIONS,
+  PLAYER_HOST,
+  playerView,
+  readStoryPlaylist,
+  testKey,
+  type BirdviewInfo,
+  type BirdviewSetup,
+  type PlayerAction,
+  type PlayerClient,
+  type PlayerView,
+  type TestResult,
+} from './birdview.js';
+export { buildPlaylist, parsePlaylist, parseSpec, playlistJson, stepBox, storiesWithTests, type Playlist, type PlaylistBuild, type PlaylistTest, type SpecTest } from './playlist.js';

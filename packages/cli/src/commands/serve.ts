@@ -1,11 +1,12 @@
-// `rehearse serve [dir-or-slug] [--port N]`: the review UI and its JSON API on 127.0.0.1
+// `rehearse serve [dir-or-slug] [--port N] [--birdview-port N]`: the review UI and its JSON API on 127.0.0.1
 // only (R12, R20). Remote access: `bb connect expose <port>`. The only writes are approve and
 // sign-off from the UI, signed with the git signing key of this process (R13, R14, D41).
+// --birdview-port is the port of the Birdview e2e player the story Tests tab reads (T13).
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-import { createSession, startServer, type RunningServer } from '@rehearse/server';
+import { createSession, DEFAULT_BIRDVIEW_PORT, findTestProject, startServer, type RunningServer } from '@rehearse/server';
 import { EXIT, resolveEpicDir, type Io } from '../index.js';
 
 export const DEFAULT_PORT = 4700;
@@ -13,11 +14,13 @@ export const DEFAULT_PORT = 4700;
 export interface ServeArgs {
   epicDir: string;
   port: number;
+  birdviewPort: number;
 }
 
 /** Parse the arguments. A string is a usage error message. */
 export function parseServeArgs(args: string[], cwd: string): ServeArgs | string {
   let port = DEFAULT_PORT;
+  let birdviewPort = DEFAULT_BIRDVIEW_PORT;
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
@@ -25,6 +28,10 @@ export function parseServeArgs(args: string[], cwd: string): ServeArgs | string 
       const v = args[++i];
       if (v === undefined || !/^\d+$/.test(v) || Number(v) > 65535) return `--port needs a number from 0 to 65535, got ${v ?? 'nothing'}`;
       port = Number(v);
+    } else if (a === '--birdview-port') {
+      const v = args[++i];
+      if (v === undefined || !/^\d+$/.test(v) || Number(v) < 1 || Number(v) > 65535) return `--birdview-port needs a number from 1 to 65535, got ${v ?? 'nothing'}`;
+      birdviewPort = Number(v);
     } else if (a.startsWith('-')) {
       return `unknown option ${a}`;
     } else {
@@ -34,10 +41,10 @@ export function parseServeArgs(args: string[], cwd: string): ServeArgs | string 
   if (positional.length > 1) return 'expected at most one <epic-dir-or-slug>';
   if (positional.length === 1) {
     const dir = resolveEpicDir(positional[0]!, cwd);
-    return dir ? { epicDir: dir, port } : `no EPIC folder ${positional[0]} (not a folder, and not found as docs/epics/${positional[0]})`;
+    return dir ? { epicDir: dir, port, birdviewPort } : `no EPIC folder ${positional[0]} (not a folder, and not found as docs/epics/${positional[0]})`;
   }
   const found = defaultEpicDir(cwd);
-  return 'dir' in found ? { epicDir: found.dir, port } : found.error;
+  return 'dir' in found ? { epicDir: found.dir, port, birdviewPort } : found.error;
 }
 
 /** cwd when it is an EPIC folder, else the only folder in the nearest docs/epics. */
@@ -63,12 +70,13 @@ export function uiDistDir(): string {
 export async function startServe(args: string[], io: Io, uiDir: string = uiDistDir()): Promise<RunningServer | { code: number }> {
   const parsed = parseServeArgs(args, io.cwd);
   if (typeof parsed === 'string') {
-    io.stderr(`rehearse serve: ${parsed}\n\nUsage: rehearse serve [epic-dir-or-slug] [--port N]\n`);
+    io.stderr(`rehearse serve: ${parsed}\n\nUsage: rehearse serve [epic-dir-or-slug] [--port N] [--birdview-port N]\n`);
     return { code: EXIT.usage };
   }
   try {
     const session = createSession(parsed.epicDir);
-    const running = await startServer({ epicDir: parsed.epicDir, uiDir, port: parsed.port, session });
+    const birdview = { port: parsed.birdviewPort, projectDir: findTestProject(parsed.epicDir) };
+    const running = await startServer({ epicDir: parsed.epicDir, uiDir, port: parsed.port, session, birdview });
     const signing = session.signer.ok
       ? `Approve and sign-off as ${session.identity.by}, key ${session.signer.signer.keyFingerprint}.`
       : `Approve and sign-off are off: ${session.signer.reason}.`;
@@ -94,7 +102,7 @@ export async function startServe(args: string[], io: Io, uiDir: string = uiDistD
 export function runServe(args: string[], io: Io): number {
   const parsed = parseServeArgs(args, io.cwd);
   if (typeof parsed === 'string') {
-    io.stderr(`rehearse serve: ${parsed}\n\nUsage: rehearse serve [epic-dir-or-slug] [--port N]\n`);
+    io.stderr(`rehearse serve: ${parsed}\n\nUsage: rehearse serve [epic-dir-or-slug] [--port N] [--birdview-port N]\n`);
     return EXIT.usage;
   }
   void startServe(args, io).then((r) => {

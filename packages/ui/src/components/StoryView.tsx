@@ -1,7 +1,8 @@
 // One story (S4-A5, D42): WHAT (role, want, so that, the criteria as a checklist), HOW (a
 // swimlane of only the boxes that serve it, in flow order) and OUTPUT (each data change as
 // before → after, side effects, and what the user sees). The scenario cards come below it.
-// A tab bar splits the story: Overview (all of the above), Code (StoryCode.tsx).
+// A tab bar splits the story: Overview (all of the above), Code (StoryCode.tsx) and Tests (T13:
+// the story's e2e tests in Birdview).
 
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import type { Id } from '@rehearse/core';
@@ -10,27 +11,35 @@ import { ROLE_ICON } from '../model/features.js';
 import { howLayout, storyDetail, type StoryDetail } from '../model/storyview.js';
 import { wrapLines } from '../model/text.js';
 import { CodeChip, StoryCode, useCodeIndex } from './StoryCode.js';
+import { StoryTests } from './StoryTests.js';
 import { svgButton } from './svg.js';
+
+export const STORY_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'code', label: 'Code' },
+  { id: 'tests', label: 'Tests' },
+] as const;
+export type StoryTab = (typeof STORY_TABS)[number]['id'];
 
 export interface StoryViewProps {
   view: ReviewEpicView;
   storyId: Id;
   onOpenBox: (path: string) => void;
-  /** More of the Overview tab, under WHAT, HOW and OUTPUT (the scenario cards). */
+  /** The open tab, when the parent keeps it (it shows the scenario cards under Overview only). */
+  tab?: StoryTab;
+  onTab?: (tab: StoryTab) => void;
+  /** More of the Overview tab, under the story view (for example the scenario cards). */
   children?: ReactNode;
 }
 
-const STORY_TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'code', label: 'Code' },
-] as const;
-type StoryTab = (typeof STORY_TABS)[number]['id'];
-
-export function StoryView({ view, storyId, onOpenBox, children }: StoryViewProps) {
+export function StoryView({ view, storyId, onOpenBox, children, ...props }: StoryViewProps) {
   const d = useMemo(() => storyDetail(view, storyId), [view, storyId]);
-  const [tab, setTab] = useState<StoryTab>('overview');
+  const [ownTab, setOwnTab] = useState<StoryTab>('overview');
+  const tab = props.tab ?? ownTab;
+  const setTab = props.onTab ?? setOwnTab;
   const code = useCodeIndex();
   const tabId = useId().replace(/:/g, '');
+  const scenarios = useMemo(() => view.scenarios.map((sv) => sv.scenario).filter((s) => s.story === storyId), [view, storyId]);
   return (
     <>
       <article className="story-view" data-testid="story-view" aria-labelledby="story-view-title">
@@ -40,7 +49,7 @@ export function StoryView({ view, storyId, onOpenBox, children }: StoryViewProps
         <div className="story-chips">
           <CodeChip d={d} index={code} />
         </div>
-        <div className="story-tabs" role="tablist" aria-label={`Views of story ${storyId}`}>
+        <div className="story-tabs" role="tablist" aria-label={`Views of story ${storyId}`} data-testid="story-tabs">
           {STORY_TABS.map((t) => (
             <button
               key={t.id}
@@ -48,8 +57,8 @@ export function StoryView({ view, storyId, onOpenBox, children }: StoryViewProps
               role="tab"
               id={`${tabId}-${t.id}`}
               aria-selected={t.id === tab}
-              aria-controls={`${tabId}-panel`}
-              className={t.id === tab ? 'story-tab is-active' : 'story-tab'}
+              aria-controls={`${tabId}-${t.id}-panel`}
+              className={t.id === tab ? 'story-tab tab is-active' : 'story-tab tab'}
               data-testid={`story-tab-${t.id}`}
               onClick={() => setTab(t.id)}
             >
@@ -57,7 +66,7 @@ export function StoryView({ view, storyId, onOpenBox, children }: StoryViewProps
             </button>
           ))}
         </div>
-        <div role="tabpanel" id={`${tabId}-panel`} aria-labelledby={`${tabId}-${tab}`}>
+        <div role="tabpanel" id={`${tabId}-${tab}-panel`} aria-labelledby={`${tabId}-${tab}`}>
           {tab === 'overview' && (
             <div className="story-panels">
               <What d={d} />
@@ -66,6 +75,7 @@ export function StoryView({ view, storyId, onOpenBox, children }: StoryViewProps
             </div>
           )}
           {tab === 'code' && <StoryCode d={d} index={code} />}
+          {tab === 'tests' && <StoryTests storyId={storyId} scenarios={scenarios} />}
         </div>
       </article>
       {tab === 'overview' && children}

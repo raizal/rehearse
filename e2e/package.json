@@ -1,0 +1,15 @@
+{
+  "name": "@rehearse/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright e2e tests of the rehearse review UI, one per scenario, named after the scenario id (T13). Birdview plays them. Not part of `pnpm -r test`: run `pnpm e2e`.",
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test",
+    "playlists": "node ../packages/cli/bin/rehearse.js playlists ../docs/epics/2026-11-05-rehearse --tests .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0"
+  }
+}
