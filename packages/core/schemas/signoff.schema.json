@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rehearse:signoff",
+  "title": "rehearse signoff.yaml (R14)",
+  "type": "object",
+  "required": ["signOffs"],
+  "additionalProperties": false,
+  "properties": {
+    "signOffs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["by", "at", "storyHashes"],
+        "additionalProperties": false,
+        "properties": {
+          "by": { "type": "string", "minLength": 1 },
+          "threadId": { "type": "string" },
+          "at": { "type": "string" },
+          "kind": { "type": "string" },
+          "gateChecks": { "type": "string" },
+          "storyHashes": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      }
+    }
+  }
+}

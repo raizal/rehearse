@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rehearse:flow",
+  "title": "rehearse flow.yaml (R2, D10)",
+  "type": "object",
+  "required": ["version", "epic", "lanes", "root"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "epic": { "type": "string" },
+    "lanes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "order"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string" },
+          "order": { "type": "number" }
+        }
+      }
+    },
+    "root": { "$ref": "#/definitions/diagram" }
+  },
+  "definitions": {
+    "typeMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "stringList": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "example": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "box": { "type": "string" },
+        "given": { "type": "object" },
+        "then": { "type": "object" },
+        "stateAfter": { "type": "object" }
+      }
+    },
+    "diagram": {
+      "type": "object",
+      "required": ["boxes", "edges"],
+      "additionalProperties": false,
+      "properties": {
+        "boxes": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/box" } },
+        "edges": { "type": "array", "items": { "$ref": "#/definitions/edge" } }
+      }
+    },
+    "box": {
+      "type": "object",
+      "required": ["id", "kind", "lane", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["start", "end", "process", "decision", "input", "output", "external"] },
+        "lane": { "type": "string" },
+        "stories": { "$ref": "#/definitions/stringList" },
+        "inputs": { "$ref": "#/definitions/typeMap" },
+        "outputs": { "$ref": "#/definitions/typeMap" },
+        "reads": { "$ref": "#/definitions/stringList" },
+        "writes": { "$ref": "#/definitions/stringList" },
+        "sideEffects": { "$ref": "#/definitions/stringList" },
+        "errorExits": { "$ref": "#/definitions/stringList" },
+        "examples": { "type": "array", "items": { "$ref": "#/definitions/example" } },
+        "children": { "$ref": "#/definitions/diagram" }
+      },
+      "allOf": [
+        {
+          "$comment": "D10: each box that is not start, end or decision declares typed inputs and outputs.",
+          "if": { "properties": { "kind": { "enum": ["process", "input", "output", "external"] } }, "required": ["kind"] },
+          "then": { "required": ["inputs", "outputs"] }
+        },
+        {
+          "$comment": "A decision reads inputs; its output is the branch it takes.",
+          "if": { "properties": { "kind": { "const": "decision" } }, "required": ["kind"] },
+          "then": { "required": ["inputs"] }
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["normal", "branch", "error"] }
+      },
+      "if": { "properties": { "kind": { "enum": ["branch", "error"] } }, "required": ["kind"] },
+      "then": { "required": ["label"] }
+    }
+  }
+}

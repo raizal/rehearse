@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rehearse:scenario",
+  "title": "rehearse scenarios/*.yaml (R2, R21)",
+  "type": "object",
+  "required": ["story", "scenarios"],
+  "additionalProperties": false,
+  "properties": {
+    "story": { "type": "string", "pattern": "^S[0-9]+$" },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "status", "steps"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*$" },
+          "title": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["draft", "approved", "stale"] },
+          "approval": {
+            "type": "object",
+            "required": ["by", "at", "hash"],
+            "additionalProperties": false,
+            "properties": {
+              "by": { "type": "string", "minLength": 1 },
+              "threadId": { "type": "string" },
+              "at": { "type": "string" },
+              "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "note": { "type": "string" }
+            }
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$" },
+                "branch": { "type": "string", "minLength": 1 },
+                "example": {
+                  "type": "object",
+                  "required": ["id"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": { "type": "string" },
+                    "box": { "type": "string" },
+                    "given": { "type": "object" },
+                    "then": { "type": "object" },
+                    "stateAfter": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "expect": {
+            "type": "object",
+            "required": ["state"],
+            "additionalProperties": false,
+            "properties": {
+              "criterion": { "type": "string", "pattern": "^S[0-9]+-A[0-9]+$" },
+              "state": { "type": "object" }
+            }
+          }
+        },
+        "if": { "properties": { "status": { "enum": ["approved", "stale"] } }, "required": ["status"] },
+        "then": { "required": ["approval"] }
+      }
+    }
+  }
+}
