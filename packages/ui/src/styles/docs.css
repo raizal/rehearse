@@ -129,12 +129,12 @@
 .doc-card.is-selected, .decision-log .is-selected, .corrections .is-selected { outline: 2px solid var(--accent); outline-offset: 2px; }
 .doc-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .doc-card-head .id-link { margin: 0; }
-.story-card { display: flex; flex-direction: column; gap: 10px; cursor: pointer; }
-.story-sentence { font-size: 15px; font-weight: var(--fw-semibold); line-height: 1.4; }
-.criteria { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.criteria > li { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; align-items: center; gap: var(--s-2); }
+.doc-card.story-card { display: flex; flex-direction: column; gap: 10px; cursor: pointer; }
+.doc-card .story-sentence { font-size: 15px; font-weight: var(--fw-semibold); line-height: 1.4; }
+.doc-card .criteria { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.doc-card .criteria > li { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; align-items: center; gap: var(--s-2); }
 .criterion-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.criterion-proof { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; font-size: var(--fs-xs); }
+.doc-card .criterion-proof { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; font-size: var(--fs-xs); }
 .proof-item { display: inline-flex; align-items: center; gap: 4px; }
 .proof-item .id-link { margin: 0; }
 .proof-state { font-size: var(--fs-xs); font-weight: var(--fw-medium); background: none; }
