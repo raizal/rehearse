@@ -197,8 +197,11 @@ describe('T12 story thread panel', () => {
     render(<App />);
     await screen.findByTestId('big-picture');
     await user.click(screen.getByTestId('nav-stories'));
-    await screen.findByTestId('story-card');
+    await screen.findByTestId('story-view');
+    // The thread rail is on the Code and Tests tabs (design pages 13–15), not on the story page.
+    await user.click(screen.getByTestId('story-tab-code'));
     expect(await screen.findByTestId('story-thread-error')).toHaveTextContent('this rehearse serve has no story thread API; update rehearse');
+    await user.click(screen.getByTestId('story-tab-what'));
     expect(screen.getByTestId('story-scenarios')).toBeInTheDocument();
   });
 });

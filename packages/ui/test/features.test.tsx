@@ -75,10 +75,10 @@ describe('big picture (S4-A4)', () => {
     const { user } = await start();
     await user.click(screen.getByTestId('bp-story-S2'));
     expect(screen.getByTestId('nav-stories')).toHaveAttribute('aria-current', 'page');
-    expect(await screen.findByTestId('story-view')).toHaveTextContent('Story S2');
+    expect(await screen.findByTestId('story-view')).toHaveTextContent('S2 ·');
     expect(screen.getByTestId('queue-story-S2')).toHaveAttribute('aria-current', 'true');
-    // The story opens on its first scenario to approve.
-    expect(screen.getByTestId('story-card')).toHaveTextContent('S2-out-of-stock');
+    // The story page lists its scenarios as cards.
+    expect(screen.getByTestId('story-scenario-S2-out-of-stock')).toBeInTheDocument();
   });
 
   it('S4-A4: a click on a process opens it in the flow view', async () => {
@@ -113,8 +113,9 @@ describe('story view (S4-A5)', () => {
     await user.click(screen.getByTestId('bp-story-S1'));
     const what = await screen.findByTestId('story-what');
     expect(within(what).getByTestId('story-role')).toHaveTextContent('Builder');
-    expect(what).toHaveTextContent('I want');
-    expect(what).toHaveTextContent('so that');
+    // The page head says who wants what, so that what (design page 2).
+    expect(screen.getByTestId('story-view')).toHaveTextContent('S1 · Builder wants to pay for my cart');
+    expect(screen.getByTestId('story-view')).toHaveTextContent('so that');
     const c = within(what).getByTestId('story-criterion-S1-A1');
     expect(c).toHaveAttribute('data-checked', 'true');
     expect(c).toHaveTextContent('checked');
@@ -149,7 +150,7 @@ describe('story view (S4-A5)', () => {
     const { user } = await start();
     await user.click(screen.getByTestId('bp-story-S1'));
     const changes = await screen.findByTestId('story-changes');
-    expect(within(changes).getAllByRole('listitem').map((li) => li.querySelector('code')?.textContent)).toEqual([
+    expect(within(changes).getAllByRole('listitem').map((li) => li.querySelector('.change')?.textContent)).toEqual([
       'Order.id: written',
       'Order.status: new → draft',
       'Order.status: draft → paid',
@@ -162,22 +163,23 @@ describe('story view (S4-A5)', () => {
     const { user } = await start();
     await user.click(screen.getByTestId('nav-stories'));
     expect(await screen.findByTestId('queue')).toBeInTheDocument();
-    expect(screen.getByTestId('story-scenarios')).toHaveTextContent('Scenarios of S1 (2)');
-    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
-    await user.click(screen.getByTestId('story-scenario-S1-buy'));
-    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-buy');
+    expect(screen.getByTestId('story-scenarios')).toHaveTextContent('Scenarios for this story (2)');
     expect(screen.getByTestId('story-scenario-S1-empty')).toBeInTheDocument();
     // A story picked in the queue opens its story view.
     await user.click(screen.getByTestId('queue-story-S2'));
-    expect(screen.getByTestId('story-view')).toHaveTextContent('Story S2');
-    expect(screen.getByTestId('story-card')).toHaveTextContent('S2-out-of-stock');
+    expect(screen.getByTestId('story-view')).toHaveTextContent('S2 ·');
+    expect(screen.getByTestId('story-scenario-S2-out-of-stock')).toBeInTheDocument();
+    // "Open storyboard" on a card opens that scenario's storyboard page.
+    await user.click(screen.getByTestId('queue-story-S1'));
+    await user.click(screen.getByTestId('story-scenario-open-S1-buy'));
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-buy');
   });
 
   it('S4-A5: the real EPIC: every story renders its story view with each criterion', () => {
     const view = realEpic();
     for (const s of storiesOf(view.prd)) {
       const { unmount } = render(<StoryView view={view} storyId={s.id} onOpenBox={() => undefined} />);
-      expect(screen.getByTestId('story-view')).toHaveTextContent(`Story ${s.id}`);
+      expect(screen.getByTestId('story-view')).toHaveTextContent(`${s.id} ·`);
       for (const c of s.acceptance) expect(screen.getByTestId(`story-criterion-${c.id}`)).toBeInTheDocument();
       unmount();
     }

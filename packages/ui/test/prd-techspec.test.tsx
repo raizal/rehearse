@@ -70,7 +70,7 @@ describe('T15 feature 2: links', () => {
 
     await user.click(screen.getByTestId('nav-prd'));
     await user.click(within(screen.getByTestId('prd-req-R2')).getByTestId('link-story-S2'));
-    expect(await screen.findByTestId('story-view')).toHaveTextContent('Story S2');
+    expect(await screen.findByTestId('story-view')).toHaveTextContent('S2 ·');
 
     await user.click(screen.getByTestId('nav-prd'));
     await user.click(within(screen.getByTestId('prd-story-S1')).getAllByTestId('link-scenario-S1-buy')[0]!);
