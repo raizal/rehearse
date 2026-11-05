@@ -28,6 +28,7 @@ import { stepCount, stepView } from './model/playback.js';
 import { approveReason } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
+import { shortKey } from './model/text.js';
 
 const TABS = [
   { id: 'prd', label: 'PRD' },
@@ -260,8 +261,13 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       <header className="topbar">
         <div className="brand">
           <span className="logo">rehearse</span>
-          <span className="epic-title" data-testid="epic-title">{view?.prd?.epic?.title ?? view?.slug ?? ''}</span>
-          {view && <span className="epic-slug">{view.slug}</span>}
+          <span className="epic-title sr-only" data-testid="epic-title">{view?.prd?.epic?.title ?? view?.slug ?? ''}</span>
+          {view && (
+            <span className="epic-slug" data-testid="epic-slug" title={view.prd?.epic?.title}>
+              {view.slug}
+              {view.prd?.epic?.status && ` · ${view.prd.epic.status}`}
+            </span>
+          )}
         </div>
         <nav className="tabs" data-testid="nav" aria-label="Views">
           {TABS.map((t) => (
@@ -278,6 +284,15 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           ))}
         </nav>
         <div className="topbar-right">
+          {session.kind === 'ready' && (
+            <span
+              className={`badge signing-chip ${session.session.signing.ok ? 'status-approved' : 'status-unsigned'}`}
+              data-testid="signing-chip"
+              title={session.session.signing.ok ? `Signing with key ${session.session.signing.keyFingerprint}` : session.session.signing.reason}
+            >
+              {session.session.signing.ok ? `Signing: key ${shortKey(session.session.signing.keyFingerprint)}` : 'Signing: off'}
+            </span>
+          )}
           {report && (
             <span className={`badge ${report.ok ? 'status-approved' : 'status-stale'}`} data-testid="report-status" title={report.findings.map((f) => `${f.file}: ${f.path}: ${f.message}`).join('\n')}>
               validate: {report.ok ? 'OK' : `${report.findings.length} findings`}

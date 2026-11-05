@@ -8,6 +8,7 @@ import { App } from '../src/App.js';
 import type { ReviewEpicView, SignOffView } from '../src/contract.js';
 import { FIXTURE_KEY, reviewEpic, seeAll } from './fixture.js';
 import { mockServer, SESSION, type MockRoutes } from './mock-server.js';
+import { shortKey } from '../src/model/text.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -29,6 +30,24 @@ async function start(routes: Partial<MockRoutes> = {}, view: ReviewEpicView = re
 }
 
 const NO_SIGNING = { status: 200, body: { ...SESSION, signing: { ok: false, reason: 'git user.signingkey is not set' } } };
+
+describe('shell: slug, status and signing chip (T17)', () => {
+  it('the top bar shows the slug with the EPIC status, and the signing key in words', async () => {
+    const view = reviewEpic();
+    view.prd!.epic.status = 'partly-stale';
+    await start({}, view);
+    expect(screen.getByTestId('epic-slug')).toHaveTextContent(`${view.slug} · partly-stale`);
+    const chip = await screen.findByTestId('signing-chip');
+    expect(chip).toHaveTextContent(`Signing: key ${shortKey(FIXTURE_KEY)}`);
+    expect(chip).toHaveAttribute('title', `Signing with key ${FIXTURE_KEY}`);
+  });
+
+  it('when signing is off, the chip says so in words', async () => {
+    await start({ session: () => NO_SIGNING });
+    expect(await screen.findByTestId('signing-chip')).toHaveTextContent('Signing: off');
+    expect(screen.getByTestId('signing-chip')).toHaveAttribute('title', 'git user.signingkey is not set');
+  });
+});
 
 describe('approve (S6-A1)', () => {
   it('S6-A1: draft and stale scenarios have an Approve button; a well-signed approved one shows its signature status', async () => {

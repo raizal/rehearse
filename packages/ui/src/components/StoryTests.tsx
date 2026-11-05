@@ -92,15 +92,15 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
           {info && !info.playlist ? ' (not written yet: run rehearse playlists)' : ''}
         </span>
         <span className="story-tests-actions">
-          <button type="button" data-testid="story-tests-refresh" onClick={refresh} disabled={!token}>
+          <button type="button" className="action small" data-testid="story-tests-refresh" onClick={refresh} disabled={!token}>
             Refresh
           </button>
           {notice?.embed && info && (
             <>
-              <button type="button" data-testid="story-tests-select" onClick={() => void select()} disabled={!info.playlist || selected} aria-label={`Show the ${storyId} playlist in the Birdview player`}>
+              <button type="button" className="action small primary" data-testid="story-tests-select" onClick={() => void select()} disabled={!info.playlist || selected} aria-label={`Show the ${storyId} playlist in the Birdview player`}>
                 {selected ? `Playing ${storyId} playlist` : `Show ${storyId} playlist`}
               </button>
-              <a href={info.playerUrl} target="_blank" rel="noopener noreferrer" data-testid="story-tests-big-screen" aria-label="Open the Birdview player on a big screen, in a new tab">
+              <a className="action small" href={info.playerUrl} target="_blank" rel="noopener noreferrer" data-testid="story-tests-big-screen" aria-label="Open the Birdview player on a big screen, in a new tab">
                 ↗ Big screen
               </a>
             </>

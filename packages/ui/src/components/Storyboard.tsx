@@ -87,7 +87,7 @@ export function Storyboard(props: StoryboardProps) {
             <ul className="story-scenario-list">
               {ofStory.map((sv) => {
                 const id = sv.scenario.id;
-                if (id === active?.scenario.id) return <li key={id}>{card(sv)}</li>;
+                if (id === active?.scenario.id) return <li key={id} className="story-scenario-open">{card(sv)}</li>;
                 const state = approvalState(sv, props.approve.approvals);
                 return (
                   <li key={id}>
