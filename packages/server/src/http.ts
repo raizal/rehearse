@@ -1,12 +1,16 @@
-// `rehearse serve`: the built UI plus a read-only JSON API, on 127.0.0.1 only (R12, R20).
+// `rehearse serve`: the built UI plus a JSON API, on 127.0.0.1 only (R12, R20).
 // Remote access goes through `bb connect expose <port>`, never through this server.
-// No write endpoints: approve and sign-off come in a later wave, from the UI only (R13, R14).
+// The only writes are approve and sign-off, from the UI (R13, R14, D41). Each POST needs the
+// session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
+// key are the server process's, never the request's.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, sep } from 'node:path';
-import { buildEpicView } from './view.js';
+import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
+import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
+import { buildTrustedEpicView } from './trust-view.js';
 
 /** The only address `rehearse serve` listens on (R20). */
 export const LISTEN_HOST = '127.0.0.1';
@@ -18,7 +22,16 @@ export interface ServeOptions {
   uiDir: string;
   /** 0 picks a free port. */
   port: number;
+  /** Token, identity and signer. Default: a new session from git config and BB_THREAD_ID. */
+  session?: ServerSession;
+  /** Checks signatures. Default: the allowed_signers file of the EPIC folder's repo (D41). */
+  verifier?: Verifier;
 }
+
+/** The header every POST must carry, with the session token. */
+export const TOKEN_HEADER = 'x-rehearse-token';
+/** Largest JSON body a POST may send. */
+export const MAX_BODY_BYTES = 64 * 1024;
 
 export interface RunningServer {
   server: Server;
@@ -45,13 +58,20 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier'>;
+
+const ROUTES: Record<string, string> = {
+  '/api/session': 'GET, HEAD',
+  '/api/epic': 'GET, HEAD',
+  '/api/approve': 'POST',
+  '/api/sign-off': 'POST',
+};
+
 /** The request handler, without listening. */
-export function createHandler(opts: Pick<ServeOptions, 'epicDir' | 'uiDir'>): (req: IncomingMessage, res: ServerResponse) => void {
+export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res: ServerResponse) => void {
+  const session = opts.session ?? createSession(opts.epicDir);
+  const verifier = opts.verifier ?? defaultVerifier(opts.epicDir);
   return (req, res) => {
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      send(res, 405, 'text/plain; charset=utf-8', 'read-only server: only GET\n', { allow: 'GET, HEAD' });
-      return;
-    }
     let path: string;
     try {
       path = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
@@ -59,20 +79,115 @@ export function createHandler(opts: Pick<ServeOptions, 'epicDir' | 'uiDir'>): (r
       send(res, 400, 'text/plain; charset=utf-8', 'bad path\n');
       return;
     }
+    const allow = path.startsWith('/api/') ? ROUTES[path] : 'GET, HEAD';
+    if (allow === undefined) {
+      sendJson(res, 404, { error: `no endpoint ${path}` });
+      return;
+    }
+    if (!allow.split(', ').includes(req.method ?? '')) {
+      send(res, 405, 'text/plain; charset=utf-8', `only ${allow}\n`, { allow });
+      return;
+    }
+    if (path === '/api/session') {
+      sendJson(res, 200, sessionInfo(session));
+      return;
+    }
     if (path === '/api/epic') {
       try {
-        send(res, 200, TYPES['.json']!, JSON.stringify(buildEpicView(opts.epicDir)));
+        sendJson(res, 200, buildTrustedEpicView(opts.epicDir, verifier));
       } catch (e) {
-        send(res, 500, TYPES['.json']!, JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
+        sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) });
       }
       return;
     }
-    if (path.startsWith('/api/')) {
-      send(res, 404, TYPES['.json']!, JSON.stringify({ error: `no endpoint ${path}` }));
+    if (path === '/api/approve' || path === '/api/sign-off') {
+      const field = path === '/api/approve' ? 'scenarioIds' : 'storyIds';
+      void readPost(req, session, field).then((ids) => {
+        if (!Array.isArray(ids)) {
+          sendJson(res, ids.status, { ok: false, error: ids.error });
+          return;
+        }
+        try {
+          write(res, path, ids, opts.epicDir, session, verifier);
+        } catch (e) {
+          sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
+        }
+      });
       return;
     }
     serveStatic(opts.uiDir, path, res);
   };
+}
+
+/** Run approve or sign-off as the server's identity, with the server's key. */
+function write(res: ServerResponse, path: string, ids: Id[], epicDir: string, session: ServerSession, verifier: Verifier): void {
+  if (!session.signer.ok) {
+    sendJson(res, 503, { ok: false, reason: session.signer.reason });
+    return;
+  }
+  const opts = { signer: session.signer.signer, verifier };
+  const result =
+    path === '/api/approve'
+      ? approveScenarios(epicDir, ids, session.identity, opts)
+      : signOff(epicDir, ids, session.identity, { ...opts, simulate: simulateRecord });
+  if (result.ok) {
+    sendJson(res, 200, 'approvals' in result ? { ok: true, approved: result.approvals } : { ok: true, signOff: result.signOff });
+  } else if (result.reason !== undefined) {
+    sendJson(res, 503, { ok: false, reason: result.reason });
+  } else {
+    sendJson(res, 409, { ok: false, findings: result.findings satisfies Finding[] });
+  }
+}
+
+type PostError = { status: number; error: string };
+
+/**
+ * Check a POST and read its ids: the session token (403), a same-origin Origin when one is sent
+ * (403), a JSON content type (415), a body under MAX_BODY_BYTES (413) that is an object whose
+ * `field` is a list of strings (400).
+ */
+async function readPost(req: IncomingMessage, session: ServerSession, field: string): Promise<Id[] | PostError> {
+  if (!tokenMatches(session, req.headers[TOKEN_HEADER])) return drain(req, { status: 403, error: `missing or wrong ${TOKEN_HEADER} header` });
+  if (!sameOrigin(req)) return drain(req, { status: 403, error: 'Origin does not match Host' });
+  const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
+  if (type !== 'application/json') return drain(req, { status: 415, error: 'body must be application/json' });
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req as AsyncIterable<Buffer>) {
+    size += chunk.length;
+    if (size > MAX_BODY_BYTES) return { status: 413, error: `body is larger than ${MAX_BODY_BYTES} bytes` };
+    chunks.push(chunk);
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    return { status: 400, error: 'body is not JSON' };
+  }
+  const ids = typeof body === 'object' && body !== null ? (body as Record<string, unknown>)[field] : undefined;
+  if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) return { status: 400, error: `body must be { "${field}": string[] }` };
+  return ids as Id[];
+}
+
+/** Discard the body of a refused request, so the connection can answer. */
+function drain(req: IncomingMessage, error: PostError): PostError {
+  req.resume();
+  return error;
+}
+
+/** An Origin header, when present, must name the host the request came to (the Host header). */
+function sameOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (origin === undefined) return true;
+  try {
+    return new URL(origin).host === (req.headers.host ?? '').toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  send(res, status, TYPES['.json']!, JSON.stringify(body));
 }
 
 function serveStatic(uiDir: string, path: string, res: ServerResponse): void {

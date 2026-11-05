@@ -19,6 +19,7 @@
           "kind": { "type": "string" },
           "gateChecks": { "type": "string" },
           "hashRule": { "type": "integer", "enum": [1, 2] },
+          "sig": { "type": "string", "pattern": "^-----BEGIN SSH SIGNATURE-----" },
           "storyHashes": {
             "type": "object",
             "additionalProperties": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }

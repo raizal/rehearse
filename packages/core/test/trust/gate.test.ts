@@ -5,14 +5,21 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { gateEpic, gateRecord, loadEpic, reportToJson, type Finding } from '../../src/index.js';
 import { BOOTSTRAP_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
-import { approvedEpic } from './helpers.js';
+import { approvedEpic, SHOP_SCENARIOS } from './helpers.js';
+import { KEY } from './keys.js';
 
 const CONTRACT: Finding = { kind: 'contract', file: 'flow.yaml', path: 'pay', message: 'orderId: string → number', refs: ['S1'] };
 
 describe('gate check', () => {
   it('passes on an approved, valid record', () => {
     const report = gateEpic(approvedEpic());
-    expect(report).toEqual({ command: 'gate', ok: true, findings: [], simulation: 'validate-only' });
+    expect(report).toEqual({
+      command: 'gate',
+      ok: true,
+      findings: [],
+      simulation: 'validate-only',
+      signers: [{ by: 'a@b.c', fingerprint: KEY.signer.keyFingerprint, approvals: SHOP_SCENARIOS, signOffs: [] }],
+    });
   });
 
   it('traced: a requirement with no story and a story with no approved scenario', () => {
@@ -57,10 +64,17 @@ describe('gate check', () => {
     const before = readFileSync(join(BOOTSTRAP_EPIC, 'signoff.yaml'), 'utf8');
     const report = gateEpic(BOOTSTRAP_EPIC);
     expect(report.ok).toBe(false);
-    expect(report.findings.map((f) => `${f.kind} ${f.file} ${f.path}`)).toEqual(
-      ['S1', 'S10', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9'].map((s) => `gate signoff.yaml ${s}`),
+    const signoffFindings = report.findings.filter((f) => f.file === 'signoff.yaml');
+    expect(signoffFindings.map((f) => `${f.kind} ${f.path}`)).toEqual(
+      ['S1', 'S10', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9'].map((s) => `gate ${s}`),
     );
-    expect(report.findings[0]!.message).toBe('signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
+    // Unsigned rule-1 entries stay "must be signed again", with no second finding per story.
+    expect(signoffFindings[0]!.message).toBe('signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
+    // The bootstrap approvals have no signature, so none is evidence (D41).
+    const unsigned = report.findings.filter((f) => f.file.startsWith('scenarios/'));
+    expect(unsigned).toHaveLength(28);
+    expect(unsigned.every((f) => f.kind === 'gate' && f.message.includes('sigStatus missing'))).toBe(true);
+    expect(report.signers).toEqual([]);
     expect(reportToJson(gateEpic(BOOTSTRAP_EPIC))).toBe(reportToJson(report));
     expect(readFileSync(join(BOOTSTRAP_EPIC, 'signoff.yaml'), 'utf8')).toBe(before);
   });

@@ -1,7 +1,7 @@
 {
   "name": "@rehearse/server",
   "version": "0.1.0",
-  "description": "Read-only HTTP server for the rehearse UI. Listens on 127.0.0.1 only (R20).",
+  "description": "HTTP server for the rehearse UI: the record, and signed approve and sign-off. Listens on 127.0.0.1 only (R20).",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

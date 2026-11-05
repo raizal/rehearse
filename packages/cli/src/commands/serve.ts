@@ -1,10 +1,11 @@
-// `rehearse serve [dir-or-slug] [--port N]`: the review UI and a read-only JSON
-// API on 127.0.0.1 only (R12, R20). Remote access: `bb connect expose <port>`.
+// `rehearse serve [dir-or-slug] [--port N]`: the review UI and its JSON API on 127.0.0.1
+// only (R12, R20). Remote access: `bb connect expose <port>`. The only writes are approve and
+// sign-off from the UI, signed with the git signing key of this process (R13, R14, D41).
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-import { startServer, type RunningServer } from '@rehearse/server';
+import { createSession, startServer, type RunningServer } from '@rehearse/server';
 import { EXIT, resolveEpicDir, type Io } from '../index.js';
 
 export const DEFAULT_PORT = 4700;
@@ -66,11 +67,16 @@ export async function startServe(args: string[], io: Io, uiDir: string = uiDistD
     return { code: EXIT.usage };
   }
   try {
-    const running = await startServer({ epicDir: parsed.epicDir, uiDir, port: parsed.port });
+    const session = createSession(parsed.epicDir);
+    const running = await startServer({ epicDir: parsed.epicDir, uiDir, port: parsed.port, session });
+    const signing = session.signer.ok
+      ? `Approve and sign-off as ${session.identity.by}, key ${session.signer.signer.keyFingerprint}.`
+      : `Approve and sign-off are off: ${session.signer.reason}.`;
     io.stdout(
       `rehearse serve: ${parsed.epicDir}\n` +
         `  ${running.url}\n` +
-        `Read-only, on 127.0.0.1 only. Remote: bb connect expose ${running.port}. Stop with Ctrl+C.\n`,
+        `${signing}\n` +
+        `On 127.0.0.1 only. Remote: bb connect expose ${running.port}. Stop with Ctrl+C.\n`,
     );
     return running;
   } catch (e) {

@@ -7,8 +7,10 @@ import { validateRecord } from '../validate/index.js';
 import { makeReport } from '../validate/report.js';
 import { RECORD_FILES, type EpicRecord, type Finding, type Id, type LoadResult, type Report, type Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
+import { checkSignatures, gateSigners, signatureItems, type RecordSignatures, type SignedGateReport } from './evidence.js';
+import { defaultVerifier, type Verifier } from './signature.js';
 import { detectStale } from './stale.js';
-import { CURRENT_HASH_RULE, HASH_RULES, type GateReport } from './types.js';
+import { CURRENT_HASH_RULE, HASH_RULES } from './types.js';
 
 export type GateCheck = 'traced' | 'sim-clean' | 'no-stale';
 
@@ -48,8 +50,11 @@ export function findingStories(record: EpicRecord, finding: Finding): Id[] {
   return [...out].sort();
 }
 
-/** The gate findings of a loaded record, with the stories each one is about. */
-export function gateItems(record: EpicRecord, simulationFindings: Finding[]): GateItem[] {
+/**
+ * The gate findings of a loaded record, with the stories each one is about. With `signatures`
+ * an approval or sign-off counts only when its signature is valid (D41).
+ */
+export function gateItems(record: EpicRecord, simulationFindings: Finding[], signatures?: RecordSignatures): GateItem[] {
   const items: GateItem[] = [];
   const all = stories(record);
   const stale = detectStale(record);
@@ -102,12 +107,13 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[]): Ga
       finding: { kind: 'gate', file: RECORD_FILES.signoff, path: s.id, message, refs: [s.id] },
     });
   }
+  if (signatures) items.push(...signatureItems(record, signatures, stale));
   return items;
 }
 
 /** Gate report of a loaded record and the findings of its simulation. */
-export function gateRecord(record: EpicRecord, simulationFindings: Finding[]): Report {
-  return makeReport('gate', gateItems(record, simulationFindings).map((i) => i.finding));
+export function gateRecord(record: EpicRecord, simulationFindings: Finding[], signatures?: RecordSignatures): Report {
+  return makeReport('gate', gateItems(record, simulationFindings, signatures).map((i) => i.finding));
 }
 
 /** Findings that sim-clean checks: validate, plus simulate when given. Simulate runs only on a schema-valid record. */
@@ -117,14 +123,26 @@ export function simulationFindings(loaded: LoadResult, simulate?: Simulate): Fin
   return [...validation, ...simulate(loaded).findings];
 }
 
+export interface GateOptions {
+  /** Checks the signatures. Default: the allowed_signers file of the repo of `dir` (D41). */
+  verifier?: Verifier;
+}
+
 /**
  * Load an EPIC folder and run the gate. Without `simulate`, sim-clean uses validate findings only,
- * and the report says so (`simulation: 'validate-only'`).
+ * and the report says so (`simulation: 'validate-only'`). Every approval and sign-off must carry a
+ * valid signature; the report lists each signer with its key fingerprint (D41).
  */
-export function gateEpic(dir: string, simulate?: Simulate): GateReport {
+export function gateEpic(dir: string, simulate?: Simulate, opts: GateOptions = {}): SignedGateReport {
   const loaded = loadEpic(dir);
   const sim = simulationFindings(loaded, simulate);
+  const simulation = simulate ? 'simulate' : 'validate-only';
   // The typed record is only safe after a schema-clean validate; then the trust checks can run.
-  const report = sim.some((f) => f.kind === 'schema') ? makeReport('gate', sim) : gateRecord(loaded.record, sim);
-  return { command: 'gate', ok: report.ok, findings: report.findings, simulation: simulate ? 'simulate' : 'validate-only' };
+  if (sim.some((f) => f.kind === 'schema')) {
+    const report = makeReport('gate', sim);
+    return { command: 'gate', ok: report.ok, findings: report.findings, simulation, signers: [] };
+  }
+  const signatures = checkSignatures(loaded.record, opts.verifier ?? defaultVerifier(dir));
+  const report = gateRecord(loaded.record, sim, signatures);
+  return { command: 'gate', ok: report.ok, findings: report.findings, simulation, signers: gateSigners(signatures) };
 }

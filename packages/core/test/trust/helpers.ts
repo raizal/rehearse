@@ -1,19 +1,24 @@
-// Shop fixtures in trust states: approved and signed under rule 2.
+// Shop fixtures in trust states: approved and signed under rule 2, with throwaway keys,
+// in a temp git repo whose .rehearse/allowed_signers lists the test key (D41).
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseDocument } from 'yaml';
 import { approveScenarios, signOff, type Identity } from '../../src/index.js';
 import { makeEpic, type FixtureOptions } from '../helpers.js';
+import { inRepo, KEY, VERIFIER } from './keys.js';
 
 export const ME: Identity = { by: 'a@b.c', threadId: 'thr_test' };
 export const NOW = new Date('2026-11-05T10:00:00.123Z');
 export const SHOP_SCENARIOS = ['S1-buy', 'S1-empty', 'S2-out-of-stock'];
 
-/** Shop with every scenario approved. */
+/** Sign with the test key, verify against the test allowed_signers. */
+export const SIGNED = { signer: KEY.signer, verifier: VERIFIER };
+
+/** Shop in a git repo with allowed_signers, every scenario approved and signed. */
 export function approvedEpic(opts: FixtureOptions = {}): string {
-  const dir = makeEpic(opts);
-  const r = approveScenarios(dir, SHOP_SCENARIOS, ME, { now: NOW });
+  const dir = inRepo(makeEpic(opts));
+  const r = approveScenarios(dir, SHOP_SCENARIOS, ME, { now: NOW, ...SIGNED });
   if (!r.ok) throw new Error(JSON.stringify(r.findings));
   return dir;
 }
@@ -21,7 +26,7 @@ export function approvedEpic(opts: FixtureOptions = {}): string {
 /** Shop with every scenario approved and both stories signed under rule 2. */
 export function signedEpic(): string {
   const dir = approvedEpic();
-  const r = signOff(dir, ['S1', 'S2'], ME, { now: NOW });
+  const r = signOff(dir, ['S1', 'S2'], ME, { now: NOW, ...SIGNED });
   if (!r.ok) throw new Error(JSON.stringify(r.findings));
   return dir;
 }
