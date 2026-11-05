@@ -30,10 +30,13 @@ export { makeSimulationReport, simulationToText } from './simulate/report.js';
 export { walkScenario, type WalkStep } from './simulate/walk.js';
 export { parseAccess, type Access } from './simulate/access.js';
 export {
+  DRAFTS_NOTICE,
   PERMISSION_ACTIONS,
+  type CountedScenario,
   type LoadedScenario,
   type PermissionAction,
   type PermissionBoxes,
+  type SimulateOptions,
   type SimulationReport,
   type StaleScenario,
 } from './simulate/types.js';

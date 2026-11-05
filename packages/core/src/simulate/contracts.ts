@@ -11,11 +11,13 @@
 // Flow context (C14): every context field is given on every edge, so an input that is a context
 // field is never missing. A box input whose type does not fit the context type is one finding on
 // the box, whether or not a scenario passes through it.
+// Drafts mode (T22): each finding from a scenario names it with its status, `S1-buy (draft)`.
 
 import { enumValues } from '../validate/refs.js';
 import { RECORD_FILES, type Finding } from '../types.js';
 import { asArray, cmp, isObject } from '../util.js';
 import type { BoxEntry } from '../flow-index.js';
+import { fromNote, named } from './load.js';
 import type { LoadedScenario } from './types.js';
 import { walkScenario } from './walk.js';
 
@@ -48,7 +50,8 @@ export function checkContracts(index: Map<string, BoxEntry>, scenarios: LoadedSc
     f.stories.add(story);
   };
 
-  for (const { file, scenario } of scenarios) {
+  for (const loaded of scenarios) {
+    const { file, scenario } = loaded;
     for (const step of walkScenario(index, scenario)) {
       if (step.next === undefined || step.error) continue;
       const a = step.entry.box;
@@ -63,20 +66,20 @@ export function checkContracts(index: Map<string, BoxEntry>, scenarios: LoadedSc
         if (!given.has(field)) {
           if (!isOptional(inType)) {
             const gives = Object.keys(outputs).sort(cmp).join(', ') || 'nothing';
-            addFlow(step.path, `${arrow}: missing field ${field} (${step.next} needs ${field}: ${inType}; ${step.path} gives ${gives})`, scenario.id, scenario.story);
+            addFlow(step.path, `${arrow}: missing field ${field} (${step.next} needs ${field}: ${inType}; ${step.path} gives ${gives})`, named(loaded), scenario.story);
           }
           continue;
         }
         const outType = outputs[field];
         if (outType !== undefined && !typeFits(outType, inType)) {
-          addFlow(step.path, `${arrow}: field ${field}: ${step.path} gives ${outType}, ${step.next} needs ${inType}`, scenario.id, scenario.story);
+          addFlow(step.path, `${arrow}: field ${field}: ${step.path} gives ${outType}, ${step.next} needs ${inType}`, named(loaded), scenario.story);
         }
         if (Object.hasOwn(then, field) && !valueFits(then[field], inType)) {
           out.push({
             kind: 'contract',
             file,
             path: step.at,
-            message: `${arrow}: field ${field}: example ${String(step.example?.id)} gives ${JSON.stringify(then[field])}, ${step.next} needs ${inType}`,
+            message: `${arrow}: field ${field}: example ${String(step.example?.id)} gives ${JSON.stringify(then[field])}, ${step.next} needs ${inType}${fromNote(loaded)}`,
             refs: [scenario.story],
           });
         }

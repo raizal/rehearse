@@ -3,24 +3,33 @@
 // must agree with the `expectedState` of the criterion it names, and `expect.state` must agree
 // with the end state for each `Entity.field` the walk knows. Each criterion that no approved
 // scenario names is reported too.
+// Drafts mode (T22, `draftOnly` given): a criterion that only drafts check goes to `draftOnly`;
+// a finding on a scenario names the scenario and its status.
 
 import { canonicalJson } from '../hash.js';
 import { RECORD_FILES, type AcceptanceCriterion, type Finding, type Prd, type Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
 import type { EndStates } from './lifecycles.js';
+import { draftOnlyNote, fromNote } from './load.js';
 import type { LoadedScenario } from './types.js';
 
-export function checkAcceptance(prd: Prd | undefined, scenarios: LoadedScenario[], endStates: EndStates): Finding[] {
+export function checkAcceptance(
+  prd: Prd | undefined,
+  scenarios: LoadedScenario[],
+  endStates: EndStates,
+  draftOnly?: Finding[],
+): Finding[] {
   const out: Finding[] = [];
   const stories = asArray<Story>(prd?.stories).filter(isObject) as Story[];
   const criteria = new Map<string, { story: string; criterion: AcceptanceCriterion }>();
   for (const s of stories) {
     for (const c of asArray<AcceptanceCriterion>(s.acceptance)) if (isObject(c)) criteria.set(c.id, { story: s.id, criterion: c });
   }
-  const checked = new Set<string>();
+  const checked = new Map<string, LoadedScenario[]>();
   const show = (v: unknown): string => (v === undefined ? 'not set' : JSON.stringify(v));
 
-  for (const { file, scenario } of scenarios) {
+  for (const loaded of scenarios) {
+    const { file, scenario } = loaded;
     const expect = isObject(scenario.expect) ? scenario.expect : undefined;
     if (!expect) continue;
     const state = isObject(expect.state) ? expect.state : {};
@@ -28,7 +37,7 @@ export function checkAcceptance(prd: Prd | undefined, scenarios: LoadedScenario[
     const critId = typeof expect.criterion === 'string' ? expect.criterion : undefined;
     const refs = critId ? [critId, scenario.story] : [scenario.story];
     const push = (message: string): void => {
-      out.push({ kind: 'acceptance', file, path: scenario.id, message, refs: [...new Set(refs)] });
+      out.push({ kind: 'acceptance', file, path: scenario.id, message: message + fromNote(loaded), refs: [...new Set(refs)] });
     };
 
     for (const [key, value] of Object.entries(state)) {
@@ -37,7 +46,7 @@ export function checkAcceptance(prd: Prd | undefined, scenarios: LoadedScenario[
       }
     }
     if (!critId) continue;
-    checked.add(critId);
+    checked.set(critId, [...(checked.get(critId) ?? []), loaded]);
     const c = criteria.get(critId)?.criterion;
     if (!c || !isObject(c.expectedState)) continue;
     for (const [key, want] of Object.entries(c.expectedState)) {
@@ -52,15 +61,11 @@ export function checkAcceptance(prd: Prd | undefined, scenarios: LoadedScenario[
   }
 
   for (const [id, { story }] of criteria) {
-    if (!checked.has(id)) {
-      out.push({
-        kind: 'acceptance',
-        file: RECORD_FILES.prd,
-        path: story,
-        message: `criterion ${id}: no approved scenario checks it (expect.criterion)`,
-        refs: [id, story],
-      });
-    }
+    const takers = checked.get(id) ?? [];
+    const note = draftOnly ? draftOnlyNote(takers) : undefined;
+    if (takers.length > 0 && !note) continue;
+    const why = note ?? (draftOnly ? 'no scenario checks it, not even a draft (expect.criterion)' : 'no approved scenario checks it (expect.criterion)');
+    (note ? draftOnly! : out).push({ kind: 'acceptance', file: RECORD_FILES.prd, path: story, message: `criterion ${id}: ${why}`, refs: [id, story] });
   }
   return out;
 }

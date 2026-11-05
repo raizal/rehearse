@@ -13,7 +13,7 @@ the serve URL show the same UI (R12, D31).
 ```
 bb rehearse [open] [<slug>]                    open the panel (for an EPIC under docs/epics/)
 bb rehearse validate <epic-dir-or-slug> [--json]
-bb rehearse simulate <epic-dir-or-slug> [--json]
+bb rehearse simulate <epic-dir-or-slug> [--drafts] [--json]
 bb rehearse gate check <epic-dir-or-slug> [--json]
 bb rehearse new <slug> --title "<title>"
 ```
@@ -21,6 +21,9 @@ bb rehearse new <slug> --title "<title>"
 - `validate`, `simulate`, `gate check` and `new` run the rehearse CLI in the
   thread's checkout (the caller's folder when it is inside it). Output and exit
   codes are the CLI's: 0 OK, 1 findings, 2 usage error, 3 internal error.
+- `simulate --drafts` counts draft and stale scenarios as if approved, so a
+  contract error in a draft shows before the builder approves it. Its output is
+  findings only, never evidence: the gate does not read it.
 - There is no approve and no sign-off command, and there never will be (R13,
   R14). The builder approves and signs off in the panel, which signs with their
   SSH key (D41). An agent cannot approve.
