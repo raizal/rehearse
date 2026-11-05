@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { parseDocument } from 'yaml';
+import { LineCounter, parseDocument } from 'yaml';
 import {
   RECORD_FILES,
   type Box,
@@ -24,17 +24,18 @@ const REQUIRED_FILES = [RECORD_FILES.prd, RECORD_FILES.entities, RECORD_FILES.fl
 
 /** Parse YAML text. Returns the value, or a `yaml-syntax` finding for `file`. */
 export function parseYaml(text: string, file: string): { value?: unknown; finding?: Finding } {
-  const doc = parseDocument(text, { prettyErrors: false, uniqueKeys: true });
+  const lineCounter = new LineCounter();
+  const doc = parseDocument(text, { prettyErrors: false, uniqueKeys: true, lineCounter });
   const err = doc.errors[0];
   if (err) {
-    const pos = err.linePos?.[0];
-    const where = pos ? ` (line ${pos.line}, column ${pos.col})` : '';
+    const pos = lineCounter.linePos(err.pos[0]);
+    const where = ` (line ${pos.line}, column ${pos.col})`;
     const reason = err.message.split('\n')[0] ?? err.message;
     return {
       finding: {
         kind: 'schema',
         file,
-        path: pos ? `line ${pos.line}` : '',
+        path: `line ${pos.line}`,
         message: `yaml-syntax: ${reason}${where}`,
         refs: [],
       },
