@@ -11,7 +11,7 @@ import { fetchEpic, fetchSession, postApprove, postSignOff } from './api.js';
 import type { ScenarioView } from './api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
 import { ApproveBar } from './components/Approve.js';
-import { BigPicture } from './components/BigPicture.js';
+import { BigPictureViews } from './components/BigPictureViews.js';
 import { BoxContract } from './components/DetailPane.js';
 import { FlowView } from './components/FlowView.js';
 import { Playback, StepDetail, type ApproveControls } from './components/Playback.js';
@@ -50,6 +50,7 @@ const HTTP_API: ReviewApi = { session: fetchSession, approve: postApprove, signO
 export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise<ReviewEpicView>; api?: ReviewApi }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [tab, setTab] = useState<Tab>('bigpicture');
+  const [bigView, setBigView] = useState('features');
   const [session, setSession] = useState<SessionState>({ kind: 'loading' });
   const [picked, setPicked] = useState<ReadonlySet<Id>>(new Set());
   const [busy, setBusy] = useState<'approve' | 'signoff' | undefined>();
@@ -264,7 +265,9 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       )}
       {view && tab === 'bigpicture' && (
         <main className="page-wrap">
-          <BigPicture
+          <BigPictureViews
+            active={bigView}
+            onPick={setBigView}
             view={view}
             onOpenStory={(id) => {
               pickStory(id);
