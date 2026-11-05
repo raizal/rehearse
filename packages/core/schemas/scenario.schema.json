@@ -27,7 +27,8 @@
               "threadId": { "type": "string" },
               "at": { "type": "string" },
               "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-              "note": { "type": "string" }
+              "note": { "type": "string" },
+              "sig": { "type": "string", "pattern": "^-----BEGIN SSH SIGNATURE-----" }
             }
           },
           "steps": {
