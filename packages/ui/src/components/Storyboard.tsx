@@ -1,5 +1,6 @@
-// The storyboard (S6-A1): the default view for approval. On the left the review queue, grouped
-// by story, with progress and "next"; on the right one card per scenario: story, criterion,
+// The stories view (S6-A1, S4-A5): on the left the review queue, grouped by story, with progress
+// and "next"; on the right the story view (WHAT, HOW, OUTPUT) of the selected story, then its
+// scenarios, each as a storyboard card (one open at a time): story, criterion,
 // path map, one panel per step, the end state, and Approve. Approve is on only after every
 // step panel was seen (scrolled into view, focused or stepped through). What was seen lives in
 // the browser only and is never sent.
@@ -14,6 +15,7 @@ import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.j
 import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue, type ApprovalKind } from '../model/storyboard.js';
 import { ApproveBar } from './Approve.js';
 import { PathMap } from './PathMap.js';
+import { StoryView } from './StoryView.js';
 import type { ApproveControls } from './Playback.js';
 import type { SessionState } from './Review.js';
 import { KeyValues } from './Values.js';
@@ -42,12 +44,22 @@ export interface StoryboardProps {
   busy: boolean;
   outcome?: PostOutcome<ApproveOk>;
   onOpenFlow: (id: Id) => void;
+  /** The story to show; default: the story of the open scenario. */
+  storyId?: Id;
+  onPickStory?: (id: Id) => void;
+  /** Open a box in the flow view. */
+  onOpenBox?: (path: string) => void;
 }
 
 export function Storyboard(props: StoryboardProps) {
   const { view, scenarioId, seen } = props;
   const groups = useMemo(() => reviewQueue(view.prd, view.scenarios), [view]);
   const active = view.scenarios.find((s) => s.scenario.id === scenarioId);
+  const storyId = props.storyId ?? active?.scenario.story;
+  const ofStory = view.scenarios.filter((sv) => storyId !== undefined && sv.scenario.story === storyId);
+  const card = (sv: ScenarioView) => (
+    <StoryCard key={`${sv.scenario.id} ${sv.hash}`} view={view} sv={sv} seen={seen} onSeen={props.onSeen} approve={props.approve} onOpenFlow={props.onOpenFlow} />
+  );
   return (
     <main className="storyboard" data-testid="storyboard">
       <aside className="left">
@@ -59,11 +71,41 @@ export function Storyboard(props: StoryboardProps) {
           outcome={props.outcome}
           onApprove={props.approve.onApprove}
         />
-        <ReviewQueue {...props} groups={groups} />
+        <ReviewQueue {...props} storyId={storyId} groups={groups} />
       </aside>
       <div className="card-wrap">
-        {active ? (
-          <StoryCard key={`${active.scenario.id} ${active.hash}`} view={view} sv={active} seen={seen} onSeen={props.onSeen} approve={props.approve} onOpenFlow={props.onOpenFlow} />
+        {storyId !== undefined && <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} />}
+        {storyId !== undefined && (
+          <section className="story-scenarios" data-testid="story-scenarios" aria-labelledby="story-scenarios-h">
+            <h3 id="story-scenarios-h">
+              Scenarios of {storyId} ({ofStory.length})
+            </h3>
+            {ofStory.length === 0 && <p className="muted">This story has no scenarios.</p>}
+            <ul className="story-scenario-list">
+              {ofStory.map((sv) => {
+                const id = sv.scenario.id;
+                if (id === active?.scenario.id) return <li key={id}>{card(sv)}</li>;
+                const state = approvalState(sv, props.approve.approvals);
+                return (
+                  <li key={id}>
+                    <button type="button" className="scenario story-scenario" data-testid={`story-scenario-${id}`} aria-label={`Open the card of ${id}: ${sv.scenario.title} (${state.text})`} onClick={() => props.onPick(id)}>
+                      <span className="scenario-head">
+                        <span className="scenario-id">{id}</span>
+                        <span className={`badge ${MARK_CLASS[state.kind]}`}>
+                          <span aria-hidden="true">{MARK[state.kind]} </span>
+                          {state.text}
+                        </span>
+                      </span>
+                      <span className="scenario-title">{sv.scenario.title}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+        {storyId !== undefined ? null : active ? (
+          card(active)
         ) : (
           <p className="muted status-msg" data-testid="card-empty">
             {view.scenarios.length === 0 ? 'This EPIC has no scenarios.' : 'Pick a scenario in the review queue.'}
@@ -76,7 +118,7 @@ export function Storyboard(props: StoryboardProps) {
 
 // ---------------------------------------------------------------- review queue
 
-function ReviewQueue({ view, scenarioId, onPick, seen, approve, onSelectMany, groups }: StoryboardProps & { groups: ReturnType<typeof reviewQueue> }) {
+function ReviewQueue({ view, scenarioId, onPick, seen, approve, onSelectMany, groups, storyId, onPickStory }: StoryboardProps & { groups: ReturnType<typeof reviewQueue> }) {
   const order = groups.flatMap((g) => g.scenarios);
   const { done, total } = progress(view.scenarios, approve.approvals);
   const next = nextToApprove(order, scenarioId, approve.approvals);
@@ -115,8 +157,17 @@ function ReviewQueue({ view, scenarioId, onPick, seen, approve, onSelectMany, gr
             <section key={g.storyId} className="queue-group" data-testid={`queue-group-${g.storyId}`} aria-labelledby={`queue-h-${g.storyId}`}>
               <div className="queue-group-head">
                 <h3 id={`queue-h-${g.storyId}`}>
-                  {g.storyId}
-                  {g.story && <span className="queue-want">{g.story.want}</span>}
+                  <button
+                    type="button"
+                    className={g.storyId === storyId ? 'queue-story is-active' : 'queue-story'}
+                    data-testid={`queue-story-${g.storyId}`}
+                    aria-current={g.storyId === storyId ? 'true' : undefined}
+                    aria-label={`Open story ${g.storyId}${g.story ? `: ${g.story.want}` : ''}`}
+                    onClick={() => onPickStory?.(g.storyId)}
+                  >
+                    {g.storyId}
+                    {g.story && <span className="queue-want">{g.story.want}</span>}
+                  </button>
                 </h3>
                 {g.scenarios.some((sv) => approve.reasonFor(sv) !== undefined) && (
                   <button
