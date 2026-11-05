@@ -2,13 +2,15 @@
 // Remote access goes through `bb connect expose <port>`, never through this server.
 // The only writes are approve and sign-off, from the UI (R13, R14, D41). Each POST needs the
 // session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
-// key are the server process's, never the request's.
+// key are the server process's, never the request's. The Birdview routes read the e2e player and
+// forward an allowlist of its actions, on 127.0.0.1 only; they need the same token and Origin.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
+import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { buildTrustedEpicView } from './trust-view.js';
 
@@ -26,6 +28,8 @@ export interface ServeOptions {
   session?: ServerSession;
   /** Checks signatures. Default: the allowed_signers file of the EPIC folder's repo (D41). */
   verifier?: Verifier;
+  /** The Birdview e2e player. Default: port 3298 and the nearest `e2e/` test project above the EPIC folder. */
+  birdview?: BirdviewSetup;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -58,19 +62,24 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'birdview'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
   '/api/epic': 'GET, HEAD',
   '/api/approve': 'POST',
   '/api/sign-off': 'POST',
+  '/api/birdview': 'GET',
+  '/api/birdview/action': 'POST',
 };
+
+const STORY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 /** The request handler, without listening. */
 export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res: ServerResponse) => void {
   const session = opts.session ?? createSession(opts.epicDir);
   const verifier = opts.verifier ?? defaultVerifier(opts.epicDir);
+  const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
   return (req, res) => {
     let path: string;
     try {
@@ -98,6 +107,36 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       } catch (e) {
         sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) });
       }
+      return;
+    }
+    if (path === '/api/birdview') {
+      const refused = checkCaller(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { error: refused.error });
+        return;
+      }
+      const story = new URL(req.url ?? '/', 'http://localhost').searchParams.get('story') ?? '';
+      if (!STORY_ID.test(story)) {
+        sendJson(res, 400, { error: 'query must be ?story=<story id>' });
+        return;
+      }
+      void birdviewInfo(birdview, story).then(
+        (info) => sendJson(res, 200, info),
+        (e: unknown) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }),
+      );
+      return;
+    }
+    if (path === '/api/birdview/action') {
+      void readJson(req, session).then((body) => {
+        if (isPostError(body)) {
+          sendJson(res, body.status, { ok: false, error: body.error });
+          return;
+        }
+        void playerAction(birdview, body).then(
+          ([status, out]) => sendJson(res, status, out),
+          (e: unknown) => sendJson(res, 502, { ok: false, error: `the player did not answer: ${e instanceof Error ? e.message : String(e)}` }),
+        );
+      });
       return;
     }
     if (path === '/api/approve' || path === '/api/sign-off') {
@@ -147,8 +186,28 @@ type PostError = { status: number; error: string };
  * `field` is a list of strings (400).
  */
 async function readPost(req: IncomingMessage, session: ServerSession, field: string): Promise<Id[] | PostError> {
-  if (!tokenMatches(session, req.headers[TOKEN_HEADER])) return drain(req, { status: 403, error: `missing or wrong ${TOKEN_HEADER} header` });
-  if (!sameOrigin(req)) return drain(req, { status: 403, error: 'Origin does not match Host' });
+  const body = await readJson(req, session);
+  if (isPostError(body)) return body;
+  const ids = body[field];
+  if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) return { status: 400, error: `body must be { "${field}": string[] }` };
+  return ids as Id[];
+}
+
+function isPostError(v: unknown): v is PostError {
+  return typeof v === 'object' && v !== null && 'status' in v && 'error' in v && typeof (v as PostError).status === 'number';
+}
+
+/** The session token (403) and a same-origin Origin when one is sent (403). */
+function checkCaller(req: IncomingMessage, session: ServerSession): PostError | undefined {
+  if (!tokenMatches(session, req.headers[TOKEN_HEADER])) return { status: 403, error: `missing or wrong ${TOKEN_HEADER} header` };
+  if (!sameOrigin(req)) return { status: 403, error: 'Origin does not match Host' };
+  return undefined;
+}
+
+/** Check a POST (checkCaller, then 415, 413, 400) and read its body, a JSON object. */
+async function readJson(req: IncomingMessage, session: ServerSession): Promise<Record<string, unknown> | PostError> {
+  const refused = checkCaller(req, session);
+  if (refused) return drain(req, refused);
   const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
   if (type !== 'application/json') return drain(req, { status: 415, error: 'body must be application/json' });
   const chunks: Buffer[] = [];
@@ -164,9 +223,29 @@ async function readPost(req: IncomingMessage, session: ServerSession, field: str
   } catch {
     return { status: 400, error: 'body is not JSON' };
   }
-  const ids = typeof body === 'object' && body !== null ? (body as Record<string, unknown>)[field] : undefined;
-  if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) return { status: 400, error: `body must be { "${field}": string[] }` };
-  return ids as Id[];
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return { status: 400, error: 'body must be a JSON object' };
+  return body as Record<string, unknown>;
+}
+
+/**
+ * `{ action, storyId }`: forward an allowed action to the player, only when it plays this EPIC's
+ * test project. `playlist-select` picks the story's playlist (its id is the story id).
+ */
+async function playerAction(setup: BirdviewSetup, body: Record<string, unknown>): Promise<[number, unknown]> {
+  const action = body.action;
+  if (typeof action !== 'string' || !(PLAYER_ACTIONS as readonly string[]).includes(action)) {
+    return [400, { ok: false, error: `action must be one of ${PLAYER_ACTIONS.join(', ')}` }];
+  }
+  const storyId = body.storyId;
+  if (typeof storyId !== 'string' || !STORY_ID.test(storyId)) return [400, { ok: false, error: 'storyId must be a story id' }];
+  const client = setup.client ?? httpPlayerClient(setup.port);
+  const [state, head] = await Promise.all([client.state(), client.setup()]);
+  const view = playerView(setup.projectDir, state, head, []);
+  if (view.kind !== 'ours') return [409, { ok: false, error: `the player plays another project (${view.kind === 'other' ? view.projectDir || 'none set' : 'off'})` }];
+  const out = await client.action(action as PlayerAction, { id: storyId });
+  const error = typeof out.body === 'object' && out.body !== null ? (out.body as { error?: unknown }).error : undefined;
+  if (out.status !== 200 || typeof error === 'string') return [502, { ok: false, error: `player: ${typeof error === 'string' ? error : `HTTP ${out.status}`}` }];
+  return [200, { ok: true }];
 }
 
 /** Discard the body of a refused request, so the connection can answer. */
