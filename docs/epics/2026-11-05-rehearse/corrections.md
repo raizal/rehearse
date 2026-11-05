@@ -135,6 +135,11 @@ These came from agents who built the code, not from a rehearse check.
   - What: The UI links to `docs/signing.md` when signing is off, but `rehearse serve` does not serve `docs/`, so the link is dead.
   - Fix: Serve prints the path, and the UI shows it as text, or serve serves that one file.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 13 `caught-after-build` (C17–C29).
+- **C30** `caught-after-build` · S6, box `approve`, box `review/playback` · OPEN (T9)
+  - What: The owner opened the approve view and saw only scenario titles. They could not tell what they approved.
+  - Why: S6 says what approval writes, but not what the approver must see first. An approval without review is not evidence either.
+  - Fix (owner's choice): a storyboard card for each scenario (story, criterion, path map, step panels, result) and a review queue by story. Approve is active only after every step was seen.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 14 `caught-after-build` (C17–C30).
 
 After wave 2 (T6, T7, T8): `rehearse gate check` gives 38 `gate` findings: 28 approvals have no signature (D41), 6 stories are stale (S1, S2, S3, S6, S8, S9) and the other 4 were signed under hash rule 1. The builder sets up signing, approves the scenarios again and signs off in the UI.
