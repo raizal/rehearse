@@ -7,6 +7,7 @@ export {
   exitChildren,
   hasChildren,
   indexBoxes,
+  knownEdges,
   nextLeaves,
   type BoxEntry,
   type LeafStep,

@@ -4,9 +4,8 @@
 // - A decision has 2 or more labeled branches to different boxes.
 // - Each error exit has an edge with kind `error` that does not loop to its own box. (C2, C3)
 
-import { edgeKind, entryChildren, exitChildren } from '../flow-index.js';
-import { RECORD_FILES, type Box, type Diagram, type Edge, type Finding } from '../types.js';
-import type { EpicRecord } from '../types.js';
+import { edgeKind, entryChildren, exitChildren, knownEdges } from '../flow-index.js';
+import { RECORD_FILES, type Box, type Diagram, type EpicRecord, type Finding } from '../types.js';
 import { asArray, isObject } from '../util.js';
 
 const FLOW = RECORD_FILES.flow;
@@ -25,10 +24,7 @@ export function checkStructure(record: EpicRecord): Finding[] {
 
 function checkDiagram(diagram: Diagram, prefix: string, isRoot: boolean, out: Finding[]): void {
   const boxes = asArray<Box>(diagram.boxes).filter((b) => isObject(b) && typeof b.id === 'string');
-  const known = new Set(boxes.map((b) => b.id));
-  const edges = asArray<Edge>(diagram.edges).filter(
-    (e) => isObject(e) && known.has(e.from) && known.has(e.to),
-  );
+  const edges = knownEdges(diagram);
   const outgoing = (id: string) => edges.filter((e) => e.from === id);
   const incoming = (id: string) => edges.filter((e) => e.to === id);
   const list = (xs: string[]) => [...new Set(xs)].join(', ');

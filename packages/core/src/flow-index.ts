@@ -46,15 +46,24 @@ export function indexBoxes(flow: Flow | undefined): Map<string, BoxEntry> {
   return out;
 }
 
+/**
+ * Edges whose two ends are boxes of the diagram. Refs reports the other edges;
+ * the walk ignores them, so one bad edge gives one finding.
+ */
+export function knownEdges(diagram: Diagram): Edge[] {
+  const ids = new Set(asArray<Box>(diagram.boxes).filter(isObject).map((b) => b.id));
+  return asArray<Edge>(diagram.edges).filter((e) => isObject(e) && ids.has(e.from) && ids.has(e.to));
+}
+
 /** Children with no incoming edge: the entry boxes of a nested diagram. */
 export function entryChildren(diagram: Diagram): Box[] {
-  const tos = new Set(asArray<Edge>(diagram.edges).map((e) => e?.to));
+  const tos = new Set(knownEdges(diagram).map((e) => e.to));
   return asArray<Box>(diagram.boxes).filter((b) => isObject(b) && !tos.has(b.id));
 }
 
 /** Children with no outgoing edge: the exit boxes of a nested diagram. */
 export function exitChildren(diagram: Diagram): Box[] {
-  const froms = new Set(asArray<Edge>(diagram.edges).map((e) => e?.from));
+  const froms = new Set(knownEdges(diagram).map((e) => e.from));
   return asArray<Box>(diagram.boxes).filter((b) => isObject(b) && !froms.has(b.id));
 }
 
@@ -76,7 +85,7 @@ export function entryLeaves(index: Map<string, BoxEntry>, path: string): string[
 export function nextLeaves(index: Map<string, BoxEntry>, path: string): LeafStep[] {
   const entry = index.get(path);
   if (!entry) return [];
-  const outs = asArray<Edge>(entry.diagram.edges).filter((e) => isObject(e) && e.from === entry.box.id);
+  const outs = knownEdges(entry.diagram).filter((e) => e.from === entry.box.id);
   if (outs.length === 0 && entry.parent !== undefined) return nextLeaves(index, entry.parent);
   const prefix = entry.parent === undefined ? '' : `${entry.parent}/`;
   return outs.flatMap((edge) => entryLeaves(index, prefix + edge.to).map((to) => ({ edge, fromPath: path, to })));
