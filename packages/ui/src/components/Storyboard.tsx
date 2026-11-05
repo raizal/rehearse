@@ -15,7 +15,7 @@ import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.j
 import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue, type ApprovalKind } from '../model/storyboard.js';
 import { ApproveBar } from './Approve.js';
 import { PathMap } from './PathMap.js';
-import { StoryView } from './StoryView.js';
+import { StoryView, type StoryTab } from './StoryView.js';
 import type { ApproveControls } from './Playback.js';
 import type { SessionState } from './Review.js';
 import { KeyValues } from './Values.js';
@@ -54,6 +54,7 @@ export interface StoryboardProps {
 export function Storyboard(props: StoryboardProps) {
   const { view, scenarioId, seen } = props;
   const groups = useMemo(() => reviewQueue(view.prd, view.scenarios), [view]);
+  const [storyTab, setStoryTab] = useState<StoryTab>('overview');
   const active = view.scenarios.find((s) => s.scenario.id === scenarioId);
   const storyId = props.storyId ?? active?.scenario.story;
   const ofStory = view.scenarios.filter((sv) => storyId !== undefined && sv.scenario.story === storyId);
@@ -74,8 +75,8 @@ export function Storyboard(props: StoryboardProps) {
         <ReviewQueue {...props} storyId={storyId} groups={groups} />
       </aside>
       <div className="card-wrap">
-        {storyId !== undefined && <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} />}
-        {storyId !== undefined && (
+        {storyId !== undefined && <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} tab={storyTab} onTab={setStoryTab} />}
+        {storyId !== undefined && storyTab === 'overview' && (
           <section className="story-scenarios" data-testid="story-scenarios" aria-labelledby="story-scenarios-h">
             <h3 id="story-scenarios-h">
               Scenarios of {storyId} ({ofStory.length})

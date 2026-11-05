@@ -1,32 +1,70 @@
 // One story (S4-A5, D42): WHAT (role, want, so that, the criteria as a checklist), HOW (a
 // swimlane of only the boxes that serve it, in flow order) and OUTPUT (each data change as
 // before → after, side effects, and what the user sees). The scenario cards come below it.
+// A tab bar: Overview (all of the above) and Tests (T13: the story's e2e tests in Birdview).
 
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { Id } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
 import { ROLE_ICON } from '../model/features.js';
 import { howLayout, storyDetail, type StoryDetail } from '../model/storyview.js';
 import { wrapLines } from '../model/text.js';
+import { StoryTests } from './StoryTests.js';
 import { svgButton } from './svg.js';
+
+export const STORY_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'tests', label: 'Tests' },
+] as const;
+export type StoryTab = (typeof STORY_TABS)[number]['id'];
 
 export interface StoryViewProps {
   view: ReviewEpicView;
   storyId: Id;
   onOpenBox: (path: string) => void;
+  /** The open tab, when the parent keeps it (it shows the scenario cards under Overview only). */
+  tab?: StoryTab;
+  onTab?: (tab: StoryTab) => void;
 }
 
-export function StoryView({ view, storyId, onOpenBox }: StoryViewProps) {
+export function StoryView({ view, storyId, onOpenBox, ...props }: StoryViewProps) {
   const d = useMemo(() => storyDetail(view, storyId), [view, storyId]);
+  const [ownTab, setOwnTab] = useState<StoryTab>('overview');
+  const tab = props.tab ?? ownTab;
+  const setTab = props.onTab ?? setOwnTab;
+  const tabId = useId().replace(/:/g, '');
+  const scenarios = useMemo(() => view.scenarios.map((sv) => sv.scenario).filter((s) => s.story === storyId), [view, storyId]);
   return (
     <article className="story-view" data-testid="story-view" aria-labelledby="story-view-title">
       <h2 id="story-view-title">
         Story <code>{storyId}</code> {d.story?.want ?? ''}
       </h2>
-      <div className="story-panels">
-        <What d={d} />
-        <How d={d} onOpenBox={onOpenBox} />
-        <Output d={d} onOpenBox={onOpenBox} />
+      <div className="story-tabs" role="tablist" aria-label={`Views of ${storyId}`} data-testid="story-tabs">
+        {STORY_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`${tabId}-${t.id}`}
+            aria-selected={t.id === tab}
+            aria-controls={`${tabId}-${t.id}-panel`}
+            className={t.id === tab ? 'tab is-active' : 'tab'}
+            data-testid={`story-tab-${t.id}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${tabId}-${tab}-panel`} aria-labelledby={`${tabId}-${tab}`}>
+        {tab === 'overview' && (
+          <div className="story-panels">
+            <What d={d} />
+            <How d={d} onOpenBox={onOpenBox} />
+            <Output d={d} onOpenBox={onOpenBox} />
+          </div>
+        )}
+        {tab === 'tests' && <StoryTests storyId={storyId} scenarios={scenarios} />}
       </div>
     </article>
   );
