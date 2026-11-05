@@ -1,0 +1,25 @@
+story: S10
+scenarios:
+  - id: S10-fail
+    title: CI finds a simulator error
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f9e538633d2e474418b8ac6d990a0e2f58328c5b9674b8a878b1ccbb31ebb428', note: bootstrap }
+    steps:
+      - { name: pr-opened }
+      - name: ci-run
+        example: { id: ci-dirty, given: { epicDir: docs/epics/x }, then: { exitCode: 1, report: { ok: false } } }
+      - { name: ci-ok, branch: "no" }
+      - { name: ci-fail }
+    expect: { criterion: S10-A1, state: { exitCode: 1, jsonListsError: true } }
+
+  - id: S10-pass
+    title: CI passes on a clean, signed EPIC within the time limit
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:3c0104ae7f6f1993761425a10af32f3957e25a5d3dc04d49fb717507d874f2bb', note: bootstrap }
+    steps:
+      - { name: pr-opened }
+      - name: ci-run
+        example: { id: ci-clean, given: { boxes: 200, scenarios: 100 }, then: { exitCode: 0, seconds: "< 2" } }
+      - { name: ci-ok, branch: "yes" }
+      - { name: ci-pass }
+    expect: { criterion: S10-A2, state: { exitCode: 0, eachUnderSeconds: 2 } }

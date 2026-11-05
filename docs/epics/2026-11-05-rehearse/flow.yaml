@@ -1,0 +1,274 @@
+# rehearse v1 — flow (to-be). As-is is empty: this is a new product. (D4)
+# Status: draft.
+# Box contract (D10): inputs, outputs, reads, writes, sideEffects, errorExits,
+# stories, lane. Each error exit is an edge with kind: error.
+
+version: 1
+epic: 2026-11-05-rehearse
+
+lanes:
+  - { role: builder, order: 1 }
+  - { role: agent,   order: 2 }
+  - { role: rehearse, order: 3 }   # the tool itself (system)
+  - { role: ci,      order: 4 }
+
+root:
+  boxes:
+    - id: start
+      kind: start
+      lane: builder
+      title: Builder has an idea
+
+    - id: new-epic
+      kind: input
+      lane: builder
+      title: Create EPIC record
+      stories: [S1]
+      inputs:  { slug: string, title: string }
+      outputs: { epicDir: string }
+      writes:  [Epic.slug, Epic.title, "Epic.status:->draft"]
+      sideEffects: [creates docs/epics/<slug>/ with empty record files]
+      errorExits: [epic-exists, bad-slug]
+
+    - id: rejected
+      kind: end
+      lane: builder
+      title: Command fails, no file changed
+
+    - id: draft-record
+      kind: process
+      lane: agent
+      title: Draft or fix record files
+      stories: [S2]
+      inputs:  { epicDir: string, findings: "list Finding?" }
+      outputs: { epicDir: string }
+      writes:  [Requirement.*, Story.*, Box.*, Example.*, "Scenario.status:->draft"]
+      sideEffects: [edits YAML files in the EPIC folder]
+
+    - id: validate
+      kind: process
+      lane: rehearse
+      title: Validate record
+      stories: [S2]
+      inputs:  { epicDir: string }
+      outputs: { report: Report }
+      reads:   [Epic.*, Requirement.*, Story.*, Box.*, Scenario.*]
+      children:
+        boxes:
+          - { id: parse,       kind: process,  lane: rehearse, title: Parse YAML files,
+              inputs: { epicDir: string }, outputs: { docs: map }, errorExits: [yaml-syntax] }
+          - { id: schema,      kind: process,  lane: rehearse, title: Check JSON Schema,
+              inputs: { docs: map }, outputs: { findings: list Finding } }
+          - { id: refs,        kind: process,  lane: rehearse, title: Check cross-file references,
+              inputs: { docs: map }, outputs: { findings: list Finding } }
+          - { id: report,      kind: output,   lane: rehearse, title: Write validation report,
+              inputs: { findings: list Finding }, outputs: { report: Report } }
+        edges:
+          - { from: parse,  to: schema }
+          - { from: parse,  to: report, label: yaml-syntax, kind: error }
+          - { from: schema, to: refs }
+          - { from: refs,   to: report }
+
+    - id: valid
+      kind: decision
+      lane: rehearse
+      title: Record valid?
+      inputs: { report: Report }
+
+    - id: simulate
+      kind: process
+      lane: rehearse
+      title: Simulate approved scenarios
+      stories: [S3, S7]
+      inputs:  { epicDir: string }
+      outputs: { report: Report }
+      reads:   [Box.*, Example.*, Scenario.*, Story.acceptance, Requirement.*]
+      children:
+        boxes:
+          - { id: load,        kind: process, lane: rehearse, title: Load approved scenarios (skip stale and draft),
+              inputs: { epicDir: string }, outputs: { scenarios: list Scenario }, reads: [Scenario.status, Approval.hash] }
+          - { id: contracts,   kind: process, lane: rehearse, title: Chain examples and check data shapes,
+              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding } }
+          - { id: coverage,    kind: process, lane: rehearse, title: Find branches and error exits that no scenario reaches,
+              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding } }
+          - { id: lifecycles,  kind: process, lane: rehearse, title: Check transitions and reachable states,
+              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding }, reads: [Box.writes] }
+          - { id: acceptance,  kind: process, lane: rehearse, title: Compare end states with acceptance criteria,
+              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding }, reads: [AcceptanceCriterion.expectedState] }
+          - { id: permissions, kind: process, lane: rehearse, title: Build permission matrix,
+              inputs: { epicDir: string }, outputs: { matrix: map }, reads: [Lane.role, Box.reads, Box.writes] }
+          - { id: report,      kind: output,  lane: rehearse, title: Write sorted, deterministic report,
+              inputs: { findings: list Finding, matrix: map }, outputs: { report: Report } }
+        edges:
+          - { from: load,        to: contracts }
+          - { from: contracts,   to: coverage }
+          - { from: coverage,    to: lifecycles }
+          - { from: lifecycles,  to: acceptance }
+          - { from: acceptance,  to: permissions }
+          - { from: permissions, to: report }
+
+    - id: design-errors
+      kind: decision
+      lane: rehearse
+      title: Design errors found?
+      inputs: { report: Report }
+
+    - id: log-correction
+      kind: process
+      lane: agent
+      title: Log correction (caught-in-simulation)
+      stories: [S8]
+      inputs:  { report: Report }
+      outputs: { correction: Correction }
+      writes:  [Correction.*]
+      sideEffects: [appends to corrections.md]
+
+    - id: review
+      kind: output
+      lane: builder
+      title: Review in panel
+      stories: [S4, S5, S7, S8]
+      inputs:  { epicDir: string, report: Report }
+      outputs: { decision: "enum[approve, change]" }
+      reads:   [Box.*, Scenario.*, Report.permissionMatrix, Correction.tag]
+      children:
+        boxes:
+          - { id: swimlanes,   kind: output, lane: builder, title: Swimlanes and drill-down }
+          - { id: playback,    kind: output, lane: builder, title: Play a scenario step by step }
+          - { id: matrix,      kind: output, lane: builder, title: Permission matrix }
+          - { id: readiness,   kind: output, lane: builder, title: Readiness chain and correction counts }
+        edges:
+          - { from: swimlanes, to: playback }
+          - { from: playback,  to: matrix }
+          - { from: matrix,    to: readiness }
+
+    - id: happy
+      kind: decision
+      lane: builder
+      title: Design correct?
+      inputs: { decision: "enum[approve, change]" }
+
+    - id: approve
+      kind: input
+      lane: builder
+      title: Approve scenarios (UI button only)
+      stories: [S6]
+      inputs:  { scenarioIds: list string }
+      outputs: { approvals: list Approval }
+      writes:  ["Scenario.status:draft->approved", "Scenario.status:stale->approved", Approval.*]
+      # No error exit: the CLI has no approve command (R13).
+
+    - id: gate
+      kind: process
+      lane: rehearse
+      title: Gate check
+      stories: [S9]
+      inputs:  { epicDir: string }
+      outputs: { report: Report }
+      reads:   [Requirement.*, Story.*, Scenario.status, Report.findings]
+      children:
+        boxes:
+          - { id: traced,     kind: process, lane: rehearse, title: Every requirement has a story, and every story has an approved scenario }
+          - { id: sim-clean,  kind: process, lane: rehearse, title: Simulation has no findings }
+          - { id: no-stale,   kind: process, lane: rehearse, title: No stale scenario }
+          - { id: report,     kind: output,  lane: rehearse, title: Gate report }
+        edges:
+          - { from: traced,    to: sim-clean }
+          - { from: sim-clean, to: no-stale }
+          - { from: no-stale,  to: report }
+
+    - id: gate-ok
+      kind: decision
+      lane: rehearse
+      title: Gate passes?
+      inputs: { report: Report }
+
+    - id: sign-off
+      kind: input
+      lane: builder
+      title: Sign off (UI button only)
+      stories: [S9]
+      inputs:  { storyIds: list string }
+      outputs: { signOff: SignOff }
+      writes:  ["Story.status:draft->signed", "Story.status:stale->signed",
+                "Epic.status:draft->signed", "Epic.status:partly-stale->signed", SignOff.*]
+      # No error exit: the CLI has no sign-off command (R14).
+
+    - id: signed
+      kind: end
+      lane: builder
+      title: EPIC signed — build may start
+
+    - id: signed-edit
+      kind: start
+      lane: agent
+      title: Someone edits signed content
+
+    - id: content-changed
+      kind: process
+      lane: rehearse
+      title: Detect changed signed content
+      stories: [S6, S9]
+      inputs:  { epicDir: string }
+      outputs: { staleStories: list string, staleScenarios: list string }
+      reads:   [Story.signedHash, Approval.hash]
+      writes:  ["Story.status:signed->stale", "Scenario.status:approved->stale",
+                "Epic.status:signed->partly-stale"]
+
+    - id: pr-opened
+      kind: start
+      lane: ci
+      title: PR opened or updated
+
+    - id: ci-run
+      kind: external
+      lane: ci
+      title: CI runs validate, simulate, gate --json
+      stories: [S10]
+      inputs:  { epicDir: string }
+      outputs: { exitCode: number, report: Report }
+      sideEffects: [runs the same core library as validate, simulate and gate]
+
+    - id: ci-ok
+      kind: decision
+      lane: ci
+      title: Exit code 0?
+      inputs: { exitCode: number }
+
+    - id: ci-pass
+      kind: end
+      lane: ci
+      title: PR may merge
+
+    - id: ci-fail
+      kind: end
+      lane: ci
+      title: PR blocked, report attached
+
+  edges:
+    - { from: start,          to: new-epic }
+    - { from: new-epic,       to: draft-record }
+    - { from: new-epic,       to: rejected,       label: epic-exists, kind: error }
+    - { from: new-epic,       to: rejected,       label: bad-slug,    kind: error }
+    - { from: draft-record,   to: validate }
+    - { from: validate,       to: valid }
+    - { from: valid,          to: draft-record,   label: "no",  kind: branch }
+    - { from: valid,          to: simulate,       label: "yes", kind: branch }
+    - { from: simulate,       to: design-errors }
+    - { from: design-errors,  to: log-correction, label: "yes", kind: branch }
+    - { from: design-errors,  to: review,         label: "no",  kind: branch }
+    - { from: log-correction, to: draft-record }
+    - { from: review,         to: happy }
+    - { from: happy,          to: draft-record,   label: change,  kind: branch }
+    - { from: happy,          to: approve,        label: approve, kind: branch }
+    - { from: approve,        to: gate }
+    - { from: gate,           to: gate-ok }
+    - { from: gate-ok,        to: review,         label: "no",  kind: branch }
+    - { from: gate-ok,        to: sign-off,       label: "yes", kind: branch }
+    - { from: sign-off,       to: signed }
+    - { from: signed-edit,    to: content-changed }
+    - { from: content-changed, to: review }
+    - { from: pr-opened,      to: ci-run }
+    - { from: ci-run,         to: ci-ok }
+    - { from: ci-ok,          to: ci-pass,        label: "yes", kind: branch }
+    - { from: ci-ok,          to: ci-fail,        label: "no",  kind: branch }

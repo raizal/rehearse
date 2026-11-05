@@ -1,0 +1,173 @@
+# rehearse v1 — entity model (D21)
+# Status: draft.
+# Field types: string, number, boolean, datetime, hash, enum[...], ref <Entity>,
+# list <type>, map <type>. A `?` after a type means optional.
+# A lifecycle lists every permitted transition. Any other transition is an error.
+
+entities:
+  - id: Epic
+    about: One feature change. One folder in docs/epics/<slug>/.
+    fields:
+      slug: string            # YYYY-MM-DD-<kebab>
+      title: string
+      goal: string
+      status: enum[draft, signed, partly-stale]
+      signOffs: list ref SignOff
+    lifecycle:
+      field: status
+      initial: draft
+      transitions:
+        - { from: draft,        to: signed,       by: builder, when: all gate checks pass and every story is signed }
+        - { from: signed,       to: partly-stale, by: system,  when: signed content of one or more stories changes }
+        - { from: partly-stale, to: signed,       by: builder, when: every stale story is signed again }
+    # `frozen` (at finalize) comes after v1, with the finalize command.
+
+  - id: Role
+    about: An actor. One swimlane in the flow. (D13)
+    fields:
+      id: string
+      name: string
+      kind: enum[human, agent, system, external]
+      about: string?
+
+  - id: Requirement
+    fields:
+      id: string              # R1, R2, …
+      kind: enum[functional, performance, security, permission]
+      text: string
+      provenBy: string?       # required when kind is not functional (D22)
+
+  - id: Story
+    fields:
+      id: string              # S1, S2, …
+      role: ref Role
+      want: string
+      soThat: string
+      requirements: list ref Requirement
+      acceptance: list ref AcceptanceCriterion
+      status: enum[draft, signed, stale]
+      signedHash: hash?       # hash of the story and everything it links to
+    lifecycle:
+      field: status
+      initial: draft
+      transitions:
+        - { from: draft,  to: signed, by: builder, when: gate sign-off }
+        - { from: signed, to: stale,  by: system,  when: the hash of the story or its linked items changes (D23) }
+        - { from: stale,  to: signed, by: builder, when: gate sign-off for this story }
+
+  - id: AcceptanceCriterion
+    fields:
+      id: string              # S3-A1
+      given: string
+      when: string
+      then: string
+      expectedState: map string?   # machine-checkable end state for R7
+
+  - id: Lane
+    fields:
+      role: ref Role
+      order: number
+
+  - id: Box
+    about: One job in the flow. Has children when it has 3 or more steps.
+    fields:
+      id: string              # ^[a-z0-9][a-z0-9-]*$, unique in its diagram
+      path: string            # ids joined with /, e.g. simulate/check-contracts
+      title: string
+      kind: enum[start, end, process, decision, input, output, external]
+      lane: ref Lane
+      stories: list ref Story
+      inputs: map string      # field → type (D10)
+      outputs: map string
+      reads: list string      # Entity.field
+      writes: list string     # Entity.field or Entity.status:from->to
+      sideEffects: list string
+      errorExits: list string # each one is an edge with this label
+      examples: list ref Example
+      children: ref Diagram?
+
+  - id: Edge
+    fields:
+      from: ref Box
+      to: ref Box
+      label: string?          # required on decision branches and error exits
+      kind: enum[normal, branch, error]
+
+  - id: Diagram
+    fields:
+      boxes: list ref Box
+      edges: list ref Edge
+
+  - id: Example
+    about: One given/when/then on one box. Becomes a unit test later. (D15)
+    fields:
+      id: string
+      box: ref Box
+      given: map string       # input values and start state
+      then: map string        # output values, or the error exit name
+      stateAfter: map string?
+
+  - id: Scenario
+    about: A path through the flow for one story. Becomes an e2e test later.
+    fields:
+      id: string
+      story: ref Story
+      title: string
+      steps: list ref ScenarioStep
+      status: enum[draft, approved, stale]
+      approval: ref Approval?
+    lifecycle:
+      field: status
+      initial: draft
+      transitions:
+        - { from: draft,    to: approved, by: builder, when: UI approve button (R13) }
+        - { from: approved, to: stale,    by: system,  when: content hash differs from approval hash }
+        - { from: stale,    to: approved, by: builder, when: UI approve button }
+
+  - id: ScenarioStep
+    fields:
+      name: string            # box path (R21)
+      example: ref Example
+      branch: string?         # label of the edge taken
+
+  - id: Approval
+    about: Immutable event. Only the UI writes it.
+    fields:
+      by: string              # git user.email
+      threadId: string?       # bb thread ID, when set
+      at: datetime
+      hash: hash
+
+  - id: SignOff
+    about: Immutable event. Only the UI writes it. (R14)
+    fields:
+      by: string
+      threadId: string?
+      at: datetime
+      storyHashes: map hash   # story id → hash
+
+  - id: Finding
+    about: One line of a simulation or validation report.
+    fields:
+      kind: enum[schema, reference, contract, coverage, lifecycle, acceptance]
+      file: string
+      path: string            # box path, scenario id or YAML path
+      message: string
+      refs: list string       # requirement, story, criterion ids
+
+  - id: Report
+    about: Output of validate or simulate. Same record → byte-identical report (R18).
+    fields:
+      command: enum[validate, simulate, gate]
+      ok: boolean
+      findings: list ref Finding
+      permissionMatrix: map string?   # role → entity → actions (R8)
+
+  - id: Correction
+    about: One entry in corrections.md. (D7, D34)
+    fields:
+      at: datetime
+      tag: enum[caught-in-simulation, caught-after-build]
+      what: string
+      why: string
+      boxes: list ref Box

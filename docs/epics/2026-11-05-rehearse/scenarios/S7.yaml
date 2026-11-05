@@ -1,0 +1,16 @@
+story: S7
+scenarios:
+  - id: S7-matrix
+    title: A buyer box writes Order.status
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:41320693cdf993c769802adc14306427622a6fbe6d160b5edf59d4a97d4bb7b2', note: bootstrap }
+    steps:
+      - name: simulate/permissions
+        example: { id: perm-buyer, given: { boxes: { checkout: { lane: buyer, writes: [Order.status] } } }, then: { matrix: { buyer: { Order: [write] } } } }
+      - { name: simulate/report }
+      - { name: design-errors, branch: "no" }
+      - { name: review/swimlanes }
+      - { name: review/playback }
+      - name: review/matrix
+        example: { id: matrix-cell, given: { matrix: { buyer: { Order: [write] } } }, then: { marked: "buyer × Order × write", link: checkout } }
+    expect: { criterion: S7-A1, state: { cell: "buyer × Order × write", linkedBox: checkout } }

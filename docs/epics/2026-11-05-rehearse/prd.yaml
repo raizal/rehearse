@@ -1,0 +1,338 @@
+# rehearse — EPIC (PRD), version 1
+# Status: signed (bootstrap). See signoff.yaml.
+# Why: see brainstorm.md (decision IDs D1…D39).
+
+epic:
+  slug: 2026-11-05-rehearse
+  title: rehearse v1 — simulate a product change before you build it
+  goal: >-
+    A builder who works with AI agents can model a change, simulate it with
+    plain code, and see why it is ready, before any agent writes code.
+  successMeasure: >-
+    Most design errors in corrections.md have the tag caught-in-simulation,
+    not caught-after-build. (D34)
+  outOfScope:
+    - Wireframe playback and the Playwright/Vitest adapter (with Birdview).
+    - Linear sync.
+    - Child-thread orchestration (task briefs, worktrees).
+    - Code pull for the as-is system map, and the AST view.
+    - FigCraft links and .figcraft file format research.
+    - Finalize and docs/system/ merge.
+
+roles:
+  - id: builder
+    name: Builder
+    about: The owner. Approves scenarios, reviews the flow, signs off the gate.
+  - id: agent
+    name: Agent
+    about: An AI agent. Writes drafts of record files. Never approves or signs off.
+  - id: ci
+    name: CI
+    about: A headless run in a pipeline. Runs checks only.
+
+requirements:
+  # --- Record and schema ---
+  - id: R1
+    kind: functional
+    text: The CLI creates an EPIC folder with empty, valid record files. (D28)
+  - id: R2
+    kind: functional
+    text: >-
+      A JSON Schema validates prd.yaml, entities.yaml, flow.yaml and each
+      scenario file. Errors show the file, the path in the file, and the reason.
+  - id: R3
+    kind: functional
+    text: >-
+      The validator checks references across files: story → requirement,
+      box → story, box → role (lane), state access → entity field,
+      scenario → story and box path. It also checks flow structure: a start
+      box has no incoming edges, an end box has no outgoing edges, each root
+      box is reachable from a start and reaches an end, a decision has 2 or
+      more labeled branches, and an error exit has an edge that does not loop
+      to its own box. (corrections C1–C5)
+  # --- Simulation ---
+  - id: R4
+    kind: functional
+    text: >-
+      The simulator chains the given/when/then examples along each scenario
+      path. It reports an output that does not fit the input shape of the next
+      box. (D10, D15)
+  - id: R5
+    kind: functional
+    text: >-
+      The simulator reports each decision branch and each error exit that no
+      approved scenario reaches.
+  - id: R6
+    kind: functional
+    text: >-
+      The simulator reports each state change that the entity lifecycle does
+      not permit, and each lifecycle state that no box can reach. (D21)
+  - id: R7
+    kind: functional
+    text: >-
+      The simulator compares the end state of each scenario with the
+      acceptance criteria of its story, and reports each difference.
+  - id: R8
+    kind: functional
+    text: >-
+      The tool makes a permission matrix (role × entity × action) from lanes
+      and state access. (D22)
+  # --- Visual ---
+  - id: R9
+    kind: functional
+    text: >-
+      The panel shows the flow in swimlanes, one lane per role or external
+      system. A box with children opens a nested diagram. (D13, D32)
+  - id: R10
+    kind: functional
+    text: >-
+      The panel plays a scenario step by step. It highlights the current box
+      and shows its input, output and state change.
+  - id: R11
+    kind: functional
+    text: >-
+      The readiness view shows the chain requirement → story → box → scenario
+      → result, and flags requirements with no proof and boxes with no
+      requirement. (D11)
+  - id: R12
+    kind: functional
+    text: >-
+      `rehearse serve` serves one UI. The bb panel and a full-screen browser
+      tab show the same UI. (D31)
+  # --- Gate and trust ---
+  - id: R13
+    kind: functional
+    text: >-
+      The builder approves each scenario with a button in the rehearse UI.
+      The CLI has no approve command, so an agent cannot approve. The record
+      keeps who approved it (git user.email, plus the bb thread ID when one
+      is set), when, and a hash of the approved content.
+  - id: R14
+    kind: functional
+    text: >-
+      The gate passes only when all gate checks pass. The builder then signs
+      off with a button in the rehearse UI. The CLI has no sign-off command.
+      The record keeps who signed off (same identity as R13), when, and a
+      hash of each signed story. (D17)
+  - id: R15
+    kind: functional
+    text: >-
+      When signed content changes, the tool marks the affected stories,
+      boxes and scenarios stale. The builder signs off again for the
+      affected stories only. (D23)
+  - id: R16
+    kind: functional
+    text: >-
+      corrections.md entries have a tag caught-in-simulation or
+      caught-after-build. The readiness view shows the count of each tag. (D34)
+  # --- Non-functional ---
+  - id: R17
+    kind: performance
+    text: >-
+      validate and simulate finish in less than 2 seconds for an EPIC with
+      200 boxes and 100 scenarios, on a developer laptop.
+    provenBy: benchmark check on a generated fixture
+  - id: R18
+    kind: functional
+    text: >-
+      The simulator is deterministic. It uses no LLM and no network. The same
+      record always gives the same report. (D15)
+  - id: R19
+    kind: functional
+    text: >-
+      validate, simulate and gate check run headless with exit codes and a
+      --json report, without bb. (D26)
+  - id: R20
+    kind: security
+    text: >-
+      `rehearse serve` listens on 127.0.0.1 only. Remote access goes through
+      `bb connect expose`.
+    provenBy: unit check of the listen address
+  - id: R21
+    kind: functional
+    text: >-
+      Scenario steps use box paths as names (for example checkout/pay/charge).
+      (D39)
+
+stories:
+  - id: S1
+    role: builder
+    want: to create an EPIC record with one command
+    soThat: agents and I start from a valid, empty structure
+    requirements: [R1]
+    acceptance:
+      - id: S1-A1
+        given: a repo with no EPIC named 2026-11-05-demo
+        when: the builder runs `bb rehearse new 2026-11-05-demo --title "Demo"`
+        then: docs/epics/2026-11-05-demo/ has brainstorm.md, prd.yaml, entities.yaml, flow.yaml, scenarios/, corrections.md, and validate passes
+      - id: S1-A2
+        given: the EPIC 2026-11-05-demo exists
+        when: the builder runs the same command again
+        then: the command fails, names the folder, and changes no file
+
+  - id: S2
+    role: agent
+    want: to know exactly what is wrong in a record draft
+    soThat: I can fix my draft without a human
+    requirements: [R2, R3, R21]
+    acceptance:
+      - id: S2-A1
+        given: flow.yaml has a box with no `outputs`
+        when: the agent runs `bb rehearse validate <slug>`
+        then: exit code 1, and the error names flow.yaml, the box path, and the missing field
+      - id: S2-A2
+        given: a box points to story S9 and prd.yaml has no S9
+        when: the agent runs validate
+        then: exit code 1, and the error names the box path and S9
+      - id: S2-A3
+        given: a scenario step names a box path that does not exist
+        when: the agent runs validate
+        then: exit code 1, and the error names the scenario, the step and the path
+
+  - id: S3
+    role: builder
+    want: to simulate the EPIC and get a list of design errors
+    soThat: I find errors before agents build anything
+    requirements: [R4, R5, R6, R7, R18]
+    acceptance:
+      - id: S3-A1
+        given: box a outputs {orderId:string} and the next box b needs {orderId:number}
+        when: the builder runs `bb rehearse simulate <slug>`
+        then: the report has a contract error that names a → b and the field orderId
+      - id: S3-A2
+        given: a decision box has a "no" branch that no approved scenario reaches
+        when: the builder runs simulate
+        then: the report has a coverage error for that branch
+      - id: S3-A3
+        given: Order allows draft → paid only, and a scenario changes Order from draft to shipped
+        when: the builder runs simulate
+        then: the report has a lifecycle error that names the scenario, the box and the transition
+      - id: S3-A4
+        given: the end state of a scenario differs from an acceptance criterion of its story
+        when: the builder runs simulate
+        then: the report has an acceptance error that names the criterion ID
+      - id: S3-A5
+        given: the same record
+        when: simulate runs two times
+        then: the two reports are byte-identical
+
+  - id: S4
+    role: builder
+    want: to see the flow as swimlanes and drill into boxes
+    soThat: I understand who does what, and each hand-off between roles
+    requirements: [R9, R12]
+    acceptance:
+      - id: S4-A1
+        given: flow.yaml with lanes builder and system
+        when: the builder opens the panel
+        then: the panel shows two lanes, and each box is in the lane of its role
+      - id: S4-A2
+        given: a box with children
+        when: the builder clicks it
+        then: the panel shows the nested diagram and a breadcrumb back to the parent
+      - id: S4-A3
+        given: '`rehearse serve` runs'
+        when: the builder opens its URL in a browser
+        then: the browser shows the same UI full screen
+
+  - id: S5
+    role: builder
+    want: to play a scenario step by step
+    soThat: I see the data move through the boxes and the roles
+    requirements: [R10, R21]
+    acceptance:
+      - id: S5-A1
+        given: an approved scenario with 3 steps
+        when: the builder plays it and moves to step 2
+        then: the panel highlights the box of step 2 and shows its input, output and state change
+
+  - id: S6
+    role: builder
+    want: to approve the scenarios that agents drafted
+    soThat: only scenarios I trust count as evidence
+    requirements: [R13]
+    acceptance:
+      - id: S6-A1
+        given: a draft scenario
+        when: the builder approves it
+        then: the scenario records approvedBy, approvedAt and a content hash
+      - id: S6-A2
+        given: an agent has CLI access only
+        when: the agent lists the CLI commands
+        then: no command approves a scenario or signs off the gate, and each scenario stays a draft
+      - id: S6-A3
+        given: an approved scenario
+        when: its content changes
+        then: the scenario becomes stale and the simulator ignores it as evidence
+
+  - id: S7
+    role: builder
+    want: to review a permission matrix
+    soThat: I find a role that can change data it must not change
+    requirements: [R8]
+    acceptance:
+      - id: S7-A1
+        given: a box in the buyer lane writes Order.status
+        when: the builder opens the permission matrix
+        then: the cell buyer × Order × write is marked, with a link to the box
+
+  - id: S8
+    role: builder
+    want: to see why the EPIC is ready or not ready
+    soThat: I trust evidence, not a green badge
+    requirements: [R11, R16]
+    acceptance:
+      - id: S8-A1
+        given: requirement R2 has no story
+        when: the builder opens the readiness view
+        then: R2 shows "no proof", and the view gives the reason
+      - id: S8-A2
+        given: a box serves no requirement
+        when: the builder opens the readiness view
+        then: the box is in the list "no requirement"
+      - id: S8-A3
+        given: corrections.md has 3 caught-in-simulation and 1 caught-after-build
+        when: the builder opens the readiness view
+        then: the view shows 3 and 1
+
+  - id: S9
+    role: builder
+    want: to sign off the EPIC gate
+    soThat: building starts only on a simulated, approved design
+    requirements: [R14, R15]
+    acceptance:
+      - id: S9-A1
+        given: one simulator error remains
+        when: the builder tries to sign off
+        then: the sign-off fails and lists the error
+      - id: S9-A2
+        given: all gate checks pass
+        when: the builder signs off
+        then: the record keeps who, when and a hash for each story
+      - id: S9-A3
+        given: a signed EPIC, and the builder changes the text of R4
+        when: the builder runs gate check
+        then: only the stories linked to R4 are stale and need a new sign-off
+
+  - id: S10
+    role: ci
+    want: to run validate, simulate and gate check without bb
+    soThat: a PR cannot merge a broken or unsigned design
+    requirements: [R17, R19, R20]
+    acceptance:
+      - id: S10-A1
+        given: a record with one simulator error
+        when: CI runs `npx rehearse simulate <slug> --json`
+        then: exit code 1, and the JSON lists the error
+      - id: S10-A2
+        given: a generated record with 200 boxes and 100 scenarios
+        when: CI runs validate and simulate
+        then: each one finishes in less than 2 seconds
+
+resolvedQuestions:
+  - question: Who is "the builder" in records?
+    answer: git user.email, plus the bb thread ID when one is set.
+    at: 2026-11-05
+  - question: How does the tool stop an agent from approving or signing off?
+    answer: Approve and sign-off are buttons in the rehearse UI only. The CLI has no such commands.
+    at: 2026-11-05

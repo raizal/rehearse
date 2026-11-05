@@ -1,0 +1,37 @@
+story: S1
+scenarios:
+  - id: S1-new
+    title: Builder creates a new EPIC
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f10b9d30cd943c43a86c14532ce7a41abf614c78ee4eaeadb8f42f294cb64757', note: bootstrap }
+    steps:
+      - { name: start }
+      - name: new-epic
+        example: { id: new-ok, given: { slug: 2026-11-05-demo, title: Demo, exists: false }, then: { epicDir: docs/epics/2026-11-05-demo } }
+      - name: draft-record
+        example: { id: draft-empty, given: { epicDir: docs/epics/2026-11-05-demo }, then: { epicDir: docs/epics/2026-11-05-demo } }
+    expect: { criterion: S1-A1, state: { Epic.status: draft, files: [brainstorm.md, prd.yaml, entities.yaml, flow.yaml, scenarios/, corrections.md] } }
+
+  - id: S1-exists
+    title: Builder creates an EPIC that exists
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:3772d9a916bdaab70a23b3b9637bd62b9cd139ee21d19d00714c86a98bd6c459', note: bootstrap }
+    steps:
+      - { name: start }
+      - name: new-epic
+        branch: epic-exists
+        example: { id: new-exists, given: { slug: 2026-11-05-demo, title: Demo, exists: true }, then: { exit: epic-exists } }
+      - { name: rejected }
+    expect: { criterion: S1-A2, state: { filesChanged: 0 } }
+
+  - id: S1-bad-slug
+    title: Builder uses a slug with no date
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:4a845470d6fddd82793d5f5098f2f44ac6ce0fd7c04f11b24d3c998372f8d666', note: bootstrap }
+    steps:
+      - { name: start }
+      - name: new-epic
+        branch: bad-slug
+        example: { id: new-bad-slug, given: { slug: Demo, title: Demo, exists: false }, then: { exit: bad-slug } }
+      - { name: rejected }
+    expect: { state: { filesChanged: 0 } }

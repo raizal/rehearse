@@ -1,0 +1,45 @@
+story: S9
+scenarios:
+  - id: S9-blocked
+    title: Sign-off with a simulator error left
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:1c62f63bf0c5b9a8433312e18329c92ce4771a57f9d41e36169ed1152ff42079', note: bootstrap }
+    steps:
+      - { name: gate/traced }
+      - name: gate/sim-clean
+        example: { id: sim-dirty, given: { findings: [contract] }, then: { findings: [{ kind: contract }] } }
+      - { name: gate/no-stale }
+      - { name: gate/report }
+      - name: gate-ok
+        branch: "no"
+        example: { id: gate-no, given: { report: { ok: false } }, then: { branch: "no" } }
+      - { name: review/swimlanes }
+    expect: { criterion: S9-A1, state: { signOffButton: disabled, listedErrors: [contract] } }
+
+  - id: S9-sign
+    title: Builder signs off a clean EPIC
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:e4e913113d29ba57822981de2f6395c8824ce4503bfc23179f9c080e7bbbf990', note: bootstrap }
+    steps:
+      - { name: gate/traced }
+      - { name: gate/sim-clean }
+      - { name: gate/no-stale }
+      - { name: gate/report }
+      - name: gate-ok
+        branch: "yes"
+        example: { id: gate-yes, given: { report: { ok: true } }, then: { branch: "yes" } }
+      - name: sign-off
+        example: { id: sign-1, given: { storyIds: [S1, S2], user: a@b.c }, then: { signOff: { by: a@b.c, storyHashes: { S1: h1, S2: h2 } } } }
+      - { name: signed }
+    expect: { criterion: S9-A2, state: { Epic.status: signed, SignOff.by: a@b.c } }
+
+  - id: S9-partial-stale
+    title: Builder changes R4 after sign-off
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:cec45e479d69f3938162a32454d6711d7a7ccb67fa7849f8d73043bfd203ce74', note: bootstrap }
+    steps:
+      - { name: signed-edit }
+      - name: content-changed
+        example: { id: r4-changed, given: { changed: [R4], links: { S3: [R4], S1: [R1] } }, then: { staleStories: [S3], staleScenarios: [] } }
+      - { name: review/swimlanes }
+    expect: { criterion: S9-A3, state: { Story.S3: stale, Story.S1: signed, Epic.status: partly-stale } }
