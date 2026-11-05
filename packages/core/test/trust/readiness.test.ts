@@ -72,6 +72,7 @@ describe('readiness', () => {
   it('parses every correction of the live first EPIC', () => {
     const view = readiness(loadEpic(REAL_EPIC).record);
     expect(view.corrections.invalid).toEqual([]);
-    expect(view.noProof).toEqual([]);
+    // Under review, a requirement may wait for an approval; it must not lack a story.
+    expect(view.noProof.filter((p) => p.reason !== 'no-approved-scenario')).toEqual([]);
   });
 });

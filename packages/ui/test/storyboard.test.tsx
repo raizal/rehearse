@@ -224,11 +224,11 @@ describe('review queue', () => {
   });
 });
 
-describe('the real EPIC (28 scenarios)', () => {
+describe('the real EPIC', () => {
   const real = realEpic();
 
   it('S6-A1: renders the card of every real scenario, and every step shows its box title', () => {
-    expect(real.scenarios).toHaveLength(28);
+    expect(real.scenarios.length).toBeGreaterThan(0);
     for (const sv of real.scenarios) {
       const { unmount } = render(
         <StoryCard
@@ -257,7 +257,7 @@ describe('the real EPIC (28 scenarios)', () => {
     await start({}, realEpic());
     const groups = screen.getAllByTestId(/^queue-group-/).map((el) => el.dataset.testid!.replace('queue-group-', ''));
     expect(groups).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10']);
-    expect(screen.getByTestId('queue-progress')).toHaveTextContent('0 / 28 approved with a valid signature');
+    expect(screen.getByTestId('queue-progress')).toHaveTextContent(`0 / ${realEpic().scenarios.length} approved with a valid signature`);
   });
 });
 

@@ -58,6 +58,7 @@ describe('signed readiness (C28)', () => {
     const view = signedReadiness(record, checkSignatures(record, VERIFIER));
     expect(view.requirements.length).toBeGreaterThan(0);
     expect(view.requirements.every((r) => !r.proven)).toBe(true);
-    expect(new Set(view.noProof.map((p) => p.reason))).toEqual(new Set(['approval-not-signed']));
+    expect(new Set(view.noProof.map((p) => p.reason))).toContain('approval-not-signed');
+    expect(view.noProof.filter((p) => !['approval-not-signed', 'no-approved-scenario'].includes(p.reason))).toEqual([]);
   });
 });

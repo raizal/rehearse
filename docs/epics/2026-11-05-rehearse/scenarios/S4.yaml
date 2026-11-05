@@ -30,3 +30,19 @@ scenarios:
       - name: review/swimlanes
         example: { id: serve-browser, given: { url: "http://127.0.0.1:<port>" }, then: { fullScreen: true, sameUiAsPanel: true } }
     expect: { criterion: S4-A3, state: { fullScreen: true } }
+
+  - id: S4-big-picture
+    title: Builder sees the whole EPIC and the processes that features share
+    status: draft
+    steps:
+      - name: review/swimlanes
+        example: { id: big-picture, given: { stories: { S1: [new-epic, validate], S2: [draft-record, validate] } }, then: { roles: all, processes: in-flow-order, lines: [S1, S2], shared: { validate: [S1, S2] } } }
+    expect: { criterion: S4-A4, state: { shared: { validate: [S1, S2] } } }
+
+  - id: S4-story-view
+    title: Builder opens one story and sees what, how and output
+    status: draft
+    steps:
+      - name: review/swimlanes
+        example: { id: story-view, given: { story: S9, boxes: [approve, gate, sign-off], writes: ["Story.status:draft->signed"] }, then: { what: S9, how: [approve, gate, sign-off], output: { Story.status: "draft → signed" }, then: scenarios } }
+    expect: { criterion: S4-A5, state: { panels: [what, how, output], output: { Story.status: "draft → signed" } } }

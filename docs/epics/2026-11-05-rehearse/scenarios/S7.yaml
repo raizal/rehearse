@@ -12,5 +12,5 @@ scenarios:
       - { name: review/swimlanes }
       - { name: review/playback }
       - name: review/matrix
-        example: { id: matrix-cell, given: { matrix: { buyer: { Order: [write] } } }, then: { marked: "buyer × Order × write", link: checkout } }
-    expect: { criterion: S7-A1, state: { cell: "buyer × Order × write", linkedBox: checkout } }
+        example: { id: matrix-cell, given: { matrix: { buyer: { Order: [write] } } }, then: { actor: buyer, useCase: checkout, tag: "writes Order.status", link: checkout } }
+    expect: { criterion: S7-A1, state: { actor: buyer, useCase: checkout, tag: "writes Order.status", linkedBox: checkout } }

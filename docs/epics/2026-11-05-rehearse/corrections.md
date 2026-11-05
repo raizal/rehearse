@@ -140,6 +140,11 @@ These came from agents who built the code, not from a rehearse check.
   - Why: S6 says what approval writes, but not what the approver must see first. An approval without review is not evidence either.
   - Fix (owner's choice): a storyboard card for each scenario (story, criterion, path map, step panels, result) and a review queue by story. Approve is active only after every step was seen. The seen state stays in the browser: it is a review aid, not evidence. The `approve` box has a note.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 14 `caught-after-build` (C17–C30).
+- **C31** `caught-after-build` · S4, S7, boxes `review/*` · OPEN (T10)
+  - What: With the storyboard cards, the owner still could not see what the EPIC does as a whole, what each story is about, or who may change what. The permission matrix was hard to read.
+  - Why: The review showed the parts (boxes, scenarios, matrix cells) but not the whole system, the features in it, and what they share.
+  - Fix: D42. New criteria S4-A4 (big picture) and S4-A5 (story view). S7-A1 is a use case diagram.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 15 `caught-after-build` (C17–C31).
 
 After wave 2 (T6, T7, T8): `rehearse gate check` gives 38 `gate` findings: 28 approvals have no signature (D41), 6 stories are stale (S1, S2, S3, S6, S8, S9) and the other 4 were signed under hash rule 1. The builder sets up signing, approves the scenarios again and signs off in the UI.

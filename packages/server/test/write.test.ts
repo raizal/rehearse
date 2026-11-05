@@ -220,12 +220,14 @@ describe('rehearse serve: GET /api/epic trust state', () => {
     );
   });
 
-  it('D41: on the real EPIC, /api/epic reports 28 unsigned approvals', async () => {
+  it('D41: on the real EPIC, /api/epic reports every bootstrap approval as unsigned', async () => {
     running = await startServer({ epicDir: REAL_EPIC, uiDir: UI, port: 0, session: session({ ok: false, reason: 'test' }) });
     const view = await (await fetch(new URL('api/epic', running.url))).json();
     const unsigned = view.gate.findings.filter((f: { message: string }) => f.message.includes('is not evidence: sigStatus missing'));
-    expect(unsigned).toHaveLength(28);
-    expect(Object.values(view.approvals).filter((a) => (a as { sigStatus: string }).sigStatus === 'missing')).toHaveLength(28);
+    const missing = Object.values(view.approvals).filter((a) => (a as { sigStatus: string }).sigStatus === 'missing');
+    expect(missing.length).toBeGreaterThan(0);
+    expect(missing).toHaveLength(Object.keys(view.approvals).length);
+    expect(unsigned.length).toBeGreaterThan(0);
     expect(view.gate.signers).toEqual([]);
   });
 

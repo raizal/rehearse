@@ -143,7 +143,7 @@ root:
           # playback is an input box: the builder's click gives scenarioId and step. (C15)
           - { id: playback,    kind: input,  lane: builder, title: Play a scenario step by step,
               inputs: { scenarioId: string, step: number }, outputs: { highlighted: string }, reads: [Scenario.*, Example.*] }
-          - { id: matrix,      kind: output, lane: builder, title: Permission matrix,
+          - { id: matrix,      kind: output, lane: builder, title: Use case diagram (permissions),
               inputs: { epicDir: string }, outputs: { cells: "list string" }, reads: [Report.permissionMatrix] }
           - { id: readiness,   kind: output, lane: builder, title: Readiness chain and correction counts,
               inputs: { epicDir: string }, outputs: { decision: "enum[approve, change]" }, reads: [Requirement.*, Story.*, Scenario.status, Approval.sig, Correction.tag] }   # C28: only a valid signature is proof

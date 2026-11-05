@@ -87,7 +87,8 @@ requirements:
     kind: functional
     text: >-
       The tool makes a permission matrix (role × entity × action) from lanes
-      and state access. (D22)
+      and state access. The UI shows it as a use case diagram: roles → actions
+      → data. (D22, D42)
   # --- Visual ---
   - id: R9
     kind: functional
@@ -245,6 +246,14 @@ stories:
         given: a box with children
         when: the builder clicks it
         then: the panel shows the nested diagram and a breadcrumb back to the parent
+      - id: S4-A4
+        given: an EPIC with stories S1 and S2 that both use box validate
+        when: the builder opens the review
+        then: the big picture shows every role, the main processes in flow order, and one line per story through its processes; validate is marked shared by S1 and S2 (D42)
+      - id: S4-A5
+        given: a story with a box that writes Story.status:draft->signed
+        when: the builder opens that story
+        then: the view shows WHAT (the story and its criteria), HOW (a swimlane of only its boxes, in order) and OUTPUT (Story.status draft → signed), then its scenarios (D42)
       - id: S4-A3
         given: '`rehearse serve` runs'
         when: the builder opens its URL in a browser
@@ -282,14 +291,14 @@ stories:
 
   - id: S7
     role: builder
-    want: to review a permission matrix
+    want: to see who may change which data, as a use case diagram
     soThat: I find a role that can change data it must not change
     requirements: [R8]
     acceptance:
       - id: S7-A1
         given: a box in the buyer lane writes Order.status
-        when: the builder opens the permission matrix
-        then: the cell buyer × Order × write is marked, with a link to the box
+        when: the builder opens the use case diagram
+        then: actor buyer links to the use case of that box, the use case is tagged "writes Order.status", and it links to the box (D42)
 
   - id: S8
     role: builder

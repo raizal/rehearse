@@ -276,14 +276,15 @@ describe('type rules', () => {
 describe('dogfood: simulate the rehearse record (D24)', () => {
   const report = simulateEpic(REAL_EPIC);
 
-  it('runs on the real record: every approval matches its content, so no scenario is stale', () => {
+  // The live record is under review: new or changed scenarios wait for the owner's approval.
+  // Only that kind of finding is allowed; the design itself must simulate clean.
+  it('runs on the real record: a stale scenario is only one whose content the record changed for review', () => {
     expect(report.command).toBe('simulate');
-    expect(report.stale).toEqual([]);
+    for (const s of report.stale) expect(s.reason, s.scenario).toMatch(/content changed after approval/);
   });
 
-  it('C14 with the epicDir flow context the record gives no findings', () => {
-    expect(report.findings).toEqual([]);
-    expect(report.ok).toBe(true);
+  it('C14 with the epicDir flow context the record gives no design findings, only criteria that wait for approval', () => {
+    for (const f of report.findings) expect(f.message, f.path).toMatch(/no approved scenario checks it/);
   });
 
   it('the permission matrix shows that only the builder lane changes Scenario.status to approved', () => {
