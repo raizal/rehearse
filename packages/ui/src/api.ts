@@ -3,6 +3,7 @@
 // POSTs with the session token; the browser adds the Origin header (R13, R14).
 
 import type { Finding, Id } from '@rehearse/core';
+import type { StoryThreadView } from '@rehearse/server';
 import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
 
 export type { EpicView, ScenarioView } from '@rehearse/server';
@@ -48,4 +49,40 @@ async function post<T>(url: string, token: string, body: unknown): Promise<PostO
     return { kind: 'forbidden', message: text('reason') ?? text('error') ?? 'the server refused the request (session token or origin); reload the page' };
   }
   return { kind: 'error', message: `POST ${url}: HTTP ${res.status}${text('error') ? `: ${text('error')}` : ''}` };
+}
+
+// ---------------------------------------------------------------- the story thread panel (T12)
+
+export type { StoryThreadView } from '@rehearse/server';
+
+/** A story-thread answer: the view, or an error in words. */
+export type ThreadOutcome<T> = { kind: 'ok'; body: T } | { kind: 'error'; status: number; message: string };
+
+export type StoryThreadAction = 'link' | 'start' | 'send' | 'open';
+
+/** `GET api/story-thread?story=`. Needs the session token, like every story-thread route. */
+export function fetchStoryThread(token: string, story: Id): Promise<ThreadOutcome<StoryThreadView>> {
+  return threadCall<StoryThreadView>(`api/story-thread?story=${encodeURIComponent(story)}`, { method: 'GET', headers: { 'x-rehearse-token': token } });
+}
+
+/** `POST api/story-thread/<action>`. link: { threadId }, send: { text, context }, start and open: nothing more. */
+export function postStoryThread<T = StoryThreadView>(token: string, action: StoryThreadAction, body: { story: Id } & Record<string, string>): Promise<ThreadOutcome<T>> {
+  return threadCall<T>(`api/story-thread/${action}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-rehearse-token': token },
+    body: JSON.stringify(body),
+  });
+}
+
+async function threadCall<T>(url: string, init: RequestInit): Promise<ThreadOutcome<T>> {
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: 'no-store', ...init });
+  } catch (e) {
+    return { kind: 'error', status: 0, message: `cannot reach rehearse serve: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  const json = (await res.json().catch(() => undefined)) as Record<string, unknown> | undefined;
+  if (res.ok && json !== undefined) return { kind: 'ok', body: json as T };
+  const error = typeof json?.error === 'string' ? json.error : `HTTP ${res.status}`;
+  return { kind: 'error', status: res.status, message: res.status === 404 && error.startsWith('no endpoint') ? 'this rehearse serve has no story thread API; update rehearse' : error };
 }

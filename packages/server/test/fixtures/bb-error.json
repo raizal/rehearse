@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": {
+    "code": "thread_not_found",
+    "message": "HTTP 404: Thread not found"
+  }
+}

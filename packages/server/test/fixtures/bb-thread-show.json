@@ -1,0 +1,77 @@
+{
+  "thread": {
+    "id": "thr_sz8f4bedm4",
+    "projectId": "proj_np45qbzf4r",
+    "environmentId": "env_b72puqxtvb",
+    "providerId": "claude-code",
+    "title": "Implement collapsible story thread panel",
+    "sectionId": null,
+    "status": "active",
+    "parentThreadId": "thr_zpd73mnmgy",
+    "sourceThreadId": null,
+    "lifecycleOwnerThreadId": null,
+    "originKind": null,
+    "originPluginId": null,
+    "visibility": "visible",
+    "parentNotifications": "auto",
+    "archivedAt": null,
+    "pinnedAt": null,
+    "deletedAt": null,
+    "lastReadAt": 1793886951269,
+    "latestAttentionAt": 1793886951253,
+    "createdAt": 1793886951253,
+    "updatedAt": 1793886954664,
+    "runtime": {
+      "displayStatus": "active"
+    },
+    "activeBackgroundAgentCount": 0,
+    "canRestoreEnvironment": false,
+    "canEditMessages": true,
+    "canSpawnChild": true,
+    "queuedMessageCount": 0
+  },
+  "environment": {
+    "id": "env_b72puqxtvb",
+    "name": null,
+    "projectId": "proj_np45qbzf4r",
+    "hostId": "host_qwjrdhmj9a",
+    "path": "/home/user/worktrees/product-development-tools",
+    "isGitRepo": true,
+    "isWorktree": true,
+    "branchName": "bb/implement-collapsible-story-thread-panel-thr_sz8f4bedm4",
+    "baseBranch": null,
+    "defaultBranch": "main",
+    "mergeBaseBranch": "main",
+    "status": "ready",
+    "environmentProviderId": "git-worktree",
+    "lifecycle": {
+      "phase": "active",
+      "retireAt": null,
+      "teardown": null
+    },
+    "hostLifecycle": "active",
+    "environmentProviderSelection": {
+      "machine": {
+        "type": "existing",
+        "hostId": "host_qwjrdhmj9a"
+      },
+      "inputs": {
+        "branch": {
+          "kind": "named",
+          "name": "main"
+        }
+      }
+    },
+    "environmentProviderInstanceKey": "thr_sz8f4bedm4-1",
+    "managed": true,
+    "workspaceProvisionType": "managed-worktree",
+    "createdAt": 1793886953097,
+    "updatedAt": 1793886953547,
+    "pullRequest": {
+      "status": "unavailable",
+      "pullRequest": null,
+      "message": "gh pr view failed: no git remotes found"
+    }
+  },
+  "pendingTodos": null
+}

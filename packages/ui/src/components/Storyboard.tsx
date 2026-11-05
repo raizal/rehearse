@@ -12,9 +12,11 @@ import type { ApproveOk, PostOutcome, ReviewEpicView } from '../contract.js';
 import { laneColor, roleName } from '../model/diagram.js';
 import { stepCount, stepView } from '../model/playback.js';
 import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.js';
+import { contextLabel } from '../model/storythread.js';
 import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue, type ApprovalKind } from '../model/storyboard.js';
 import { ApproveBar } from './Approve.js';
 import { PathMap } from './PathMap.js';
+import { StoryThread } from './StoryThread.js';
 import { StoryView } from './StoryView.js';
 import type { ApproveControls } from './Playback.js';
 import type { SessionState } from './Review.js';
@@ -113,6 +115,9 @@ export function Storyboard(props: StoryboardProps) {
           </p>
         )}
       </div>
+      {storyId !== undefined && (
+        <StoryThread storyId={storyId} token={props.session.kind === 'ready' ? props.session.session.token : undefined} context={contextLabel({ tab: 'overview', detail: active?.scenario.id })} />
+      )}
     </main>
   );
 }
