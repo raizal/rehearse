@@ -12,6 +12,7 @@ export {
   type BoxEntry,
   type LeafStep,
 } from './flow-index.js';
+export { canonicalJson, scenarioContent, scenarioHash, sha256, storyHashV1 } from './hash.js';
 export { validateEpic, validateRecord } from './validate/index.js';
 export { checkDoc, checkSchemas, schemaFor, schemaUrl, toYamlPath, type SchemaName } from './validate/schema.js';
 export { checkRefs, enumValues } from './validate/refs.js';
