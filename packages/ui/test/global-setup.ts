@@ -30,6 +30,17 @@ const CORRECTIONS = `# Corrections
 - **C4** \`caught-in-simulation\` out-of-stock path ended nowhere.
 `;
 
+/** The decision log of the shop (T15): two decisions, one of them on a heading. */
+const BRAINSTORM = `# Shop — brainstorm
+
+## Decisions
+- **D1 Card only**: The shop takes cards, not cash.
+
+## Version 1 scope (D2)
+
+Cart, pay and ship.
+`;
+
 function buildReviewEpic(): ReviewEpicView {
   const dir = makeEpic({
     edit: (d) => {
@@ -79,6 +90,7 @@ function buildReviewEpic(): ReviewEpicView {
     },
   });
   writeFileSync(join(dir, 'corrections.md'), CORRECTIONS);
+  writeFileSync(join(dir, 'brainstorm.md'), BRAINSTORM);
   // Approve S1-buy with its real hash on disk, as the approve endpoint does.
   const view: ReviewEpicView = buildEpicView(dir);
   const buy = view.scenarios.find((v) => v.scenario.id === 'S1-buy')!;
