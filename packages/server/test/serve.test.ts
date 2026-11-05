@@ -65,12 +65,13 @@ describe('rehearse serve: HTTP server', () => {
     ]);
   });
 
-  it('has no write endpoints: POST, PUT and DELETE get 405, and unknown API paths 404', async () => {
+  it('writes only through POST /api/approve and /api/sign-off: other methods get 405, and unknown API paths 404', async () => {
     running = await startServer({ epicDir: SHOP, uiDir: fakeUi(), port: 0 });
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
       expect((await fetch(new URL('api/epic', running.url), { method })).status).toBe(405);
     }
-    expect((await fetch(new URL('api/approve', running.url))).status).toBe(404);
+    expect((await fetch(new URL('api/approve', running.url))).status).toBe(405);
+    expect((await fetch(new URL('api/unknown', running.url))).status).toBe(404);
   });
 
   it('does not serve files outside the UI folder', async () => {

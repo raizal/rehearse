@@ -1,10 +1,10 @@
 // `rehearse serve`: argument handling, the printed URL, and the served app and API (R12, R20, S4-A3).
 
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RunningServer } from '@rehearse/server';
 import { REAL_EPIC, SHOP } from '../../core/test/helpers.js';
 import { DEFAULT_PORT, parseServeArgs, startServe, uiDistDir } from '../src/commands/serve.js';
@@ -17,8 +17,17 @@ function io(cwd = REPO) {
   return { out, io: { cwd, stdout: (t: string) => (out.stdout += t), stderr: (t: string) => (out.stderr += t) } };
 }
 
+// No global or system git config, so no test reads the user's real signing key.
+const NO_GIT_CONFIG = join(mkdtempSync(join(tmpdir(), 'rehearse-gitconfig-')), 'config');
+writeFileSync(NO_GIT_CONFIG, '');
+beforeEach(() => {
+  vi.stubEnv('GIT_CONFIG_GLOBAL', NO_GIT_CONFIG);
+  vi.stubEnv('GIT_CONFIG_NOSYSTEM', '1');
+});
+
 let running: RunningServer | undefined;
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await running?.close();
   running = undefined;
 });
@@ -37,6 +46,8 @@ describe('rehearse serve', () => {
     expect(server.server.address()).toMatchObject({ address: '127.0.0.1' });
     expect(stdout).toContain(`http://127.0.0.1:${server.port}/`);
     expect(stdout).toContain(`bb connect expose ${server.port}`);
+    // No signing key in this test's git config: the UI cannot write, and the reason is printed.
+    expect(stdout).toMatch(/Approve and sign-off are off: git user\.(email|signingkey) is not set/);
   });
 
   it('S4-A3: the URL returns the app page, and /api/epic returns the record as JSON', async () => {
