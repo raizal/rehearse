@@ -197,9 +197,9 @@ td.no-access { background: #fafbfc; }
 .history li { margin: 4px 0; }
 
 /* Storyboard (S6-A1) */
-.storyboard { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 330px) minmax(0, 1fr); }
-.storyboard > .left { border-right: 1px solid var(--line); }
-.card-wrap { overflow: auto; min-height: 0; padding: 16px 20px; }
+.storyboard { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 330px) minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
+.storyboard > .left { border-right: 1px solid var(--line); grid-row: 1 / -1; }
+.card-wrap { overflow: auto; min-height: 0; padding: 16px 20px; grid-column: 2; grid-row: 1; }
 .queue h2 { margin-bottom: 4px; }
 .queue-progress { margin: 0 0 4px; font-size: 13px; }
 .queue-bar { width: 100%; height: 8px; margin-bottom: 8px; accent-color: var(--approved); }
@@ -258,7 +258,9 @@ td.no-access { background: #fafbfc; }
 .signing-help { font-size: 12px; }
 .signing-help ol { margin: 4px 0; padding-left: 18px; }
 @media (max-width: 900px) {
-  .storyboard { grid-template-columns: 1fr; overflow: auto; }
+  .storyboard { grid-template-columns: 1fr; grid-template-rows: none; overflow: auto; }
+  .storyboard > * { grid-column: auto; grid-row: auto; }
+  .story-thread { width: auto; border-left: 0; border-top: 1px solid var(--line); }
   .step-example { grid-template-columns: 1fr; }
 }
 
@@ -334,3 +336,54 @@ td.no-access { background: #fafbfc; }
 .ucd-actor-label { font-size: 12px; font-weight: 700; fill: var(--ink); }
 .ucd-actor-kind, .ucd-readonly { font-size: 11px; fill: var(--muted); }
 .ucd-readonly { font-weight: 700; }
+
+/* Story thread (T12, design pages 13 and 15): the right column of the story page; » makes it a
+   56 px strip and the body takes the freed width. The toast is a grid row under the content, so it
+   never covers it. Status is always in words too, the dot only repeats it. */
+.story-thread { grid-column: 3; grid-row: 1; width: 360px; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); }
+.story-thread.is-collapsed { width: 56px; align-items: center; gap: 10px; padding: 10px 0; }
+.thread-toggle { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; width: 32px; height: 28px; padding: 0; font-size: 16px; line-height: 1; }
+.thread-toggle:hover { border-color: var(--accent); }
+.thread-unread { min-width: 22px; padding: 1px 6px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; }
+.thread-strip-label { writing-mode: vertical-rl; transform: rotate(180deg); color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+.thread-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--draft); flex: none; }
+.thread-dot.tone-idle { background: var(--approved); }
+.thread-dot.tone-working { background: var(--current); }
+.thread-dot.tone-failed { background: var(--stale); }
+.thread-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.thread-head h2 { margin: 0; font-size: 15px; }
+.thread-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+.thread-head-actions { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+.action.small { padding: 2px 8px; font-size: 12px; }
+.thread-pad { padding: 8px 12px; margin: 0; }
+.thread-brief { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.thread-brief p { margin: 0 0 4px; }
+.thread-brief-title { font-weight: 600; }
+.chips { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 12px; background: #f3f6fb; overflow-wrap: anywhere; }
+.chip-box { font-family: ui-monospace, Menlo, monospace; color: var(--accent); }
+.thread-messages { list-style: none; margin: 0; padding: 8px 12px; flex: 1; min-height: 80px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.thread-msg { display: flex; gap: 8px; }
+.thread-avatar { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #eef1f6; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+.thread-msg.from-agent .thread-avatar { background: #e9f0fc; color: var(--accent); }
+.thread-msg-body { min-width: 0; flex: 1; }
+.thread-msg-head { font-size: 12px; }
+.thread-msg-head time { color: var(--muted); margin-left: 4px; }
+.thread-msg-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-earlier { padding: 8px 12px; border-top: 1px solid var(--line); max-height: 30%; overflow: auto; }
+.thread-earlier h3 { margin: 0; font-size: 13px; }
+.thread-earlier p { margin: 0 0 4px; }
+.thread-earlier ul { list-style: none; margin: 0; padding: 0; }
+.thread-earlier-item { display: flex; flex-direction: column; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.thread-earlier-title { overflow-wrap: anywhere; }
+.thread-composer { border-top: 1px solid var(--line); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.thread-compose-row { display: flex; gap: 6px; width: 100%; align-items: flex-end; }
+.thread-compose-row textarea { flex: 1; min-width: 0; resize: vertical; font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+.thread-none p { margin: 0 0 8px; }
+.thread-link { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.thread-link input { flex: 1; min-width: 120px; font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.thread-link input[aria-invalid='true'] { border-color: var(--error); }
+.thread-toast-row { grid-column: 2 / 4; grid-row: 2; }
+.thread-toast-row:empty { display: none; }
+.thread-toast { display: block; width: 100%; text-align: left; border: 0; border-top: 2px solid var(--accent); background: #f5f8fe; padding: 8px 16px; }
+.thread-toast:hover { background: #e9f0fc; }
