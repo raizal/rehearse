@@ -19,3 +19,4 @@ export { checkRefs, enumValues } from './validate/refs.js';
 export { checkStructure } from './validate/structure.js';
 export { checkSteps } from './validate/steps.js';
 export { compareFindings, makeReport, reportToJson, reportToText, sortFindings } from './validate/report.js';
+export { createEpic, EPIC_FILES, isEpicSlug, type NewEpicExit, type NewEpicResult } from './new.js';
