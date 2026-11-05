@@ -2,14 +2,17 @@
 // because jsdom has no file URLs; tests get a fresh copy here.
 
 import { inject } from 'vitest';
-import type { EpicView } from '@rehearse/server';
+import type { ReviewEpicView } from '../src/contract.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {
-    reviewEpic: EpicView;
+    reviewEpic: ReviewEpicView;
   }
 }
 
-export function reviewEpic(): EpicView {
+/** Signer key of the fixture builder (D41). */
+export const FIXTURE_KEY = 'SHA256:fixtureKeyOfTheBuilder000000000000000000000';
+
+export function reviewEpic(): ReviewEpicView {
   return structuredClone(inject('reviewEpic'));
 }
