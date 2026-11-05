@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { countCorrectionTags, gateEpic, loadEpic, parseCorrections, readiness } from '../../src/index.js';
-import { makeEpic, REAL_EPIC } from '../helpers.js';
+import { BOOTSTRAP_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
 import { approvedEpic } from './helpers.js';
 
 describe('readiness', () => {
@@ -63,9 +63,15 @@ describe('readiness', () => {
     });
   });
 
-  it('counts the corrections of the first EPIC', () => {
-    const view = readiness(loadEpic(REAL_EPIC).record);
+  it('counts the corrections of the frozen first EPIC', () => {
+    const view = readiness(loadEpic(BOOTSTRAP_EPIC).record);
     expect(view.corrections).toEqual({ 'caught-in-simulation': 11, 'caught-after-build': 0, invalid: [] });
+    expect(view.noProof).toEqual([]);
+  });
+
+  it('parses every correction of the live first EPIC', () => {
+    const view = readiness(loadEpic(REAL_EPIC).record);
+    expect(view.corrections.invalid).toEqual([]);
     expect(view.noProof).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalJson, loadEpic, scenarioHash, storyHashV1 } from '../src/index.js';
-import { REAL_EPIC } from './helpers.js';
+import { BOOTSTRAP_EPIC } from './helpers.js';
 
 describe('canonicalJson', () => {
   it('sorts keys, drops spaces and escapes non-ASCII like Python json.dumps', () => {
@@ -13,7 +13,7 @@ describe('canonicalJson', () => {
 });
 
 describe('bootstrap hashes of the first EPIC', () => {
-  const { record } = loadEpic(REAL_EPIC);
+  const { record } = loadEpic(BOOTSTRAP_EPIC);
   const scenarios = record.scenarioFiles.flatMap((f) => f.scenarios);
 
   it('reproduces every scenario approval hash', () => {

@@ -145,11 +145,12 @@ entities:
       threadId: string?
       at: datetime
       storyHashes: map hash   # story id → hash
+      hashRule: number?       # 1 or 2; missing means 1. Rule 2 also covers boxes and lane roles. (C11, C23)
 
   - id: Finding
     about: One line of a simulation or validation report.
     fields:
-      kind: enum[schema, reference, structure, contract, coverage, lifecycle, acceptance]
+      kind: enum[schema, reference, structure, contract, coverage, lifecycle, acceptance, gate]   # gate: C22
       file: string
       path: string            # box path, scenario id or YAML path
       message: string

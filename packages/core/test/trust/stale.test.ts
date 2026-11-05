@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { allScenarios, detectStale, gateEpic, loadEpic, storyHashV1, storyHashV2, validateEpic } from '../../src/index.js';
-import { makeEpic, REAL_EPIC } from '../helpers.js';
+import { BOOTSTRAP_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
 import { approvedEpic, editYaml, read, signedEpic } from './helpers.js';
 
 describe('story hash rule 2 (C11)', () => {
@@ -47,15 +47,22 @@ describe('story hash rule 2 (C11)', () => {
     expect(changed.S2!.v2).not.toBe(base.S2!.v2);
   });
 
-  it('rule 1 still matches the bootstrap sign-off, so no story of the first EPIC is stale', () => {
-    const result = detectStale(loadEpic(REAL_EPIC).record);
+  it('rule 1 still matches the bootstrap sign-off, so no story of the frozen first EPIC is stale', () => {
+    const result = detectStale(loadEpic(BOOTSTRAP_EPIC).record);
     expect(result.staleStories).toEqual([]);
     expect(result.stories.every((s) => s.status === 'signed' && s.hashRule === 1)).toBe(true);
   });
 
   it('never treats a rule-1 sign-off as fully trusted', () => {
+    for (const dir of [BOOTSTRAP_EPIC, REAL_EPIC]) {
+      const result = detectStale(loadEpic(dir).record);
+      expect(result.stories.map((s) => s.trusted)).toEqual(result.stories.map(() => false));
+    }
+  });
+
+  it('S9-A3 dogfood: the live first EPIC is stale only for stories whose rule-1 content changed after sign-off (C17–C24)', () => {
     const result = detectStale(loadEpic(REAL_EPIC).record);
-    expect(result.stories.map((s) => s.trusted)).toEqual(result.stories.map(() => false));
+    expect(result.staleStories).toEqual(['S1', 'S2', 'S3', 'S8']);
   });
 });
 

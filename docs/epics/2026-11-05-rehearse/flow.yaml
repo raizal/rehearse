@@ -27,8 +27,9 @@ root:
       inputs:  { slug: string, title: string }
       outputs: { epicDir: string }
       writes:  [Epic.slug, Epic.title, "Epic.status:->draft"]
-      sideEffects: [creates docs/epics/<slug>/ with empty record files]
+      sideEffects: [creates docs/epics/<slug>/ with the smallest valid record]
       errorExits: [epic-exists, bad-slug]
+      # A missing or empty title is a usage error (exit 2), not an error exit. (C20)
 
     - id: rejected
       kind: end
@@ -42,7 +43,9 @@ root:
       stories: [S2]
       inputs:  { epicDir: string, findings: "list Finding?" }
       outputs: { epicDir: string }
-      writes:  [Requirement.*, Story.*, Box.*, Example.*, "Scenario.status:->draft"]
+      # Agents draft story text only. Story.status and Story.signedHash belong to builder and rehearse. (C16)
+      writes:  [Requirement.*, Story.role, Story.want, Story.soThat, Story.requirements, Story.acceptance,
+                Box.*, Example.*, "Scenario.status:->draft"]
       sideEffects: [edits YAML files in the EPIC folder]
 
     - id: validate
@@ -58,7 +61,7 @@ root:
           - { id: parse,       kind: process,  lane: rehearse, title: Parse YAML files,
               inputs: { epicDir: string }, outputs: { docs: map }, errorExits: [yaml-syntax] }
           - { id: schema,      kind: process,  lane: rehearse, title: Check JSON Schema,
-              inputs: { docs: map }, outputs: { findings: list Finding } }
+              inputs: { docs: map }, outputs: { docs: map, findings: list Finding } }
           - { id: refs,        kind: process,  lane: rehearse, title: Check cross-file references,
               inputs: { docs: map }, outputs: { findings: list Finding } }
           - { id: report,      kind: output,   lane: rehearse, title: Write validation report,
@@ -88,15 +91,15 @@ root:
           - { id: load,        kind: process, lane: rehearse, title: Load approved scenarios (skip stale and draft),
               inputs: { epicDir: string }, outputs: { scenarios: list Scenario }, reads: [Scenario.status, Approval.hash] }
           - { id: contracts,   kind: process, lane: rehearse, title: Chain examples and check data shapes,
-              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding } }
+              inputs: { scenarios: list Scenario }, outputs: { scenarios: list Scenario, findings: list Finding } }
           - { id: coverage,    kind: process, lane: rehearse, title: Find branches and error exits that no scenario reaches,
-              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding } }
+              inputs: { scenarios: list Scenario, findings: list Finding }, outputs: { scenarios: list Scenario, findings: list Finding } }
           - { id: lifecycles,  kind: process, lane: rehearse, title: Check transitions and reachable states,
-              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding }, reads: [Box.writes] }
+              inputs: { scenarios: list Scenario, findings: list Finding }, outputs: { scenarios: list Scenario, findings: list Finding }, reads: [Box.writes] }
           - { id: acceptance,  kind: process, lane: rehearse, title: Compare end states with acceptance criteria,
-              inputs: { scenarios: list Scenario }, outputs: { findings: list Finding }, reads: [AcceptanceCriterion.expectedState] }
+              inputs: { scenarios: list Scenario, findings: list Finding }, outputs: { scenarios: list Scenario, findings: list Finding }, reads: [AcceptanceCriterion.expectedState] }
           - { id: permissions, kind: process, lane: rehearse, title: Build permission matrix,
-              inputs: { epicDir: string }, outputs: { matrix: map }, reads: [Lane.role, Box.reads, Box.writes] }
+              inputs: { scenarios: list Scenario, findings: list Finding }, outputs: { findings: list Finding, matrix: map }, reads: [Lane.role, Box.reads, Box.writes] }
           - { id: report,      kind: output,  lane: rehearse, title: "Write sorted, deterministic report",
               inputs: { findings: list Finding, matrix: map }, outputs: { report: Report } }
         edges:
@@ -128,17 +131,18 @@ root:
       lane: builder
       title: Review in panel
       stories: [S4, S5, S7, S8]
-      inputs:  { epicDir: string, report: Report }
+      inputs:  { epicDir: string, report: "Report?" }
       outputs: { decision: "enum[approve, change]" }
       reads:   [Box.*, Scenario.*, Report.permissionMatrix, Correction.tag]
       children:
         boxes:
           - { id: swimlanes,   kind: output, lane: builder, title: Swimlanes and drill-down,
               inputs: { epicDir: string }, outputs: { view: "enum[root, nested]" }, reads: [Box.*, Lane.*] }
-          - { id: playback,    kind: output, lane: builder, title: Play a scenario step by step,
+          # playback is an input box: the builder's click gives scenarioId and step. (C15)
+          - { id: playback,    kind: input,  lane: builder, title: Play a scenario step by step,
               inputs: { scenarioId: string, step: number }, outputs: { highlighted: string }, reads: [Scenario.*, Example.*] }
           - { id: matrix,      kind: output, lane: builder, title: Permission matrix,
-              inputs: { report: Report }, outputs: { cells: "list string" }, reads: [Report.permissionMatrix] }
+              inputs: { epicDir: string }, outputs: { cells: "list string" }, reads: [Report.permissionMatrix] }
           - { id: readiness,   kind: output, lane: builder, title: Readiness chain and correction counts,
               inputs: { epicDir: string }, outputs: { decision: "enum[approve, change]" }, reads: [Requirement.*, Story.*, Scenario.status, Correction.tag] }
         edges:

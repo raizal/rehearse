@@ -1,0 +1,89 @@
+story: S3
+scenarios:
+  - id: S3-contract
+    title: Output shape does not fit the next input
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:a3dc6494efc979ef2e9b887ac8034ff33c724153ccd838ac5b6bd506dbbff026', note: bootstrap }
+    steps:
+      - name: valid
+        branch: "yes"
+        example: { id: valid-yes, given: { report: { ok: true } }, then: { branch: "yes" } }
+      - name: simulate/load
+        example: { id: load-1, given: { epicDir: docs/epics/x }, then: { scenarios: [shop-1] } }
+      - name: simulate/contracts
+        example: { id: contracts-mismatch, given: { scenarios: [shop-1] }, then: { findings: [{ kind: contract, path: "a -> b", message: "orderId: string does not fit number" }] } }
+      - name: simulate/coverage
+      - name: simulate/lifecycles
+      - name: simulate/acceptance
+      - name: simulate/permissions
+      - name: simulate/report
+        example: { id: sreport-1, given: { findings: [contract] }, then: { report: { command: simulate, ok: false } } }
+      - name: design-errors
+        branch: "yes"
+      - name: log-correction
+        example: { id: correction-1, given: { report: { ok: false } }, then: { correction: { tag: caught-in-simulation } } }
+      - name: draft-record
+    expect: { criterion: S3-A1, state: { finding: { kind: contract, edge: "a -> b", field: orderId }, Correction.tag: caught-in-simulation } }
+
+  - id: S3-uncovered-branch
+    title: A decision branch that no approved scenario reaches
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:7e51ca26e3b2712fa8fb2aa81894292d1fe7b530b9a69c633f8d2743e2638d07', note: bootstrap }
+    steps:
+      - { name: simulate/load }
+      - { name: simulate/contracts }
+      - name: simulate/coverage
+        example: { id: coverage-gap, given: { scenarios: [shop-1] }, then: { findings: [{ kind: coverage, path: "in-stock", message: "branch no not reached" }] } }
+      - { name: simulate/lifecycles }
+      - { name: simulate/acceptance }
+      - { name: simulate/permissions }
+      - { name: simulate/report }
+      - { name: design-errors, branch: "yes" }
+    expect: { criterion: S3-A2, state: { finding: { kind: coverage, path: in-stock, branch: "no" } } }
+
+  - id: S3-bad-transition
+    title: A scenario changes Order from draft to shipped
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:c73fabc278ffee1167a01b124dfc703e5bd62194f3410082356d3da9d4679480', note: bootstrap }
+    steps:
+      - { name: simulate/load }
+      - { name: simulate/contracts }
+      - { name: simulate/coverage }
+      - name: simulate/lifecycles
+        example: { id: lifecycle-bad, given: { scenarios: [shop-2] }, then: { findings: [{ kind: lifecycle, path: ship, message: "Order.status draft -> shipped not permitted" }] } }
+      - { name: simulate/acceptance }
+      - { name: simulate/permissions }
+      - { name: simulate/report }
+      - { name: design-errors, branch: "yes" }
+    expect: { criterion: S3-A3, state: { finding: { kind: lifecycle, scenario: shop-2, box: ship, transition: "draft -> shipped" } } }
+
+  - id: S3-acceptance-diff
+    title: End state differs from an acceptance criterion
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:2e042473cdc864d7d3acdfe7ee0c1715935be0a916ea84ef5caddd0c9f222597', note: bootstrap }
+    steps:
+      - { name: simulate/load }
+      - { name: simulate/contracts }
+      - { name: simulate/coverage }
+      - { name: simulate/lifecycles }
+      - name: simulate/acceptance
+        example: { id: acceptance-diff, given: { scenarios: [shop-3] }, then: { findings: [{ kind: acceptance, refs: [S1-A1], message: "Order.status is draft, expected paid" }] } }
+      - { name: simulate/permissions }
+      - { name: simulate/report }
+      - { name: design-errors, branch: "yes" }
+    expect: { criterion: S3-A4, state: { finding: { kind: acceptance, criterion: S1-A1 } } }
+
+  - id: S3-deterministic
+    title: Two runs on the same record give the same report
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:67d61924d769c21fefeb6a7e8b018737c6ae216b74ebd01bff0622dcaf5567c6', note: bootstrap }
+    steps:
+      - { name: simulate/load }
+      - { name: simulate/contracts }
+      - { name: simulate/coverage }
+      - { name: simulate/lifecycles }
+      - { name: simulate/acceptance }
+      - { name: simulate/permissions }
+      - name: simulate/report
+        example: { id: sreport-sorted, given: { findings: [b, a] }, then: { report: { findings: [a, b] } } }
+    expect: { criterion: S3-A5, state: { reportsByteIdentical: true } }

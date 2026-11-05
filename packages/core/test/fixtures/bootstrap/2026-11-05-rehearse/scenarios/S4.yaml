@@ -1,0 +1,32 @@
+story: S4
+scenarios:
+  - id: S4-swimlanes
+    title: Builder opens a clean design in the panel
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:b6d6f40ccc4878270422572439de1a4094971435fe884e3431583d30d68034a2', note: bootstrap }
+    steps:
+      - { name: simulate/report }
+      - name: design-errors
+        branch: "no"
+        example: { id: no-errors, given: { report: { ok: true } }, then: { branch: "no" } }
+      - name: review/swimlanes
+        example: { id: lanes-2, given: { lanes: [builder, system], boxes: { pay: system, cart: builder } }, then: { shown: { builder: [cart], system: [pay] } } }
+    expect: { criterion: S4-A1, state: { lanesShown: 2, eachBoxInItsLane: true } }
+
+  - id: S4-drill
+    title: Builder drills into a box with children
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:9c8d31904ad814cf27d3349ad80bc8b5f0a802db29c8d5e38c539f3924a0352d', note: bootstrap }
+    steps:
+      - name: review/swimlanes
+        example: { id: drill-in, given: { click: simulate }, then: { shown: simulate/children, breadcrumb: [root, simulate] } }
+    expect: { criterion: S4-A2, state: { breadcrumb: [root, simulate] } }
+
+  - id: S4-browser
+    title: Builder opens the served UI in a browser
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:e3bc0617dc1ccf35113b2415a4c22be94889e183773f0167809fb26f89a22374', note: bootstrap }
+    steps:
+      - name: review/swimlanes
+        example: { id: serve-browser, given: { url: "http://127.0.0.1:<port>" }, then: { fullScreen: true, sameUiAsPanel: true } }
+    expect: { criterion: S4-A3, state: { fullScreen: true } }

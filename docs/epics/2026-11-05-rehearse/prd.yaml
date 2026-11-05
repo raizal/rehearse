@@ -41,7 +41,9 @@ requirements:
   # --- Record and schema ---
   - id: R1
     kind: functional
-    text: The CLI creates an EPIC folder with empty, valid record files. (D28)
+    text: >-
+      The CLI creates an EPIC folder with the smallest valid record: one role
+      and its lane, a start box and an end box, and empty lists. (D28, C18)
   - id: R2
     kind: functional
     text: >-
@@ -73,7 +75,9 @@ requirements:
     kind: functional
     text: >-
       The simulator reports each state change that the entity lifecycle does
-      not permit, and each lifecycle state that no box can reach. (D21)
+      not permit, each lifecycle state that no box can reach, and each
+      transition made by a box whose lane role is not the `by` role of that
+      transition. (D21, C17)
   - id: R7
     kind: functional
     text: >-
@@ -100,7 +104,8 @@ requirements:
     text: >-
       The readiness view shows the chain requirement → story → box → scenario
       → result, and flags requirements with no proof and boxes with no
-      requirement. (D11)
+      requirement. Start, end and decision boxes are not in the list "no
+      requirement". (D11, C24)
   - id: R12
     kind: functional
     text: >-
@@ -170,8 +175,8 @@ stories:
     acceptance:
       - id: S1-A1
         given: a repo with no EPIC named 2026-11-05-demo
-        when: the builder runs `bb rehearse new 2026-11-05-demo --title "Demo"`
-        then: docs/epics/2026-11-05-demo/ has brainstorm.md, prd.yaml, entities.yaml, flow.yaml, scenarios/, corrections.md, and validate passes
+        when: the builder runs `rehearse new 2026-11-05-demo --title "Demo"`
+        then: docs/epics/2026-11-05-demo/ has brainstorm.md, prd.yaml, entities.yaml, flow.yaml, corrections.md and an empty scenarios/ folder, and validate passes (git does not keep the empty folder; validate accepts a missing scenarios/)
       - id: S1-A2
         given: the EPIC 2026-11-05-demo exists
         when: the builder runs the same command again
@@ -185,7 +190,7 @@ stories:
     acceptance:
       - id: S2-A1
         given: flow.yaml has a box with no `outputs`
-        when: the agent runs `bb rehearse validate <slug>`
+        when: the agent runs `rehearse validate <slug>`
         then: exit code 1, and the error names flow.yaml, the box path, and the missing field
       - id: S2-A2
         given: a box points to story S9 and prd.yaml has no S9
@@ -204,7 +209,7 @@ stories:
     acceptance:
       - id: S3-A1
         given: box a outputs {orderId:string} and the next box b needs {orderId:number}
-        when: the builder runs `bb rehearse simulate <slug>`
+        when: the builder runs `rehearse simulate <slug>`
         then: the report has a contract error that names a → b and the field orderId
       - id: S3-A2
         given: a decision box has a "no" branch that no approved scenario reaches

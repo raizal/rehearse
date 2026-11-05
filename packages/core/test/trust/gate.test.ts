@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { gateEpic, gateRecord, loadEpic, reportToJson, type Finding } from '../../src/index.js';
-import { makeEpic, REAL_EPIC } from '../helpers.js';
+import { BOOTSTRAP_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
 import { approvedEpic } from './helpers.js';
 
 const CONTRACT: Finding = { kind: 'contract', file: 'flow.yaml', path: 'pay', message: 'orderId: string → number', refs: ['S1'] };
@@ -47,15 +47,23 @@ describe('gate check', () => {
     expect(report.findings.every((f) => f.kind === 'schema' || f.kind === 'reference')).toBe(true);
   });
 
-  it('dogfood: the first EPIC is not clean, each rule-1 story must be signed again', () => {
-    const before = readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8');
-    const report = gateEpic(REAL_EPIC);
+  it('dogfood: the frozen first EPIC is not clean, each rule-1 story must be signed again', () => {
+    const before = readFileSync(join(BOOTSTRAP_EPIC, 'signoff.yaml'), 'utf8');
+    const report = gateEpic(BOOTSTRAP_EPIC);
     expect(report.ok).toBe(false);
     expect(report.findings.map((f) => `${f.kind} ${f.file} ${f.path}`)).toEqual(
       ['S1', 'S10', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9'].map((s) => `lifecycle signoff.yaml ${s}`),
     );
     expect(report.findings[0]!.message).toBe('signed under hash rule 1, which does not cover boxes and lane roles (C11); must be signed again');
-    expect(reportToJson(gateEpic(REAL_EPIC))).toBe(reportToJson(report));
+    expect(reportToJson(gateEpic(BOOTSTRAP_EPIC))).toBe(reportToJson(report));
+    expect(readFileSync(join(BOOTSTRAP_EPIC, 'signoff.yaml'), 'utf8')).toBe(before);
+  });
+
+  it('dogfood: the live first EPIC is not clean and the gate writes nothing', () => {
+    const before = readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8');
+    const report = gateEpic(REAL_EPIC);
+    expect(report.ok).toBe(false);
+    expect(report.findings.length).toBeGreaterThan(0);
     expect(readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8')).toBe(before);
   });
 });

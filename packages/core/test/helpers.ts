@@ -10,6 +10,8 @@ import type { Finding, Report } from '../src/index.js';
 
 export const SHOP = fileURLToPath(new URL('./fixtures/shop', import.meta.url));
 export const REAL_EPIC = fileURLToPath(new URL('../../../docs/epics/2026-11-05-rehearse', import.meta.url));
+/** The first EPIC frozen at its bootstrap sign-off. The live record changes; this copy does not. */
+export const BOOTSTRAP_EPIC = fileURLToPath(new URL('./fixtures/bootstrap/2026-11-05-rehearse', import.meta.url));
 
 /** The parsed YAML files of a fixture, keyed by path relative to the EPIC folder. */
 export type Docs = Record<string, any>;
