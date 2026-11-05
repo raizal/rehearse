@@ -37,19 +37,19 @@ async function openTests(routes: Partial<MockRoutes>) {
   await screen.findByTestId('big-picture');
   await user.click(screen.getByTestId('nav-stories'));
   await screen.findByTestId('story-view');
-  expect(screen.getByTestId('story-tab-overview')).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByTestId('story-tab-what')).toHaveAttribute('aria-selected', 'true');
   await user.click(screen.getByTestId('story-tab-tests'));
   await screen.findByTestId('story-tests');
   return { server, user };
 }
 
 describe('T13 3 the story Tests tab', () => {
-  it('T13 3.17 the tab bar: Overview keeps WHAT/HOW/OUTPUT and the scenario cards; Tests hides them', async () => {
+  it('T13 3.17 the tab bar: the story page keeps WHAT/HOW/OUTPUT and the scenario cards; Tests hides them', async () => {
     const { user } = await openTests({ birdview: () => ({ status: 200, body: info({ kind: 'off', reason: 'ECONNREFUSED' }) }) });
     expect(screen.getByTestId('story-tab-tests')).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByTestId('story-what')).toBeNull();
     expect(screen.queryByTestId('story-scenarios')).toBeNull();
-    await user.click(screen.getByTestId('story-tab-overview'));
+    await user.click(screen.getByTestId('story-tab-what'));
     expect(screen.getByTestId('story-what')).toBeInTheDocument();
     expect(screen.getByTestId('story-scenarios')).toBeInTheDocument();
   });

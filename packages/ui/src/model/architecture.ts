@@ -3,6 +3,9 @@
 // (as-is + the EPIC's change → to-be); ArchitectureView and BeforeAfterView only draw this.
 
 import type { ArchColor, ArchitectureCompare, ArchNote, DiffStatus, Id, Part, PartKind, SystemArchitecture, SystemCompare, Zone } from '@rehearse/core';
+import type { DEdge, DNode } from './graph.js';
+import { layoutGrid, type Cell } from './grid.js';
+import { wrapLines } from './text.js';
 
 // ---------------------------------------------------------------- what to draw
 
@@ -141,16 +144,13 @@ export const ARCH = {
   pad: 16,
   partW: 190,
   partH: 76,
-  gap: 22,
-  zoneHead: 40,
+  /** Room for the zone name above the first row of its parts. */
+  zoneHead: 36,
   zonePad: 16,
-  zoneGap: 28,
-  /** Most components side by side in one zone. */
+  /** Most components side by side in the biggest zone, and in the zones stacked left of it. */
   maxCols: 3,
-  /** Width the zones fill before a new row of zones starts. */
-  maxWidth: 1240,
+  sideCols: 2,
   peopleW: 170,
-  peopleGap: 60,
 } as const;
 
 export interface Rect {
@@ -160,12 +160,23 @@ export interface Rect {
   h: number;
 }
 
+export interface ArchLink {
+  from: Id;
+  to: Id;
+  /** Orthogonal path from the border of `from` to the border of `to`. */
+  points: { x: number; y: number }[];
+  /** Where the label sits, when the link has one. */
+  label?: Rect;
+}
+
 export interface ArchLayout {
   width: number;
   height: number;
   zones: Map<Id, Rect>;
   parts: Map<Id, Rect>;
-  links: { from: Id; to: Id; x1: number; y1: number; x2: number; y2: number; lx: number; ly: number }[];
+  /** Notes by their index in `notes`: in their zone, or under all zones when they name none. */
+  notes: Map<number, Rect>;
+  links: ArchLink[];
 }
 
 /** Where a line from the centre of `r` towards (tx, ty) leaves the rectangle. */
@@ -179,76 +190,132 @@ export function clipToRect(r: Rect, tx: number, ty: number): { x: number; y: num
   return { x: cx + dx * s, y: cy + dy * s };
 }
 
+/** The text drawn on a link: its label, and "new link" or "removed link" when it is one. */
+export function linkText(l: DrawLink): string {
+  return [l.label, l.status === 'added' || l.status === 'removed' ? linkWord(l.status) : undefined].filter(Boolean).join(' · ');
+}
+
+/** The lines of a note drawn in its zone, under its kind. */
+export function noteLines(n: ArchNote, w: number = ARCH.partW): string[] {
+  return wrapLines(n.text, lineChars(w), 6);
+}
+
+/** Characters of small text that fit on one line of a box `w` wide. */
+export function lineChars(w: number): number {
+  return Math.floor((w - 20) / 6);
+}
+
+export function noteWord(n: ArchNote): string {
+  return n.kind === 'warning' ? 'Warning' : n.kind === 'trust' ? 'Trust' : 'Note';
+}
+
+const noteKey = (i: number) => `note ${i}`;
+
+/** `compact`: narrower boxes, one part across in the stacked zones and two in the biggest, for a map that shares the page with another (page 11 side by side). */
+export interface ArchOptions {
+  compact?: boolean;
+}
+
+function sizes(o: ArchOptions) {
+  return o.compact
+    ? { sideCols: 1, maxCols: 2, partW: 160, peopleW: 120, partH: 64 }
+    : { sideCols: ARCH.sideCols, maxCols: ARCH.maxCols, partW: ARCH.partW, peopleW: ARCH.peopleW, partH: ARCH.partH };
+}
+
 /**
- * Zones as boxes in rows (each a grid of its components, at most three across), filled left to
- * right up to `maxWidth`. People and outside systems with no zone stand in a column on the left,
- * each next to the zone it links to. A part whose zone is unknown gets a zone row of its own.
- * Links are straight lines between box borders with the label at the middle.
+ * Where each part and note stands, as the design draws page 8: people and outside systems in a
+ * column on the left, each in the row of the first part it links to; the zone with the most
+ * parts on the right, three across; the other zones stacked left of it, two across, while they
+ * fit its height; the zones that do not fit in rows across the bottom. Notes stand in their zone.
  */
-export function archLayout(d: ArchDrawing): ArchLayout {
+export function archCells(d: ArchDrawing, o: ArchOptions = {}): Map<string, Cell> {
+  const { sideCols, maxCols } = sizes(o);
   const zoneIds = new Set(d.zones.map((z) => z.id));
+  const members = new Map<Id, string[]>(d.zones.map((z) => [z.id, []]));
+  for (const p of d.parts) if (p.zone && zoneIds.has(p.zone)) members.get(p.zone)!.push(p.id);
+  d.notes.forEach((n, i) => {
+    if (n.zone && zoneIds.has(n.zone)) members.get(n.zone)!.push(noteKey(i));
+  });
   const loose = d.parts.filter((p) => !p.zone || !zoneIds.has(p.zone));
-  const inZone = new Map<Id, DrawPart[]>(d.zones.map((z) => [z.id, []]));
-  for (const p of d.parts) if (p.zone && zoneIds.has(p.zone)) inZone.get(p.zone)!.push(p);
+  const base = loose.length ? 1 : 0;
+  const cells = new Map<string, Cell>();
+  const place = (ids: string[], row: number, col: number, across: number): number => {
+    ids.forEach((id, i) => cells.set(id, { row: row + Math.floor(i / across), col: col + (i % across) }));
+    return Math.ceil(ids.length / across);
+  };
 
-  const left = loose.length ? ARCH.pad + ARCH.peopleW + ARCH.peopleGap : ARCH.pad;
+  const zones = d.zones.filter((z) => members.get(z.id)!.length > 0);
+  const size = (z: DrawZone) => members.get(z.id)!.length;
+  const main = zones.reduce<DrawZone | undefined>((a, z) => (!a || size(z) > size(a) ? z : a), undefined);
+  const mainRows = main ? Math.ceil(size(main) / maxCols) : 0;
+  const side: DrawZone[] = [];
+  const bottom: DrawZone[] = [];
+  let sideRows = 0;
+  for (const z of zones) {
+    if (z === main) continue;
+    const rows = Math.ceil(size(z) / sideCols);
+    if (sideRows === 0 || sideRows + rows <= mainRows) {
+      side.push(z);
+      sideRows += rows;
+    } else bottom.push(z);
+  }
+  let row = 0;
+  for (const z of side) row += place(members.get(z.id)!, row, base, sideCols);
+  if (main) place(members.get(main.id)!, 0, side.length ? base + sideCols : base, maxCols);
+  row = Math.max(sideRows, mainRows);
+  const across = side.length ? sideCols + maxCols : maxCols;
+  for (const z of bottom) row += place(members.get(z.id)!, row, base, across);
+  row += place(
+    d.notes.flatMap((n, i) => (n.zone && zoneIds.has(n.zone) ? [] : [noteKey(i)])),
+    row,
+    base,
+    across,
+  );
+
+  // People: in the row of the first part they link to, or the nearest free row.
+  const taken = new Set<number>();
+  for (const p of loose) {
+    const other = d.links.map((l) => (l.from === p.id ? l.to : l.to === p.id ? l.from : undefined)).find((o) => o !== undefined && cells.has(o) && cells.get(o)!.col >= base);
+    const want = other ? cells.get(other)!.row : row;
+    let r = want;
+    for (let k = 0; taken.has(r); k++) r = k % 2 === 0 ? want + k / 2 + 1 : Math.max(0, want - (k + 1) / 2);
+    taken.add(r);
+    cells.set(p.id, { row: r, col: 0 });
+  }
+  return cells;
+}
+
+/**
+ * Page 8 laid out on a grid (archCells): links are orthogonal and run between the boxes, never
+ * through one; each zone is a frame round its parts and notes, with its name on top.
+ */
+export function archLayout(d: ArchDrawing, o: ArchOptions = {}): ArchLayout {
+  const cells = archCells(d, o);
+  const { partW, peopleW, partH } = sizes(o);
+  const nodes: DNode[] = [
+    ...d.parts.map((p): DNode => ({ id: p.id, shape: 'step', title: p.name, w: p.zone && d.zones.some((z) => z.id === p.zone) ? partW : peopleW, h: partH })),
+    ...d.notes.map((n, i): DNode => ({ id: noteKey(i), shape: 'step', title: n.text, w: partW, h: Math.max(partH, 34 + noteLines(n, partW).length * 14) })),
+  ];
+  const ids = new Set(d.parts.map((p) => p.id));
+  const kept = d.links.filter((l) => ids.has(l.from) && ids.has(l.to) && l.from !== l.to);
+  const edges: DEdge[] = kept.map((l, i) => ({ id: String(i), from: l.from, to: l.to, kind: 'normal', ...(linkText(l) ? { label: linkText(l) } : {}) }));
+  const g = layoutGrid({ nodes, edges, groups: [] }, cells, { channel: 40, channelTop: ARCH.zonePad, channelBottom: ARCH.zoneHead, gutterSide: ARCH.zonePad });
+
+  const parts = new Map<Id, Rect>(d.parts.map((p) => [p.id, g.nodes[p.id]!]));
+  const notes = new Map<number, Rect>(d.notes.map((_, i) => [i, g.nodes[noteKey(i)]!]));
   const zones = new Map<Id, Rect>();
-  const parts = new Map<Id, Rect>();
-  let x = left;
-  let y = ARCH.pad;
-  let rowH = 0;
-  let width = left;
   for (const z of d.zones) {
-    const members = inZone.get(z.id)!;
-    const cols = Math.max(1, Math.min(ARCH.maxCols, members.length));
-    const rows = Math.max(1, Math.ceil(members.length / cols));
-    const w = ARCH.zonePad * 2 + cols * ARCH.partW + (cols - 1) * ARCH.gap;
-    const h = ARCH.zoneHead + ARCH.zonePad + rows * ARCH.partH + (rows - 1) * ARCH.gap;
-    if (x > left && x + w > left + ARCH.maxWidth) {
-      x = left;
-      y += rowH + ARCH.zoneGap;
-      rowH = 0;
-    }
-    zones.set(z.id, { x, y, w, h });
-    members.forEach((p, i) => {
-      parts.set(p.id, {
-        x: x + ARCH.zonePad + (i % cols) * (ARCH.partW + ARCH.gap),
-        y: y + ARCH.zoneHead + Math.floor(i / cols) * (ARCH.partH + ARCH.gap),
-        w: ARCH.partW,
-        h: ARCH.partH,
-      });
-    });
-    x += w + ARCH.zoneGap;
-    rowH = Math.max(rowH, h);
-    width = Math.max(width, x - ARCH.zoneGap);
+    const inside = [...d.parts.filter((p) => p.zone === z.id).map((p) => g.nodes[p.id]!), ...d.notes.flatMap((n, i) => (n.zone === z.id ? [g.nodes[noteKey(i)]!] : []))];
+    if (!inside.length) continue;
+    const x = Math.min(...inside.map((r) => r.x)) - ARCH.zonePad;
+    const y = Math.min(...inside.map((r) => r.y)) - ARCH.zoneHead;
+    zones.set(z.id, { x, y, w: Math.max(...inside.map((r) => r.x + r.w)) + ARCH.zonePad - x, h: Math.max(...inside.map((r) => r.y + r.h)) + ARCH.zonePad - y });
   }
-  let height = d.zones.length ? y + rowH : ARCH.pad;
-
-  // People column: each one level with the first part it links to, then pushed down to not overlap.
-  const wanted = loose.map((p, i) => {
-    const other = d.links.map((l) => (l.from === p.id ? l.to : l.to === p.id ? l.from : undefined)).find((o) => o !== undefined && parts.has(o));
-    const r = other ? parts.get(other)! : undefined;
-    return { p, y: r ? r.y + r.h / 2 - ARCH.partH / 2 : ARCH.pad + i * (ARCH.partH + ARCH.gap), i };
+  const links = g.edges.map((e): ArchLink => {
+    const l = kept[Number(e.id)]!;
+    return { from: l.from, to: l.to, points: e.points, ...(e.label ? { label: e.label } : {}) };
   });
-  wanted.sort((a, b) => a.y - b.y || a.i - b.i);
-  let next = ARCH.pad;
-  for (const w of wanted) {
-    const top = Math.max(w.y, next);
-    parts.set(w.p.id, { x: ARCH.pad, y: top, w: ARCH.peopleW, h: ARCH.partH });
-    next = top + ARCH.partH + ARCH.gap;
-    height = Math.max(height, top + ARCH.partH);
-  }
-  width = Math.max(width, loose.length ? ARCH.pad + ARCH.peopleW : 0);
-
-  const links = d.links.flatMap((l) => {
-    const a = parts.get(l.from);
-    const b = parts.get(l.to);
-    if (!a || !b) return [];
-    const p1 = clipToRect(a, b.x + b.w / 2, b.y + b.h / 2);
-    const p2 = clipToRect(b, a.x + a.w / 2, a.y + a.h / 2);
-    return [{ from: l.from, to: l.to, x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, lx: (p1.x + p2.x) / 2, ly: (p1.y + p2.y) / 2 }];
-  });
-  return { width: width + ARCH.pad, height: height + ARCH.pad, zones, parts, links };
+  return { width: g.width, height: g.height, zones, parts, notes, links };
 }
 
 // ---------------------------------------------------------------- change table (page 11)

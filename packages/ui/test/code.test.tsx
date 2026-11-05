@@ -122,9 +122,9 @@ describe('T11 1 story header chip', () => {
 });
 
 describe('T11 2 story tabs and the Code tab box strip', () => {
-  it('Overview is the default tab with WHAT, HOW, OUTPUT and the scenario cards; Code replaces them', async () => {
+  it('The story page (WHAT) is the default tab with WHAT, HOW, OUTPUT and the scenario cards; Code replaces them', async () => {
     const { user } = renderStory();
-    expect(screen.getByTestId('story-tab-overview')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('story-tab-what')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('story-what')).toBeInTheDocument();
     expect(screen.getByTestId('scenario-cards')).toBeInTheDocument();
     await user.click(screen.getByTestId('story-tab-code'));

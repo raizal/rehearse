@@ -8,7 +8,7 @@ import type { ScenarioView } from '../api.js';
 import type { ReviewEpicView } from '../contract.js';
 import { boxAt, roleName } from './diagram.js';
 import { flowPaths, MAIN_KINDS, servedStories } from './features.js';
-import { citedDecisions, knownIds, type KnownIds, type LinkRef, type Place } from './links.js';
+import { chipWidth, citedDecisions, knownIds, type KnownIds, type LinkRef, type Place } from './links.js';
 import { storiesOf } from './review.js';
 import { approvalState, type ApprovalState } from './storyboard.js';
 
@@ -315,4 +315,122 @@ export function prdDoc(view: ReviewEpicView, known: KnownIds = knownIds(view)): 
       { id: 'resolved', label: 'Resolved questions', count: resolved.length },
     ],
   };
+}
+
+// ---------------------------------------------------------------- trace diagram (T18, design page 9)
+
+/** Sizes of the trace diagram in px: chip height, row height of a box and of a scenario (chip and status line). */
+export const TRACE = { chipH: 20, boxRow: 40, scenarioRow: 46, minRow: 32, gap: 28, trunkGap: 48, statusW: 150 } as const;
+
+export interface TraceNode {
+  kind: 'requirement' | 'story' | 'box' | 'scenario';
+  id: string;
+  /** Top left of the chip. */
+  x: number;
+  y: number;
+  /** A scenario's state, drawn under its chip. */
+  state?: ApprovalState;
+}
+
+export interface TraceNote {
+  x: number;
+  y: number;
+  text: string;
+}
+
+export interface TraceLayout {
+  width: number;
+  height: number;
+  nodes: TraceNode[];
+  /** `no story`, `no box`, `no scenario`. */
+  notes: TraceNote[];
+  /** Elbow connectors, SVG paths. */
+  lines: string[];
+}
+
+const elbow = (x1: number, y1: number, x2: number, y2: number) => {
+  const mx = Math.round((x1 + x2) / 2);
+  return y1 === y2 ? `M ${x1} ${y1} H ${x2}` : `M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`;
+};
+
+/**
+ * The trace as a small tree, left to right: requirement → story → boxes, and a trunk from the
+ * boxes to the scenarios with their status. Each story gets a band as tall as its boxes or its
+ * scenarios; a requirement sits in the middle of its stories. Columns are as wide as their
+ * widest chip, so long box paths push the next column right instead of overlapping it.
+ */
+export function traceLayout(trace: TraceRequirement[], width: (id: string) => number = chipWidth): TraceLayout {
+  const maxW = (ids: string[], min = 0) => Math.max(min, ...ids.map(width));
+  const stories = trace.flatMap((r) => r.stories);
+  const reqW = maxW(trace.map((r) => r.id));
+  const storyW = maxW(stories.map((s) => s.id), 40);
+  const boxW = maxW(stories.flatMap((s) => s.boxes), 50);
+  const col = [0, reqW + TRACE.gap, 0, 0];
+  col[2] = col[1]! + storyW + TRACE.gap;
+  col[3] = col[2]! + boxW + TRACE.trunkGap;
+  const scnW = maxW(stories.flatMap((s) => s.scenarios.map((x) => x.id)), TRACE.statusW);
+  const nodes: TraceNode[] = [];
+  const notes: TraceNote[] = [];
+  const lines: string[] = [];
+  const half = TRACE.chipH / 2;
+  let y = 0;
+  for (const r of trace) {
+    const centers: number[] = [];
+    const storyLines: string[] = [];
+    if (r.stories.length === 0) {
+      centers.push(y + TRACE.minRow / 2);
+      notes.push({ x: col[1]!, y: y + TRACE.minRow / 2 - 7, text: 'no story' });
+      y += TRACE.minRow;
+    }
+    for (const s of r.stories) {
+      const h = Math.max(TRACE.minRow, s.boxes.length * TRACE.boxRow, s.scenarios.length * TRACE.scenarioRow);
+      const cy = y + h / 2;
+      centers.push(cy);
+      nodes.push({ kind: 'story', id: s.id, x: col[1]!, y: cy - half });
+      const boxTop = y + (h - s.boxes.length * TRACE.boxRow) / 2;
+      const boxYs = s.boxes.map((_, i) => boxTop + i * TRACE.boxRow + TRACE.boxRow / 2);
+      s.boxes.forEach((b, i) => {
+        nodes.push({ kind: 'box', id: b, x: col[2]!, y: boxYs[i]! - half });
+        storyLines.push(elbow(col[1]! + width(s.id), cy, col[2]!, boxYs[i]!));
+      });
+      if (s.boxes.length === 0) notes.push({ x: col[2]!, y: cy - 7, text: 'no box' });
+      // The trunk leaves the box column at the first box (or the story, with no box).
+      const trunkX = s.boxes.length > 0 ? col[2]! + width(s.boxes[0]!) : col[1]! + width(s.id);
+      const trunkY = boxYs[0] ?? cy;
+      const scnTop = y + (h - s.scenarios.length * TRACE.scenarioRow) / 2;
+      s.scenarios.forEach((sc, i) => {
+        const top = scnTop + i * TRACE.scenarioRow + 4;
+        nodes.push({ kind: 'scenario', id: sc.id, x: col[3]!, y: top, state: sc.state });
+        storyLines.push(elbow(trunkX, trunkY, col[3]!, top + half));
+      });
+      if (s.scenarios.length === 0) notes.push({ x: col[3]!, y: cy - 7, text: 'no scenario' });
+      y += h;
+    }
+    // The requirement sits in the middle of its stories, with a connector to each.
+    const ry = (centers[0]! + centers[centers.length - 1]!) / 2;
+    nodes.push({ kind: 'requirement', id: r.id, x: col[0]!, y: ry - half });
+    if (r.stories.length > 0) for (const cy of centers) lines.push(elbow(col[0]! + width(r.id), ry, col[1]!, cy));
+    lines.push(...storyLines);
+    y += 8;
+  }
+  return { width: col[3]! + scnW, height: Math.max(0, y - 8), nodes, notes, lines };
+}
+
+// ---------------------------------------------------------------- page header and contents rail (T18)
+
+const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+
+/** The line under the PRD title: `prd.yaml · 21 requirements · 10 stories · 4 roles. …` */
+export function prdSummary(doc: PrdDoc): string {
+  return `prd.yaml · ${count(doc.requirements.length, 'requirement')} · ${count(doc.stories.length, 'story').replace('storys', 'stories')} · ${count(doc.roles.length, 'role')}. Every ID opens the place in rehearse where it lives.`;
+}
+
+/**
+ * The contents row to mark as active: the last section whose top is at or above the reading line
+ * (a little below the top of the scrolled document), else the first.
+ */
+export function activeSection(tops: { id: string; top: number }[], scrollTop: number, line = 24): string | undefined {
+  let at = tops[0]?.id;
+  for (const t of tops) if (t.top <= scrollTop + line) at = t.id;
+  return at;
 }

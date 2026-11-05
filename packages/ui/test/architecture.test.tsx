@@ -162,14 +162,14 @@ describe('T16 3 before / after of the system (page 11)', () => {
 });
 
 describe('T16 4 story before / after tab (page 12)', () => {
-  it('T16 4 the story view has Overview and Before / after tabs; Overview is the default and holds the scenario cards', async () => {
+  it('T16 4 the story view has WHAT and Before / after tabs; WHAT (the story page) is the default and holds the scenario cards', async () => {
     const user = userEvent.setup();
     render(
       <StoryView view={codeGraphEpic()} storyId="S1" onOpenBox={() => undefined}>
         <p data-testid="scenario-cards">cards</p>
       </StoryView>,
     );
-    expect(screen.getByTestId('story-tab-overview')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('story-tab-what')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('story-what')).toBeInTheDocument();
     expect(screen.getByTestId('scenario-cards')).toBeInTheDocument();
     screen.getByTestId('story-tab-before-after').focus();

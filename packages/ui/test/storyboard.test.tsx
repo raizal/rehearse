@@ -22,16 +22,19 @@ async function start(routes: Partial<MockRoutes> = {}, view: ReviewEpicView = re
   const server = mockServer({ epic: () => view, ...routes });
   const user = userEvent.setup();
   render(<App />);
-  // The review opens on the big picture (D42); the storyboard cards are under Stories.
+  // The review opens on the big picture (D42); Stories opens on the story page (design page 2),
+  // with the scenario cards under the story; each card opens its storyboard (page 3).
   await screen.findByTestId('big-picture');
   await user.click(screen.getByTestId('nav-stories'));
-  await screen.findByTestId('story-card');
+  await screen.findByTestId('story-view');
   await screen.findByTestId('approve-signer-key');
   return { server, user, view };
 }
 
+/** Open the storyboard of scenario `id`: its story in the queue, then "Open storyboard" on its card. */
 const open = async (user: ReturnType<typeof userEvent.setup>, id: string) => {
-  await user.click(screen.getByTestId(`queue-item-${id}`));
+  await user.click(screen.getByTestId(`queue-story-${id.split('-')[0]}`));
+  await user.click(await screen.findByTestId(`story-scenario-open-${id}`));
   await waitFor(() => expect(screen.getByTestId('story-card')).toHaveTextContent(id));
 };
 
@@ -42,19 +45,29 @@ async function stepThrough(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('storyboard under Stories (S6-A1)', () => {
-  it('S6-A1: Stories opens on the storyboard, with progress and the queue grouped by story', async () => {
-    await start();
+  it('S6-A1: Stories opens on the story page, with progress, one queue row per story and the scenario cards', async () => {
+    const { user } = await start();
     expect(screen.getByTestId('nav-stories')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('queue-progress')).toHaveTextContent('1 / 3 approved with a valid signature');
-    const s1 = screen.getByTestId('queue-group-S1');
-    expect(within(s1).getAllByTestId(/^queue-item-/).map((el) => el.dataset.testid)).toEqual(['queue-item-S1-buy', 'queue-item-S1-empty']);
-    expect(within(screen.getByTestId('queue-group-S2')).getByTestId('queue-item-S2-out-of-stock')).toBeInTheDocument();
-    // Status in words.
-    expect(screen.getByTestId('queue-status-S1-buy')).toHaveTextContent('approved, signature valid');
-    expect(screen.getByTestId('queue-status-S1-empty')).toHaveTextContent('draft, not approved');
-    expect(screen.getByTestId('queue-status-S2-out-of-stock')).toHaveTextContent('stale, changed since it was approved');
-    // The first card is the first scenario with no valid signed approval.
-    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
+    // One compact row per story: id, want, and the scenario count with the signed state in words.
+    const s1 = screen.getByTestId('queue-story-S1');
+    expect(s1).toHaveTextContent('S1');
+    expect(s1).toHaveTextContent('2 scenarios · 1 of 2 approvals signed');
+    expect(screen.getByTestId('queue-story-S2')).toHaveTextContent('1 scenario · approvals not signed');
+    // The story of the first scenario with no valid signed approval is open.
+    expect(s1).toHaveAttribute('aria-current', 'true');
+    // The scenario cards under the story, with the status in words.
+    expect(screen.getAllByTestId(/^story-scenario-S\d+-[a-z-]+$/).map((el) => el.dataset.testid)).toEqual(['story-scenario-S1-buy', 'story-scenario-S1-empty']);
+    expect(screen.getByTestId('story-scenario-status-S1-buy')).toHaveTextContent('approved, signature valid');
+    expect(screen.getByTestId('story-scenario-status-S1-empty')).toHaveTextContent('draft, not approved');
+    await user.click(screen.getByTestId('queue-story-S2'));
+    expect(await screen.findByTestId('story-scenario-status-S2-out-of-stock')).toHaveTextContent('stale, changed since it was approved');
+    // "Open storyboard" opens the storyboard page, with a breadcrumb back to the story.
+    await user.click(screen.getByTestId('story-scenario-open-S2-out-of-stock'));
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S2-out-of-stock');
+    expect(screen.queryByTestId('queue')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('card-back'));
+    expect(screen.getByTestId('story-view')).toHaveTextContent('S2 ·');
   });
 
   it('S6-A1: the card shows story, criterion, step panels and the end state', async () => {
@@ -77,12 +90,12 @@ describe('storyboard under Stories (S6-A1)', () => {
     expect(screen.getByTestId('card-step-example-1')).toHaveTextContent('o1');
     expect(screen.getByTestId('card-step-example-2')).toHaveTextContent('paid');
     expect(screen.getByTestId('card-step-branch-3')).toHaveTextContent('branch taken: yes');
-    expect(screen.getByTestId('card-step-example-3')).toHaveTextContent('no example: passes through');
+    expect(screen.getByTestId('card-step-example-3')).toHaveTextContent('Passes through. No example on this step.');
     expect(screen.getByTestId('card-step-contract-2')).toHaveTextContent('orderId');
     expect(screen.getByTestId('card-step-contract-2')).toHaveTextContent('Order.status:draft->paid');
 
     const result = screen.getByTestId('card-result');
-    expect(result).toHaveTextContent('End state for criterion S1-A1');
+    expect(result).toHaveTextContent('checked against S1-A1');
     expect(result).toHaveTextContent('shipped');
     expect(screen.getByTestId('card-approval-state')).toHaveTextContent('approved, signature valid');
     expect(screen.queryByTestId('card-approve')).not.toBeInTheDocument();
@@ -103,6 +116,7 @@ describe('storyboard under Stories (S6-A1)', () => {
 describe('approve only after every step was seen (S6-A1)', () => {
   it('S6-A1: Approve is off until every step panel was seen; stepping through turns it on', async () => {
     const { server, user } = await start();
+    await open(user, 'S1-empty');
     const approve = screen.getByTestId('card-approve');
     expect(approve).toBeDisabled();
     expect(approve).toHaveAccessibleName('Approve S1-empty (see every step first)');
@@ -139,6 +153,7 @@ describe('approve only after every step was seen (S6-A1)', () => {
 
   it('S6-A1: seen state stays in sessionStorage and is never sent to the server', async () => {
     const { server, user } = await start();
+    await open(user, 'S1-empty');
     await stepThrough(user);
     expect(sessionStorage.getItem('rehearse:seen')).toContain('S1-empty');
     for (const call of server.calls) {
@@ -150,7 +165,8 @@ describe('approve only after every step was seen (S6-A1)', () => {
   it('S6-A1: seen state survives a reload of the page in the same tab', async () => {
     const view = reviewEpic();
     seeAll(view, ['S1-empty']);
-    await start({}, view);
+    const { user } = await start({}, view);
+    await open(user, 'S1-empty');
     expect(screen.getByTestId('card-seen')).toHaveTextContent('3 of 3 steps seen');
     expect(screen.getByTestId('card-approve')).toBeEnabled();
   });
@@ -159,7 +175,8 @@ describe('approve only after every step was seen (S6-A1)', () => {
     const view = reviewEpic();
     seeAll(view, ['S1-empty']);
     view.scenarios.find((s) => s.scenario.id === 'S1-empty')!.hash = `sha256:${'1'.repeat(64)}`;
-    await start({}, view);
+    const { user } = await start({}, view);
+    await open(user, 'S1-empty');
     expect(screen.getByTestId('card-approve')).toBeDisabled();
   });
 
@@ -182,35 +199,40 @@ describe('approve only after every step was seen (S6-A1)', () => {
 describe('review queue', () => {
   it('"Next" goes to the next scenario with no valid signed approval', async () => {
     const { user } = await start();
+    // S1-empty, the first scenario to approve, is the current one; Next is the one after it.
     expect(screen.getByTestId('queue-next')).toHaveTextContent('Next to approve: S2-out-of-stock');
     await user.click(screen.getByTestId('queue-next'));
     expect(screen.getByTestId('story-card')).toHaveTextContent('S2-out-of-stock');
+    await user.click(screen.getByTestId('card-back'));
+    expect(screen.getByTestId('queue-next')).toHaveTextContent('Next to approve: S1-empty');
     await user.click(screen.getByTestId('queue-next'));
     expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
   });
 
   it('up and down arrows move through the queue', async () => {
     const { user } = await start();
-    act(() => screen.getByTestId('queue-item-S1-buy').focus());
+    act(() => screen.getByTestId('queue-story-S1').focus());
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByTestId('queue-item-S1-empty')).toHaveFocus();
-    expect(screen.getByTestId('queue-item-S1-empty')).toHaveAttribute('aria-current', 'true');
-    await user.keyboard('{ArrowDown}');
-    expect(screen.getByTestId('queue-item-S2-out-of-stock')).toHaveFocus();
-    expect(screen.getByTestId('story-card')).toHaveTextContent('S2-out-of-stock');
+    expect(screen.getByTestId('queue-story-S2')).toHaveFocus();
+    expect(screen.getByTestId('queue-story-S2')).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByTestId('story-view')).toHaveTextContent('S2 ·');
     await user.keyboard('{ArrowUp}');
-    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
+    expect(screen.getByTestId('queue-story-S1')).toHaveFocus();
+    expect(screen.getByTestId('story-view')).toHaveTextContent('S1 ·');
   });
 
   it('S6-A1: "approve the selected ones" takes only scenarios seen in full', async () => {
     const view = reviewEpic();
     seeAll(view, ['S1-empty']);
     const { server, user } = await start({}, view);
-    expect(screen.getByTestId('queue-select-S1-empty')).toBeEnabled();
-    expect(screen.getByTestId('queue-select-S2-out-of-stock')).toBeDisabled();
-    expect(screen.getByTestId('queue-select-seen-S2')).toBeDisabled();
-    expect(screen.getByTestId('queue-select-seen-S1')).toHaveTextContent('Select seen (1)');
-    await user.click(screen.getByTestId('queue-select-seen-S1'));
+    expect(screen.getByTestId('story-scenario-select-S1-empty')).toBeEnabled();
+    expect(screen.getByTestId('story-scenario-seen-S1-empty')).toHaveTextContent('3 of 3 seen');
+    expect(screen.getByTestId('story-select-seen-S1')).toHaveTextContent('Select seen (1)');
+    await user.click(screen.getByTestId('queue-story-S2'));
+    expect(await screen.findByTestId('story-scenario-select-S2-out-of-stock')).toBeDisabled();
+    expect(screen.getByTestId('story-select-seen-S2')).toBeDisabled();
+    await user.click(screen.getByTestId('queue-story-S1'));
+    await user.click(await screen.findByTestId('story-select-seen-S1'));
     expect(screen.getByTestId('approve-selected')).toHaveTextContent('Approve selected (1)');
     await user.click(screen.getByTestId('approve-selected'));
     expect(server.posts('api/approve')[0]!.body).toEqual({ scenarioIds: ['S1-empty'] });
@@ -267,9 +289,12 @@ describe('the real EPIC', () => {
 describe('accessibility', () => {
   it('queue items and card buttons have names; the status mark is in words', async () => {
     const { user } = await start();
-    expect(screen.getByTestId('card-open-flow')).toHaveAccessibleName('Open S1-empty in the flow view, in playback');
-    expect(screen.getByTestId('queue-select-S1-empty')).toHaveAccessibleName('Select S1-empty to approve');
+    expect(screen.getByTestId('story-scenario-select-S1-empty')).toHaveAccessibleName('Select S1-empty to approve');
+    expect(screen.getByTestId('queue-story-S1')).toHaveAccessibleName('Open story S1: to pay for my cart; 2 scenarios · 1 of 2 approvals signed');
+    expect(screen.getByTestId('story-scenario-open-S1-empty')).toHaveAccessibleName('Open the storyboard of S1-empty: Buyer checks out an empty cart (draft, not approved)');
     expect(screen.getByRole('navigation', { name: 'Review queue' })).toBeInTheDocument();
+    await open(user, 'S1-empty');
+    expect(screen.getByTestId('card-open-flow')).toHaveAccessibleName('Open S1-empty in the flow view, in playback');
     expect(screen.getByTestId('card-step-1')).toHaveAccessibleName(/^Step 1 of 3: /);
     await user.click(screen.getByTestId('card-next-step'));
     expect(screen.getByTestId('card-step-1')).toHaveAccessibleName(/, seen$/);

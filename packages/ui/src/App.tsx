@@ -25,7 +25,7 @@ import { UseCaseView } from './components/UseCaseView.js';
 import { boxAt, diagramAt, parentPath } from './model/diagram.js';
 import type { Place } from './model/links.js';
 import { stepCount, stepView } from './model/playback.js';
-import { approveReason } from './model/review.js';
+import { approveReason, storiesOf } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
 import { shortKey } from './model/text.js';
@@ -68,6 +68,8 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const [step, setStep] = useState(0);
   const [cardId, setCardId] = useState<Id | undefined>();
   const [storyId, setStoryId] = useState<Id | undefined>();
+  // The stories view shows the storyboard page of the open scenario (design page 3), else its story.
+  const [board, setBoard] = useState(false);
   // Where an id link on the PRD or Tech spec page went (T15): an item on those pages, or a readiness row.
   const [docFocus, setDocFocus] = useState<string | undefined>();
   const [readinessRow, setReadinessRow] = useState<Id | undefined>();
@@ -114,6 +116,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     (id: Id) => {
       const own = queue.filter((sv) => sv.scenario.story === id);
       setStoryId(id);
+      setBoard(false);
       setCardId(own.find((sv) => sv.scenario.id === nextToApprove(own, undefined, view?.approvals))?.scenario.id ?? own[0]?.scenario.id);
     },
     [queue, view],
@@ -121,6 +124,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const pickCard = useCallback(
     (id: Id) => {
       setCardId(id);
+      setBoard(true);
       setStoryId(queue.find((sv) => sv.scenario.id === id)?.scenario.story);
     },
     [queue],
@@ -339,7 +343,10 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           view={view}
           session={session}
           scenarioId={storyId === undefined || card?.scenario.story === storyId ? card?.scenario.id : undefined}
-          storyId={storyId ?? card?.scenario.story}
+          storyId={storyId ?? card?.scenario.story ?? storiesOf(view.prd)[0]?.id}
+          board={board}
+          onBack={() => setBoard(false)}
+          onBigPicture={() => setTab('bigpicture')}
           onPick={pickCard}
           onPickStory={pickStory}
           onOpenBox={openBox}

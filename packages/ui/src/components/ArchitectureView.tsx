@@ -6,7 +6,8 @@
 import { useId, useMemo } from 'react';
 import type { DiffStatus } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
-import { ARCH_EXAMPLE, archLayout, drawingOf, linkWord, statusLook, type ArchDrawing, type ArchLayout } from '../model/architecture.js';
+import { ARCH_EXAMPLE, archLayout, drawingOf, lineChars, linkText, linkWord, noteLines, noteWord, statusLook, type ArchDrawing, type ArchLayout } from '../model/architecture.js';
+import { edgeLabelText } from '../model/graph.js';
 import { wrapLines } from '../model/text.js';
 
 const KIND_WORD: Record<string, string> = { component: 'component', store: 'store', person: 'person', outside: 'outside system' };
@@ -56,23 +57,46 @@ export function ArchDiagram({ d, lay, label, testId }: { d: ArchDrawing; lay?: A
           if (!p) return null;
           const look = statusLook(l.status);
           const word = linkWord(l.status);
+          const text = linkText(l);
           return (
             <g key={`${l.from} ${l.to}`} className={`arch-link${look ? ` ${look.className}` : ''}`} data-testid={`arch-link-${l.from}-${l.to}`}>
               <title>{`${name.get(l.from)} → ${name.get(l.to)}${l.label ? `: ${l.label}` : ''}${word ? ` (${word})` : ''}`}</title>
-              <line x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2} markerEnd={`url(#${marker})`} />
-              {(l.label || (word && l.status !== 'same')) && (
-                <text x={p.lx} y={p.ly - 5} textAnchor="middle" className="arch-link-label">
-                  {[l.label, l.status === 'added' || l.status === 'removed' ? word : undefined].filter(Boolean).join(' · ')}
+              <path d={p.points.map((q, i) => `${i ? 'L' : 'M'}${q.x},${q.y}`).join(' ')} markerEnd={`url(#${marker})`} />
+              {text && p.label && <rect x={p.label.x} y={p.label.y} width={p.label.w} height={p.label.h} rx={3} className="arch-link-label-bg" />}
+              {text && p.label && (
+                <text x={p.label.x + p.label.w / 2} y={p.label.y + p.label.h / 2 + 4} textAnchor="middle" className="arch-link-label">
+                  {edgeLabelText(text)}
                 </text>
               )}
             </g>
           );
         })}
+        {d.notes.length > 0 && (
+          <g data-testid="arch-notes" aria-label="Notes">
+            {d.notes.map((n, i) => {
+              const r = layout.notes.get(i);
+              if (!r) return null;
+              return (
+                <g key={i} className={`arch-note-box is-${n.kind ?? 'info'}`} data-testid={`arch-note-${i}`}>
+                  <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={6} />
+                  <text x={r.x + 10} y={r.y + 20} className="arch-note-kind">
+                    {noteWord(n)}
+                  </text>
+                  {noteLines(n, r.w).map((t, j) => (
+                    <text key={j} x={r.x + 10} y={r.y + 37 + j * 14} className="arch-note-text">
+                      {t}
+                    </text>
+                  ))}
+                </g>
+              );
+            })}
+          </g>
+        )}
         {d.parts.map((p) => {
           const r = layout.parts.get(p.id);
           if (!r) return null;
           const look = statusLook(p.status);
-          const lines = wrapLines(p.about ?? '', 30).slice(0, 2);
+          const lines = wrapLines(p.about ?? '', lineChars(r.w), r.h < 70 ? 1 : 2);
           return (
             <g key={p.id} className={`arch-part kind-${p.kind}${p.color ? ` c-${p.color}` : ''}${look ? ` ${look.className}` : ''}`} data-testid={`arch-part-${p.id}`} data-status={p.status}>
               <title>{`${p.name}, ${KIND_WORD[p.kind] ?? p.kind}${p.about ? `: ${p.about}` : ''}${look ? `; ${look.word}` : ''}`}</title>
@@ -168,7 +192,7 @@ export function ArchitectureView({ view }: { view: ReviewEpicView }) {
   return (
     <section className="page arch-view" data-testid="architecture-view" aria-labelledby="arch-title">
       <h2 id="arch-title">System architecture</h2>
-      <p className="muted">
+      <p className="muted gd-sub">
         Where each part runs, what it talks to, and which trust zone it is in.{' '}
         {toBe
           ? 'This is the to-be: the system as built (docs/system/) with the change of this EPIC (architecture.yaml).'
@@ -184,20 +208,10 @@ export function ArchitectureView({ view }: { view: ReviewEpicView }) {
       {!d ? (
         <NoArchitecture />
       ) : (
-        <>
+        <div className="gd-card">
           <ArchLegend />
           <ArchDiagram d={d} label={`System architecture${toBe ? ' (to-be)' : ''}: ${d.zones.length} zones, ${d.parts.length} parts, ${d.links.length} links`} testId="arch-map" />
-          {d.notes.length > 0 && (
-            <ul className="arch-notes" data-testid="arch-notes" aria-label="Notes">
-              {d.notes.map((n, i) => (
-                <li key={i} className={`arch-note is-${n.kind ?? 'info'}`}>
-                  <strong>{n.kind === 'warning' ? 'Warning' : n.kind === 'trust' ? 'Trust' : 'Note'}</strong>
-                  {n.zone ? ` (${d.zones.find((z) => z.id === n.zone)?.name ?? n.zone})` : ''}: {n.text}
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+        </div>
       )}
     </section>
   );

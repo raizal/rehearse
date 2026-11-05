@@ -12,8 +12,8 @@
 }
 
 /* Every diagram sits in a card. */
-.bp-map-wrap, .ucd-wrap, .arch-wrap, .gd-wrap { overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-5) var(--s-6); }
-.bp-map, .how-map, .ucd, .gd { display: block; max-width: none; }
+.bp-map-wrap, .arch-wrap, .gd-wrap { overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-5) var(--s-6); }
+.bp-map, .how-map, .gd { display: block; max-width: none; }
 
 /* ---------------------------------------------------------------- lanes in SVG: role tint and role colour, in role order */
 .bp-row, .how-map .bp-row { fill: var(--bg); stroke: none; }
@@ -102,20 +102,6 @@
 .view-toggle { flex-direction: row; align-self: flex-start; display: inline-flex; gap: var(--s-1); padding: var(--s-1); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); }
 .view-toggle > .action { min-height: 28px; border: 0; border-radius: var(--r-pill); background: none; color: var(--muted); font-weight: var(--fw-medium); }
 .view-toggle > .action[aria-pressed='true'] { background: var(--accent); color: var(--card); font-weight: var(--fw-bold); }
-.ucd-usecase { cursor: pointer; }
-.ucd-boundary { fill: var(--card); stroke: var(--ink-2); stroke-width: 1.5; }
-.ucd-system { font-size: var(--fs-base); font-weight: var(--fw-bold); fill: var(--ink); }
-.ucd-group { fill: none; stroke-width: 2; stroke-dasharray: 6 4; }
-.ucd-group-label { font-size: var(--fs-sm); font-weight: var(--fw-bold); fill: var(--ink); }
-.ucd-link { stroke: var(--faint); stroke-width: 1.5; }
-.ucd-usecase ellipse { fill: var(--builder-tint); stroke: var(--builder); stroke-width: 2; }
-.ucd-usecase:hover ellipse { stroke: var(--ink); }
-.ucd-usecase-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); fill: var(--ink); }
-.ucd-tag { font-family: var(--mono); font-size: var(--fs-xs); fill: var(--ink); }
-.ucd-also, .ucd-actor-kind, .ucd-readonly { font-size: var(--fs-xs); fill: var(--muted); }
-.ucd-actor-icon { font-size: var(--fs-xl); }
-.ucd-actor-label { font-size: var(--fs-sm); font-weight: var(--fw-bold); fill: var(--ink); }
-.ucd-readonly { font-weight: var(--fw-bold); }
 
 /* ---------------------------------------------------------------- graph diagrams: user flow, data flow, system flowchart (pages 5–7) */
 .gd { font-size: var(--fs-sm); }
@@ -245,3 +231,38 @@
 .ba-table th, .ba-table td { padding: var(--s-2) var(--s-3); text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
 .ba-table th { font-size: var(--fs-xs); font-weight: var(--fw-bold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .ref-chip { display: inline-block; margin-right: var(--s-1); padding: 0 var(--s-1); border-radius: var(--r-xs); background: var(--subtle); font-size: var(--fs-sm); }
+
+/* ---------------------------------------------------------------- diagram pages 5–8 and 11: header, one card (T18b) */
+/* Title and a one-line subtitle close under it; the legend, the diagram and its notes share one card. */
+.page > .gd-sub { margin-top: calc(var(--s-2) - var(--s-5)); font-size: var(--fs-base); }
+.gd-card { display: flex; flex-direction: column; gap: var(--s-5); min-width: 0; padding: var(--s-5) var(--s-6) var(--s-6); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.gd-card > .gd-canvas, .gd-card > .arch-wrap { padding: 0; border: 0; border-radius: 0; background: none; }
+.gd-card > .gd-canvas > .gd, .gd-card > .arch-wrap > svg { margin: 0 auto; }
+.gd-card > .gd-notes { justify-content: flex-end; }
+.gd-note-later { background: var(--note-tint); border-color: var(--note-line); color: var(--note-ink); }
+.gd-note-later h3 { color: var(--note-ink); }
+.gd-legend-swatch.shape-column .gd-shape { fill: var(--bg); stroke: var(--line-strong); stroke-dasharray: 4 3; }
+/* Page 8: orthogonal links, notes in their zone; a map wider than its card scales down to fit. */
+.arch-map { max-width: 100%; height: auto; }
+.arch-link path { fill: none; stroke: var(--muted); stroke-width: 1.3; }
+.arch-link.is-added path { stroke: var(--ok); stroke-width: 2; }
+.arch-link.is-changed path { stroke: var(--ci); stroke-width: 2; }
+.arch-link.is-removed path { stroke: var(--warn); stroke-dasharray: 5 3; }
+.arch-note-box rect { fill: var(--ok-tint); stroke: var(--ok); stroke-width: 1; }
+.arch-note-box.is-warning rect { fill: var(--warn-tint); stroke: var(--warn); stroke-dasharray: 5 3; }
+.arch-map .arch-note-kind { font-weight: var(--fw-semibold); }
+.arch-map .arch-note-text { font-size: var(--fs-xs); fill: var(--ink-2); }
+.arch-link-label-bg { fill: var(--card); }
+.arch-zone .arch-zone-name { paint-order: stroke; stroke-width: 5px; stroke-linejoin: round; }
+.arch-zone.c-blue .arch-zone-name { stroke: var(--builder-tint); }
+.arch-zone.c-purple .arch-zone-name { stroke: var(--agent-tint); }
+.arch-zone.c-green .arch-zone-name { stroke: var(--rehearse-tint); }
+.arch-zone.c-amber .arch-zone-name { stroke: var(--ci-tint); }
+.arch-zone.c-grey .arch-zone-name { stroke: var(--bg); }
+/* Page 11: the side cards as the design draws them: a header strip over the map. */
+.before-after .ba-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); }
+.ba-side { padding: 0; overflow: hidden; }
+.ba-side > .ba-side-title { margin: 0; padding: var(--s-3) var(--s-5); font-size: var(--fs-base); background: var(--subtle); border-bottom: 1px solid var(--line); }
+.ba-side.is-after > .ba-side-title { background: var(--ok-tint); }
+.ba-side > .arch-wrap { border: 0; border-radius: 0; padding: var(--s-4); }
+.ba-side > .ba-cards, .ba-side > p, .ba-side > .arch-empty { margin: var(--s-4); }
