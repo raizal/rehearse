@@ -7,6 +7,7 @@ import { reportToJson, reportToText, validateEpic } from '@rehearse/core';
 import { runSimulate } from './commands/simulate.js';
 import { runGate } from './commands/gate.js';
 import { runNew } from './commands/new.js';
+import { runServe } from './commands/serve.js';
 
 export interface Io {
   cwd: string;
@@ -24,6 +25,7 @@ Commands:
   simulate <epic-dir-or-slug> [--json]   Simulate the scenarios: contracts, coverage, lifecycles, acceptance, permission matrix.
   gate check <epic-dir-or-slug> [--json] Check the gate: traced, sim-clean, no-stale. Never signs off.
   new <slug> --title "<title>"           Create docs/epics/<slug>/ (slug YYYY-MM-DD-<kebab>) at the git top-level.
+  serve [epic-dir-or-slug] [--port N]    Serve the review UI on 127.0.0.1 (default port 4700). Read-only.
 
 Exit codes: 0 OK, 1 findings, 2 usage error, 3 internal error.
 `;
@@ -52,6 +54,7 @@ export function run(argv: string[], io: Io): number {
   if (command === 'simulate') return runSimulate(rest, io);
   if (command === 'gate') return runGate(rest, io);
   if (command === 'new') return runNew(rest, io);
+  if (command === 'serve') return runServe(rest, io);
   if (command !== 'validate') {
     io.stderr(`rehearse: unknown command ${command}\n\n${USAGE}`);
     return EXIT.usage;
