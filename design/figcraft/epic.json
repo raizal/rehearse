@@ -1,0 +1,2899 @@
+{
+ "roles": [
+  {
+   "id": "builder",
+   "name": "Builder",
+   "kind": "human",
+   "about": "The owner. Approves scenarios, reviews the flow, signs off the gate."
+  },
+  {
+   "id": "agent",
+   "name": "Agent",
+   "kind": "agent",
+   "about": "An AI agent. Writes drafts of record files. Never approves or signs off."
+  },
+  {
+   "id": "ci",
+   "name": "CI",
+   "kind": "system",
+   "about": "A headless run in a pipeline. Runs checks only."
+  },
+  {
+   "id": "rehearse",
+   "name": "rehearse",
+   "kind": "system",
+   "about": "The tool itself. Validates, simulates, detects stale content."
+  }
+ ],
+ "lanes": [
+  {
+   "role": "builder",
+   "order": 1
+  },
+  {
+   "role": "agent",
+   "order": 2
+  },
+  {
+   "role": "rehearse",
+   "order": 3
+  },
+  {
+   "role": "ci",
+   "order": 4
+  }
+ ],
+ "stories": [
+  {
+   "id": "S1",
+   "role": "builder",
+   "want": "to create an EPIC record with one command",
+   "soThat": "agents and I start from a valid, empty structure",
+   "requirements": [
+    "R1"
+   ],
+   "acceptance": [
+    {
+     "id": "S1-A1",
+     "given": "a repo with no EPIC named 2026-11-05-demo",
+     "when": "the builder runs `rehearse new 2026-11-05-demo --title \"Demo\"`",
+     "then": "docs/epics/2026-11-05-demo/ has brainstorm.md, prd.yaml, entities.yaml, flow.yaml, corrections.md and an empty scenarios/ folder, and validate passes (git does not keep the empty folder; validate accepts a missing scenarios/)"
+    },
+    {
+     "id": "S1-A2",
+     "given": "the EPIC 2026-11-05-demo exists",
+     "when": "the builder runs the same command again",
+     "then": "the command fails, names the folder, and changes no file"
+    }
+   ]
+  },
+  {
+   "id": "S2",
+   "role": "agent",
+   "want": "to know exactly what is wrong in a record draft",
+   "soThat": "I can fix my draft without a human",
+   "requirements": [
+    "R2",
+    "R3",
+    "R21"
+   ],
+   "acceptance": [
+    {
+     "id": "S2-A1",
+     "given": "flow.yaml has a box with no `outputs`",
+     "when": "the agent runs `rehearse validate <slug>`",
+     "then": "exit code 1, and the error names flow.yaml, the box path, and the missing field"
+    },
+    {
+     "id": "S2-A2",
+     "given": "a box points to story S9 and prd.yaml has no S9",
+     "when": "the agent runs validate",
+     "then": "exit code 1, and the error names the box path and S9"
+    },
+    {
+     "id": "S2-A3",
+     "given": "a scenario step names a box path that does not exist",
+     "when": "the agent runs validate",
+     "then": "exit code 1, and the error names the scenario, the step and the path"
+    }
+   ]
+  },
+  {
+   "id": "S3",
+   "role": "builder",
+   "want": "to simulate the EPIC and get a list of design errors",
+   "soThat": "I find errors before agents build anything",
+   "requirements": [
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R18"
+   ],
+   "acceptance": [
+    {
+     "id": "S3-A1",
+     "given": "box a outputs {orderId:string} and the next box b needs {orderId:number}",
+     "when": "the builder runs `rehearse simulate <slug>`",
+     "then": "the report has a contract error that names a → b and the field orderId"
+    },
+    {
+     "id": "S3-A2",
+     "given": "a decision box has a \"no\" branch that no approved scenario reaches",
+     "when": "the builder runs simulate",
+     "then": "the report has a coverage error for that branch"
+    },
+    {
+     "id": "S3-A3",
+     "given": "Order allows draft → paid only, and a scenario changes Order from draft to shipped",
+     "when": "the builder runs simulate",
+     "then": "the report has a lifecycle error that names the scenario, the box and the transition"
+    },
+    {
+     "id": "S3-A4",
+     "given": "the end state of a scenario differs from an acceptance criterion of its story",
+     "when": "the builder runs simulate",
+     "then": "the report has an acceptance error that names the criterion ID"
+    },
+    {
+     "id": "S3-A5",
+     "given": "the same record",
+     "when": "simulate runs two times",
+     "then": "the two reports are byte-identical"
+    }
+   ]
+  },
+  {
+   "id": "S4",
+   "role": "builder",
+   "want": "to see the flow as swimlanes and drill into boxes",
+   "soThat": "I understand who does what, and each hand-off between roles",
+   "requirements": [
+    "R9",
+    "R12"
+   ],
+   "acceptance": [
+    {
+     "id": "S4-A1",
+     "given": "flow.yaml with lanes builder and system",
+     "when": "the builder opens the panel",
+     "then": "the panel shows two lanes, and each box is in the lane of its role"
+    },
+    {
+     "id": "S4-A2",
+     "given": "a box with children",
+     "when": "the builder clicks it",
+     "then": "the panel shows the nested diagram and a breadcrumb back to the parent"
+    },
+    {
+     "id": "S4-A4",
+     "given": "an EPIC with stories S1 and S2 that both use box validate",
+     "when": "the builder opens the review",
+     "then": "the big picture shows every role, the main processes in flow order, and one line per story through its processes; validate is marked shared by S1 and S2 (D42)"
+    },
+    {
+     "id": "S4-A5",
+     "given": "a story with a box that writes Story.status:draft->signed",
+     "when": "the builder opens that story",
+     "then": "the view shows WHAT (the story and its criteria), HOW (a swimlane of only its boxes, in order) and OUTPUT (Story.status draft → signed), then its scenarios (D42)"
+    },
+    {
+     "id": "S4-A3",
+     "given": "`rehearse serve` runs",
+     "when": "the builder opens its URL in a browser",
+     "then": "the browser shows the same UI full screen"
+    }
+   ]
+  },
+  {
+   "id": "S5",
+   "role": "builder",
+   "want": "to play a scenario step by step",
+   "soThat": "I see the data move through the boxes and the roles",
+   "requirements": [
+    "R10",
+    "R21"
+   ],
+   "acceptance": [
+    {
+     "id": "S5-A1",
+     "given": "an approved scenario with 3 steps",
+     "when": "the builder plays it and moves to step 2",
+     "then": "the panel highlights the box of step 2 and shows its input, output and state change"
+    }
+   ]
+  },
+  {
+   "id": "S6",
+   "role": "builder",
+   "want": "to approve the scenarios that agents drafted",
+   "soThat": "only scenarios I trust count as evidence",
+   "requirements": [
+    "R13"
+   ],
+   "acceptance": [
+    {
+     "id": "S6-A1",
+     "given": "a draft scenario",
+     "when": "the builder approves it",
+     "then": "the scenario records approvedBy, approvedAt and a content hash"
+    },
+    {
+     "id": "S6-A2",
+     "given": "an agent has CLI access only",
+     "when": "the agent lists the CLI commands",
+     "then": "no command approves a scenario or signs off the gate, and each scenario stays a draft"
+    },
+    {
+     "id": "S6-A3",
+     "given": "an approved scenario",
+     "when": "its content changes",
+     "then": "the scenario becomes stale and the simulator ignores it as evidence"
+    }
+   ]
+  },
+  {
+   "id": "S7",
+   "role": "builder",
+   "want": "to see who may change which data, as a use case diagram",
+   "soThat": "I find a role that can change data it must not change",
+   "requirements": [
+    "R8"
+   ],
+   "acceptance": [
+    {
+     "id": "S7-A1",
+     "given": "a box in the buyer lane writes Order.status",
+     "when": "the builder opens the use case diagram",
+     "then": "actor buyer links to the use case of that box, the use case is tagged \"writes Order.status\", and it links to the box (D42)"
+    }
+   ]
+  },
+  {
+   "id": "S8",
+   "role": "builder",
+   "want": "to see why the EPIC is ready or not ready",
+   "soThat": "I trust evidence, not a green badge",
+   "requirements": [
+    "R11",
+    "R16"
+   ],
+   "acceptance": [
+    {
+     "id": "S8-A1",
+     "given": "requirement R2 has no story",
+     "when": "the builder opens the readiness view",
+     "then": "R2 shows \"no proof\", and the view gives the reason"
+    },
+    {
+     "id": "S8-A2",
+     "given": "a box serves no requirement",
+     "when": "the builder opens the readiness view",
+     "then": "the box is in the list \"no requirement\""
+    },
+    {
+     "id": "S8-A3",
+     "given": "corrections.md has 3 caught-in-simulation and 1 caught-after-build",
+     "when": "the builder opens the readiness view",
+     "then": "the view shows 3 and 1"
+    }
+   ]
+  },
+  {
+   "id": "S9",
+   "role": "builder",
+   "want": "to sign off the EPIC gate",
+   "soThat": "building starts only on a simulated, approved design",
+   "requirements": [
+    "R14",
+    "R15"
+   ],
+   "acceptance": [
+    {
+     "id": "S9-A1",
+     "given": "one simulator error remains",
+     "when": "the builder tries to sign off",
+     "then": "the sign-off fails and lists the error"
+    },
+    {
+     "id": "S9-A2",
+     "given": "all gate checks pass",
+     "when": "the builder signs off",
+     "then": "the record keeps who, when and a hash for each story"
+    },
+    {
+     "id": "S9-A3",
+     "given": "a signed EPIC, and the builder changes the text of R4",
+     "when": "the builder runs gate check",
+     "then": "only the stories linked to R4 are stale and need a new sign-off"
+    }
+   ]
+  },
+  {
+   "id": "S10",
+   "role": "ci",
+   "want": "to run validate, simulate and gate check without bb",
+   "soThat": "a PR cannot merge a broken or unsigned design",
+   "requirements": [
+    "R17",
+    "R19",
+    "R20"
+   ],
+   "acceptance": [
+    {
+     "id": "S10-A1",
+     "given": "a record with one simulator error",
+     "when": "CI runs `npx rehearse simulate <slug> --json`",
+     "then": "exit code 1, and the JSON lists the error"
+    },
+    {
+     "id": "S10-A2",
+     "given": "a generated record with 200 boxes and 100 scenarios",
+     "when": "CI runs validate and simulate",
+     "then": "each one finishes in less than 2 seconds"
+    }
+   ]
+  }
+ ],
+ "boxes": [
+  {
+   "id": "start",
+   "title": "Builder has an idea",
+   "kind": "start",
+   "lane": "builder",
+   "stories": [],
+   "inputs": {},
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "new-epic",
+   "title": "Create EPIC record",
+   "kind": "input",
+   "lane": "builder",
+   "stories": [
+    "S1"
+   ],
+   "inputs": {
+    "slug": "string",
+    "title": "string"
+   },
+   "outputs": {
+    "epicDir": "string"
+   },
+   "reads": [],
+   "writes": [
+    "Epic.slug",
+    "Epic.title",
+    "Epic.status:->draft"
+   ],
+   "errorExits": [
+    "epic-exists",
+    "bad-slug"
+   ],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "rejected",
+   "title": "Command fails, no file changed",
+   "kind": "end",
+   "lane": "builder",
+   "stories": [],
+   "inputs": {},
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "draft-record",
+   "title": "Draft or fix record files",
+   "kind": "process",
+   "lane": "agent",
+   "stories": [
+    "S2"
+   ],
+   "inputs": {
+    "epicDir": "string",
+    "findings": "list Finding?"
+   },
+   "outputs": {
+    "epicDir": "string"
+   },
+   "reads": [],
+   "writes": [
+    "Requirement.*",
+    "Story.role",
+    "Story.want",
+    "Story.soThat",
+    "Story.requirements",
+    "Story.acceptance",
+    "Box.*",
+    "Example.*",
+    "Scenario.status:->draft"
+   ],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "validate",
+   "title": "Validate record",
+   "kind": "process",
+   "lane": "rehearse",
+   "stories": [
+    "S2"
+   ],
+   "inputs": {
+    "epicDir": "string"
+   },
+   "outputs": {
+    "report": "Report"
+   },
+   "reads": [
+    "Epic.*",
+    "Requirement.*",
+    "Story.*",
+    "Box.*",
+    "Scenario.*"
+   ],
+   "writes": [],
+   "errorExits": [],
+   "children": [
+    {
+     "id": "parse",
+     "title": "Parse YAML files",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "epicDir": "string"
+     },
+     "outputs": {
+      "docs": "map"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [
+      "yaml-syntax"
+     ],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "schema",
+     "title": "Check JSON Schema",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "docs": "map"
+     },
+     "outputs": {
+      "docs": "map",
+      "findings": "list Finding"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "refs",
+     "title": "Check cross-file references",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "docs": "map"
+     },
+     "outputs": {
+      "findings": "list Finding"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "report",
+     "title": "Write validation report",
+     "kind": "output",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "report": "Report"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    }
+   ],
+   "childEdges": [
+    {
+     "from": "parse",
+     "to": "schema"
+    },
+    {
+     "from": "parse",
+     "to": "report",
+     "label": "yaml-syntax",
+     "kind": "error"
+    },
+    {
+     "from": "schema",
+     "to": "refs"
+    },
+    {
+     "from": "refs",
+     "to": "report"
+    }
+   ]
+  },
+  {
+   "id": "valid",
+   "title": "Record valid?",
+   "kind": "decision",
+   "lane": "rehearse",
+   "stories": [],
+   "inputs": {
+    "report": "Report"
+   },
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "simulate",
+   "title": "Simulate approved scenarios",
+   "kind": "process",
+   "lane": "rehearse",
+   "stories": [
+    "S3",
+    "S7"
+   ],
+   "inputs": {
+    "epicDir": "string"
+   },
+   "outputs": {
+    "report": "Report"
+   },
+   "reads": [
+    "Box.*",
+    "Example.*",
+    "Scenario.*",
+    "Story.acceptance",
+    "Requirement.*"
+   ],
+   "writes": [],
+   "errorExits": [],
+   "children": [
+    {
+     "id": "load",
+     "title": "Load approved scenarios (skip stale and draft)",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "epicDir": "string"
+     },
+     "outputs": {
+      "scenarios": "list Scenario"
+     },
+     "reads": [
+      "Scenario.status",
+      "Approval.hash"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "contracts",
+     "title": "Chain examples and check data shapes",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "scenarios": "list Scenario"
+     },
+     "outputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "coverage",
+     "title": "Find branches and error exits that no scenario reaches",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "lifecycles",
+     "title": "Check transitions and reachable states",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "reads": [
+      "Box.writes"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "acceptance",
+     "title": "Compare end states with acceptance criteria",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "reads": [
+      "AcceptanceCriterion.expectedState"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "permissions",
+     "title": "Build permission matrix",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "scenarios": "list Scenario",
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "findings": "list Finding",
+      "matrix": "map"
+     },
+     "reads": [
+      "Lane.role",
+      "Box.reads",
+      "Box.writes"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "report",
+     "title": "Write sorted, deterministic report",
+     "kind": "output",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "findings": "list Finding",
+      "matrix": "map"
+     },
+     "outputs": {
+      "report": "Report"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    }
+   ],
+   "childEdges": [
+    {
+     "from": "load",
+     "to": "contracts"
+    },
+    {
+     "from": "contracts",
+     "to": "coverage"
+    },
+    {
+     "from": "coverage",
+     "to": "lifecycles"
+    },
+    {
+     "from": "lifecycles",
+     "to": "acceptance"
+    },
+    {
+     "from": "acceptance",
+     "to": "permissions"
+    },
+    {
+     "from": "permissions",
+     "to": "report"
+    }
+   ]
+  },
+  {
+   "id": "design-errors",
+   "title": "Design errors found?",
+   "kind": "decision",
+   "lane": "rehearse",
+   "stories": [],
+   "inputs": {
+    "report": "Report"
+   },
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "log-correction",
+   "title": "Log correction (caught-in-simulation)",
+   "kind": "process",
+   "lane": "agent",
+   "stories": [
+    "S8"
+   ],
+   "inputs": {
+    "report": "Report"
+   },
+   "outputs": {
+    "correction": "Correction"
+   },
+   "reads": [],
+   "writes": [
+    "Correction.*"
+   ],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "review",
+   "title": "Review in panel",
+   "kind": "output",
+   "lane": "builder",
+   "stories": [
+    "S4",
+    "S5",
+    "S7",
+    "S8"
+   ],
+   "inputs": {
+    "epicDir": "string",
+    "report": "Report?"
+   },
+   "outputs": {
+    "decision": "enum[approve, change]"
+   },
+   "reads": [
+    "Box.*",
+    "Scenario.*",
+    "Report.permissionMatrix",
+    "Correction.tag"
+   ],
+   "writes": [],
+   "errorExits": [],
+   "children": [
+    {
+     "id": "swimlanes",
+     "title": "Swimlanes and drill-down",
+     "kind": "output",
+     "lane": "builder",
+     "stories": [],
+     "inputs": {
+      "epicDir": "string"
+     },
+     "outputs": {
+      "view": "enum[root, nested]"
+     },
+     "reads": [
+      "Box.*",
+      "Lane.*"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "playback",
+     "title": "Play a scenario step by step",
+     "kind": "input",
+     "lane": "builder",
+     "stories": [],
+     "inputs": {
+      "scenarioId": "string",
+      "step": "number"
+     },
+     "outputs": {
+      "highlighted": "string"
+     },
+     "reads": [
+      "Scenario.*",
+      "Example.*"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "matrix",
+     "title": "Use case diagram (permissions)",
+     "kind": "output",
+     "lane": "builder",
+     "stories": [],
+     "inputs": {
+      "epicDir": "string"
+     },
+     "outputs": {
+      "cells": "list string"
+     },
+     "reads": [
+      "Report.permissionMatrix"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "readiness",
+     "title": "Readiness chain and correction counts",
+     "kind": "output",
+     "lane": "builder",
+     "stories": [],
+     "inputs": {
+      "epicDir": "string"
+     },
+     "outputs": {
+      "decision": "enum[approve, change]"
+     },
+     "reads": [
+      "Requirement.*",
+      "Story.*",
+      "Scenario.status",
+      "Approval.sig",
+      "Correction.tag"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    }
+   ],
+   "childEdges": [
+    {
+     "from": "swimlanes",
+     "to": "playback"
+    },
+    {
+     "from": "playback",
+     "to": "matrix"
+    },
+    {
+     "from": "matrix",
+     "to": "readiness"
+    }
+   ]
+  },
+  {
+   "id": "happy",
+   "title": "Design correct?",
+   "kind": "decision",
+   "lane": "builder",
+   "stories": [],
+   "inputs": {
+    "decision": "enum[approve, change]"
+   },
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "approve",
+   "title": "Approve scenarios (UI button only)",
+   "kind": "input",
+   "lane": "builder",
+   "stories": [
+    "S6"
+   ],
+   "inputs": {
+    "scenarioIds": "list string"
+   },
+   "outputs": {
+    "approvals": "list Approval"
+   },
+   "reads": [],
+   "writes": [
+    "Scenario.status:draft->approved",
+    "Scenario.status:stale->approved",
+    "Approval.*"
+   ],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "gate",
+   "title": "Gate check",
+   "kind": "process",
+   "lane": "rehearse",
+   "stories": [
+    "S9"
+   ],
+   "inputs": {
+    "epicDir": "string"
+   },
+   "outputs": {
+    "report": "Report"
+   },
+   "reads": [
+    "Requirement.*",
+    "Story.*",
+    "Scenario.status",
+    "Report.findings"
+   ],
+   "writes": [],
+   "errorExits": [],
+   "children": [
+    {
+     "id": "traced",
+     "title": "Every requirement has a story, and every story has an approved scenario",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "epicDir": "string"
+     },
+     "outputs": {
+      "findings": "list Finding"
+     },
+     "reads": [
+      "Requirement.*",
+      "Story.*",
+      "Scenario.status"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "sim-clean",
+     "title": "Simulation has no findings",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "findings": "list Finding"
+     },
+     "reads": [
+      "Report.findings"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "no-stale",
+     "title": "No stale scenario",
+     "kind": "process",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "findings": "list Finding"
+     },
+     "reads": [
+      "Scenario.status",
+      "Story.status"
+     ],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    },
+    {
+     "id": "report",
+     "title": "Gate report",
+     "kind": "output",
+     "lane": "rehearse",
+     "stories": [],
+     "inputs": {
+      "findings": "list Finding"
+     },
+     "outputs": {
+      "report": "Report"
+     },
+     "reads": [],
+     "writes": [],
+     "errorExits": [],
+     "children": [],
+     "childEdges": []
+    }
+   ],
+   "childEdges": [
+    {
+     "from": "traced",
+     "to": "sim-clean"
+    },
+    {
+     "from": "sim-clean",
+     "to": "no-stale"
+    },
+    {
+     "from": "no-stale",
+     "to": "report"
+    }
+   ]
+  },
+  {
+   "id": "gate-ok",
+   "title": "Gate passes?",
+   "kind": "decision",
+   "lane": "rehearse",
+   "stories": [],
+   "inputs": {
+    "report": "Report"
+   },
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "sign-off",
+   "title": "Sign off (UI button only)",
+   "kind": "input",
+   "lane": "builder",
+   "stories": [
+    "S9"
+   ],
+   "inputs": {
+    "storyIds": "list string"
+   },
+   "outputs": {
+    "signOff": "SignOff"
+   },
+   "reads": [],
+   "writes": [
+    "Story.status:draft->signed",
+    "Story.status:stale->signed",
+    "Epic.status:draft->signed",
+    "Epic.status:partly-stale->signed",
+    "SignOff.*"
+   ],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "signed",
+   "title": "EPIC signed — build may start",
+   "kind": "end",
+   "lane": "builder",
+   "stories": [],
+   "inputs": {},
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "signed-edit",
+   "title": "Someone edits signed content",
+   "kind": "start",
+   "lane": "agent",
+   "stories": [],
+   "inputs": {},
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "content-changed",
+   "title": "Detect changed signed content",
+   "kind": "process",
+   "lane": "rehearse",
+   "stories": [
+    "S6",
+    "S9"
+   ],
+   "inputs": {
+    "epicDir": "string"
+   },
+   "outputs": {
+    "staleStories": "list string",
+    "staleScenarios": "list string"
+   },
+   "reads": [
+    "Story.signedHash",
+    "Approval.hash"
+   ],
+   "writes": [
+    "Story.status:signed->stale",
+    "Scenario.status:approved->stale",
+    "Epic.status:signed->partly-stale"
+   ],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "pr-opened",
+   "title": "PR opened or updated",
+   "kind": "start",
+   "lane": "ci",
+   "stories": [],
+   "inputs": {},
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "ci-run",
+   "title": "CI runs validate, simulate, gate --json",
+   "kind": "external",
+   "lane": "ci",
+   "stories": [
+    "S10"
+   ],
+   "inputs": {
+    "epicDir": "string"
+   },
+   "outputs": {
+    "exitCode": "number",
+    "report": "Report"
+   },
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "ci-ok",
+   "title": "Exit code 0?",
+   "kind": "decision",
+   "lane": "ci",
+   "stories": [],
+   "inputs": {
+    "exitCode": "number"
+   },
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "ci-pass",
+   "title": "PR may merge",
+   "kind": "end",
+   "lane": "ci",
+   "stories": [],
+   "inputs": {},
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  },
+  {
+   "id": "ci-fail",
+   "title": "PR blocked, report attached",
+   "kind": "end",
+   "lane": "ci",
+   "stories": [],
+   "inputs": {},
+   "outputs": {},
+   "reads": [],
+   "writes": [],
+   "errorExits": [],
+   "children": [],
+   "childEdges": []
+  }
+ ],
+ "edges": [
+  {
+   "from": "start",
+   "to": "new-epic"
+  },
+  {
+   "from": "new-epic",
+   "to": "draft-record"
+  },
+  {
+   "from": "new-epic",
+   "to": "rejected",
+   "label": "epic-exists",
+   "kind": "error"
+  },
+  {
+   "from": "new-epic",
+   "to": "rejected",
+   "label": "bad-slug",
+   "kind": "error"
+  },
+  {
+   "from": "draft-record",
+   "to": "validate"
+  },
+  {
+   "from": "validate",
+   "to": "valid"
+  },
+  {
+   "from": "valid",
+   "to": "draft-record",
+   "label": "no",
+   "kind": "branch"
+  },
+  {
+   "from": "valid",
+   "to": "simulate",
+   "label": "yes",
+   "kind": "branch"
+  },
+  {
+   "from": "simulate",
+   "to": "design-errors"
+  },
+  {
+   "from": "design-errors",
+   "to": "log-correction",
+   "label": "yes",
+   "kind": "branch"
+  },
+  {
+   "from": "design-errors",
+   "to": "review",
+   "label": "no",
+   "kind": "branch"
+  },
+  {
+   "from": "log-correction",
+   "to": "draft-record"
+  },
+  {
+   "from": "review",
+   "to": "happy"
+  },
+  {
+   "from": "happy",
+   "to": "draft-record",
+   "label": "change",
+   "kind": "branch"
+  },
+  {
+   "from": "happy",
+   "to": "approve",
+   "label": "approve",
+   "kind": "branch"
+  },
+  {
+   "from": "approve",
+   "to": "gate"
+  },
+  {
+   "from": "gate",
+   "to": "gate-ok"
+  },
+  {
+   "from": "gate-ok",
+   "to": "review",
+   "label": "no",
+   "kind": "branch"
+  },
+  {
+   "from": "gate-ok",
+   "to": "sign-off",
+   "label": "yes",
+   "kind": "branch"
+  },
+  {
+   "from": "sign-off",
+   "to": "signed"
+  },
+  {
+   "from": "signed-edit",
+   "to": "content-changed"
+  },
+  {
+   "from": "content-changed",
+   "to": "review"
+  },
+  {
+   "from": "pr-opened",
+   "to": "ci-run"
+  },
+  {
+   "from": "ci-run",
+   "to": "ci-ok"
+  },
+  {
+   "from": "ci-ok",
+   "to": "ci-pass",
+   "label": "yes",
+   "kind": "branch"
+  },
+  {
+   "from": "ci-ok",
+   "to": "ci-fail",
+   "label": "no",
+   "kind": "branch"
+  }
+ ],
+ "scenarios": {
+  "S1": [
+   {
+    "id": "S1-new",
+    "title": "Builder creates a new EPIC",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "start"
+     },
+     {
+      "name": "new-epic",
+      "given": {
+       "slug": "2026-11-05-demo",
+       "title": "Demo",
+       "exists": false
+      },
+      "then": {
+       "epicDir": "docs/epics/2026-11-05-demo"
+      }
+     },
+     {
+      "name": "draft-record",
+      "given": {
+       "epicDir": "docs/epics/2026-11-05-demo"
+      },
+      "then": {
+       "epicDir": "docs/epics/2026-11-05-demo"
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S1-A1",
+     "state": {
+      "Epic.status": "draft",
+      "files": [
+       "brainstorm.md",
+       "prd.yaml",
+       "entities.yaml",
+       "flow.yaml",
+       "scenarios/",
+       "corrections.md"
+      ]
+     }
+    }
+   },
+   {
+    "id": "S1-exists",
+    "title": "Builder creates an EPIC that exists",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "start"
+     },
+     {
+      "name": "new-epic",
+      "branch": "epic-exists",
+      "given": {
+       "slug": "2026-11-05-demo",
+       "title": "Demo",
+       "exists": true
+      },
+      "then": {
+       "exit": "epic-exists"
+      }
+     },
+     {
+      "name": "rejected"
+     }
+    ],
+    "expect": {
+     "criterion": "S1-A2",
+     "state": {
+      "filesChanged": 0
+     }
+    }
+   },
+   {
+    "id": "S1-bad-slug",
+    "title": "Builder uses a slug with no date",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "start"
+     },
+     {
+      "name": "new-epic",
+      "branch": "bad-slug",
+      "given": {
+       "slug": "Demo",
+       "title": "Demo",
+       "exists": false
+      },
+      "then": {
+       "exit": "bad-slug"
+      }
+     },
+     {
+      "name": "rejected"
+     }
+    ],
+    "expect": {
+     "state": {
+      "filesChanged": 0
+     }
+    }
+   }
+  ],
+  "S10": [
+   {
+    "id": "S10-fail",
+    "title": "CI finds a simulator error",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "pr-opened"
+     },
+     {
+      "name": "ci-run",
+      "given": {
+       "epicDir": "docs/epics/x"
+      },
+      "then": {
+       "exitCode": 1,
+       "report": {
+        "ok": false
+       }
+      }
+     },
+     {
+      "name": "ci-ok",
+      "branch": "no"
+     },
+     {
+      "name": "ci-fail"
+     }
+    ],
+    "expect": {
+     "criterion": "S10-A1",
+     "state": {
+      "exitCode": 1,
+      "jsonListsError": true
+     }
+    }
+   },
+   {
+    "id": "S10-pass",
+    "title": "CI passes on a clean, signed EPIC within the time limit",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "pr-opened"
+     },
+     {
+      "name": "ci-run",
+      "given": {
+       "boxes": 200,
+       "scenarios": 100
+      },
+      "then": {
+       "exitCode": 0,
+       "seconds": "< 2"
+      }
+     },
+     {
+      "name": "ci-ok",
+      "branch": "yes"
+     },
+     {
+      "name": "ci-pass"
+     }
+    ],
+    "expect": {
+     "criterion": "S10-A2",
+     "state": {
+      "exitCode": 0,
+      "eachUnderSeconds": 2
+     }
+    }
+   }
+  ],
+  "S2": [
+   {
+    "id": "S2-missing-outputs",
+    "title": "Agent draft has a box with no outputs",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "draft-record",
+      "given": {
+       "epicDir": "docs/epics/x"
+      },
+      "then": {
+       "epicDir": "docs/epics/x"
+      }
+     },
+     {
+      "name": "validate/parse",
+      "given": {
+       "epicDir": "docs/epics/x"
+      },
+      "then": {
+       "docs": {
+        "flow.yaml": "parsed"
+       }
+      }
+     },
+     {
+      "name": "validate/schema",
+      "given": {
+       "docs": {
+        "flow.yaml": "parsed"
+       }
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "schema",
+         "file": "flow.yaml",
+         "path": "pay",
+         "message": "missing field outputs"
+        }
+       ]
+      }
+     },
+     {
+      "name": "validate/refs",
+      "given": {
+       "docs": {
+        "flow.yaml": "parsed"
+       }
+      },
+      "then": {
+       "findings": []
+      }
+     },
+     {
+      "name": "validate/report",
+      "given": {
+       "findings": [
+        "schema"
+       ]
+      },
+      "then": {
+       "report": {
+        "command": "validate",
+        "ok": false
+       }
+      }
+     },
+     {
+      "name": "valid",
+      "branch": "no",
+      "given": {
+       "report": {
+        "ok": false
+       }
+      },
+      "then": {
+       "branch": "no"
+      }
+     },
+     {
+      "name": "draft-record"
+     }
+    ],
+    "expect": {
+     "criterion": "S2-A1",
+     "state": {
+      "exitCode": 1,
+      "finding": {
+       "file": "flow.yaml",
+       "path": "pay",
+       "field": "outputs"
+      }
+     }
+    }
+   },
+   {
+    "id": "S2-unknown-story",
+    "title": "A box points to a story that does not exist",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "validate/parse",
+      "given": {
+       "epicDir": "docs/epics/x"
+      },
+      "then": {
+       "docs": {
+        "flow.yaml": "parsed",
+        "prd.yaml": "parsed"
+       }
+      }
+     },
+     {
+      "name": "validate/schema",
+      "given": {
+       "docs": {
+        "flow.yaml": "parsed"
+       }
+      },
+      "then": {
+       "findings": []
+      }
+     },
+     {
+      "name": "validate/refs",
+      "given": {
+       "docs": {
+        "flow.yaml": "parsed"
+       }
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "reference",
+         "path": "pay",
+         "message": "story S9 unknown"
+        }
+       ]
+      }
+     },
+     {
+      "name": "validate/report",
+      "given": {
+       "findings": [
+        "reference"
+       ]
+      },
+      "then": {
+       "report": {
+        "command": "validate",
+        "ok": false
+       }
+      }
+     },
+     {
+      "name": "valid",
+      "branch": "no"
+     },
+     {
+      "name": "draft-record"
+     }
+    ],
+    "expect": {
+     "criterion": "S2-A2",
+     "state": {
+      "exitCode": 1,
+      "finding": {
+       "path": "pay",
+       "ref": "S9"
+      }
+     }
+    }
+   },
+   {
+    "id": "S2-unknown-step",
+    "title": "A scenario step names a box path that does not exist",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "validate/parse"
+     },
+     {
+      "name": "validate/schema"
+     },
+     {
+      "name": "validate/refs",
+      "given": {
+       "docs": {
+        "scenarios/S9.yaml": "parsed"
+       }
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "reference",
+         "path": "S9-a/step-2",
+         "message": "box path pay/nope unknown"
+        }
+       ]
+      }
+     },
+     {
+      "name": "validate/report"
+     },
+     {
+      "name": "valid",
+      "branch": "no"
+     },
+     {
+      "name": "draft-record"
+     }
+    ],
+    "expect": {
+     "criterion": "S2-A3",
+     "state": {
+      "exitCode": 1,
+      "finding": {
+       "scenario": "S9-a",
+       "step": 2,
+       "path": "pay/nope"
+      }
+     }
+    }
+   },
+   {
+    "id": "S2-yaml-syntax",
+    "title": "A record file is not valid YAML",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "validate/parse",
+      "branch": "yaml-syntax",
+      "given": {
+       "epicDir": "docs/epics/x"
+      },
+      "then": {
+       "exit": "yaml-syntax"
+      }
+     },
+     {
+      "name": "validate/report",
+      "given": {
+       "findings": [
+        "schema"
+       ]
+      },
+      "then": {
+       "report": {
+        "command": "validate",
+        "ok": false
+       }
+      }
+     },
+     {
+      "name": "valid",
+      "branch": "no"
+     },
+     {
+      "name": "draft-record"
+     }
+    ],
+    "expect": {
+     "state": {
+      "exitCode": 1
+     }
+    }
+   }
+  ],
+  "S3": [
+   {
+    "id": "S3-contract",
+    "title": "Output shape does not fit the next input",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "valid",
+      "branch": "yes",
+      "given": {
+       "report": {
+        "ok": true
+       }
+      },
+      "then": {
+       "branch": "yes"
+      }
+     },
+     {
+      "name": "simulate/load",
+      "given": {
+       "epicDir": "docs/epics/x"
+      },
+      "then": {
+       "scenarios": [
+        "shop-1"
+       ]
+      }
+     },
+     {
+      "name": "simulate/contracts",
+      "given": {
+       "scenarios": [
+        "shop-1"
+       ]
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "contract",
+         "path": "a -> b",
+         "message": "orderId: string does not fit number"
+        }
+       ]
+      }
+     },
+     {
+      "name": "simulate/coverage"
+     },
+     {
+      "name": "simulate/lifecycles"
+     },
+     {
+      "name": "simulate/acceptance"
+     },
+     {
+      "name": "simulate/permissions"
+     },
+     {
+      "name": "simulate/report",
+      "given": {
+       "findings": [
+        "contract"
+       ]
+      },
+      "then": {
+       "report": {
+        "command": "simulate",
+        "ok": false
+       }
+      }
+     },
+     {
+      "name": "design-errors",
+      "branch": "yes"
+     },
+     {
+      "name": "log-correction",
+      "given": {
+       "report": {
+        "ok": false
+       }
+      },
+      "then": {
+       "correction": {
+        "tag": "caught-in-simulation"
+       }
+      }
+     },
+     {
+      "name": "draft-record"
+     }
+    ],
+    "expect": {
+     "criterion": "S3-A1",
+     "state": {
+      "finding": {
+       "kind": "contract",
+       "edge": "a -> b",
+       "field": "orderId"
+      },
+      "Correction.tag": "caught-in-simulation"
+     }
+    }
+   },
+   {
+    "id": "S3-uncovered-branch",
+    "title": "A decision branch that no approved scenario reaches",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "simulate/load"
+     },
+     {
+      "name": "simulate/contracts"
+     },
+     {
+      "name": "simulate/coverage",
+      "given": {
+       "scenarios": [
+        "shop-1"
+       ]
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "coverage",
+         "path": "in-stock",
+         "message": "branch no not reached"
+        }
+       ]
+      }
+     },
+     {
+      "name": "simulate/lifecycles"
+     },
+     {
+      "name": "simulate/acceptance"
+     },
+     {
+      "name": "simulate/permissions"
+     },
+     {
+      "name": "simulate/report"
+     },
+     {
+      "name": "design-errors",
+      "branch": "yes"
+     }
+    ],
+    "expect": {
+     "criterion": "S3-A2",
+     "state": {
+      "finding": {
+       "kind": "coverage",
+       "path": "in-stock",
+       "branch": "no"
+      }
+     }
+    }
+   },
+   {
+    "id": "S3-bad-transition",
+    "title": "A scenario changes Order from draft to shipped",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "simulate/load"
+     },
+     {
+      "name": "simulate/contracts"
+     },
+     {
+      "name": "simulate/coverage"
+     },
+     {
+      "name": "simulate/lifecycles",
+      "given": {
+       "scenarios": [
+        "shop-2"
+       ]
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "lifecycle",
+         "path": "ship",
+         "message": "Order.status draft -> shipped not permitted"
+        }
+       ]
+      }
+     },
+     {
+      "name": "simulate/acceptance"
+     },
+     {
+      "name": "simulate/permissions"
+     },
+     {
+      "name": "simulate/report"
+     },
+     {
+      "name": "design-errors",
+      "branch": "yes"
+     }
+    ],
+    "expect": {
+     "criterion": "S3-A3",
+     "state": {
+      "finding": {
+       "kind": "lifecycle",
+       "scenario": "shop-2",
+       "box": "ship",
+       "transition": "draft -> shipped"
+      }
+     }
+    }
+   },
+   {
+    "id": "S3-acceptance-diff",
+    "title": "End state differs from an acceptance criterion",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "simulate/load"
+     },
+     {
+      "name": "simulate/contracts"
+     },
+     {
+      "name": "simulate/coverage"
+     },
+     {
+      "name": "simulate/lifecycles"
+     },
+     {
+      "name": "simulate/acceptance",
+      "given": {
+       "scenarios": [
+        "shop-3"
+       ]
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "acceptance",
+         "refs": [
+          "S1-A1"
+         ],
+         "message": "Order.status is draft, expected paid"
+        }
+       ]
+      }
+     },
+     {
+      "name": "simulate/permissions"
+     },
+     {
+      "name": "simulate/report"
+     },
+     {
+      "name": "design-errors",
+      "branch": "yes"
+     }
+    ],
+    "expect": {
+     "criterion": "S3-A4",
+     "state": {
+      "finding": {
+       "kind": "acceptance",
+       "criterion": "S1-A1"
+      }
+     }
+    }
+   },
+   {
+    "id": "S3-deterministic",
+    "title": "Two runs on the same record give the same report",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "simulate/load"
+     },
+     {
+      "name": "simulate/contracts"
+     },
+     {
+      "name": "simulate/coverage"
+     },
+     {
+      "name": "simulate/lifecycles"
+     },
+     {
+      "name": "simulate/acceptance"
+     },
+     {
+      "name": "simulate/permissions"
+     },
+     {
+      "name": "simulate/report",
+      "given": {
+       "findings": [
+        "b",
+        "a"
+       ]
+      },
+      "then": {
+       "report": {
+        "findings": [
+         "a",
+         "b"
+        ]
+       }
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S3-A5",
+     "state": {
+      "reportsByteIdentical": true
+     }
+    }
+   }
+  ],
+  "S4": [
+   {
+    "id": "S4-swimlanes",
+    "title": "Builder opens a clean design in the panel",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "simulate/report"
+     },
+     {
+      "name": "design-errors",
+      "branch": "no",
+      "given": {
+       "report": {
+        "ok": true
+       }
+      },
+      "then": {
+       "branch": "no"
+      }
+     },
+     {
+      "name": "review/swimlanes",
+      "given": {
+       "lanes": [
+        "builder",
+        "system"
+       ],
+       "boxes": {
+        "pay": "system",
+        "cart": "builder"
+       }
+      },
+      "then": {
+       "shown": {
+        "builder": [
+         "cart"
+        ],
+        "system": [
+         "pay"
+        ]
+       }
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S4-A1",
+     "state": {
+      "lanesShown": 2,
+      "eachBoxInItsLane": true
+     }
+    }
+   },
+   {
+    "id": "S4-drill",
+    "title": "Builder drills into a box with children",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "review/swimlanes",
+      "given": {
+       "click": "simulate"
+      },
+      "then": {
+       "shown": "simulate/children",
+       "breadcrumb": [
+        "root",
+        "simulate"
+       ]
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S4-A2",
+     "state": {
+      "breadcrumb": [
+       "root",
+       "simulate"
+      ]
+     }
+    }
+   },
+   {
+    "id": "S4-browser",
+    "title": "Builder opens the served UI in a browser",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "review/swimlanes",
+      "given": {
+       "url": "http://127.0.0.1:<port>"
+      },
+      "then": {
+       "fullScreen": true,
+       "sameUiAsPanel": true
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S4-A3",
+     "state": {
+      "fullScreen": true
+     }
+    }
+   },
+   {
+    "id": "S4-big-picture",
+    "title": "Builder sees the whole EPIC and the processes that features share",
+    "status": "draft",
+    "steps": [
+     {
+      "name": "review/swimlanes",
+      "given": {
+       "stories": {
+        "S1": [
+         "new-epic",
+         "validate"
+        ],
+        "S2": [
+         "draft-record",
+         "validate"
+        ]
+       }
+      },
+      "then": {
+       "roles": "all",
+       "processes": "in-flow-order",
+       "lines": [
+        "S1",
+        "S2"
+       ],
+       "shared": {
+        "validate": [
+         "S1",
+         "S2"
+        ]
+       }
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S4-A4",
+     "state": {
+      "shared": {
+       "validate": [
+        "S1",
+        "S2"
+       ]
+      }
+     }
+    }
+   },
+   {
+    "id": "S4-story-view",
+    "title": "Builder opens one story and sees what, how and output",
+    "status": "draft",
+    "steps": [
+     {
+      "name": "review/swimlanes",
+      "given": {
+       "story": "S9",
+       "boxes": [
+        "content-changed",
+        "gate",
+        "sign-off"
+       ],
+       "writes": [
+        "Story.status:draft->signed"
+       ]
+      },
+      "then": {
+       "what": "S9",
+       "how": [
+        "content-changed",
+        "gate",
+        "sign-off"
+       ],
+       "output": {
+        "Story.status": "draft → signed"
+       },
+       "then": "scenarios"
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S4-A5",
+     "state": {
+      "panels": [
+       "what",
+       "how",
+       "output"
+      ],
+      "output": {
+       "Story.status": "draft → signed"
+      }
+     }
+    }
+   }
+  ],
+  "S5": [
+   {
+    "id": "S5-playback",
+    "title": "Builder steps through a 3-step scenario",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "review/swimlanes"
+     },
+     {
+      "name": "review/playback",
+      "given": {
+       "scenario": "shop-1",
+       "step": 2
+      },
+      "then": {
+       "highlighted": "pay",
+       "shows": [
+        "input",
+        "output",
+        "stateChange"
+       ]
+      }
+     },
+     {
+      "name": "review/matrix"
+     },
+     {
+      "name": "review/readiness"
+     },
+     {
+      "name": "happy",
+      "branch": "change",
+      "given": {
+       "decision": "change"
+      },
+      "then": {
+       "branch": "change"
+      }
+     },
+     {
+      "name": "draft-record"
+     }
+    ],
+    "expect": {
+     "criterion": "S5-A1",
+     "state": {
+      "highlighted": "pay"
+     }
+    }
+   }
+  ],
+  "S6": [
+   {
+    "id": "S6-approve",
+    "title": "Builder approves a draft scenario, gate still fails",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "review/readiness"
+     },
+     {
+      "name": "happy",
+      "branch": "approve",
+      "given": {
+       "decision": "approve"
+      },
+      "then": {
+       "branch": "approve"
+      }
+     },
+     {
+      "name": "approve",
+      "given": {
+       "scenarioIds": [
+        "shop-1"
+       ],
+       "user": "a@b.c",
+       "threadId": "thr_x"
+      },
+      "then": {
+       "approvals": [
+        {
+         "by": "a@b.c",
+         "threadId": "thr_x",
+         "hash": "h1"
+        }
+       ]
+      }
+     },
+     {
+      "name": "gate/traced",
+      "given": {
+       "requirements": [
+        "R1",
+        "R2"
+       ],
+       "stories": {
+        "S1": [
+         "R1"
+        ]
+       }
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "reference",
+         "message": "R2 has no story"
+        }
+       ]
+      }
+     },
+     {
+      "name": "gate/sim-clean"
+     },
+     {
+      "name": "gate/no-stale"
+     },
+     {
+      "name": "gate/report"
+     },
+     {
+      "name": "gate-ok",
+      "branch": "no"
+     },
+     {
+      "name": "review/swimlanes"
+     }
+    ],
+    "expect": {
+     "criterion": "S6-A1",
+     "state": {
+      "Scenario.status": "approved",
+      "Approval.by": "a@b.c"
+     }
+    }
+   },
+   {
+    "id": "S6-agent-cli",
+    "title": "Agent has CLI access only",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "draft-record",
+      "given": {
+       "cli": "list-commands"
+      },
+      "then": {
+       "commands": [
+        "new",
+        "validate",
+        "simulate",
+        "gate",
+        "serve"
+       ]
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S6-A2",
+     "state": {
+      "Scenario.status": "draft",
+      "approveCommand": "absent"
+     }
+    }
+   },
+   {
+    "id": "S6-stale",
+    "title": "An approved scenario changes",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "signed-edit"
+     },
+     {
+      "name": "content-changed",
+      "given": {
+       "approvalHash": "h1",
+       "contentHash": "h2"
+      },
+      "then": {
+       "staleScenarios": [
+        "shop-1"
+       ],
+       "staleStories": []
+      }
+     },
+     {
+      "name": "review/swimlanes"
+     }
+    ],
+    "expect": {
+     "criterion": "S6-A3",
+     "state": {
+      "Scenario.status": "stale",
+      "simulatorUsesIt": false
+     }
+    }
+   }
+  ],
+  "S7": [
+   {
+    "id": "S7-matrix",
+    "title": "A buyer box writes Order.status",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "simulate/permissions",
+      "given": {
+       "boxes": {
+        "checkout": {
+         "lane": "buyer",
+         "writes": [
+          "Order.status"
+         ]
+        }
+       }
+      },
+      "then": {
+       "matrix": {
+        "buyer": {
+         "Order": [
+          "write"
+         ]
+        }
+       }
+      }
+     },
+     {
+      "name": "simulate/report"
+     },
+     {
+      "name": "design-errors",
+      "branch": "no"
+     },
+     {
+      "name": "review/swimlanes"
+     },
+     {
+      "name": "review/playback"
+     },
+     {
+      "name": "review/matrix",
+      "given": {
+       "matrix": {
+        "buyer": {
+         "Order": [
+          "write"
+         ]
+        }
+       }
+      },
+      "then": {
+       "actor": "buyer",
+       "useCase": "checkout",
+       "tag": "writes Order.status",
+       "link": "checkout"
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S7-A1",
+     "state": {
+      "actor": "buyer",
+      "useCase": "checkout",
+      "tag": "writes Order.status",
+      "linkedBox": "checkout"
+     }
+    }
+   }
+  ],
+  "S8": [
+   {
+    "id": "S8-no-proof",
+    "title": "A requirement has no story",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "review/readiness",
+      "given": {
+       "requirements": [
+        "R2"
+       ],
+       "stories": []
+      },
+      "then": {
+       "noProof": [
+        {
+         "id": "R2",
+         "reason": "no story"
+        }
+       ]
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S8-A1",
+     "state": {
+      "R2": "no-proof"
+     }
+    }
+   },
+   {
+    "id": "S8-no-requirement",
+    "title": "A box serves no requirement",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "review/readiness",
+      "given": {
+       "boxes": {
+        "pay": {
+         "stories": []
+        }
+       }
+      },
+      "then": {
+       "noRequirement": [
+        "pay"
+       ]
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S8-A2",
+     "state": {
+      "noRequirement": [
+       "pay"
+      ]
+     }
+    }
+   },
+   {
+    "id": "S8-counts",
+    "title": "Correction counts by tag",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "review/readiness",
+      "given": {
+       "corrections": [
+        "sim",
+        "sim",
+        "sim",
+        "build"
+       ]
+      },
+      "then": {
+       "counts": {
+        "caught-in-simulation": 3,
+        "caught-after-build": 1
+       }
+      }
+     }
+    ],
+    "expect": {
+     "criterion": "S8-A3",
+     "state": {
+      "caught-in-simulation": 3,
+      "caught-after-build": 1
+     }
+    }
+   }
+  ],
+  "S9": [
+   {
+    "id": "S9-blocked",
+    "title": "Sign-off with a simulator error left",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "gate/traced"
+     },
+     {
+      "name": "gate/sim-clean",
+      "given": {
+       "findings": [
+        "contract"
+       ]
+      },
+      "then": {
+       "findings": [
+        {
+         "kind": "contract"
+        }
+       ]
+      }
+     },
+     {
+      "name": "gate/no-stale"
+     },
+     {
+      "name": "gate/report"
+     },
+     {
+      "name": "gate-ok",
+      "branch": "no",
+      "given": {
+       "report": {
+        "ok": false
+       }
+      },
+      "then": {
+       "branch": "no"
+      }
+     },
+     {
+      "name": "review/swimlanes"
+     }
+    ],
+    "expect": {
+     "criterion": "S9-A1",
+     "state": {
+      "signOffButton": "disabled",
+      "listedErrors": [
+       "contract"
+      ]
+     }
+    }
+   },
+   {
+    "id": "S9-sign",
+    "title": "Builder signs off a clean EPIC",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "gate/traced"
+     },
+     {
+      "name": "gate/sim-clean"
+     },
+     {
+      "name": "gate/no-stale"
+     },
+     {
+      "name": "gate/report"
+     },
+     {
+      "name": "gate-ok",
+      "branch": "yes",
+      "given": {
+       "report": {
+        "ok": true
+       }
+      },
+      "then": {
+       "branch": "yes"
+      }
+     },
+     {
+      "name": "sign-off",
+      "given": {
+       "storyIds": [
+        "S1",
+        "S2"
+       ],
+       "user": "a@b.c"
+      },
+      "then": {
+       "signOff": {
+        "by": "a@b.c",
+        "storyHashes": {
+         "S1": "h1",
+         "S2": "h2"
+        }
+       }
+      }
+     },
+     {
+      "name": "signed"
+     }
+    ],
+    "expect": {
+     "criterion": "S9-A2",
+     "state": {
+      "Epic.status": "signed",
+      "SignOff.by": "a@b.c"
+     }
+    }
+   },
+   {
+    "id": "S9-partial-stale",
+    "title": "Builder changes R4 after sign-off",
+    "status": "approved",
+    "steps": [
+     {
+      "name": "signed-edit"
+     },
+     {
+      "name": "content-changed",
+      "given": {
+       "changed": [
+        "R4"
+       ],
+       "links": {
+        "S3": [
+         "R4"
+        ],
+        "S1": [
+         "R1"
+        ]
+       }
+      },
+      "then": {
+       "staleStories": [
+        "S3"
+       ],
+       "staleScenarios": []
+      }
+     },
+     {
+      "name": "review/swimlanes"
+     }
+    ],
+    "expect": {
+     "criterion": "S9-A3",
+     "state": {
+      "Story.S3": "stale",
+      "Story.S1": "signed",
+      "Epic.status": "partly-stale"
+     }
+    }
+   }
+  ]
+ }
+}
