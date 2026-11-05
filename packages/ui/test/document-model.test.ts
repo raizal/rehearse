@@ -78,6 +78,7 @@ describe('T15 feature 3: proof and trace (shop)', () => {
     expect(gateNote('R1', requirementProof(view, 'R1'))).toBe('The scenario is approved, but the approvals have no valid SSH signature. Approve them again in the UI, then they count as evidence.');
     expect(gateNote('R3', requirementProof(view, 'R3'))).toBe('No story names R3, so no scenario can prove it. Add a story for it.');
     expect(gateNote('R1', requirementProof(reviewEpic(), 'R1'))).toBeUndefined();
+    expect(gateNote('R2', requirementProof(reviewEpic(), 'R2'))).toBe('The scenario of R2 is not approved yet. Review it in the Storyboard and approve it.');
   });
 
   it('T15 3 the trace of a requirement: requirement → story → its boxes → scenarios with status', () => {

@@ -84,7 +84,9 @@ export function gateNote(id: Id, proof: ProofCount): string | undefined {
     case 'no-scenario':
       return `The stories of ${id} have no scenarios yet. Add a scenario that ends in its acceptance criteria.`;
     case 'none-approved':
-      return `None of the ${proof.total} scenarios is approved yet. Review each one in the Storyboard and approve it.`;
+      return proof.total === 1
+        ? `The scenario of ${id} is not approved yet. Review it in the Storyboard and approve it.`
+        : `None of the ${proof.total} scenarios of ${id} is approved yet. Review each one in the Storyboard and approve it.`;
     default:
       return `The ${proof.approved === 1 ? 'scenario is' : `${proof.approved} scenarios are`} approved, but the approvals have no valid SSH signature. Approve them again in the UI, then they count as evidence.`;
   }
