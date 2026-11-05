@@ -8,18 +8,36 @@
 // a start box (a trigger gives no data), and an input box b (its role gives its inputs).
 // A declared mismatch is a flow defect: one finding on the box in flow.yaml, with the scenarios
 // that show it. An example value mismatch is one finding on the scenario step.
+// Flow context (C14): every context field is given on every edge, so an input that is a context
+// field is never missing. A box input whose type does not fit the context type is one finding on
+// the box, whether or not a scenario passes through it.
 
 import { enumValues } from '../validate/refs.js';
 import { RECORD_FILES, type Finding } from '../types.js';
-import { cmp, isObject } from '../util.js';
+import { asArray, cmp, isObject } from '../util.js';
 import type { BoxEntry } from '../flow-index.js';
 import type { LoadedScenario } from './types.js';
 import { walkScenario } from './walk.js';
 
 const SPECIAL = new Set(['branch', 'exit']);
 
-export function checkContracts(index: Map<string, BoxEntry>, scenarios: LoadedScenario[]): Finding[] {
+export function checkContracts(index: Map<string, BoxEntry>, scenarios: LoadedScenario[], context: unknown = {}): Finding[] {
   const out: Finding[] = [];
+  const ctx = stringMap(context);
+  for (const { box, path } of index.values()) {
+    for (const [field, inType] of Object.entries(stringMap(box.inputs))) {
+      const ctxType = ctx[field];
+      if (ctxType !== undefined && !typeFits(ctxType, inType)) {
+        out.push({
+          kind: 'contract',
+          file: RECORD_FILES.flow,
+          path,
+          message: `field ${field}: the flow context gives ${ctxType}, ${path} needs ${inType}`,
+          refs: [...new Set(asArray<string>(box.stories).filter((s) => typeof s === 'string'))].sort(cmp),
+        });
+      }
+    }
+  }
   // key → aggregated flow finding
   const flowFindings = new Map<string, { path: string; message: string; scenarios: Set<string>; stories: Set<string> }>();
   const addFlow = (path: string, message: string, scenario: string, story: string): void => {
@@ -39,7 +57,7 @@ export function checkContracts(index: Map<string, BoxEntry>, scenarios: LoadedSc
       const arrow = `${step.path} → ${step.next}`;
       const outputs: Record<string, string> = { ...(a.kind === 'decision' ? stringMap(a.inputs) : {}), ...stringMap(a.outputs) };
       const then = isObject(step.example?.then) ? step.example.then : {};
-      const given = new Set([...Object.keys(outputs), ...Object.keys(then).filter((k) => !SPECIAL.has(k))]);
+      const given = new Set([...Object.keys(ctx), ...Object.keys(outputs), ...Object.keys(then).filter((k) => !SPECIAL.has(k))]);
 
       for (const [field, inType] of Object.entries(stringMap(b.inputs))) {
         if (!given.has(field)) {

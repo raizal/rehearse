@@ -141,6 +141,26 @@ describe('story S3: simulate lists design errors', () => {
     ]);
   });
 
+  it('C17 a box whose lane role is not the by role of its transition (R6)', () => {
+    // pay is in lane shop; the lifecycle says draft -> paid is by buyer.
+    const dir = makeApprovedEpic((d) => (d['entities.yaml'].entities[0].lifecycle.transitions[0].by = 'buyer'));
+    expect(simulateEpic(dir).findings).toEqual([
+      {
+        kind: 'lifecycle',
+        file: 'flow.yaml',
+        path: 'pay',
+        message: 'writes Order.status:draft->paid: the Order lifecycle says draft -> paid is by buyer, but box pay is in lane shop',
+        refs: ['S1'],
+      },
+    ]);
+  });
+
+  it('C17 a new item (->draft) has no lifecycle by role and is not checked', () => {
+    // cart (lane buyer) writes Order.status:->draft; moving it to lane shop changes nothing.
+    const dir = makeApprovedEpic((d) => (box(d, 'cart').lane = 'shop'));
+    expect(brief(simulateEpic(dir).findings).filter((f) => f.includes(' by '))).toEqual([]);
+  });
+
   it('S3-A3 a step that leaves by an error exit changes no state', () => {
     // cart takes empty-cart: its write Order.status:->draft does not happen.
     const { record } = loadEpic(makeApprovedEpic());
@@ -261,8 +281,9 @@ describe('dogfood: simulate the rehearse record (D24)', () => {
     expect(report.stale).toEqual([]);
   });
 
-  it('every branch and error exit is covered, every state is reachable, every criterion is checked', () => {
-    expect(report.findings.filter((f) => f.kind !== 'contract')).toEqual([]);
+  it('C14 with the epicDir flow context the record gives no findings', () => {
+    expect(report.findings).toEqual([]);
+    expect(report.ok).toBe(true);
   });
 
   it('the permission matrix shows that only the builder lane changes Scenario.status to approved', () => {
@@ -274,5 +295,34 @@ describe('dogfood: simulate the rehearse record (D24)', () => {
   it('S3-A5 two runs on the real record are byte-identical', () => {
     expect(reportToJson(simulateEpic(REAL_EPIC))).toBe(reportToJson(report));
     expect(readFileSync(join(REAL_EPIC, 'flow.yaml'), 'utf8')).toContain('simulate');
+  });
+});
+
+describe('simulate/contracts: flow context (C14)', () => {
+  const needsShopId = (d: any) => (box(d, 'pay').inputs.shopId = 'string');
+
+  it('C14 S3-A1 a box input that no box gives is missing without a flow context', () => {
+    const report = simulateEpic(makeApprovedEpic(needsShopId));
+    expect(brief(report.findings)).toEqual([
+      'contract flow.yaml cart: cart → pay: missing field shopId (pay needs shopId: string; cart gives orderId) in scenario S1-buy',
+    ]);
+  });
+
+  it('C14 a box input that is a context field is never missing', () => {
+    const report = simulateEpic(makeApprovedEpic((d) => (needsShopId(d), (d['flow.yaml'].context = { shopId: 'string' }))));
+    expect(brief(report.findings)).toEqual([]);
+    expect(report.ok).toBe(true);
+  });
+
+  it('C14 S3-A1 a box input whose type does not fit the context type is a contract finding', () => {
+    const report = simulateEpic(makeApprovedEpic((d) => (needsShopId(d), (d['flow.yaml'].context = { shopId: 'number' }))));
+    expect(report.findings).toEqual([
+      { kind: 'contract', file: 'flow.yaml', path: 'pay', message: 'field shopId: the flow context gives number, pay needs string', refs: ['S1'] },
+    ]);
+  });
+
+  it('C14 validate checks the context type strings like box inputs', () => {
+    const report = simulateEpic(makeApprovedEpic((d) => (d['flow.yaml'].context = { shopId: '' })));
+    expect(report.findings.map((f) => `${f.kind} ${f.file}`)).toEqual(['schema flow.yaml']);
   });
 });

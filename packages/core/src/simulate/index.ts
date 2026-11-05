@@ -30,7 +30,7 @@ export function simulateRecord(input: LoadResult | EpicRecord): SimulationReport
   const { matrix, boxes } = buildPermissions(index);
   return makeSimulationReport(
     [
-      ...checkContracts(index, approved),
+      ...checkContracts(index, approved, record.flow?.context),
       ...checkCoverage(record.flow!, index, approved),
       ...lifecycles.findings,
       ...checkAcceptance(record.prd, approved, lifecycles.endStates),

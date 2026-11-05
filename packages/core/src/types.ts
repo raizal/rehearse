@@ -18,12 +18,12 @@ export type BoxKind = 'start' | 'end' | 'process' | 'decision' | 'input' | 'outp
 export type EdgeKind = 'normal' | 'branch' | 'error';
 export type ScenarioStatus = 'draft' | 'approved' | 'stale';
 export type CorrectionTag = 'caught-in-simulation' | 'caught-after-build';
-export type FindingKind = 'schema' | 'reference' | 'structure' | 'contract' | 'coverage' | 'lifecycle' | 'acceptance';
+export type FindingKind = 'schema' | 'reference' | 'structure' | 'contract' | 'coverage' | 'lifecycle' | 'acceptance' | 'gate';
 export type ReportCommand = 'validate' | 'simulate' | 'gate';
 
 export const BOX_KINDS: readonly BoxKind[] = ['start', 'end', 'process', 'decision', 'input', 'output', 'external'];
 export const EDGE_KINDS: readonly EdgeKind[] = ['normal', 'branch', 'error'];
-export const FINDING_KINDS: readonly FindingKind[] = ['schema', 'reference', 'structure', 'contract', 'coverage', 'lifecycle', 'acceptance'];
+export const FINDING_KINDS: readonly FindingKind[] = ['schema', 'reference', 'structure', 'contract', 'coverage', 'lifecycle', 'acceptance', 'gate'];
 
 /** Identifier fields hold the `id` of the referenced item (`ref <Entity>` in entities.yaml). */
 export type Id = string;
@@ -185,6 +185,8 @@ export interface Diagram {
 export interface Flow {
   version: number;
   epic: string;
+  /** field → type. Every box has these fields as inputs without declaring them (C14). */
+  context?: Record<string, string>;
   lanes: Lane[];
   root: Diagram;
 }

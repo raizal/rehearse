@@ -5,6 +5,8 @@
 
 version: 1
 epic: 2026-11-05-rehearse
+# Every box has these fields as inputs without declaring them. (C14)
+context: { epicDir: string }
 
 lanes:
   - { role: builder, order: 1 }

@@ -75,7 +75,7 @@ describe('stale detection (content-changed)', () => {
     expect(result.scenarios.find((s) => s.id === 'S2-out-of-stock')).toMatchObject({ status: 'stale', reason: 'content changed since approval' });
     const gate = gateEpic(dir);
     expect(gate.findings).toContainEqual({
-      kind: 'lifecycle',
+      kind: 'gate',
       file: 'scenarios/S2.yaml',
       path: 'S2-out-of-stock',
       message: 'scenario is stale: content changed since approval; approve it again',
@@ -95,7 +95,7 @@ describe('stale detection (content-changed)', () => {
     expect(result.epicStatus).toBe('partly-stale');
     expect(gateEpic(dir).findings).toEqual([
       {
-        kind: 'lifecycle',
+        kind: 'gate',
         file: 'signoff.yaml',
         path: 'S1',
         message: 'story is stale: content changed since sign-off (hash rule 2); must be signed again',

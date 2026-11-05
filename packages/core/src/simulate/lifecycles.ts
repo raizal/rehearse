@@ -4,7 +4,9 @@
 // The state before a write is the state the scenario reached, or `from` when it is not known yet.
 // Example `given` and `stateAfter` keys `Entity.field` set the state too.
 // Findings: a transition the lifecycle does not permit (scenario, box, transition), a box that
-// declares such a transition, and a lifecycle state that no box can reach.
+// declares such a transition, a lifecycle state that no box can reach, and a box whose lane role
+// is not the `by` role of a transition it declares (C17). A new item (`->x`) has no lifecycle
+// transition, so it has no `by` to check.
 
 import type { BoxEntry } from '../flow-index.js';
 import { enumValues } from '../validate/refs.js';
@@ -46,6 +48,16 @@ export function checkLifecycles(
           file: RECORD_FILES.flow,
           path,
           message: `writes ${show(w)}: the ${m.entity} lifecycle does not permit ${arrow(w.from!, w.to!)}${permittedHint(m.lifecycle, w.from!)}`,
+          refs: stories(box),
+        });
+      }
+      const by = m ? byRole(m.lifecycle, w.from!, w.to!) : undefined;
+      if (by !== undefined && box.lane !== by) {
+        out.push({
+          kind: 'lifecycle',
+          file: RECORD_FILES.flow,
+          path,
+          message: `writes ${show(w)}: the ${m!.entity} lifecycle says ${arrow(w.from!, w.to!)} is by ${by}, but box ${path} is in lane ${String(box.lane)}`,
           refs: stories(box),
         });
       }
@@ -138,6 +150,12 @@ function groupByField(writes: Access[]): Map<string, Access[]> {
 function permitted(lc: Lifecycle, from: string, to: string): boolean {
   if (from === '') return to === lc.initial;
   return asArray<Record<string, unknown>>(lc.transitions).some((t) => isObject(t) && t.from === from && t.to === to);
+}
+
+/** The `by` role of the lifecycle transition `from -> to`, when there is one. */
+function byRole(lc: Lifecycle, from: string, to: string): string | undefined {
+  const t = asArray<Record<string, unknown>>(lc.transitions).find((t) => isObject(t) && t.from === from && t.to === to);
+  return typeof t?.by === 'string' ? t.by : undefined;
 }
 
 function permittedHint(lc: Lifecycle, from: string): string {

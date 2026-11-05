@@ -7,5 +7,5 @@ entities:
       field: status
       initial: draft
       transitions:
-        - { from: draft, to: paid,    by: buyer }
+        - { from: draft, to: paid,    by: shop }
         - { from: paid,  to: shipped, by: shop }

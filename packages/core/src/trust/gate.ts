@@ -61,7 +61,7 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[]): Ga
     items.push({
       check: 'traced',
       stories: [],
-      finding: { kind: 'coverage', file: RECORD_FILES.prd, path: `requirements[${i}]`, message: `${r.id} has no story`, refs: [r.id] },
+      finding: { kind: 'gate', file: RECORD_FILES.prd, path: `requirements[${i}]`, message: `${r.id} has no story`, refs: [r.id] },
     });
   });
   for (const story of all) {
@@ -69,7 +69,7 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[]): Ga
     items.push({
       check: 'traced',
       stories: [story.id],
-      finding: { kind: 'coverage', file: RECORD_FILES.prd, path: story.id, message: `${story.id} has no approved scenario that is not stale`, refs: [story.id] },
+      finding: { kind: 'gate', file: RECORD_FILES.prd, path: story.id, message: `${story.id} has no approved scenario that is not stale`, refs: [story.id] },
     });
   }
 
@@ -82,7 +82,7 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[]): Ga
     items.push({
       check: 'no-stale',
       stories: [s.story],
-      finding: { kind: 'lifecycle', file: s.file, path: s.id, message: `scenario is stale: ${s.reason}; approve it again`, refs: [s.story] },
+      finding: { kind: 'gate', file: s.file, path: s.id, message: `scenario is stale: ${s.reason}; approve it again`, refs: [s.story] },
     });
   }
   for (const s of stale.stories) {
@@ -99,7 +99,7 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[]): Ga
       check: 'no-stale',
       stories: [s.id],
       resignStory: s.id,
-      finding: { kind: 'lifecycle', file: RECORD_FILES.signoff, path: s.id, message, refs: [s.id] },
+      finding: { kind: 'gate', file: RECORD_FILES.signoff, path: s.id, message, refs: [s.id] },
     });
   }
   return items;
