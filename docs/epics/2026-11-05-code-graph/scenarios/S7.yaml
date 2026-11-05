@@ -1,0 +1,31 @@
+story: S7
+scenarios:
+  - id: S7-url-match
+    title: A fetch URL matches a FastAPI route by name
+    status: draft
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - name: update-graph/link
+        example: { id: link-url, given: { route: { method: GET, path: "/api/orders/{order_id}", handler: get_order }, fetch: { method: GET, url: "/api/orders/{id}" } }, then: { edges: [ { kind: http-calls, from: "fetch in loadOrder", to: get_order, trust: name-match } ] } }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S7-A1, state: { httpCallsEdge: "loadOrder fetch -> get_order", trust: name-match } }
+
+  - id: S7-openapi
+    title: An OpenAPI operationId makes the http-calls edge exact
+    status: draft
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - name: update-graph/link
+        example: { id: link-openapi, given: { openapi: { operationId: getOrder }, client: { operationId: getOrder } }, then: { edges: [ { kind: http-calls, to: get_order, trust: exact, source: openapi } ] } }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S7-A2, state: { httpCallsEdge: "loadOrder fetch -> get_order", trust: exact } }

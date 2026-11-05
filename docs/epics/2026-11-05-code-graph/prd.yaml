@@ -1,0 +1,357 @@
+# rehearse code graph — EPIC (PRD)
+# Status: draft. Agents wrote it; the builder has not signed it off.
+# Why: see brainstorm.md (decision IDs G1…G19). The v1 decisions D19, D40, D44 and
+# D45 are in ../2026-11-05-rehearse/brainstorm.md.
+
+epic:
+  slug: 2026-11-05-code-graph
+  title: rehearse code graph — the right code for agents and for the drill-down
+  goal: >-
+    An agent gets the right code for a task in a fixed token budget, and the
+    builder sees the code below a leaf box. Both come from one small,
+    deterministic graph of code, record and commits. No LLM builds, updates,
+    searches or queries the graph.
+  # Question: the brainstorm gives three goals but no success measure. Proposed: the
+  # measure below, made from the speed targets (G11) and the trust marks (G10).
+  successMeasure: >-
+    On the benchmark, each speed target of G11 holds, every edge has a trust
+    mark, and every `context` bundle fits its budget.
+  outOfScope:
+    - Layer 2 (LLM summaries, docs extraction, community names).
+    - Embeddings. Search is BM25 only. (G2)
+    - The MCP server. It comes later, over the same core. (G7)
+    - Clusters (communities). PageRank only. (G14)
+    - The pyrefly benchmark and the ty resolver. (G15)
+    # Question: D40 says the D29 code pull also uses the graph. G1–G19 do not put it in this
+    # EPIC. Proposed: out of scope here; the code pull gets its own EPIC.
+    - The code pull for the as-is system map (D29).
+    # Question: G17 says that to make the OpenAPI spec is an opt-in CI step. Proposed: rehearse
+    # reads a spec that exists; the CI step that makes it is a documented recipe, not code here.
+    - The CI step that makes an OpenAPI spec from FastAPI.
+
+roles:
+  - id: agent
+    name: Agent
+    kind: agent
+    about: An AI agent. Asks the graph for code with the CLI. Never approves or signs off.
+  - id: builder
+    name: Builder
+    kind: human
+    about: The owner. Reads the code below a leaf box in the panel. Approves scenarios, signs off the gate.
+  - id: rehearse
+    name: rehearse
+    kind: system
+    about: The tool itself. Indexes the repo, keeps graph.db fresh, answers queries.
+  - id: ci
+    name: CI
+    kind: external
+    about: A headless run in a pipeline, outside rehearse. Runs the speed benchmark (G11). The repo has no CI workflow yet (C38).
+
+requirements:
+  # --- Queries (layer 3) ---
+  - id: R1
+    kind: functional
+    text: >-
+      The CLI has five graph verbs: `find`, `show`, `near`, `path` and
+      `context`. Each verb has `--json` output. The CLI comes first; an MCP
+      server comes later over the same core. (G1, G7)
+  - id: R2
+    kind: functional
+    text: >-
+      `find` ranks nodes with BM25 through SQLite FTS5. It splits identifiers
+      into words (getOrderById → get order by id; snake_case too). It uses no
+      embeddings. (G2)
+  - id: R3
+    kind: functional
+    text: >-
+      `context <target> --budget <tokens>` ranks nodes by graph distance from
+      the target and by PageRank, and fills the budget. A token is estimated
+      as 4 characters. The bundle never goes over the budget. (G6, G14)
+  # --- Graph (layer 1) ---
+  - id: R4
+    kind: functional
+    text: >-
+      The graph is in `.rehearse/graph.db` (node:sqlite with FTS5). It is a
+      cache: git ignores it, and a full rebuild makes it again. (G3)
+  - id: R5
+    kind: functional
+    text: >-
+      Node kinds are code (file, module, class, function, method, route,
+      test), record (requirement, story, box, scenario) and commit. Edge kinds
+      are defines, imports, calls, references, extends, implements, tests,
+      builds (box → code), commit → code links and http-calls. The CLI and
+      the panel use the same graph. (G4, G8)
+  - id: R6
+    kind: functional
+    text: >-
+      Each query first compares file content hashes and updates only the
+      changed files. `rehearse serve` also watches files and updates the
+      graph when a file changes. (G5)
+  - id: R7
+    kind: functional
+    text: >-
+      Each node has a SCIP-style symbol ID. Each edge has a trust mark:
+      `exact` (a resolver confirmed it), `name-match` (same name only) or
+      `unresolved` (the target is not known). (G10)
+  - id: R8
+    kind: performance
+    text: >-
+      A cold index takes less than 30 seconds for each 1,000 files. (G11)
+    # Question: G11 does not name the fixture or the machine. Proposed: a generated repo of
+    # 1,000 files (half TypeScript, half Python) on a developer laptop, like v1 R17.
+    provenBy: benchmark on a generated fixture of 1,000 files
+  - id: R9
+    kind: performance
+    text: >-
+      An update of one changed file takes less than 300 ms. A query takes
+      less than 100 ms. (G11)
+    provenBy: benchmark on the same fixture
+  - id: R10
+    kind: functional
+    text: >-
+      The indexer finds every `tsconfig*.json` in the repo. It does not index
+      `node_modules` or the Python venv. Their symbols are edge targets only.
+      (G12)
+  - id: R11
+    kind: functional
+    text: >-
+      `builds` links (box → code) come from `Flow-Box:` commit trailers plus
+      `git blame` on the lines that each commit changed. (G13, D44)
+  # --- Languages ---
+  - id: R12
+    kind: functional
+    text: >-
+      Each language has a reader adapter. web-tree-sitter reads every
+      language (structure, call sites, the AST view, name-match edges).
+      ts-morph resolves TypeScript, kept warm in the process (TypeScript
+      6.x). The Pyright engine resolves Python: scip-python for a cold index,
+      a warm basedpyright language server for updates. A cold index uses a
+      bulk source, not one LSP request per call site. Both resolvers come
+      from npm, so the host needs no Python. Python and TypeScript have the
+      same features and the same trust model. (G15, G16)
+  - id: R13
+    kind: functional
+    text: >-
+      The indexer looks for the Python environment in this order: `.venv`,
+      then uv or poetry, then the pyright config (`venvPath`/`venv`). With no
+      environment, edges inside the repo stay `exact`, edges into third-party
+      packages are `unresolved`, and nothing fails. `context` output says
+      "no venv found". (G19)
+  - id: R14
+    kind: functional
+    text: >-
+      `http-calls` edges link a TypeScript client call to a Python route. By
+      default, tree-sitter reads FastAPI decorators, router prefixes and
+      string-literal URLs in `fetch`/`axios`, normalizes `{param}` segments,
+      and matches method and path (trust `name-match`). When an OpenAPI spec
+      exists, both sides link by `operationId` (trust `exact`). (G17)
+  - id: R15
+    kind: functional
+    text: >-
+      `tests` edges link a test to the code it tests, for Vitest tests and
+      for pytest tests. (G18)
+    # Question: G18 says a pytest adapter is planned together with the Vitest adapter (D27).
+    # D27's adapter runs tests, and v1 keeps it in "later". Proposed: this EPIC makes only the
+    # static `tests` edges (a test → the code it calls); the run adapters stay later.
+  # --- Product ---
+  - id: R16
+    kind: functional
+    text: >-
+      Below a leaf box, the panel shows the code that the box builds, its
+      AST and its call graph, read only, from the same graph as the CLI.
+      Decision, start and end boxes have no code. (G8, D19, D44)
+  - id: R17
+    kind: security
+    text: >-
+      The serve routes that answer graph queries for the panel need the
+      session token and the same-origin check, like the other routes of
+      D45. Serve still listens on 127.0.0.1 only. (G8, D45)
+    # Question: D45 lists every serve route, and a route that the record does not list has no
+    # review (C33). Proposed: one new route, `GET /api/graph?verb=show|near&target=…`, added to
+    # D45 by a new decision G20.
+    provenBy: unit check of the graph route without a token and with a foreign Origin
+  - id: R18
+    kind: functional
+    text: >-
+      The graph uses no LLM to build, update, search or query. The same
+      graph and the same query always give the same answer. (brainstorm
+      "Idea", G2)
+
+stories:
+  - id: S1
+    role: agent
+    want: to find code by words
+    soThat: I find a function when I know what it does but not its name
+    requirements: [R1, R2]
+    acceptance:
+      - id: S1-A1
+        given: a repo with the TypeScript function getOrderById in src/orders.ts
+        when: the agent runs `rehearse find "order by id" --json`
+        then: the first hit is getOrderById, and each hit has its ID, kind, file, lines and score
+      - id: S1-A2
+        given: the same repo also has the Python function get_order_by_id in api/orders.py
+        when: the agent runs the same command
+        then: the hits have both functions, because camelCase and snake_case names are split into words
+
+  - id: S2
+    role: agent
+    want: to see one node and the nodes linked to it
+    soThat: I know who calls a function, what it calls, its tests and the box that builds it
+    requirements: [R1, R5, R7]
+    acceptance:
+      - id: S2-A1
+        given: getOrderById is in the graph
+        when: the agent runs `rehearse show getOrderById --json`
+        then: the answer has the code, the file and lines, the SCIP-style ID, and each edge with its kind and trust mark
+      - id: S2-A2
+        given: getOrderById has a caller, a callee, a test and a box that builds it
+        when: the agent runs `rehearse near getOrderById`
+        then: the answer lists the caller, the callee, the test and the box, each with the edge kind and trust mark
+        # Question: G1 does not say how far `near` goes. Proposed: one edge in each direction by
+        # default, and `--depth <n>` for more.
+      - id: S2-A3
+        given: no node has the name noSuchThing
+        when: the agent runs `rehearse show noSuchThing`
+        then: exit code 1, the answer says "not found", and no file changes
+        # Question: proposed: exit code 1 for an unknown target, the same as a v1 finding.
+
+  - id: S3
+    role: agent
+    want: to see how two nodes connect
+    soThat: I follow a request from the route to the database code
+    requirements: [R1, R7]
+    acceptance:
+      - id: S3-A1
+        given: the route handler getOrder calls loadOrder, and loadOrder calls getOrderById
+        when: the agent runs `rehearse path getOrder getOrderById --json`
+        then: the answer lists the two calls edges in order, each with its trust mark
+        # Question: G1 does not say what `path` gives when no path exists. Proposed: exit code 0,
+        # an empty path and the note "no path".
+
+  - id: S4
+    role: agent
+    want: the code around a target in a fixed token budget
+    soThat: I get the right context and do not fill my window with grep output
+    requirements: [R1, R3, R13, R18]
+    acceptance:
+      - id: S4-A1
+        given: getOrderById and its linked code have 9,000 characters in total
+        when: the agent runs `rehearse context getOrderById --budget 2000 --json`
+        then: the bundle has at most 2,000 tokens (characters ÷ 4), the target comes first, and the other nodes are in order of graph distance, then PageRank
+      - id: S4-A2
+        given: a Python repo with no .venv, no uv or poetry environment and no pyright venv config
+        when: the agent runs `rehearse context get_order_by_id --budget 2000`
+        then: exit code 0, the bundle says "no venv found", edges inside the repo are exact, and edges into third-party packages are unresolved
+      - id: S4-A3
+        given: the same graph
+        when: the agent runs the same context command two times
+        then: the two answers are byte-identical, and no LLM and no embeddings were used
+
+  - id: S5
+    role: agent
+    want: answers that agree with the code I just changed
+    soThat: I never act on an old graph
+    requirements: [R4, R6]
+    acceptance:
+      - id: S5-A1
+        given: an indexed repo, and the agent changes src/orders.ts only
+        when: the agent runs any query
+        then: the update reads only src/orders.ts again (IndexRun.changedFiles is 1), and the answer shows the change
+      - id: S5-A2
+        given: a repo with no .rehearse/graph.db
+        when: the agent runs the first query
+        then: a cold index makes .rehearse/graph.db, the query gets its answer, and `git status` shows no new file
+        # Question: G1 has no verb for a full rebuild. Proposed: delete .rehearse/graph.db; the
+        # next query makes a cold index. Also proposed: this EPIC adds `.rehearse/graph.db*` to
+        # the repo .gitignore (not all of .rehearse/: allowed_signers is there, D41).
+
+  - id: S6
+    role: agent
+    want: edges with a trust mark in TypeScript and in Python
+    soThat: I know which links a resolver confirmed and which are a guess
+    requirements: [R7, R10, R12, R13]
+    acceptance:
+      - id: S6-A1
+        given: a repo with packages/a/tsconfig.json, packages/b/tsconfig.build.json and node_modules
+        when: the first query makes a cold index
+        then: the files of both tsconfig files are indexed, no file in node_modules is indexed, and a call into a package in node_modules is an edge to a target-only node
+      - id: S6-A2
+        given: a TypeScript call that ts-morph resolves, and a call through a computed property name that it cannot resolve
+        when: the agent runs `rehearse show` on the caller
+        then: the first calls edge is exact and the second is name-match
+      - id: S6-A3
+        given: a Python repo with .venv that has the package requests, on a host with no Python
+        when: the first query makes a cold index
+        then: calls inside the repo and calls into requests are exact, and the index uses scip-python and basedpyright from npm
+      - id: S6-A4
+        given: a repo with no graph.db
+        when: the cold index runs
+        then: the IndexRun lists the bulk resolvers (ts-morph, scip-python), and no LSP request is sent for each call site
+
+  - id: S7
+    role: agent
+    want: to see which TypeScript call reaches which Python route
+    soThat: I follow a change across the service boundary
+    requirements: [R14]
+    acceptance:
+      - id: S7-A1
+        given: a FastAPI route GET /{order_id} on a router with prefix /api/orders, and a TypeScript fetch of the string-literal URL /api/orders/{id} with method GET
+        when: the agent runs `rehearse near` on the route
+        then: an http-calls edge links the fetch call to the route, with trust name-match
+      - id: S7-A2
+        given: the same code, and an OpenAPI spec that gives the route and the client call the same operationId
+        when: the graph is updated
+        then: the http-calls edge has trust exact
+
+  - id: S8
+    role: agent
+    want: links between the record, the code, the tests and the commits
+    soThat: I know which box a function builds and which tests prove it
+    requirements: [R5, R11, R15]
+    acceptance:
+      - id: S8-A1
+        given: 'a commit with the trailer `Flow-Box: checkout/pay` changed lines 10–30 of src/pay.ts, which hold the function charge'
+        when: the agent runs `rehearse near checkout/pay`
+        then: a builds edge links box checkout/pay to charge, and an edge links the commit to charge
+      - id: S8-A2
+        given: a Vitest test calls getOrderById, and a pytest test calls get_order_by_id
+        when: the agent runs `rehearse near` on each function
+        then: each function has a tests edge from its test
+
+  - id: S9
+    role: builder
+    want: to see the code below a leaf box in the panel
+    soThat: I see what was built for a box without leaving the review
+    requirements: [R6, R16, R17]
+    acceptance:
+      - id: S9-A1
+        given: leaf box checkout/pay builds the function charge (S8-A1)
+        when: the builder opens the Code view of checkout/pay
+        then: the panel shows the code of charge, its AST and its call graph, read only
+      - id: S9-A2
+        given: a leaf box with no Flow-Box commit
+        when: the builder opens its Code view
+        then: the panel says the box has no code yet
+      - id: S9-A3
+        given: rehearse serve runs, and the builder saves src/pay.ts
+        when: the builder opens the Code view of checkout/pay again
+        then: the panel shows the saved code, and the watcher made an update, not a cold index
+      - id: S9-A4
+        given: a request to the graph route with no session token
+        when: serve gets it
+        then: serve answers 403 and sends no graph data
+
+  - id: S10
+    role: ci
+    want: to check the speed targets on each run
+    soThat: a change that makes the graph slow cannot merge
+    requirements: [R8, R9]
+    acceptance:
+      - id: S10-A1
+        given: a generated repo of 1,000 files
+        when: CI runs the cold index benchmark
+        then: the cold index takes less than 30 seconds
+      - id: S10-A2
+        given: the same indexed repo, and one file changes
+        when: CI runs the update and query benchmark
+        then: the update takes less than 300 ms, and each query takes less than 100 ms

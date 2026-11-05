@@ -1,0 +1,41 @@
+story: S1
+scenarios:
+  - id: S1-find-ts
+    title: Agent finds a TypeScript function by words
+    status: draft
+    steps:
+      - { name: start }
+      - name: ask
+        example: { id: ask-find, given: { verb: find, target: "order by id", json: true }, then: { query: { verb: find, target: "order by id", json: true, from: cli } } }
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-none, given: { files: [src/orders.ts, api/orders.py] }, then: { mode: none, changed: [], removed: [] } }
+      - { name: update-graph/mode, branch: none }
+      - name: update-graph/unchanged
+        example: { id: run-unchanged, given: { run: { status: running } }, then: { run: { status: unchanged } } }
+        # stateAfter: IndexRun.status running -> unchanged
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: find }
+      - name: run-query/find
+        example: { id: find-ts, given: { query: { verb: find, target: "order by id" } }, then: { nodes: [ { name: getOrderById, kind: function, file: src/orders.ts } ] } }
+      - name: run-query/answer
+        example: { id: answer-find, given: { nodes: [ getOrderById ] }, then: { answer: { verb: find, ok: true, exitCode: 0, fields: [id, kind, file, range, score] } } }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S1-A1, state: { firstHit: getOrderById, hitFields: [id, kind, file, range, score], IndexRun.status: unchanged } }
+
+  - id: S1-find-both
+    title: Agent finds the TypeScript and the Python function with the same words
+    status: draft
+    steps:
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: find }
+      - name: run-query/find
+        example: { id: find-both, given: { query: { verb: find, target: "order by id" } }, then: { nodes: [ { name: getOrderById, terms: "get order by id" }, { name: get_order_by_id, terms: "get order by id" } ] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S1-A2, state: { hits: [getOrderById, get_order_by_id], embeddings: none } }

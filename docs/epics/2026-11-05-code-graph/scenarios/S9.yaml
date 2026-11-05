@@ -1,0 +1,84 @@
+story: S9
+scenarios:
+  - id: S9-drill-down
+    title: Builder opens a leaf box and sees the code that builds it
+    status: draft
+    steps:
+      - { name: open-box }
+      - name: drill-code
+        example: { id: drill-pay, given: { box: checkout/pay }, then: { query: { verb: show, target: "box checkout/pay", from: panel } } }
+      - name: serve-query
+        example: { id: serve-ok, given: { token: "session token", origin: same }, then: { query: { verb: show, target: "box checkout/pay", from: panel } } }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: show }
+      - name: run-query/show
+        example: { id: show-box, given: { node: "box checkout/pay" }, then: { nodes: [charge], edges: [ { kind: builds, to: charge, trust: exact } ] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: panel }
+      - name: code-view
+        example: { id: view-charge, given: { answer: "charge" }, then: { view: [code, ast, call-graph], editable: false } }
+      - { name: seen }
+    expect: { criterion: S9-A1, state: { panelShows: [code, ast, call-graph], readOnly: true } }
+
+  - id: S9-no-code-yet
+    title: Builder opens a leaf box that no commit builds
+    status: draft
+    steps:
+      - { name: open-box }
+      - { name: drill-code }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: show }
+      - name: run-query/show
+        example: { id: show-empty-box, given: { node: "box checkout/refund" }, then: { nodes: [], edges: [] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: panel }
+      - name: code-view
+        example: { id: view-empty, given: { answer: "no builds edges" }, then: { view: ["This box has no code yet."] } }
+      - { name: seen }
+    expect: { criterion: S9-A2, state: { panelMessage: "This box has no code yet." } }
+
+  - id: S9-watch-save
+    title: Builder saves a file and the watcher updates the graph
+    status: draft
+    steps:
+      - { name: file-saved }
+      - name: watch
+        example: { id: watch-pay, given: { path: src/pay.ts }, then: { changed: [src/pay.ts] } }
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-pay, given: { changedOnDisk: [src/pay.ts] }, then: { mode: update, changed: [src/pay.ts] } }
+      - { name: update-graph/mode, branch: update }
+      - name: update-graph/warm-update
+        example: { id: warm-pay, given: { changed: [src/pay.ts] }, then: { run: { mode: update, trigger: watch, changedFiles: 1 } } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "no" }
+      - { name: graph-updated }
+    expect: { criterion: S9-A3, state: { IndexRun.mode: update, IndexRun.trigger: watch, panelShowsSavedCode: true } }
+
+  - id: S9-no-token
+    title: A request with no session token gets 403
+    status: draft
+    steps:
+      - { name: open-box }
+      - { name: drill-code }
+      - name: serve-query
+        branch: forbidden
+        example: { id: serve-forbidden, given: { token: null }, then: { exit: forbidden, status: 403, body: "no graph data" } }
+      - { name: refused }
+    expect: { criterion: S9-A4, state: { status: 403, graphDataSent: false } }

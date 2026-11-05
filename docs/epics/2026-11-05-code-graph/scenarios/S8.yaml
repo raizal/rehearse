@@ -1,0 +1,31 @@
+story: S8
+scenarios:
+  - id: S8-builds
+    title: A Flow-Box trailer links a box and a commit to the code it changed
+    status: draft
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - name: update-graph/link
+        example: { id: link-trailer, given: { commit: { trailer: "Flow-Box: checkout/pay", diff: "src/pay.ts lines 10-30" }, function: { name: charge, range: "10-30" } }, then: { edges: [ { kind: builds, from: "box checkout/pay", to: charge, trust: exact, source: git }, { kind: changes, from: "commit", to: charge, trust: exact, source: git } ] } }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S8-A1, state: { buildsEdge: "checkout/pay -> charge", commitEdge: "commit -> charge" } }
+
+  - id: S8-tests
+    title: A Vitest test and a pytest test link to the functions they call
+    status: draft
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - name: update-graph/bulk-index
+        example: { id: bulk-tests, given: { tests: ["src/orders.test.ts calls getOrderById", "api/test_orders.py calls get_order_by_id"] }, then: { edges: [ { kind: tests, from: "orders.test.ts", to: getOrderById }, { kind: tests, from: "test_orders.py", to: get_order_by_id } ] } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S8-A2, state: { testsEdges: ["orders.test.ts -> getOrderById", "test_orders.py -> get_order_by_id"] } }
