@@ -118,14 +118,16 @@ requirements:
       The builder approves each scenario with a button in the rehearse UI.
       The CLI has no approve command, so an agent cannot approve. The record
       keeps who approved it (git user.email, plus the bb thread ID when one
-      is set), when, and a hash of the approved content.
+      is set), when, a hash of the approved content, and an SSH signature
+      by the builder's key. An approval with no valid signature from a key
+      in .rehearse/allowed_signers is not evidence. (D41)
   - id: R14
     kind: functional
     text: >-
       The gate passes only when all gate checks pass. The builder then signs
       off with a button in the rehearse UI. The CLI has no sign-off command.
-      The record keeps who signed off (same identity as R13), when, and a
-      hash of each signed story. (D17)
+      The record keeps who signed off (same identity as R13), when, a hash
+      of each signed story, and an SSH signature as in R13. (D17, D41)
   - id: R15
     kind: functional
     text: >-
