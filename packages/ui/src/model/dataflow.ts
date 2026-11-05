@@ -9,6 +9,7 @@
 import type { Box, EntityModel, Flow, Prd } from '@rehearse/core';
 import { lanesFor } from './diagram.js';
 import { nodeSize, type DEdge, type DGraph, type DNode, type FoldRow } from './graph.js';
+import type { Cell } from './grid.js';
 import { mergeEdges, rootGraph } from './userflow.js';
 
 export interface DataProcess {
@@ -154,4 +155,47 @@ export function dataFlow(flow: Flow | undefined, prd: Prd | undefined, entities:
     .map((b) => ({ path: b.id, title: typeof b.title === 'string' ? b.title : b.id, lane: lane.get(b.lane) ?? b.lane }));
 
   return { nodes, edges: mergeEdges(raw), groups: [], processes, stores, onlyWriters, noData };
+}
+
+/**
+ * Cells of the data flow (design page 6): the external entities in the first column, the
+ * processes in flow order in rows of `cols`, and under each row of processes a row of the data
+ * stores that row reads or writes first, each one under a process that uses it where it can.
+ * An entity stands in the row of the first process it gives data to or takes data from.
+ */
+export function dataFlowCells(df: DataFlow, cols: number): Map<string, Cell> {
+  const cells = new Map<string, Cell>();
+  const taken = new Set<string>();
+  const put = (id: string, c: Cell) => {
+    cells.set(id, c);
+    taken.add(`${c.row},${c.col}`);
+  };
+  const perRow = Math.max(1, cols - 1);
+  df.processes.forEach((p, i) => put(`p:${p.path}`, { row: Math.floor(i / perRow) * 2, col: 1 + (i % perRow) }));
+  const linked = (id: string) => df.edges.flatMap((e) => (e.from === id ? [e.to] : e.to === id ? [e.from] : []));
+  const firstProcess = (id: string) =>
+    linked(id)
+      .map((o) => cells.get(o))
+      .filter((c): c is Cell => c !== undefined && c.row % 2 === 0)
+      .sort((a, b) => a.row - b.row || a.col - b.col)[0];
+  for (const n of df.nodes.filter((x) => x.shape === 'entity')) {
+    let row = firstProcess(n.id)?.row ?? 0;
+    while (taken.has(`${row},0`)) row += 1;
+    put(n.id, { row, col: 0 });
+  }
+  for (const s of df.stores) {
+    const near = firstProcess(`d:${s.entity}`) ?? { row: 0, col: 1 };
+    let row = near.row + 1;
+    for (;;) {
+      const free = Array.from({ length: cols }, (_, c) => c)
+        .filter((c) => !taken.has(`${row},${c}`))
+        .sort((a, b) => Math.abs(a - near.col) - Math.abs(b - near.col) || a - b)[0];
+      if (free !== undefined) {
+        put(`d:${s.entity}`, { row, col: free });
+        break;
+      }
+      row += 2;
+    }
+  }
+  return cells;
 }

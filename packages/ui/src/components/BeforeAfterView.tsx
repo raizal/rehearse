@@ -51,7 +51,7 @@ export function BeforeAfterView({ view }: { view: ReviewEpicView }) {
   return (
     <section className="page before-after" data-testid="before-after" aria-labelledby="ba-title">
       <h2 id="ba-title">Before / after</h2>
-      <p className="muted">The system as built (docs/system/) beside the system after this EPIC. Every change says why: the decisions, and the story once prd.yaml has it.</p>
+      <p className="muted gd-sub">The system as built (docs/system/) beside the system after this EPIC. Every change says why: the decisions, and the story once prd.yaml has it.</p>
       {!c?.hasChange ? (
         <div className="arch-empty" data-testid="ba-empty">
           <p>
@@ -69,8 +69,8 @@ export function BeforeAfterView({ view }: { view: ReviewEpicView }) {
           <div className="ba-controls">
             <Toggle label="What to compare" items={SUBJECTS} value={subject} onChange={setSubject} testId="ba-subject" />
             <Toggle label="How to show it" items={MODES} value={mode} onChange={setMode} testId="ba-mode" />
+            <ArchLegend diff />
           </div>
-          <ArchLegend diff />
           {subject === 'architecture' && <ArchitectureCompareView c={c} mode={mode} />}
           {subject === 'flow' && (
             <CardCompare
@@ -98,7 +98,7 @@ export function BeforeAfterView({ view }: { view: ReviewEpicView }) {
 function ArchitectureCompareView({ c, mode }: { c: SystemCompare; mode: Mode }) {
   const a = c.architecture;
   // One layout of every item, so a part stands in the same place on both sides.
-  const lay = useMemo(() => archLayout(diffDrawing(a, 'diff')), [a]);
+  const lay = useMemo(() => archLayout(diffDrawing(a, 'diff'), { compact: mode === 'side' }), [a, mode]);
   const side = (s: DiffSide) => diffDrawing(a, s);
   if (mode === 'diff') return <ArchDiagram d={side('diff')} lay={lay} label="After with diff: every part and link with its status" testId="ba-arch-diff" />;
   if (mode === 'before') return <Side title="Before · as-is, docs/system/">{a.before ? <ArchDiagram d={side('before')} lay={lay} label="Before: the system as built" testId="ba-arch-before" /> : <NoArchitecture />}</Side>;

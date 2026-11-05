@@ -46,19 +46,28 @@ describe('T16 2 architecture layout (page 8)', () => {
     for (const r of [...parts, ...zones]) expect(r.x + r.w <= lay.width && r.y + r.h <= lay.height).toBe(true);
   });
 
-  it('T16 2 a zone has at most three components across', () => {
-    const repo = lay.zones.get('repo')!;
-    expect(repo.w).toBe(ARCH.zonePad * 2 + 3 * ARCH.partW + 2 * ARCH.gap);
+  it('T16 2 a zone has at most three components across (T18b: the biggest zone three, the stacked zones two)', () => {
+    const across = (zone: string) => new Set(d.parts.filter((p) => p.zone === zone).map((p) => lay.parts.get(p.id)!.x)).size;
+    expect(across('repo')).toBe(ARCH.maxCols);
+    expect(across('bb')).toBe(ARCH.sideCols);
   });
 
-  it('T16 2 each link runs between the borders of its two parts, labelled at its middle', () => {
+  it('T16 2 each link runs between the borders of its two parts, with its label on the line (T18b: orthogonal)', () => {
     expect(lay.links.length).toBe(arch.links.length);
     const l = lay.links.find((x) => x.from === 'core' && x.to === 'repo')!;
-    expect(l.lx).toBe((l.x1 + l.x2) / 2);
     const a = lay.parts.get('core')!;
     const onBorder = (r: typeof a, x: number, y: number) => Math.abs(x - r.x) < 0.01 || Math.abs(x - r.x - r.w) < 0.01 || Math.abs(y - r.y) < 0.01 || Math.abs(y - r.y - r.h) < 0.01;
-    expect(onBorder(a, l.x1, l.y1)).toBe(true);
-    expect(onBorder(lay.parts.get('repo')!, l.x2, l.y2)).toBe(true);
+    const first = l.points[0]!;
+    const last = l.points[l.points.length - 1]!;
+    expect(onBorder(a, first.x, first.y)).toBe(true);
+    expect(onBorder(lay.parts.get('repo')!, last.x, last.y)).toBe(true);
+    const label = l.label!;
+    const mid = { x: label.x + label.w / 2, y: label.y + label.h / 2 };
+    const onLine = l.points.slice(1).some((q, i) => {
+      const p = l.points[i]!;
+      return (Math.abs(p.x - q.x) < 0.5 && Math.abs(mid.x - p.x) < 0.5) || (Math.abs(p.y - q.y) < 0.5 && Math.abs(mid.y - p.y) < 0.5);
+    });
+    expect(onLine).toBe(true);
   });
 
   it('T16 2 clipToRect leaves the box on the side that faces the target', () => {
@@ -81,7 +90,7 @@ describe('T16 2 architecture layout (page 8)', () => {
       ],
     };
     const l = archLayout(drawingOf(odd));
-    expect(l.parts.get('b')!.x).toBe(ARCH.pad);
+    expect(l.parts.get('b')!.x + l.parts.get('b')!.w).toBeLessThan(l.zones.get('z')!.x);
     expect(l.links.map((x) => x.to)).toEqual(['b']);
     expect(drawingOf(odd).zones[0]!.color).toBe('blue');
   });
