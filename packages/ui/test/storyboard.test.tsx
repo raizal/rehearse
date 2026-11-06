@@ -1,12 +1,14 @@
-// The storyboard under Stories (S6-A1). One card per scenario (story,
-// criterion, path map, step panels, end state, Approve), the review queue grouped by story,
-// and the "seen every step" gate on Approve. Seen state is browser-only and never sent.
+// The storyboard under Stories (S6-A1). One page per scenario (story, criterion, path map, the
+// path as a flowchart with the picked step's detail and playback (S5-A1), end state, Approve),
+// the review queue grouped by story, and the "seen every step" gate on Approve: a step is seen
+// when the panel shows it. Seen state is browser-only and never sent.
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.js';
-import { StoryCard } from '../src/components/Storyboard.js';
+import type { ScenarioView } from '../src/api.js';
+import { PLAY_MS, StoryCard } from '../src/components/Storyboard.js';
 import type { ReviewEpicView } from '../src/contract.js';
 import { boxAt } from '../src/model/diagram.js';
 import { approveReason } from '../src/model/review.js';
@@ -38,11 +40,21 @@ const open = async (user: ReturnType<typeof userEvent.setup>, id: string) => {
   await waitFor(() => expect(screen.getByTestId('story-card')).toHaveTextContent(id));
 };
 
-/** Step through every panel with the "Step through" button. */
+/** Step 1 is shown on open; "Next step" shows the rest. */
 async function stepThrough(user: ReturnType<typeof userEvent.setup>) {
   const total = Number(/of (\d+) steps seen/.exec(screen.getByTestId('card-seen').textContent ?? '')![1]);
-  for (let i = 0; i < total; i++) await user.click(screen.getByTestId('card-next-step'));
+  for (let i = 1; i < total; i++) await user.click(screen.getByTestId('card-next-step'));
 }
+
+/** Approve controls of a StoryCard rendered on its own. */
+const approveFor = (view: ReviewEpicView) => ({
+  reasonFor: (s: ScenarioView) => approveReason(s, view.approvals),
+  approvals: view.approvals,
+  selected: new Set<string>(),
+  onToggle: () => {},
+  onApprove: () => {},
+  disabled: false,
+});
 
 describe('storyboard under Stories (S6-A1)', () => {
   it('S6-A1: Stories opens on the story page, with progress, one queue row per story and the scenario cards', async () => {
@@ -70,7 +82,7 @@ describe('storyboard under Stories (S6-A1)', () => {
     expect(screen.getByTestId('story-view')).toHaveTextContent('S2 ·');
   });
 
-  it('S6-A1: the card shows story, criterion, step panels and the end state', async () => {
+  it('S6-A1: the card shows story, criterion, the end state, and the picked step in the detail panel', async () => {
     const { user } = await start();
     await open(user, 'S1-buy');
     const story = screen.getByTestId('card-story');
@@ -83,16 +95,25 @@ describe('storyboard under Stories (S6-A1)', () => {
     expect(crit).toHaveTextContent('the buyer pays');
     expect(crit).toHaveTextContent('the order is shipped');
 
-    expect(screen.getByTestId('card-step-title-2')).toHaveTextContent('Charge the buyer');
-    expect(screen.getByTestId('card-step-lane-2')).toHaveTextContent('lane: System');
-    expect(screen.getByTestId('card-step-lane-1')).toHaveTextContent('lane: Builder');
-    expect(screen.getByTestId('card-step-example-1')).toHaveTextContent('items');
-    expect(screen.getByTestId('card-step-example-1')).toHaveTextContent('o1');
-    expect(screen.getByTestId('card-step-example-2')).toHaveTextContent('paid');
-    expect(screen.getByTestId('card-step-branch-3')).toHaveTextContent('branch taken: yes');
-    expect(screen.getByTestId('card-step-example-3')).toHaveTextContent('Passes through. No example on this step.');
-    expect(screen.getByTestId('card-step-contract-2')).toHaveTextContent('orderId');
-    expect(screen.getByTestId('card-step-contract-2')).toHaveTextContent('Order.status:draft->paid');
+    // Step 1 is open in the panel: GIVEN / THEN of its example, the lane, the contract.
+    expect(screen.getByTestId('card-detail-lane')).toHaveTextContent('lane: Builder');
+    expect(screen.getByTestId('card-detail-example')).toHaveTextContent('GIVEN · cart-ok');
+    expect(screen.getByTestId('card-detail-example')).toHaveTextContent('items');
+    expect(screen.getByTestId('card-detail-example')).toHaveTextContent('o1');
+    await user.click(screen.getByTestId('card-step-2'));
+    expect(screen.getByTestId('card-detail-title')).toHaveTextContent('Charge the buyer');
+    expect(screen.getByTestId('card-detail-lane')).toHaveTextContent('lane: System');
+    expect(screen.getByTestId('card-detail-example')).toHaveTextContent('STATE AFTER');
+    expect(screen.getByTestId('card-detail-example')).toHaveTextContent('paid');
+    expect(screen.getByTestId('card-detail-contract')).toHaveTextContent('orderId');
+    expect(screen.getByTestId('card-detail-contract')).toHaveTextContent('Order.status:draft->paid');
+    await user.click(screen.getByTestId('card-step-3'));
+    expect(screen.getByTestId('card-detail-branch')).toHaveTextContent('branch taken: yes');
+    expect(screen.getByTestId('card-detail-example')).toHaveTextContent('Passes through. No example on this step.');
+    // The last step shows where the path ends: the expected end state.
+    expect(screen.queryByTestId('card-detail-expect')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('card-step-4'));
+    expect(screen.getByTestId('card-detail-expect')).toHaveTextContent('Order.status = shipped');
 
     const result = screen.getByTestId('card-result');
     expect(result).toHaveTextContent('checked against S1-A1');
@@ -113,23 +134,142 @@ describe('storyboard under Stories (S6-A1)', () => {
   });
 });
 
+describe('the storyboard as a flowchart (S6-A1, T37)', () => {
+  it('S6-A1: one node per step in its role lane; a decision is a diamond; the taken branch is a labelled edge', async () => {
+    const { user } = await start();
+    await open(user, 'S1-buy');
+    const chart = screen.getByTestId('card-flow');
+    expect(within(chart).getByTestId('card-lane-builder')).toHaveTextContent('Builder');
+    expect(within(chart).getByTestId('card-lane-system')).toHaveTextContent('System');
+    expect([1, 2, 3, 4].map((n) => screen.getByTestId(`card-node-title-${n}`).textContent)).toEqual(['Check out the cart', 'Charge the buyer', 'Item in stock?', 'Pack']);
+    expect(screen.getByTestId('card-step-3')).toHaveClass('is-decision');
+    expect(screen.getByTestId('card-step-3').querySelector('.sf-diamond')).not.toBeNull();
+    expect(screen.getByTestId('card-step-2')).toHaveClass('is-step');
+    expect(screen.getByTestId('card-step-3')).toHaveAccessibleName('Step 3 of 4: Item in stock? (System decision), takes "yes"');
+    // The step inside a nested diagram says where it is.
+    expect(screen.getByTestId('card-step-4')).toHaveTextContent('in Ship the order');
+  });
+
+  it('S6-A1: a branch not taken leads, faded, to the box it would go to; the panel lists it with a box link', () => {
+    const onOpenBox = vi.fn();
+    const view = reviewEpic();
+    const sv = view.scenarios.find((s) => s.scenario.id === 'S1-buy')!;
+    render(<StoryCard view={view} sv={sv} seen={{}} onSeen={() => {}} approve={approveFor(view)} onOpenBox={onOpenBox} />);
+    const ghosts = screen.getAllByTestId(/^card-ghost-3-/);
+    expect(ghosts).toHaveLength(1);
+    expect(ghosts[0]).toHaveClass('sf-ghost');
+    expect(ghosts[0]).toHaveAttribute('aria-hidden', 'true');
+    const target = ghosts[0]!.dataset.testid!.replace('card-ghost-3-', '');
+    fireEvent.click(screen.getByTestId('card-step-3'));
+    const others = screen.getByTestId('card-detail-not-taken');
+    expect(others).toHaveTextContent('no →');
+    fireEvent.click(within(others).getByRole('button'));
+    expect(onOpenBox).toHaveBeenLastCalledWith(target);
+  });
+
+  it('S6-A1: box links in the panel call onOpenBox with the box path; there is no "Open in flow"', () => {
+    const onOpenBox = vi.fn();
+    const view = reviewEpic();
+    const sv = view.scenarios.find((s) => s.scenario.id === 'S1-buy')!;
+    render(<StoryCard view={view} sv={sv} seen={{}} onSeen={() => {}} approve={approveFor(view)} onOpenBox={onOpenBox} />);
+    expect(screen.queryByTestId('card-open-flow')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('card-detail-open-box'));
+    expect(onOpenBox).toHaveBeenLastCalledWith('cart');
+    fireEvent.click(screen.getByTestId('card-step-4'));
+    expect(screen.getByTestId('card-detail-path')).toHaveTextContent('ship/pack');
+    fireEvent.click(screen.getByTestId('card-detail-open-box'));
+    expect(onOpenBox).toHaveBeenLastCalledWith('ship/pack');
+    fireEvent.click(within(screen.getByTestId('card-detail-path')).getByRole('button', { name: /\(ship\)$/ }));
+    expect(onOpenBox).toHaveBeenLastCalledWith('ship');
+  });
+
+  it('S5-A1: Next and Prev step along the path; the picked node is highlighted', async () => {
+    const { user } = await start();
+    await open(user, 'S1-buy');
+    expect(screen.getByTestId('card-step-1')).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 1 of 4');
+    expect(screen.getByTestId('card-prev-step')).toBeDisabled();
+    await user.click(screen.getByTestId('card-next-step'));
+    await user.click(screen.getByTestId('card-next-step'));
+    expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 3 of 4');
+    expect(screen.getByTestId('card-step-3')).toHaveClass('is-current');
+    expect(screen.getByTestId('card-step-3')).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByTestId('card-step-1')).not.toHaveAttribute('aria-current');
+    // Only the current step is in the tab order.
+    expect(screen.getByTestId('card-step-3')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByTestId('card-step-1')).toHaveAttribute('tabindex', '-1');
+    await user.click(screen.getByTestId('card-prev-step'));
+    expect(screen.getByTestId('card-detail-title')).toHaveTextContent('Charge the buyer');
+    await user.click(screen.getByTestId('card-next-step'));
+    await user.click(screen.getByTestId('card-next-step'));
+    expect(screen.getByTestId('card-next-step')).toBeDisabled();
+  });
+
+  it('S5-A1: Play moves along the path one step at a time and stops at the end; Pause and picking a step stop it', () => {
+    const view = reviewEpic();
+    const sv = view.scenarios.find((s) => s.scenario.id === 'S1-buy')!;
+    vi.useFakeTimers();
+    try {
+      render(<StoryCard view={view} sv={sv} seen={{}} onSeen={() => {}} approve={approveFor(view)} />);
+      const play = screen.getByTestId('card-play');
+      fireEvent.click(play);
+      expect(play).toHaveAttribute('aria-pressed', 'true');
+      expect(play).toHaveTextContent('Pause');
+      act(() => vi.advanceTimersByTime(PLAY_MS));
+      expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 2 of 4');
+      act(() => vi.advanceTimersByTime(PLAY_MS));
+      act(() => vi.advanceTimersByTime(PLAY_MS));
+      expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 4 of 4');
+      expect(play).toHaveAttribute('aria-pressed', 'false');
+      // Play at the end starts again from step 1; Pause holds the step.
+      fireEvent.click(play);
+      expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 1 of 4');
+      act(() => vi.advanceTimersByTime(PLAY_MS));
+      fireEvent.click(play);
+      act(() => vi.advanceTimersByTime(PLAY_MS * 3));
+      expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 2 of 4');
+      fireEvent.click(play);
+      fireEvent.click(screen.getByTestId('card-step-4'));
+      expect(play).toHaveAttribute('aria-pressed', 'false');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('S5-A1: left and right arrows step anywhere on the page, but not in a form field', async () => {
+    const { user } = await start();
+    await open(user, 'S1-buy');
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 2 of 4');
+    fireEvent.keyDown(document.body, { key: 'ArrowLeft' });
+    expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 1 of 4');
+    const input = document.createElement('input');
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: 'ArrowRight' });
+    expect(screen.getByTestId('card-step-count')).toHaveTextContent('Step 1 of 4');
+    input.remove();
+  });
+});
+
 describe('approve only after every step was seen (S6-A1)', () => {
-  it('S6-A1: Approve is off until every step panel was seen; stepping through turns it on', async () => {
+  it('S6-A1: a step counts as seen when the panel shows it; step 1 opens shown; Approve is off until all are seen', async () => {
     const { server, user } = await start();
     await open(user, 'S1-empty');
     const approve = screen.getByTestId('card-approve');
     expect(approve).toBeDisabled();
     expect(approve).toHaveAccessibleName('Approve S1-empty (see every step first)');
-    expect(screen.getByTestId('card-approve-why')).toHaveTextContent('0 of 3 seen');
+    expect(screen.getByTestId('card-seen')).toHaveTextContent('1 of 3 steps seen');
+    expect(screen.getByTestId('card-approve-why')).toHaveTextContent('1 of 3 seen');
+    expect(screen.getByTestId('card-step-2')).not.toHaveClass('is-seen');
 
     await user.click(screen.getByTestId('card-next-step'));
-    expect(screen.getByTestId('card-seen')).toHaveTextContent('1 of 3 steps seen');
-    expect(screen.getByTestId('card-step-1')).toHaveFocus();
+    expect(screen.getByTestId('card-seen')).toHaveTextContent('2 of 3 steps seen');
+    expect(screen.getByTestId('card-step-2')).toHaveClass('is-seen');
     expect(screen.getByTestId('card-approve')).toBeDisabled();
-    await user.click(screen.getByTestId('card-next-step'));
     await user.click(screen.getByTestId('card-next-step'));
     expect(screen.getByTestId('card-seen')).toHaveTextContent('3 of 3 steps seen');
     expect(screen.queryByTestId('card-approve-why')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-next-unseen')).not.toBeInTheDocument();
     expect(screen.getByTestId('card-approve')).toBeEnabled();
     expect(screen.getByTestId('card-approve')).toHaveAccessibleName('Approve S1-empty (draft)');
 
@@ -137,16 +277,51 @@ describe('approve only after every step was seen (S6-A1)', () => {
     expect(server.posts('api/approve')[0]!.body).toEqual({ scenarioIds: ['S1-empty'] });
   });
 
-  it('S6-A1: a panel that gets focus is seen; up and down arrows move between the panels', async () => {
+  it('S6-A1: the shown step is marked seen again when the seen state is loaded after the page opened', () => {
+    const view = reviewEpic();
+    const sv = view.scenarios.find((s) => s.scenario.id === 'S1-empty')!;
+    const onSeen = vi.fn();
+    const { rerender } = render(<StoryCard view={view} sv={sv} seen={{}} onSeen={onSeen} approve={approveFor(view)} />);
+    expect(onSeen).toHaveBeenCalledTimes(1);
+    expect(onSeen).toHaveBeenLastCalledWith(sv, 0);
+    // The stored seen state of the tab, loaded later, replaces the state the first mark went into.
+    rerender(<StoryCard view={view} sv={sv} seen={{ 'S1-buy': { hash: 'h', steps: [0] } }} onSeen={onSeen} approve={approveFor(view)} />);
+    expect(onSeen).toHaveBeenCalledTimes(2);
+    expect(onSeen).toHaveBeenLastCalledWith(sv, 0);
+    // Once the step is in the seen state, a new state does not mark it again.
+    rerender(<StoryCard view={view} sv={sv} seen={{ 'S1-empty': { hash: sv.hash, steps: [0] } }} onSeen={onSeen} approve={approveFor(view)} />);
+    rerender(<StoryCard view={view} sv={sv} seen={{ 'S1-empty': { hash: sv.hash, steps: [0, 1] } }} onSeen={onSeen} approve={approveFor(view)} />);
+    expect(onSeen).toHaveBeenCalledTimes(2);
+    expect(onSeen).toHaveBeenLastCalledWith(sv, 0);
+  });
+
+  it('S6-A1: picking nodes in any order counts; "not seen yet" jumps to the next step not seen', async () => {
+    const { user } = await start();
+    await open(user, 'S1-buy');
+    await user.click(screen.getByTestId('card-step-3'));
+    expect(screen.getByTestId('card-seen')).toHaveTextContent('2 of 4 steps seen');
+    expect(screen.getByTestId('card-next-unseen')).toHaveTextContent('Step 4, not seen yet');
+    await user.click(screen.getByTestId('card-next-unseen'));
+    expect(screen.getByTestId('card-step-4')).toHaveFocus();
+    expect(screen.getByTestId('card-next-unseen')).toHaveTextContent('Step 2, not seen yet');
+    await user.click(screen.getByTestId('card-next-unseen'));
+    expect(screen.getByTestId('card-seen')).toHaveTextContent('4 of 4 steps seen');
+  });
+
+  it('S6-A1: arrow keys on a node move along the path and mark each step seen', async () => {
     const { user } = await start();
     await open(user, 'S2-out-of-stock');
     act(() => screen.getByTestId('card-step-1').focus());
     await user.keyboard('{ArrowDown}');
     expect(screen.getByTestId('card-step-2')).toHaveFocus();
-    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowRight}');
     expect(screen.getByTestId('card-step-3')).toHaveFocus();
     await user.keyboard('{ArrowUp}');
     expect(screen.getByTestId('card-step-2')).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(screen.getByTestId('card-step-1')).toHaveFocus();
+    await user.keyboard('{End}');
+    expect(screen.getByTestId('card-step-3')).toHaveFocus();
     expect(screen.getByTestId('card-seen')).toHaveTextContent('3 of 3 steps seen');
     expect(screen.getByTestId('card-approve')).toBeEnabled();
   });
@@ -237,22 +412,12 @@ describe('review queue', () => {
     await user.click(screen.getByTestId('approve-selected'));
     expect(server.posts('api/approve')[0]!.body).toEqual({ scenarioIds: ['S1-empty'] });
   });
-
-  it('"Open in flow" opens playback of the scenario in the flow view', async () => {
-    const { user } = await start();
-    await open(user, 'S1-buy');
-    await user.click(screen.getByTestId('card-open-flow'));
-    expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-    expect(await screen.findByTestId('playback-step')).toHaveTextContent('Step 1 of 4');
-    expect(screen.getByTestId('scenario-S1-buy')).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(screen.getByTestId('box-cart')).toHaveAttribute('data-highlighted', 'true'));
-  });
 });
 
 describe('the real EPIC', () => {
   const real = realEpic();
 
-  it('S6-A1: renders the card of every real scenario, and every step shows its box title', () => {
+  it('S6-A1: renders the flowchart of every real scenario, and every step node shows its box title', () => {
     expect(real.scenarios.length).toBeGreaterThan(0);
     for (const sv of real.scenarios) {
       const { unmount } = render(
@@ -261,8 +426,8 @@ describe('the real EPIC', () => {
           sv={sv}
           seen={{}}
           onSeen={() => {}}
-          approve={{ reasonFor: (s) => approveReason(s, real.approvals), approvals: real.approvals, selected: new Set(), onToggle: () => {}, onApprove: () => {}, disabled: false }}
-          onOpenFlow={() => {}}
+          approve={approveFor(real)}
+          onOpenBox={() => {}}
         />,
       );
       const steps = sv.scenario.steps;
@@ -270,7 +435,8 @@ describe('the real EPIC', () => {
       steps.forEach((step, i) => {
         const title = boxAt(real.flow, step.name)?.title;
         expect(title, `${sv.scenario.id} step ${i + 1}: ${step.name}`).toBeTruthy();
-        expect(screen.getByTestId(`card-step-title-${i + 1}`)).toHaveTextContent(title!);
+        expect(screen.getByTestId(`card-node-title-${i + 1}`)).toHaveTextContent(title!);
+        expect(screen.getByTestId(`card-steps-text-${i + 1}`)).toHaveTextContent(title!);
       });
       // The bootstrap approvals of the real EPIC are not signed (D41).
       expect(screen.getByTestId('card-approval-state')).not.toHaveTextContent('signature valid');
@@ -294,11 +460,25 @@ describe('accessibility', () => {
     expect(screen.getByTestId('story-scenario-open-S1-empty')).toHaveAccessibleName('Open the storyboard of S1-empty: Buyer checks out an empty cart (draft, not approved)');
     expect(screen.getByRole('navigation', { name: 'Review queue' })).toBeInTheDocument();
     await open(user, 'S1-empty');
-    expect(screen.getByTestId('card-open-flow')).toHaveAccessibleName('Open S1-empty in the flow view, in playback');
-    expect(screen.getByTestId('card-step-1')).toHaveAccessibleName(/^Step 1 of 3: /);
-    await user.click(screen.getByTestId('card-next-step'));
-    expect(screen.getByTestId('card-step-1')).toHaveAccessibleName(/, seen$/);
+    expect(screen.getByTestId('card-step-1')).toHaveAccessibleName(/^Step 1 of 3: .*, seen$/);
+    expect(screen.getByTestId('card-step-2')).not.toHaveAccessibleName(/, seen$/);
+    expect(screen.getByTestId('card-step-1').tagName).toBe('BUTTON');
+    expect(screen.getByTestId('card-flow')).toHaveAttribute('role', 'group');
+    expect(screen.getByTestId('card-flow')).toHaveAccessibleName(/^Flowchart of S1-empty: 3 steps/);
     fireEvent.keyDown(screen.getByTestId('card-step-1'), { key: 'ArrowDown' });
     expect(screen.getByTestId('card-step-2')).toHaveFocus();
+    expect(screen.getByTestId('card-step-2')).toHaveAccessibleName(/, seen$/);
+    expect(screen.getByTestId('card-detail-title')).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('S6-A1: a visually hidden ordered list reads the path in words: steps, lanes, branches, seen', async () => {
+    const { user } = await start();
+    await open(user, 'S1-buy');
+    const list = screen.getByTestId('card-steps-text');
+    expect(list.tagName).toBe('OL');
+    expect(list).toHaveClass('sr-only');
+    expect(within(list).getAllByRole('listitem')).toHaveLength(4);
+    expect(screen.getByTestId('card-steps-text-1')).toHaveTextContent('Step 1: Check out the cart, lane Builder, seen.');
+    expect(screen.getByTestId('card-steps-text-3')).toHaveTextContent('Step 3: Item in stock?, lane System, a decision, branch taken: yes; not taken: no to No order.');
   });
 });

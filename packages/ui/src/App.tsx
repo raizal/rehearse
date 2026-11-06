@@ -361,10 +361,6 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     disabled: actionsOff,
     isSeen,
   };
-  const openInFlow = (id: Id) => {
-    setTab('flow');
-    pick(id);
-  };
 
   const report = view?.report;
   return (
@@ -476,7 +472,6 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           onSelectMany={(ids) => setPicked((old) => new Set([...old, ...ids]))}
           busy={busy === 'approve'}
           outcome={approveOutcome}
-          onOpenFlow={openInFlow}
         />
       )}
       {view && tab === 'usecases' && (
