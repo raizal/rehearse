@@ -40,6 +40,9 @@ Code graph (each verb first updates .rehearse/graph.db at the git top-level; --r
   near <target> [--depth n] [--json] [--rebuild]
                                          The nodes up to n edges away, both ways (default 1).
   path <from> <to> [--json] [--rebuild]  The shortest chain of edges from one node to the other.
+  context <target> [--budget tokens] [--json] [--rebuild]
+                                         The code to read for a target, within a token budget (default 2000;
+                                         a token is 4 characters): the target, then by graph distance, then PageRank.
   A target is a node ID, a name, a route ("GET /api/orders/{order_id}") or a file path.
   Exit 1 with "not found" (no such target) or "no path".
 
