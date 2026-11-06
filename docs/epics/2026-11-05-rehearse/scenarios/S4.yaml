@@ -3,7 +3,17 @@ scenarios:
   - id: S4-swimlanes
     title: Builder opens a clean design in the panel
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:b6d6f40ccc4878270422572439de1a4094971435fe884e3431583d30d68034a2', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:36:46Z'
+      hash: 'sha256:b6d6f40ccc4878270422572439de1a4094971435fe884e3431583d30d68034a2'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAkEj+w9DwbEhBOBxwsIorSsWYiwFHkdxNRo3JbkNCzDDiQEa2fvI2XLp/hv
+        qS42NKZipH8LFHCwLctRgwayfdDg==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: simulate/report }
       - name: design-errors
@@ -16,12 +26,22 @@ scenarios:
   - id: S4-drill
     title: Builder drills into a box with children
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:9c8d31904ad814cf27d3349ad80bc8b5f0a802db29c8d5e38c539f3924a0352d', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:35:26Z'
+      hash: 'sha256:ac00026908fe8a077f60b34f64845c0cc9b7918b46d32d91756e45c96b3932e7'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAJ27aBEX69k8RG54rH9LPaHlcgKSOXEupa/7UeOWZ7ilxe8voqwGFUAI2kd
+        3pjvrWoU58+VHs4j6kgK8J2hUfBA==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: review/swimlanes }
       - name: review/drill
-        example: { id: drill-in, given: { click: ship }, then: { shown: ship/children, breadcrumb: [root, ship] } }
-    expect: { criterion: S4-A2, state: { breadcrumb: [root, ship] } }
+        example: { id: drill-in, given: { click: ship }, then: { shown: ship/children, breadcrumb: [ root, ship ] } }
+    expect: { criterion: S4-A2, state: { breadcrumb: [ root, ship ] } }
 
   - id: S4-browser
     title: Builder opens the served UI in a browser
@@ -48,18 +68,18 @@ scenarios:
     steps:
       - { name: review/swimlanes }
       - name: review/big-picture
-        example: { id: big-picture, given: { stories: { S1: [new-epic, validate], S2: [draft-record, validate] } }, then: { roles: all, processes: in-flow-order, lines: [S1, S2], shared: { validate: [S1, S2] } } }
-    expect: { criterion: S4-A4, state: { shared: { validate: [S1, S2] } } }
+        example: { id: big-picture, given: { stories: { S1: [ new-epic, validate ], S2: [ draft-record, validate ] } }, then: { roles: all, processes: in-flow-order, lines: [ S1, S2 ], shared: { validate: [ S1, S2 ] } } }
+    expect: { criterion: S4-A4, state: { shared: { validate: [ S1, S2 ] } } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-05T16:25:59Z'
-      hash: 'sha256:a75de8be452a2503a010df12c4420217f73b03544ac3d0dbc9418b602b09d882'
+      at: '2026-11-06T03:36:41Z'
+      hash: 'sha256:a2f3e4484709434a3d8e3a50936bc05dc85ebf5825748975d30ff2aadb243d2a'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABA48nXcjK01OW6f0lHoqG4+F8Or9INP953K6U7gDIxa4aUC4ukUxeLsLkLni
-        jJufF3DbmN2RGwCueP8uXc7BIlAw==
+        MjU1MTkAAABASF1yhofL9C9kQMfaQMcgW/ruY7a211MsCRff28/4H+6hNouh+WEzgTWBDF
+        Z8LHcYX74nuxykcBXX+IoLPZ8mAw==
         -----END SSH SIGNATURE-----
 
   - id: S4-story-view
@@ -68,26 +88,37 @@ scenarios:
     steps:
       - { name: review/swimlanes }
       - name: review/story-view
-        example: { id: story-view, given: { story: S9, boxes: [content-changed, gate, sign-off], writes: ["Story.status:draft->signed"] }, then: { what: S9, how: [content-changed, gate, sign-off], output: { Story.status: "draft → signed" }, then: scenarios, thread: { column: 3, collapsible: true, key: "]" } } }
-    expect: { criterion: S4-A5, state: { panels: [what, how, output], output: { Story.status: "draft → signed" }, threadColumn: collapsible } }
+        example: { id: story-view, given: { story: S9, boxes: [ content-changed, gate, sign-off ], writes: [ "Story.status:draft->signed" ] }, then: { what: S9, how: [ content-changed, gate, sign-off ], output: { Story.status: "draft → signed" }, then: scenarios, thread: { column: 3, collapsible: true, key: "]" } } }
+    expect: { criterion: S4-A5, state: { panels: [ what, how, output ], output: { Story.status: "draft → signed" }, threadColumn: collapsible } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-05T16:26:02Z'
-      hash: 'sha256:51b4ecc174826dfc005836f547d2df76e6e16411f5112a4e1b70ced434249199'
+      at: '2026-11-06T03:36:58Z'
+      hash: 'sha256:60b8c601e651d1955d34861d8f9b7bc3a8cb458219adbbab7eb06b43e875d750'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABAVkNok1ctCSWNZp13kiBsSk/ytQwgV+f8DxKArTM+ZCu47ePPHjEeeEpioa
-        DoipJ9yAjVINT6pobu1DR3cl9ZDg==
+        MjU1MTkAAABAmoXWH+eehdaG/zmg+UHQuZ1S+oxWUL47Rwdp0aCjAdw40zA6KhIV7nVHxr
+        +YSh3qvbC9tjZbV7HsuGPDRZJ6Cg==
         -----END SSH SIGNATURE-----
 
   - id: S4-story-tests
     title: Builder opens the Tests tab of a story
-    status: draft
+    status: approved
     steps:
       - { name: review/swimlanes }
       - { name: review/story-view }
       - name: review/story-tests
-        example: { id: tests-tab, given: { story: S1, results: none }, then: { tests: ["S1-create: not run"], player: birdview } }
+        example: { id: tests-tab, given: { story: S1, results: none }, then: { tests: [ "S1-create: not run" ], player: birdview } }
     expect: { criterion: S4-A6, state: { rows: one-per-scenario, statusInWords: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:37:04Z'
+      hash: 'sha256:f976f7c260cc2b3f679cef29638dc2e3854be461e1de4619458d042f72fe5ecd'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA8EDlAu6tSjPuI1npGNXbHS8NNzbliPJpU3m1MIhDWIdEcvkv18NwBWi8fW
+        GvjUZqh99hpyz2jS1lOhJ7Df5SBQ==
+        -----END SSH SIGNATURE-----

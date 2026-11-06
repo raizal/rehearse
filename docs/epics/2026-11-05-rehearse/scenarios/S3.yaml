@@ -38,7 +38,17 @@ scenarios:
   - id: S3-uncovered-branch
     title: A decision branch that no approved scenario reaches
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:7e51ca26e3b2712fa8fb2aa81894292d1fe7b530b9a69c633f8d2743e2638d07', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:36:10Z'
+      hash: 'sha256:7e51ca26e3b2712fa8fb2aa81894292d1fe7b530b9a69c633f8d2743e2638d07'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAx53tXSBzJSyN69wfSCP0Oq5KbYnBZRVagB+xN/yxELey8+sNjOnA9mdxRh
+        BmD45GjfA+RzJYcPTQJ3DRnJ05BA==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: simulate/load }
       - { name: simulate/contracts }
@@ -54,7 +64,17 @@ scenarios:
   - id: S3-bad-transition
     title: A scenario changes Order from draft to shipped
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:c73fabc278ffee1167a01b124dfc703e5bd62194f3410082356d3da9d4679480', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T02:52:10Z'
+      hash: 'sha256:c73fabc278ffee1167a01b124dfc703e5bd62194f3410082356d3da9d4679480'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAp2L4Rcu65WSq8ETZkhWk+TKdQ82gfigd8JYpW4be8Xk1hPXG61p/0AEKOl
+        XeRObpQJUYtex8HdU4F8B8/ahPBA==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: simulate/load }
       - { name: simulate/contracts }
@@ -70,7 +90,17 @@ scenarios:
   - id: S3-acceptance-diff
     title: End state differs from an acceptance criterion
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:2e042473cdc864d7d3acdfe7ee0c1715935be0a916ea84ef5caddd0c9f222597', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:35:19Z'
+      hash: 'sha256:2e042473cdc864d7d3acdfe7ee0c1715935be0a916ea84ef5caddd0c9f222597'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAmaLPp8yReNa/5wmZ6PQhEflnN5L79VgYIf94av2LzjF5kCXAbPQxAmooXG
+        7BLDCE4AtbFaVp4uEqMBQAJsqwDQ==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: simulate/load }
       - { name: simulate/contracts }
@@ -86,7 +116,17 @@ scenarios:
   - id: S3-deterministic
     title: Two runs on the same record give the same report
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:67d61924d769c21fefeb6a7e8b018737c6ae216b74ebd01bff0622dcaf5567c6', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:36:53Z'
+      hash: 'sha256:67d61924d769c21fefeb6a7e8b018737c6ae216b74ebd01bff0622dcaf5567c6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAdQeOir5jrA8vNyIIT9FBDP95AMn1rwTt1qoeJN9v87e3siCZlAgNOC05uy
+        BNvODtKrBbkcdUBWd84QjZqJCzDg==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: simulate/load }
       - { name: simulate/contracts }

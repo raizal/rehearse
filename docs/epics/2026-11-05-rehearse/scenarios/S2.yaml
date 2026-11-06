@@ -85,7 +85,17 @@ scenarios:
   - id: S2-yaml-syntax
     title: A record file is not valid YAML
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:fcdc8e942bdde04f561b650b7a7536d7fd163e9dfd8d8032d8216841e2d0971c', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T02:51:56Z'
+      hash: 'sha256:fcdc8e942bdde04f561b650b7a7536d7fd163e9dfd8d8032d8216841e2d0971c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAFUwapBx0h33QqI6i6KqNxPXzUlB+v2iNzCnKPzQM9MZ3MnlppisdNgeXTW
+        XEHkcM2jHJ5Dbyq0e0Xtss57nOBA==
+        -----END SSH SIGNATURE-----
     steps:
       - name: validate/parse
         branch: yaml-syntax

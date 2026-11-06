@@ -3,26 +3,56 @@ scenarios:
   - id: S8-no-proof
     title: A requirement has no story
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:1ce2d5967eeae779c7b988bed25d2545f81f52c56f0ea7da52f5e91538f92817', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:35:44Z'
+      hash: 'sha256:1ce2d5967eeae779c7b988bed25d2545f81f52c56f0ea7da52f5e91538f92817'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABARKHKveItZAvlqLegslwGPmFh2JTJm9TfKskwCHqdrvSI+axo3dakkkY8Jm
+        AZ1rMA5K5+yT4PkO/3MP9iuKC/Ag==
+        -----END SSH SIGNATURE-----
     steps:
       - name: review/readiness
-        example: { id: ready-no-proof, given: { requirements: [R2], stories: [] }, then: { noProof: [{ id: R2, reason: "no story" }] } }
+        example: { id: ready-no-proof, given: { requirements: [ R2 ], stories: [] }, then: { noProof: [ { id: R2, reason: "no story" } ] } }
     expect: { criterion: S8-A1, state: { R2: no-proof } }
 
   - id: S8-no-requirement
     title: A box serves no requirement
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f73ec600be0420271c205455f790d9f040ecb008cecaa5382cd43301eef9b3a6', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:37:20Z'
+      hash: 'sha256:f73ec600be0420271c205455f790d9f040ecb008cecaa5382cd43301eef9b3a6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAKBC7Af1QkpDeN8xN56tXnUzcDGBmcWX/FaCxyrda/GbrtxYBznX+beqQBV
+        tKg+eHfAcKL/Vuly0gcEH2QP/9BA==
+        -----END SSH SIGNATURE-----
     steps:
       - name: review/readiness
-        example: { id: ready-orphan, given: { boxes: { pay: { stories: [] } } }, then: { noRequirement: [pay] } }
-    expect: { criterion: S8-A2, state: { noRequirement: [pay] } }
+        example: { id: ready-orphan, given: { boxes: { pay: { stories: [] } } }, then: { noRequirement: [ pay ] } }
+    expect: { criterion: S8-A2, state: { noRequirement: [ pay ] } }
 
   - id: S8-counts
     title: Correction counts by tag
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:0a54e1529bc7811cfea870632d97b2a02ffd7a63dd998ea595ef01296e87200e', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:37:34Z'
+      hash: 'sha256:0a54e1529bc7811cfea870632d97b2a02ffd7a63dd998ea595ef01296e87200e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAyrYLqrvos/9SRbGBdRqaRPO1gOOw4/MBnLn6jkTC6jt3qo4gwQtAkY1pdd
+        /1w2RHGIPFEy4JnTemlebibFy1AQ==
+        -----END SSH SIGNATURE-----
     steps:
       - name: review/readiness
-        example: { id: ready-counts, given: { corrections: [sim, sim, sim, build] }, then: { counts: { caught-in-simulation: 3, caught-after-build: 1 } } }
+        example: { id: ready-counts, given: { corrections: [ sim, sim, sim, build ] }, then: { counts: { caught-in-simulation: 3, caught-after-build: 1 } } }
     expect: { criterion: S8-A3, state: { caught-in-simulation: 3, caught-after-build: 1 } }

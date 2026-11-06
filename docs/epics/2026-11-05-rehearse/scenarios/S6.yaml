@@ -3,7 +3,17 @@ scenarios:
   - id: S6-approve
     title: Builder approves a draft scenario, gate still fails
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f8addf5539293e0ea10fc7cf56fe9b0cda11b2f8ad7090ccdda8fb53affcfcdf', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:35:38Z'
+      hash: 'sha256:009f1bf59375881950be73675ca940acd023e72d0fe4e18d18e33a95aedc07a9'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAbON/kxfQdHY3Dw6BKAh8Ni9saZZjOWb99wwkILNtKyqigcejJpx9CBV9lG
+        PPrAstBq4uBVKWFUGI8oF+jdXHAw==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: review/readiness }
       - name: happy
@@ -13,11 +23,11 @@ scenarios:
         branch: "yes"
         example: { id: key-set, given: { signingKey: "~/.ssh/id_ed25519.pub" }, then: { branch: "yes" } }
       - name: approve
-        example: { id: approve-1, given: { scenarioIds: [shop-1], user: a@b.c, threadId: thr_x }, then: { approvals: [{ by: a@b.c, threadId: thr_x, hash: h1 }] } }
+        example: { id: approve-1, given: { scenarioIds: [ shop-1 ], user: a@b.c, threadId: thr_x }, then: { approvals: [ { by: a@b.c, threadId: thr_x, hash: h1 } ] } }
       - name: more-scenarios
         branch: "no"
       - name: gate/traced
-        example: { id: traced-gap, given: { requirements: [R1, R2], stories: { S1: [R1] } }, then: { findings: [{ kind: reference, message: "R2 has no story" }] } }
+        example: { id: traced-gap, given: { requirements: [ R1, R2 ], stories: { S1: [ R1 ] } }, then: { findings: [ { kind: reference, message: "R2 has no story" } ] } }
       - { name: gate/sim-clean }
       - { name: gate/no-stale }
       - { name: gate/report }
@@ -29,26 +39,46 @@ scenarios:
   - id: S6-agent-cli
     title: Agent has CLI access only
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:89cddb867196944fb4a3842e733414aeefdf78a74486b8e2f48f5349cf9fa6cf', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:37:10Z'
+      hash: 'sha256:89cddb867196944fb4a3842e733414aeefdf78a74486b8e2f48f5349cf9fa6cf'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAei1vArNTEO3XgIMJlo+DBbAOF5vmjCh4RQ/mtFJjQRiJtzVbpJXtmnUgwf
+        Dg2+Wm3QC0cr9dBlBOMvIH0SzoDQ==
+        -----END SSH SIGNATURE-----
     steps:
       - name: draft-record
-        example: { id: cli-commands, given: { cli: list-commands }, then: { commands: [new, validate, simulate, gate, serve] } }
+        example: { id: cli-commands, given: { cli: list-commands }, then: { commands: [ new, validate, simulate, gate, serve ] } }
     expect: { criterion: S6-A2, state: { Scenario.status: draft, approveCommand: absent } }
 
   - id: S6-stale
     title: An approved scenario changes
     status: approved
-    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f95ab2eee497db9cf239d71774a2979e3cc5d1a0ad3aba03814b162d80923909', note: bootstrap }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:37:28Z'
+      hash: 'sha256:f95ab2eee497db9cf239d71774a2979e3cc5d1a0ad3aba03814b162d80923909'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABApv8buvYaHtBAhRoDPglZe9EDAbcCYq5IyGLfx9973m5NlJOXH1ayi/kGGH
+        OWFW8rbFNCJADfrRbJ0Nj2Z2veDQ==
+        -----END SSH SIGNATURE-----
     steps:
       - { name: signed-edit }
       - name: content-changed
-        example: { id: scenario-changed, given: { approvalHash: h1, contentHash: h2 }, then: { staleScenarios: [shop-1], staleStories: [] } }
+        example: { id: scenario-changed, given: { approvalHash: h1, contentHash: h2 }, then: { staleScenarios: [ shop-1 ], staleStories: [] } }
       - { name: review/swimlanes }
     expect: { criterion: S6-A3, state: { Scenario.status: stale, simulatorUsesIt: false } }
 
   - id: S6-no-key
     title: No signing key, so Approve stays off
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: happy, branch: approve }
@@ -57,16 +87,38 @@ scenarios:
         example: { id: no-key, given: { signingKey: null }, then: { branch: "no" } }
       - { name: no-key }
     expect: { criterion: S6-A4, state: { approveButton: off, guide: docs/signing.md } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:37:47Z'
+      hash: 'sha256:de667c059074bf1000a9eae439e1d7f6c4eb34def23fa9e227cf13b65a016a5f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAluSFD9vDnDlKRwgxJUPBvqg+NXtnq1Jh/i7FTLoohn6hGcyZwTYI1OIhde
+        TBRMcJvwZ3VcDUvTgqHqgurZL5Aw==
+        -----END SSH SIGNATURE-----
 
   - id: S6-more
     title: Builder approves one of two drafts and goes back to the review
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: happy, branch: approve }
       - { name: signing-key, branch: "yes" }
       - name: approve
-        example: { id: approve-first, given: { scenarioIds: [shop-1] }, then: { approvals: [{ by: a@b.c, hash: h1 }] } }
+        example: { id: approve-first, given: { scenarioIds: [ shop-1 ] }, then: { approvals: [ { by: a@b.c, hash: h1 } ] } }
       - { name: more-scenarios, branch: "yes" }
       - { name: review/swimlanes }
     expect: { criterion: S6-A5, state: { Scenario.status: approved, drafts: 1 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T03:38:02Z'
+      hash: 'sha256:dc1048fcff0e0fef1bc2fec3e63d70bce31b4f505feb603d8a22ff5956d12038'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAZ/oQQnTS4Qi8RHRN15ZDW17L8TRZ4XcW84RxEGXcW9jGqWFeQ5arckOEP2
+        dv2QtPDdIBUOI0WJ53mSfLZqwrAA==
+        -----END SSH SIGNATURE-----
