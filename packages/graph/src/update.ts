@@ -1,19 +1,27 @@
 // Box `update-graph` (G4, G5, G13): before each query, hash the files in scope and read again only the
 // changed ones. A missing or empty store, a new schema, or `--rebuild` makes a cold index. The whole
 // update is one write transaction, so a query never sees half a graph.
+//
+// The freshness check reads a file only when its mtime or size is not what the store recorded (S10).
+// The hash stays the truth: a file read again with the same hash is not changed. A file whose mtime was
+// close to the time it was read is read every time, until it is older, because a write in the same
+// clock tick would leave its mtime as it was.
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type { GraphView, Linker, LinkState, Ranker, Resolver } from './extend.js';
 import { loadGrammars, type Binding, type ReaderAdapter } from './readers/reader.js';
 import { pythonReader } from './readers/python.js';
 import { typescriptReader } from './readers/typescript.js';
-import { nameMatch } from './resolve.js';
-import { findScope, packageFinder, readJsonc, type Scope } from './scope.js';
+import { linkRefs, type RefChanges } from './refs.js';
+import { findScope, packageFinder } from './scope.js';
 import type { Store } from './store.js';
-import type { CodeLanguage, EdgeKind, GraphEdge, IndexMode, IndexRun, IndexTrigger } from './types.js';
+import type { CodeLanguage, EdgeKind, IndexMode, IndexRun, IndexTrigger } from './types.js';
+
+/** A file whose mtime is this close to when it was read is read again (coarse mtimes: FAT has 2 s). */
+const RACY_MS = 2000;
 
 export interface UpdateOptions {
   /** Force a cold index (`--rebuild`, G5). */
@@ -29,25 +37,41 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
   const t0 = performance.now();
   const startedAt = new Date().toISOString();
   const scope = findScope(root);
-  const texts = new Map<string, string>();
-  const hashes = new Map<string, string>();
-  for (const f of scope.files) {
-    let text: string;
-    try {
-      text = readFileSync(join(root, f.path), 'utf8');
-    } catch {
-      continue; // gone between the walk and the read
-    }
-    texts.set(f.path, text);
-    hashes.set(f.path, createHash('sha256').update(text).digest('hex'));
-  }
-  const files = scope.files.filter((f) => hashes.has(f.path));
 
   const id = await store.transaction(async () => {
-    const stored = new Map(store.files().map((f) => [f.path, f.hash]));
     const cold = opts.rebuild === true || !store.indexed();
-    const changed = cold ? files : files.filter((f) => stored.get(f.path) !== hashes.get(f.path));
-    const removed = cold ? [] : [...stored.keys()].filter((p) => !hashes.has(p));
+    const known = new Map(cold ? [] : store.fileHashes().map((f) => [f.path, f]));
+    const texts = new Map<string, string>();
+    const hashes = new Map<string, string>();
+    const stats = new Map<string, { mtimeMs: number; size: number }>();
+    for (const f of scope.files) {
+      const abs = join(root, f.path);
+      const st = statSync(abs, { throwIfNoEntry: false });
+      if (!st) continue; // gone between the walk and the stat
+      const stat = { mtimeMs: st.mtimeMs, size: st.size };
+      const old = known.get(f.path);
+      if (old && old.size === stat.size && old.mtimeMs === stat.mtimeMs && stat.mtimeMs < Date.parse(old.indexedAt) - RACY_MS) {
+        hashes.set(f.path, old.hash);
+        stats.set(f.path, stat);
+        continue;
+      }
+      let text: string;
+      try {
+        text = readFileSync(abs, 'utf8');
+      } catch {
+        continue; // gone between the stat and the read
+      }
+      texts.set(f.path, text);
+      hashes.set(f.path, createHash('sha256').update(text).digest('hex'));
+      stats.set(f.path, stat);
+    }
+    const files = scope.files.filter((f) => hashes.has(f.path));
+    const changed = cold ? files : files.filter((f) => known.get(f.path)?.hash !== hashes.get(f.path));
+    const removed = cold ? [] : [...known.keys()].filter((p) => !hashes.has(p));
+    // A file read again with the same hash: its new mtime and the read time, so the next check skips it.
+    for (const path of cold ? [] : texts.keys()) {
+      if (known.get(path)?.hash === hashes.get(path)) store.touchFile(path, stats.get(path)!, startedAt);
+    }
     let mode: IndexMode = cold ? 'cold' : changed.length + removed.length > 0 ? 'update' : 'none';
     // No source file changed, but a linker's input did (a new commit, a record file): update anyway.
     if (mode === 'none' && (await linkersStale(root, store, opts.linkers ?? []))) mode = 'update';
@@ -60,23 +84,33 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
       return runId;
     }
 
+    const refChanges: RefChanges = {
+      changed: changed.map((f) => f.path),
+      filesMoved: removed.length > 0 || changed.some((f) => !known.has(f.path)),
+      names: new Set(), gone: [], resolved: new Set(),
+    };
     if (cold) {
       store.reset();
     } else {
       for (const path of [...changed.map((f) => f.path), ...removed]) {
-        const old = store.nodesWhere('origin = ?', `file:${path}`).map((n) => n.id);
+        const old = store.nodesWhere('origin = ?', `file:${path}`);
+        for (const n of old) (refChanges.gone.push(n.id), refChanges.names.add(n.name));
         store.deleteFile(path);
-        store.unresolveRefsTo(old);
+        for (const from of store.unresolveRefsTo(old.map((n) => n.id))) refChanges.resolved.add(from);
       }
     }
 
     const grammars = await loadGrammars();
     const readers: Record<CodeLanguage, ReaderAdapter> = { typescript: typescriptReader(grammars), python: pythonReader(grammars) };
     const pkgOf = packageFinder(root);
-    const indexedAt = new Date().toISOString();
     for (const f of changed) {
       const read = readers[f.language].read(f.path, texts.get(f.path)!, pkgOf(f.path, f.language));
-      store.putFile({ path: f.path, hash: hashes.get(f.path)!, language: f.language, indexedAt, bindings: read.bindings }, read.nodes, read.edges, read.refs);
+      for (const n of read.nodes) refChanges.names.add(n.name);
+      // startedAt is before the read: a write after it gives a later mtime.
+      store.putFile(
+        { path: f.path, hash: hashes.get(f.path)!, language: f.language, indexedAt: startedAt, ...stats.get(f.path)!, bindings: read.bindings },
+        read.nodes, read.edges, read.refs,
+      );
     }
 
     const changedPaths = changed.map((f) => f.path);
@@ -93,11 +127,12 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
       for (const a of answers) {
         if (a.target.targetOnly) store.putNodes([a.target], 'target');
         store.markResolved({ ...a.ref }, resolver.name, a.target.id, a.trust);
+        refChanges.resolved.add(a.ref.from);
       }
       used.push(resolver.name);
     }
 
-    linkRefs(root, store, scope);
+    linkRefs(root, store, scope, cold ? undefined : refChanges);
 
     for (const linker of opts.linkers ?? []) {
       const out = await linker.link({ root, mode, changed: changedPaths, removed, graph: view, state: linkState(store, linker.name) });
@@ -108,13 +143,13 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
       store.putEdges(out.edges, `link:${linker.name}`);
     }
     if (opts.ranker) {
-      store.setRanks(opts.ranker.rank({ nodes: store.allNodes(), edges: store.edgesWhere('1') }));
+      store.setRanks(opts.ranker.rank({ nodes: store.allNodes(), edges: store.allEdges() }));
     }
     store.setIndexed();
     store.finishRun(runId, 'written', performance.now() - t0, used);
     return runId;
   });
-  return store.runs().find((r) => r.id === id)!;
+  return store.run(id)!;
 }
 
 async function linkersStale(root: string, store: Store, linkers: Linker[]): Promise<boolean> {
@@ -126,53 +161,6 @@ async function linkersStale(root: string, store: Store, linkers: Linker[]): Prom
 
 function linkState(store: Store, name: string): LinkState {
   return { get: <T>() => store.linkState(name) as T | undefined, set: (value) => store.setLinkState(name, value) };
-}
-
-/** Make the edges of every reference site again: the resolver answers, then name-match for the rest. */
-function linkRefs(root: string, store: Store, scope: Scope): void {
-  store.deleteEdges('ref');
-  const refs = store.refs();
-  const edges: GraphEdge[] = [];
-  for (const r of refs) {
-    if (r.resolvedTo !== undefined && r.resolvedBy !== undefined && r.resolvedTrust !== undefined) {
-      edges.push({ from: r.from, to: r.resolvedTo, kind: r.kind, trust: r.resolvedTrust, source: r.resolvedBy });
-    }
-  }
-  const stored = store.files();
-  const nodes = store.nodesWhere('target_only = 0');
-  const matched = nameMatch(refs, {
-    files: new Map(stored.map((f) => [f.path, { language: f.language, bindings: f.bindings }])),
-    nodes,
-    workspaces: workspaces(root, scope),
-  });
-  store.putNodes(matched.targets, 'target');
-  // Resolver edges first: an edge already there keeps the better trust.
-  store.putEdges(edges, 'ref');
-  store.putEdges(matched.edges, 'ref');
-  store.collectTargets();
-}
-
-/** The TypeScript packages of the repo (package.json name) and their entry file, for `import '@scope/pkg'`. */
-function workspaces(root: string, scope: Scope): Map<string, string> {
-  const tsFiles = new Set(scope.files.filter((f) => f.language === 'typescript').map((f) => f.path));
-  const dirs = new Set<string>();
-  for (const f of tsFiles) {
-    for (let d = posix.dirname(f); ; d = posix.dirname(d)) {
-      dirs.add(d);
-      if (d === '.') break;
-    }
-  }
-  const out = new Map<string, string>();
-  for (const dir of [...dirs].sort()) {
-    const json = readJsonc(join(root, dir, 'package.json'));
-    if (typeof json !== 'object' || json === null || typeof (json as { name?: unknown }).name !== 'string') continue;
-    const name = (json as { name: string }).name;
-    const entry = ['src/index.ts', 'src/index.tsx', 'index.ts', 'index.tsx']
-      .map((e) => posix.normalize(posix.join(dir, e)))
-      .find((e) => tsFiles.has(e));
-    if (entry && !out.has(name)) out.set(name, entry);
-  }
-  return out;
 }
 
 function languageOf(path: string): CodeLanguage {
