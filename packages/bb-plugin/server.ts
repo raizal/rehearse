@@ -156,7 +156,7 @@ export default async function plugin(bb: BbPluginApi) {
       { name: 'open', summary: 'Open the rehearse panel (the same UI as rehearse serve)', usage: 'bb rehearse [open] [<slug>]' },
       { name: 'validate', summary: 'Check the record files of one EPIC', usage: 'bb rehearse validate <epic-dir-or-slug> [--json]' },
       { name: 'simulate', summary: 'Simulate the scenarios of one EPIC', usage: 'bb rehearse simulate <epic-dir-or-slug> [--json]' },
-      { name: 'gate check', summary: 'Check the gate. Never signs off', usage: 'bb rehearse gate check <epic-dir-or-slug> [--json]' },
+      { name: 'gate', summary: 'Check the gate (only `gate check`). Never signs off', usage: 'bb rehearse gate check <epic-dir-or-slug> [--json]' },
       { name: 'new', summary: 'Create docs/epics/<slug>/', usage: 'bb rehearse new <slug> --title "<title>"' },
     ],
     async run(argv, ctx) {
