@@ -76,7 +76,8 @@ test('S4-story-view', async ({ page, shopUrl }) => {
     await page.goto(shopUrl);
     await page.getByTestId('nav-bigpicture').click();
     await page.getByTestId('bp-story-S1').click();
-    await expect(page.getByTestId('story-what')).toContainText('to pay for my cart');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('to pay for my cart'); // the story sentence is the page title (T18)
+    await expect(page.getByTestId('story-what')).toBeVisible();
     await expect(page.getByTestId('story-how')).toBeVisible();
     await expect(page.getByTestId('story-output')).toBeVisible();
   });
