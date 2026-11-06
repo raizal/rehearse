@@ -4,7 +4,7 @@
 // (who may change what; the permission matrix behind a toggle), readiness, sign-off, and the
 // flow view (swimlanes, drill-down, playback, approve). Approve and sign-off are UI buttons only, signed by the serve process (R13, R14, D41).
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { Id, Scenario } from '@rehearse/core';
 import { fetchEpic, fetchSession, postApprove, postSignOff } from './api.js';
@@ -20,10 +20,12 @@ import { ReadinessView } from './components/ReadinessView.js';
 import { signingBlocked, type SessionState } from './components/Review.js';
 import { SignOffView } from './components/SignOffView.js';
 import { Storyboard } from './components/Storyboard.js';
+import type { StoryTab } from './components/StoryView.js';
 import { TechSpecView } from './components/TechSpecView.js';
 import { UseCaseView } from './components/UseCaseView.js';
 import { boxAt, diagramAt, parentPath } from './model/diagram.js';
 import type { Place } from './model/links.js';
+import { DEFAULT_BIG_VIEW, depthOf, depthState, fromHash, toHash, type Loc, type Tab } from './model/nav.js';
 import { stepCount, stepView } from './model/playback.js';
 import { approveReason, storiesOf } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
@@ -39,8 +41,7 @@ const TABS = [
   { id: 'readiness', label: 'Readiness' },
   { id: 'signoff', label: 'Sign off' },
   { id: 'flow', label: 'Flow' },
-] as const;
-type Tab = (typeof TABS)[number]['id'];
+] as const satisfies readonly { id: Tab; label: string }[];
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; view: ReviewEpicView };
 
@@ -56,7 +57,7 @@ const HTTP_API: ReviewApi = { session: fetchSession, approve: postApprove, signO
 export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise<ReviewEpicView>; api?: ReviewApi }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [tab, setTab] = useState<Tab>('bigpicture');
-  const [bigView, setBigView] = useState('features');
+  const [bigView, setBigView] = useState(DEFAULT_BIG_VIEW);
   const [session, setSession] = useState<SessionState>({ kind: 'loading' });
   const [picked, setPicked] = useState<ReadonlySet<Id>>(new Set());
   const [busy, setBusy] = useState<'approve' | 'signoff' | undefined>();
@@ -70,6 +71,9 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const [storyId, setStoryId] = useState<Id | undefined>();
   // The stories view shows the storyboard page of the open scenario (design page 3), else its story.
   const [board, setBoard] = useState(false);
+  // The "Stories" crumb shows the story list (T23); the story's open tab lives here so history keeps it.
+  const [list, setList] = useState(false);
+  const [storyTab, setStoryTab] = useState<StoryTab>('what');
   // Where an id link on the PRD or Tech spec page went (T15): an item on those pages, or a readiness row.
   const [docFocus, setDocFocus] = useState<string | undefined>();
   const [readinessRow, setReadinessRow] = useState<Id | undefined>();
@@ -112,19 +116,36 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const queue = useMemo(() => (view ? reviewQueue(view.prd, view.scenarios).flatMap((g) => g.scenarios) : []), [view]);
   const card = queue.find((sv) => sv.scenario.id === cardId) ?? queue.find((sv) => sv.scenario.id === nextToApprove(queue, undefined, view?.approvals)) ?? queue[0];
   // A picked story opens on its first scenario to approve, else its first scenario.
-  const pickStory = useCallback(
+  const firstCard = useCallback(
     (id: Id) => {
       const own = queue.filter((sv) => sv.scenario.story === id);
-      setStoryId(id);
-      setBoard(false);
-      setCardId(own.find((sv) => sv.scenario.id === nextToApprove(own, undefined, view?.approvals))?.scenario.id ?? own[0]?.scenario.id);
+      return own.find((sv) => sv.scenario.id === nextToApprove(own, undefined, view?.approvals))?.scenario.id ?? own[0]?.scenario.id;
     },
     [queue, view],
+  );
+  /** Open a story's page; `onTab` also picks its tab (a story link opens on WHAT). */
+  const pickStory = useCallback(
+    (id: Id, onTab?: StoryTab) => {
+      setStoryId(id);
+      setBoard(false);
+      setList(false);
+      if (onTab) setStoryTab(onTab);
+      setCardId(firstCard(id));
+    },
+    [firstCard],
+  );
+  const openStory = useCallback(
+    (id: Id) => {
+      pickStory(id, 'what');
+      setTab('stories');
+    },
+    [pickStory],
   );
   const pickCard = useCallback(
     (id: Id) => {
       setCardId(id);
       setBoard(true);
+      setList(false);
       setStoryId(queue.find((sv) => sv.scenario.id === id)?.scenario.story);
     },
     [queue],
@@ -182,10 +203,8 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   // An id link on the PRD or Tech spec page opens the place where the id lives (T15).
   const go = useCallback(
     (place: Place) => {
-      if (place.view === 'story') {
-        pickStory(place.story);
-        setTab('stories');
-      } else if (place.view === 'storyboard') {
+      if (place.view === 'story') openStory(place.story);
+      else if (place.view === 'storyboard') {
         pickCard(place.scenario);
         setTab('stories');
       } else if (place.view === 'flow') openBox(place.box);
@@ -197,8 +216,87 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
         setTab(place.view);
       } else setTab(place.view);
     },
-    [pickStory, pickCard, openBox],
+    [openStory, pickCard, openBox],
   );
+
+  // ------------------------------------------------------------ history (T23)
+  // Every place is a URL hash. A change of place pushes a history entry, so the browser's Back
+  // and Forward (and the in-app "← Back") walk the places; a reload opens the same place.
+  const storyShown = storyId ?? card?.scenario.story ?? (view ? storiesOf(view.prd)[0]?.id : undefined);
+  const loc = useMemo((): Loc => {
+    switch (tab) {
+      case 'prd':
+      case 'techspec':
+        return { tab, focus: docFocus };
+      case 'bigpicture':
+        return { tab, view: bigView };
+      case 'readiness':
+        return { tab, requirement: readinessRow };
+      case 'flow':
+        return { tab, diagram: diagramPath };
+      case 'stories':
+        if (list || storyShown === undefined) return { tab, list: true };
+        if (board && card && (storyId === undefined || card.scenario.story === storyId)) return { tab, story: card.scenario.story ?? storyShown, card: card.scenario.id };
+        return { tab, story: storyShown, storyTab };
+      default:
+        return { tab };
+    }
+  }, [tab, docFocus, bigView, readinessRow, diagramPath, list, storyShown, board, card, storyId, storyTab]);
+  const applyLoc = (l: Loc) => {
+    setTab(l.tab);
+    if (l.tab === 'prd' || l.tab === 'techspec') setDocFocus(l.focus);
+    else if (l.tab === 'bigpicture') setBigView(l.view ?? DEFAULT_BIG_VIEW);
+    else if (l.tab === 'readiness') setReadinessRow(l.requirement);
+    else if (l.tab === 'flow') setDiagramPath(l.diagram ?? '');
+    else if (l.tab === 'stories') {
+      if ('list' in l) {
+        setList(true);
+        return;
+      }
+      setList(false);
+      setStoryId(l.story);
+      if (l.card !== undefined) {
+        setCardId(l.card);
+        setBoard(true);
+      } else {
+        setBoard(false);
+        setStoryTab(l.storyTab);
+        if (queue.length) setCardId(firstCard(l.story));
+      }
+    }
+  };
+  const applyRef = useRef(applyLoc);
+  applyRef.current = applyLoc;
+  const [depth, setDepth] = useState(() => depthOf(window.history.state));
+  // The place in the URL when the page opened.
+  useEffect(() => {
+    const at = fromHash(window.location.hash);
+    if (at) applyRef.current(at);
+    const onPop = (e: PopStateEvent) => {
+      setDepth(depthOf(e.state));
+      const to = fromHash(window.location.hash);
+      if (to) applyRef.current(to);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const here = view ? toHash(loc) : undefined;
+  const synced = useRef(false);
+  useEffect(() => {
+    if (here === undefined) return;
+    const h = window.history;
+    if (!synced.current) {
+      // The first place replaces the entry the page opened with: no new history entry.
+      synced.current = true;
+      if (here !== window.location.hash) h.replaceState(depthState(depthOf(h.state)), '', here);
+      return;
+    }
+    if (here === window.location.hash) return;
+    const next = depthOf(h.state) + 1;
+    h.pushState(depthState(next), '', here);
+    setDepth(next);
+  }, [here]);
+  const back = useMemo(() => ({ can: depth > 0, onBack: () => window.history.back() }), [depth]);
   useEffect(() => {
     if (tab === 'readiness' && readinessRow) document.querySelector(`[data-testid="readiness-req-${readinessRow}"]`)?.scrollIntoView?.({ block: 'center' });
   }, [tab, readinessRow]);
@@ -281,7 +379,14 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
               className={t.id === tab ? 'tab is-active' : 'tab'}
               data-testid={`nav-${t.id}`}
               aria-current={t.id === tab ? 'page' : undefined}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                // Stories opens on the story page, on WHAT (the list is the "Stories" crumb).
+                if (t.id === 'stories' && tab !== 'stories') {
+                  setStoryTab('what');
+                  setList(false);
+                }
+                setTab(t.id);
+              }}
             >
               {t.label}
             </button>
@@ -330,10 +435,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
             active={bigView}
             onPick={setBigView}
             view={view}
-            onOpenStory={(id) => {
-              pickStory(id);
-              setTab('stories');
-            }}
+            onOpenStory={openStory}
             onOpenBox={openBox}
           />
         </main>
@@ -345,10 +447,19 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           scenarioId={storyId === undefined || card?.scenario.story === storyId ? card?.scenario.id : undefined}
           storyId={storyId ?? card?.scenario.story ?? storiesOf(view.prd)[0]?.id}
           board={board}
-          onBack={() => setBoard(false)}
+          onBack={() => {
+            setBoard(false);
+            setStoryTab('what');
+          }}
           onBigPicture={() => setTab('bigpicture')}
+          onStories={() => setList(true)}
+          onOpenStory={(id) => pickStory(id, 'what')}
+          list={list || storyShown === undefined}
+          storyTab={storyTab}
+          onStoryTab={setStoryTab}
+          back={back}
           onPick={pickCard}
-          onPickStory={pickStory}
+          onPickStory={(id) => pickStory(id)}
           onOpenBox={openBox}
           seen={seenState}
           onSeen={markStep}
@@ -366,7 +477,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       )}
       {view && tab === 'readiness' && (
         <main className="page-wrap">
-          <ReadinessView view={view} onOpenBox={openBox} />
+          <ReadinessView view={view} onOpenBox={openBox} onOpenStory={openStory} />
         </main>
       )}
       {view && tab === 'signoff' && (

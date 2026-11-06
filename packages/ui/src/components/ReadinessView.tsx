@@ -2,7 +2,7 @@
 // scenarios → status, requirements with no proof, boxes with no requirement, the
 // correction counts, and the gate findings by story.
 
-import type { GateReport, SignedReadiness } from '@rehearse/core';
+import type { GateReport, Id, SignedReadiness } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
 import { proofReasonText, proofWithSignatures } from '../model/readiness.js';
 import { groupByStory, sigText } from '../model/review.js';
@@ -11,6 +11,8 @@ import { FindingList } from './Review.js';
 export interface ReadinessViewProps {
   view: ReviewEpicView;
   onOpenBox: (path: string) => void;
+  /** Open a story's page. */
+  onOpenStory?: (id: Id) => void;
 }
 
 function BoxLink({ path, testId, onOpenBox }: { path: string; testId: string; onOpenBox: (path: string) => void }) {
@@ -21,7 +23,7 @@ function BoxLink({ path, testId, onOpenBox }: { path: string; testId: string; on
   );
 }
 
-export function ReadinessView({ view, onOpenBox }: ReadinessViewProps) {
+export function ReadinessView({ view, onOpenBox, onOpenStory }: ReadinessViewProps) {
   // Only an approval with a valid signature is proof (C28).
   const r = proofWithSignatures(view.readiness, view.approvals);
   if (!r) {
@@ -45,7 +47,7 @@ export function ReadinessView({ view, onOpenBox }: ReadinessViewProps) {
       </p>
 
       <h3>Requirement → stories → boxes → scenarios</h3>
-      <Chain readiness={r} onOpenBox={onOpenBox} />
+      <Chain readiness={r} onOpenBox={onOpenBox} onOpenStory={onOpenStory} />
 
       <div className="columns">
         <div>
@@ -102,7 +104,7 @@ export function ReadinessView({ view, onOpenBox }: ReadinessViewProps) {
   );
 }
 
-function Chain({ readiness, onOpenBox }: { readiness: SignedReadiness; onOpenBox: (path: string) => void }) {
+function Chain({ readiness, onOpenBox, onOpenStory }: { readiness: SignedReadiness; onOpenBox: (path: string) => void; onOpenStory?: (id: Id) => void }) {
   if (readiness.requirements.length === 0) return <p className="muted">No requirements.</p>;
   return (
     <div className="table-wrap">
@@ -134,7 +136,14 @@ function Chain({ readiness, onOpenBox }: { readiness: SignedReadiness; onOpenBox
                   {req.stories.map((s) => (
                     <li key={s.id} data-testid={`readiness-story-${req.id}-${s.id}`}>
                       <div>
-                        <strong>{s.id}</strong> <span className={`badge status-${s.status === 'signed' ? 'approved' : s.status}`}>{s.status}</span>
+                        {onOpenStory ? (
+                          <button type="button" className="story-link" data-testid={`readiness-story-link-${req.id}-${s.id}`} aria-label={`Open story ${s.id}`} onClick={() => onOpenStory(s.id)}>
+                            <strong>{s.id}</strong>
+                          </button>
+                        ) : (
+                          <strong>{s.id}</strong>
+                        )}{' '}
+                        <span className={`badge status-${s.status === 'signed' ? 'approved' : s.status}`}>{s.status}</span>
                         {!s.trusted && <span className="badge status-stale">sign again</span>}
                         {s.gateFindings !== undefined && (
                           <span className="small muted">

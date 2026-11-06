@@ -4,6 +4,8 @@ import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 afterEach(cleanup);
+// The UI keeps its place in the URL hash (T23): each test starts on a clean URL and history entry.
+afterEach(() => window.history.replaceState(null, '', window.location.pathname + window.location.search));
 
 class ResizeObserverStub {
   constructor(private cb: ResizeObserverCallback) {}
