@@ -1,12 +1,12 @@
-// Box `gate`: traced, sim-clean, no-stale, report (R14, S9-A1).
+// Box `gate`: traced, sim-clean, no-stale, signed-off, report (R14, S9-A1, D17).
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { detectStale, gateEpic, gateRecord, loadEpic, reportToJson, type Finding } from '../../src/index.js';
-import { BOOTSTRAP_EPIC, hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedApprovals } from '../helpers.js';
-import { approvedEpic, SHOP_SCENARIOS } from './helpers.js';
+import { detectStale, gateEpic, gateRecord, loadEpic, reportToJson, signOff, type Finding } from '../../src/index.js';
+import { BOOTSTRAP_EPIC, CODE_GRAPH_EPIC, hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedApprovals } from '../helpers.js';
+import { approvedEpic, ME, NOW, SHOP_SCENARIOS, SIGNED, signedEpic } from './helpers.js';
 import { KEY } from './keys.js';
 
 /** `<email> <SHA256 fingerprint>` of each key line of an allowed_signers file. */
@@ -21,14 +21,14 @@ function listedFingerprints(text: string): string[] {
 const CONTRACT: Finding = { kind: 'contract', file: 'flow.yaml', path: 'pay', message: 'orderId: string → number', refs: ['S1'] };
 
 describe('gate check', () => {
-  it('passes on an approved, valid record', () => {
-    const report = gateEpic(approvedEpic());
+  it('passes on a signed, approved, valid record', () => {
+    const report = gateEpic(signedEpic());
     expect(report).toEqual({
       command: 'gate',
       ok: true,
       findings: [],
       simulation: 'validate-only',
-      signers: [{ by: 'a@b.c', fingerprint: KEY.signer.keyFingerprint, approvals: SHOP_SCENARIOS, signOffs: [] }],
+      signers: [{ by: 'a@b.c', fingerprint: KEY.signer.keyFingerprint, approvals: SHOP_SCENARIOS, signOffs: [0] }],
     });
   });
 
@@ -40,11 +40,13 @@ describe('gate check', () => {
       { kind: 'gate', file: 'prd.yaml', path: 'S1', message: 'S1 has no approved scenario that is not stale', refs: ['S1'] },
       { kind: 'gate', file: 'prd.yaml', path: 'S2', message: 'S2 has no approved scenario that is not stale', refs: ['S2'] },
       { kind: 'gate', file: 'prd.yaml', path: 'requirements[2]', message: 'R3 has no story', refs: ['R3'] },
+      { kind: 'gate', file: 'signoff.yaml', path: 'S1', message: 'S1 is not signed off; the owner signs it off in the UI', refs: ['S1'] },
+      { kind: 'gate', file: 'signoff.yaml', path: 'S2', message: 'S2 is not signed off; the owner signs it off in the UI', refs: ['S2'] },
     ]);
   });
 
   it('S9-A1 sim-clean: a simulator finding fails the gate and is listed', () => {
-    const { record } = loadEpic(approvedEpic());
+    const { record } = loadEpic(signedEpic());
     const report = gateRecord(record, [CONTRACT]);
     expect(report).toEqual({ command: 'gate', ok: false, findings: [CONTRACT] });
   });
@@ -52,13 +54,32 @@ describe('gate check', () => {
   it('C22 gate findings have kind gate; simulation findings keep their own kind', () => {
     const dir = makeEpic({ edit: (d) => d['prd.yaml'].requirements.push({ id: 'R3', kind: 'functional', text: 'Refunds.' }) });
     const report = gateRecord(loadEpic(dir).record, [CONTRACT]);
-    expect(report.findings.map((f) => f.kind).sort()).toEqual(['contract', 'gate', 'gate', 'gate']);
+    expect(report.findings.map((f) => f.kind).sort()).toEqual(['contract', 'gate', 'gate', 'gate', 'gate', 'gate']);
   });
 
   it('uses the simulator when one is given', () => {
-    const report = gateEpic(approvedEpic(), () => ({ command: 'simulate', ok: false, findings: [CONTRACT] }));
+    const report = gateEpic(signedEpic(), () => ({ command: 'simulate', ok: false, findings: [CONTRACT] }));
     expect(report.simulation).toBe('simulate');
     expect(report.findings).toEqual([CONTRACT]);
+  });
+
+  it('D17 signed-off: approvals with no signoff.yaml fail with one finding per story', () => {
+    const dir = approvedEpic();
+    const report = gateEpic(dir);
+    expect(report.ok).toBe(false);
+    expect(report.findings).toEqual([
+      { kind: 'gate', file: 'signoff.yaml', path: 'S1', message: 'S1 is not signed off; the owner signs it off in the UI', refs: ['S1'] },
+      { kind: 'gate', file: 'signoff.yaml', path: 'S2', message: 'S2 is not signed off; the owner signs it off in the UI', refs: ['S2'] },
+    ]);
+  });
+
+  it('D17 signed-off: a partial sign-off fails for the other stories only', () => {
+    const dir = approvedEpic();
+    const r = signOff(dir, ['S1'], ME, { now: NOW, ...SIGNED });
+    expect(r.ok).toBe(true);
+    const report = gateEpic(dir);
+    expect(report.ok).toBe(false);
+    expect(report.findings.map((f) => `${f.file} ${f.path}: ${f.message}`)).toEqual(['signoff.yaml S2: S2 is not signed off; the owner signs it off in the UI']);
   });
 
   it('a schema finding stops the trust checks and the simulator', () => {
@@ -100,7 +121,7 @@ describe('gate check', () => {
   });
 
   it('the gate writes nothing on a clean EPIC either', () => {
-    const dir = approvedEpic();
+    const dir = signedEpic();
     const before = hashDir(dir);
     expect(gateEpic(dir).ok).toBe(true);
     expect(hashDir(dir)).toBe(before);
@@ -131,6 +152,24 @@ describe('gate check', () => {
       expect(report.findings.length).toBeGreaterThan(0);
       for (const f of report.findings) expect(f.message, f.path).toMatch(/sigStatus unknown-signer/);
       expect(report.findings.filter((f) => f.file.startsWith('scenarios/')).map((f) => f.path).sort()).toEqual([...approved].sort());
+    }
+  });
+
+  it('dogfood: the live code-graph EPIC fails only for the stories the owner has not signed off (D17); nothing is written', () => {
+    const before = hashDir(CODE_GRAPH_EPIC);
+    const { record } = loadEpic(CODE_GRAPH_EPIC);
+    const report = gateEpic(CODE_GRAPH_EPIC);
+    expect(hashDir(CODE_GRAPH_EPIC)).toBe(before);
+    // Robust to the owner's signing state: one signed-off finding per story with no sign-off, and no other kind.
+    const notSignedOff = detectStale(record).stories.filter((s) => s.status === 'draft').map((s) => s.id).sort();
+    const signedOff = report.findings.filter((f) => f.message.endsWith('is not signed off; the owner signs it off in the UI'));
+    expect(signedOff.map((f) => `${f.file} ${f.path}`)).toEqual(notSignedOff.map((s) => `signoff.yaml ${s}`));
+    const others = report.findings.filter((f) => !signedOff.includes(f));
+    if (liveAllowedSigners()) {
+      expect(others).toEqual([]);
+      expect(report.ok).toBe(notSignedOff.length === 0);
+    } else {
+      for (const f of others) expect(f.message, f.path).toMatch(/sigStatus unknown-signer/);
     }
   });
 });

@@ -26,7 +26,7 @@ Commands:
   simulate <epic-dir-or-slug> [--drafts] [--json]
                                          Simulate the scenarios: contracts, coverage, lifecycles, acceptance, permission matrix.
                                          --drafts counts draft and stale scenarios too: findings only, never evidence.
-  gate check <epic-dir-or-slug> [--json] Check the gate: traced, sim-clean, no-stale. Never signs off.
+  gate check <epic-dir-or-slug> [--json] Check the gate: traced, sim-clean, no-stale, signed-off. Never signs off.
   new <slug> --title "<title>"           Create docs/epics/<slug>/ (slug YYYY-MM-DD-<kebab>) at the git top-level.
   serve [epic-dir-or-slug] [--port N] [--birdview-port N]
                                          Serve the review UI on 127.0.0.1 (default port 4700; Birdview player 3298).

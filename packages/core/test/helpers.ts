@@ -11,6 +11,8 @@ import type { Finding, Report } from '../src/index.js';
 
 export const SHOP = fileURLToPath(new URL('./fixtures/shop', import.meta.url));
 export const REAL_EPIC = fileURLToPath(new URL('../../../docs/epics/2026-11-05-rehearse', import.meta.url));
+/** The live code-graph EPIC. Its approvals and sign-offs change with what the owner signs. */
+export const CODE_GRAPH_EPIC = fileURLToPath(new URL('../../../docs/epics/2026-11-05-code-graph', import.meta.url));
 /** The first EPIC frozen at its bootstrap sign-off. The live record changes; this copy does not. */
 export const BOOTSTRAP_EPIC = fileURLToPath(new URL('./fixtures/bootstrap/2026-11-05-rehearse', import.meta.url));
 /**

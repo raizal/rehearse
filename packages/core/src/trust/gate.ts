@@ -1,4 +1,4 @@
-// Box `gate`: traced → sim-clean → no-stale → report (R14, S9-A1).
+// Box `gate`: traced → sim-clean → no-stale → signed-off → report (R14, S9-A1, D17).
 // Simulation findings come in as a parameter, so the gate does not depend on the simulator.
 
 import { indexBoxes } from '../flow-index.js';
@@ -12,7 +12,7 @@ import { defaultVerifier, type Verifier } from './signature.js';
 import { detectStale } from './stale.js';
 import { CURRENT_HASH_RULE, HASH_RULES } from './types.js';
 
-export type GateCheck = 'traced' | 'sim-clean' | 'no-stale';
+export type GateCheck = 'traced' | 'sim-clean' | 'no-stale' | 'signed-off';
 
 /** One gate finding with the stories it is about. */
 export interface GateItem {
@@ -20,7 +20,7 @@ export interface GateItem {
   finding: Finding;
   /** Stories the finding is about. Empty means the whole EPIC. */
   stories: Id[];
-  /** A new sign-off of this story clears the finding (stale story, or an old hash rule). */
+  /** A new sign-off of this story clears the finding (not signed off, stale story, or an old hash rule). */
   resignStory?: Id;
 }
 
@@ -105,6 +105,17 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[], sig
       stories: [s.id],
       resignStory: s.id,
       finding: { kind: 'gate', file: RECORD_FILES.signoff, path: s.id, message, refs: [s.id] },
+    });
+  }
+  // signed-off: each story has a sign-off (D17). A stale sign-off, an old hash rule and an
+  // untrusted signature are no-stale findings above, so only a story with no sign-off is here.
+  for (const s of stale.stories) {
+    if (s.status !== 'draft') continue;
+    items.push({
+      check: 'signed-off',
+      stories: [s.id],
+      resignStory: s.id,
+      finding: { kind: 'gate', file: RECORD_FILES.signoff, path: s.id, message: `${s.id} is not signed off; the owner signs it off in the UI`, refs: [s.id] },
     });
   }
   if (signatures) items.push(...signatureItems(record, signatures, stale));

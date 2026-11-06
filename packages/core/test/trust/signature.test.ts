@@ -131,7 +131,7 @@ describe('signing key from git config', () => {
 
 describe('gate: only signed evidence counts (D41)', () => {
   it('S6-A3 an approval with no valid signature is not evidence: a gate finding names the scenario and the status', () => {
-    const dir = approvedEpic();
+    const dir = signedEpic();
     editYaml(dir, 'scenarios/S1.yaml', (doc) => doc.setIn(['scenarios', 1, 'approval', 'at'], '2026-11-06T00:00:00Z'));
     editYaml(dir, 'scenarios/S2.yaml', (doc) => doc.deleteIn(['scenarios', 0, 'approval', 'sig']));
     const report = gateEpic(dir);
