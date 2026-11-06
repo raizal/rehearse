@@ -508,3 +508,10 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .how-also { margin: 2px 0 0 calc(88px + var(--s-2)); font-size: var(--fs-xs); color: var(--muted); }
 .storyboard.is-list .card-wrap { max-width: 760px; }
 .story-list-rows { list-style: none; margin: var(--s-4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+/* The sign-off state of the story and the link to its sign-off preview (T39). */
+.signoff-state.is-signed { background: var(--ok-tint); color: var(--ok); border-color: transparent; }
+.signoff-state.is-stale { background: var(--warn-tint); color: var(--warn); border-color: transparent; }
+.story-chips .chip-link { background: var(--card); border-color: var(--accent); color: var(--accent); cursor: pointer; }
+.story-signoff-preview { margin: var(--s-4) 0; padding: var(--s-4) var(--s-5); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.story-signoff-preview-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.story-signoff-preview-head h2 { margin: 0; font-size: var(--fs-lg); }

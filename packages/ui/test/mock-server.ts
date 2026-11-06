@@ -27,6 +27,8 @@ export interface MockRoutes {
   birdview?: (storyId: string) => Reply;
   /** `POST api/birdview/action` (T13). */
   birdviewAction?: (body: { action: string; storyId: string }) => Reply;
+  /** `GET api/sign-off/preview?stories=S1,S2` (T39). */
+  signOffPreview?: (storyIds: string[]) => Reply;
 }
 
 export const SESSION: Session = {
@@ -51,6 +53,10 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     }
     if (url.startsWith('api/birdview?story=') && method === 'GET') {
       return respond(routes.birdview?.(decodeURIComponent(url.slice('api/birdview?story='.length))) ?? { status: 404, body: { error: 'no route' } });
+    }
+    if (url.startsWith('api/sign-off/preview?stories=') && method === 'GET') {
+      const ids = url.slice('api/sign-off/preview?stories='.length).split(',').map(decodeURIComponent);
+      return respond(routes.signOffPreview?.(ids) ?? { status: 404, body: { error: 'no endpoint api/sign-off/preview' } });
     }
     if (url === 'api/birdview/action' && method === 'POST') return respond(routes.birdviewAction?.(body) ?? { status: 404, body: { error: 'no route' } });
     if (url === 'api/sign-off' && method === 'POST') return respond(routes.signOff?.(body) ?? { status: 500, body: { error: 'no route' } });

@@ -1,12 +1,15 @@
 // Box `sign-off` (S9-A1, S9-A2): the gate findings, a checkbox per story, and a Sign off
 // button that works only when no finding is about the selected stories. One confirmation
-// step lists the stories and who signs. The server checks the gate again (409 lists findings).
+// step previews what the signer agrees to, per story (T39: the content that the sign-off
+// fingerprints, and what changed since the last sign-off), and who signs. The server checks the
+// gate again (409 lists findings).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Id, SignOff } from '@rehearse/core';
 import type { PostOutcome, ReviewEpicView, SignOffOk, SignOffView as SignOffEntry } from '../contract.js';
 import { blockingFindings, findingStories, storiesOf } from '../model/review.js';
 import { FindingList, OutcomeMessage, SigBadge, SignerInfo, signingBlocked, type SessionState } from './Review.js';
+import { SignOffPreview } from './SignOffPreview.js';
 
 export interface SignOffViewProps {
   view: ReviewEpicView;
@@ -14,9 +17,11 @@ export interface SignOffViewProps {
   busy: boolean;
   outcome?: PostOutcome<SignOffOk>;
   onSignOff: (storyIds: Id[]) => void;
+  /** Open a box of the preview in the box drawer. */
+  onOpenBox?: (path: string) => void;
 }
 
-export function SignOffView({ view, session, busy, outcome, onSignOff }: SignOffViewProps) {
+export function SignOffView({ view, session, busy, outcome, onSignOff, onOpenBox }: SignOffViewProps) {
   const [selected, setSelected] = useState<ReadonlySet<Id>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -109,14 +114,15 @@ export function SignOffView({ view, session, busy, outcome, onSignOff }: SignOff
       </span>
 
       {confirming && (
-        <div className="confirm" role="dialog" aria-labelledby="signoff-confirm-title" data-testid="signoff-confirm-dialog">
+        <div className="confirm signoff-confirm" role="dialog" aria-labelledby="signoff-confirm-title" data-testid="signoff-confirm-dialog">
           <h3 id="signoff-confirm-title">Confirm the sign-off</h3>
-          <p>You sign off these stories. The record keeps who, when and a hash of each story.</p>
-          <ul data-testid="signoff-confirm-stories">
-            {ids.map((id) => (
-              <li key={id}>{id}</li>
-            ))}
-          </ul>
+          <p className="muted small">
+            Stories:{' '}
+            <span data-testid="signoff-confirm-stories">{ids.join(', ')}</span>
+          </p>
+          <div className="signoff-confirm-scroll">
+            <SignOffPreview view={view} storyIds={ids} me={identity?.identity.by} onOpenBox={onOpenBox} />
+          </div>
           <p data-testid="signoff-confirm-identity">
             Signed by <strong>{identity?.identity.by}</strong>
             {identity?.signing.ok && (
@@ -135,7 +141,7 @@ export function SignOffView({ view, session, busy, outcome, onSignOff }: SignOff
               onSignOff(ids);
             }}
           >
-            Confirm sign-off
+            I agree — sign off {ids.join(', ')}
           </button>{' '}
           <button
             type="button"

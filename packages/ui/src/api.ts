@@ -4,7 +4,7 @@
 // calls go to the same server, which talks to the player on 127.0.0.1 (T13).
 
 import type { Finding, Id } from '@rehearse/core';
-import type { StoryThreadView } from '@rehearse/server';
+import type { SignOffPreview, StoryThreadView } from '@rehearse/server';
 import type { ApproveOk, PostOutcome, ReviewEpicView, SignOffOk } from './contract.js';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
@@ -99,7 +99,14 @@ export function postStoryThread<T = StoryThreadView>(action: StoryThreadAction, 
   return threadCall<T>(client, `api/story-thread/${action}`, body);
 }
 
-async function threadCall<T>(client: SessionClient, url: string, body?: unknown): Promise<ThreadOutcome<T>> {
+export type { SignOffPreview, SinceSignOff, StorySignOffPreview } from '@rehearse/server';
+
+/** `GET api/sign-off/preview?stories=` (T39): what each story's sign-off covers, and what changed since the last one. */
+export function fetchSignOffPreview(storyIds: Id[], client: SessionClient = sessionClient): Promise<ThreadOutcome<SignOffPreview>> {
+  return threadCall<SignOffPreview>(client, `api/sign-off/preview?stories=${storyIds.map(encodeURIComponent).join(',')}`, undefined, 'this rehearse serve has no sign-off preview; update rehearse');
+}
+
+async function threadCall<T>(client: SessionClient, url: string, body?: unknown, missing = 'this rehearse serve has no story thread API; update rehearse'): Promise<ThreadOutcome<T>> {
   let r: TokenReply;
   try {
     r = await tokenCall(client, url, body);
@@ -109,5 +116,5 @@ async function threadCall<T>(client: SessionClient, url: string, body?: unknown)
   if (r.ok && r.body !== undefined) return { kind: 'ok', body: r.body as T };
   if (tokenRejected(r)) return { kind: 'error', status: r.status, message: SERVER_RESTARTED };
   const error = typeof r.body?.error === 'string' ? r.body.error : `HTTP ${r.status}`;
-  return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? 'this rehearse serve has no story thread API; update rehearse' : error };
+  return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? missing : error };
 }

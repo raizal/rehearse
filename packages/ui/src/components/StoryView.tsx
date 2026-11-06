@@ -2,7 +2,8 @@
 // WHAT, HOW and OUTPUT are the three cards of the story page (page 2: the role and the criteria;
 // the processes it runs top to bottom; the data it writes and the status it moves), with the
 // scenario cards below them; Before / after (StoryBeforeAfter.tsx), Code (StoryCode.tsx) and
-// Tests (T13: the story's e2e tests in Birdview) each get the story header card on top.
+// Tests (T13: the story's e2e tests in Birdview) each get the story header card on top. The story
+// page head names the story's sign-off state with a link to the sign-off preview (T39), read only.
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import type { Id } from '@rehearse/core';
@@ -12,6 +13,7 @@ import { storyDetail, type StoryDetail } from '../model/storyview.js';
 import { CodeChip, StoryCode, useCodeIndex } from './StoryCode.js';
 import { StoryTests } from './StoryTests.js';
 import { StoryBeforeAfter } from './StoryBeforeAfter.js';
+import { SignOffPreview } from './SignOffPreview.js';
 
 export const STORY_TABS = [
   { id: 'what', label: 'WHAT' },
@@ -66,10 +68,37 @@ export function StoryView({ view, storyId, onOpenBox, onBigPicture, onStories, o
     setTab(t);
   };
   const color = storyColor(view, storyId);
+  const [preview, setPreview] = useState(false);
+  useEffect(() => setPreview(false), [storyId]);
   return (
     <article className={`story-view${page ? ' is-page' : ' is-tab'}`} data-testid="story-view" aria-labelledby={`${tabId}-title`} style={{ ['--role' as string]: color }}>
       {page ? (
-        <PageHead view={view} d={d} titleId={`${tabId}-title`} code={<CodeChip d={d} index={code} />} crumbs={{ onBigPicture, onStories, back }} />
+        <>
+          <PageHead
+            view={view}
+            d={d}
+            titleId={`${tabId}-title`}
+            code={
+              <>
+                <CodeChip d={d} index={code} />
+                {d.story && <SignOffChip view={view} storyId={storyId} open={preview} onToggle={() => setPreview((v) => !v)} />}
+              </>
+            }
+            crumbs={{ onBigPicture, onStories, back }}
+          />
+          {preview && d.story && (
+            <section className="story-signoff-preview" aria-label={`Sign-off preview of ${storyId}`} data-testid="story-signoff-preview">
+              <div className="story-signoff-preview-head">
+                <h2>Sign-off of {storyId}</h2>
+                <button type="button" className="action" data-testid="story-signoff-preview-close" onClick={() => setPreview(false)}>
+                  Close
+                </button>
+              </div>
+              <SignOffPreview view={view} storyIds={[storyId]} onOpenBox={onOpenBox} />
+              <p className="muted small">You sign off in the Sign-off tab.</p>
+            </section>
+          )}
+        </>
       ) : (
         <CardHead
           view={view}
@@ -134,6 +163,22 @@ function StoryChips({ view, d }: { view: ReviewEpicView; d: StoryDetail }) {
       <span className={`chip chip-state is-${state.kind}`} data-testid="story-state">
         {state.text}
       </span>
+    </>
+  );
+}
+
+/** The story's sign-off state (signed, stale, not signed) and the link that opens the sign-off preview (T39). */
+function SignOffChip({ view, storyId, open, onToggle }: { view: ReviewEpicView; storyId: Id; open: boolean; onToggle: () => void }) {
+  const status = view.readiness?.requirements.flatMap((r) => r.stories).find((s) => s.id === storyId)?.status;
+  const [state, link] = status === 'signed' ? ['Sign-off: current', 'Preview sign-off'] : status === 'stale' ? ['Sign-off: stale', 'What changed'] : ['Sign-off: none yet', 'Preview sign-off'];
+  return (
+    <>
+      <span className={`chip chip-plain signoff-state is-${status ?? 'draft'}`} data-testid="story-signoff-state">
+        {state}
+      </span>
+      <button type="button" className="chip chip-link" aria-expanded={open} data-testid="story-signoff-preview-link" onClick={onToggle}>
+        {open ? 'Hide sign-off preview' : link}
+      </button>
     </>
   );
 }

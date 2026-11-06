@@ -435,7 +435,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       )}
       {view && tab === 'signoff' && (
         <main className="page-wrap">
-          <SignOffView view={view} session={session} busy={busy !== undefined} outcome={signOffOutcome} onSignOff={(ids) => void signOff(ids)} />
+          <SignOffView view={view} session={session} busy={busy !== undefined} outcome={signOffOutcome} onSignOff={(ids) => void signOff(ids)} onOpenBox={openBox} />
         </main>
       )}
       {view && box !== undefined && (
