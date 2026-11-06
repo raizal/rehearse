@@ -94,11 +94,12 @@ requirements:
     kind: functional
     text: >-
       The panel shows the flow in swimlanes, one lane per role or external
-      system. A box with children opens a nested diagram. (D13, D32)
+      system. A box opens in a drawer over the current page; a box with
+      children shows its steps there as a nested diagram. (D13, D32, C41)
   - id: R10
     kind: functional
     text: >-
-      The panel plays a scenario step by step. It highlights the current box
+      The storyboard of a scenario plays it step by step. It highlights the current box
       and shows its input, output and state change.
   - id: R11
     kind: functional
@@ -241,11 +242,11 @@ stories:
       - id: S4-A1
         given: flow.yaml with lanes builder and system
         when: the builder opens the panel
-        then: the panel shows two lanes, and each box is in the lane of its role
+        then: the panel shows two lanes, and each box is in the lane of its role; a box's drawer names its lane
       - id: S4-A2
         given: a box with children
         when: the builder clicks it
-        then: the panel shows the nested diagram and a breadcrumb back to the parent
+        then: the box drawer shows the nested diagram and a breadcrumb back to the parent; Back goes up one level
       - id: S4-A4
         given: an EPIC with stories S1 and S2 that both use box validate
         when: the builder opens the review
@@ -271,8 +272,8 @@ stories:
     acceptance:
       - id: S5-A1
         given: an approved scenario with 3 steps
-        when: the builder plays it and moves to step 2
-        then: the panel highlights the box of step 2 and shows its input, output and state change
+        when: the builder plays it on its storyboard (Prev, Next, Play or the arrow keys) and moves to step 2
+        then: the storyboard highlights the box of step 2 and shows its input, output and state change
 
   - id: S6
     role: builder

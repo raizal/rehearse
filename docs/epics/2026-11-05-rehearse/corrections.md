@@ -232,6 +232,12 @@ The owner must approve them again.
   - Why: D17 says the owner signs off explicitly and the sign-off is a recorded event. A gate that passes with no sign-off lets an EPIC through that nobody signed off.
   - Fix: A new gate check `signed-off`: each story in prd.yaml needs a sign-off in `signoff.yaml`. A story with none gives the finding "S… is not signed off; the owner signs it off in the UI". A stale sign-off, an old hash rule and a sign-off without a valid signature stay no-stale findings. A new sign-off of the story clears the finding, so it does not block that sign-off. No scenario, prd.yaml, signoff.yaml or approval changed.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 24 `caught-after-build` (C17–C40).
+- **C41** `caught-after-build` · R9, R10, S4-A1, S4-A2, S5-A1, scenario S4-drill, boxes `review/swimlanes`, `review/drill`, `review/playback`
+  - Status: DONE in T37, T38
+  - What: The owner found the Flow tab confusing: the Big picture already did its job, but links still went there. The storyboard showed steps as boxes to the right, which was hard to follow.
+  - Why: R9, R10, S4 and S5 described a single panel that holds the flow, the drill-down and playback. The UI no longer has that panel.
+  - Fix (owner's choice): The Flow tab is gone. A box link opens a drawer over the current page (`?box=<path>`); a box with children shows its steps there, with a breadcrumb of its parent boxes and Back. Old `#/flow/…` links open the Big picture with the drawer. Playback lives on the scenario storyboard, now a flowchart in role lanes with a step detail panel (Prev, Next, Play, arrow keys). R9, R10, S4-A1, S4-A2, S5-A1, S4-drill (the breadcrumb has no "root"), the `review/*` box titles and outputs, and brainstorm.md say so. Design page 3 (`3-scenario-storyboard.png`) still shows step panels left to right; the built storyboard is the reference until it is redrawn. A step has no link of its own yet.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 25 `caught-after-build` (C17–C41).
 
 After T19: `rehearse validate` gives no findings. `rehearse simulate` gives 13 findings: the new branches of `happy`, `signing-key` and `more-scenarios` and the criteria S4-A2, S4-A4, S4-A5, S4-A6, S6-A1, S6-A4, S6-A5 and S7-A1 have no approved scenario, and S4-drill, S6-approve and S7-matrix are stale. The builder approves S4-drill, S6-approve and the new drafts in the UI.

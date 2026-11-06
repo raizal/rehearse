@@ -153,8 +153,10 @@ root:
       children:
         boxes:
           - { id: swimlanes,   kind: output, lane: builder, package: ui, title: Swimlanes,
-              inputs: { epicDir: string }, outputs: { view: "enum[root, nested]" }, reads: [Box.*, Lane.*] }
+              inputs: { epicDir: string }, outputs: { view: "enum[bigpicture, drawer]" }, reads: [Box.*, Lane.*] }
           # playback is an input box: the builder's click gives scenarioId and step. (C15)
+          # It lives on the scenario storyboard: a flowchart in role lanes, laid out by hand
+          # (the path is one chain), and a step detail panel. (C41)
           - { id: playback,    kind: input,  lane: builder, package: ui, title: Play a scenario step by step,
               inputs: { scenarioId: string, step: number }, outputs: { highlighted: string }, reads: [Scenario.*, Example.*] }
           - { id: matrix,      kind: output, lane: builder, package: ui, title: Use case diagram (permissions),
@@ -162,8 +164,8 @@ root:
           - { id: readiness,   kind: output, lane: builder, package: ui, title: Readiness chain and correction counts,
               inputs: { epicDir: string }, outputs: { decision: "enum[approve, change]" }, reads: [Requirement.*, Story.*, Scenario.status, Approval.sig, Correction.tag] }   # C28: only a valid signature is proof
           # The S4 steps (C35): drill-down, big picture, story view and its Tests tab.
-          - { id: drill,       kind: input,  lane: builder, package: ui, title: Drill into a box with children,
-              inputs: { click: string }, outputs: { shown: string, breadcrumb: "list string" }, reads: [Box.*] }
+          - { id: drill,       kind: input,  lane: builder, package: ui, title: Open a box in the drawer; drill into its children,
+              inputs: { click: string }, outputs: { shown: string, breadcrumb: "list string", edges: "list string" }, reads: [Box.*] }
           - { id: big-picture, kind: output, lane: builder, package: ui, title: "Big picture: every role, the main processes, one line per story",
               inputs: { epicDir: string }, outputs: { lines: "list string", shared: map }, reads: [Story.*, Box.stories, Lane.*] }
           - { id: story-view,  kind: input,  lane: builder, package: ui, title: "Story view: what, how, output, and the story thread",

@@ -40,8 +40,8 @@ scenarios:
     steps:
       - { name: review/swimlanes }
       - name: review/drill
-        example: { id: drill-in, given: { click: ship }, then: { shown: ship/children, breadcrumb: [ root, ship ] } }
-    expect: { criterion: S4-A2, state: { breadcrumb: [ root, ship ] } }
+        example: { id: drill-in, given: { click: ship }, then: { shown: ship/children, breadcrumb: [ ship ] } }
+    expect: { criterion: S4-A2, state: { breadcrumb: [ ship ] } }
 
   - id: S4-browser
     title: Builder opens the served UI in a browser

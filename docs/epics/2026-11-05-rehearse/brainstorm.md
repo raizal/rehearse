@@ -83,7 +83,7 @@ that the system is ready.
 
 1. Schemas and validator.
 2. Simulator (contracts, coverage, error exits, lifecycles, acceptance criteria).
-3. Visual panel (swimlanes, drill-down, scenario playback).
+3. Visual panel (big picture, box drawer, storyboard playback).
 4. Readiness view (requirement → box → scenario → test run).
 5. EPIC gate with recorded sign-off.
 

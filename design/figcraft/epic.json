@@ -163,7 +163,7 @@
      "id": "S4-A2",
      "given": "a box with children",
      "when": "the builder clicks it",
-     "then": "the panel shows the nested diagram and a breadcrumb back to the parent"
+     "then": "the box drawer shows the nested diagram and a breadcrumb back to the parent; Back goes up one level"
     },
     {
      "id": "S4-A4",
