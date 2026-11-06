@@ -1,0 +1,97 @@
+story: S2
+scenarios:
+  - id: S2-missing-outputs
+    title: Agent draft has a box with no outputs
+    status: approved
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:24:23Z'
+      hash: 'sha256:45991e71884025631e2b5836f5f76fd79a98127aa89ccb97ece4ea576e8a00f2'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAlKeWZGbG1XitkDIYKeXCQxMcKj4bv9ZfTm0lK9W+kwOLKCRughh7ys4zeF
+        Qg9YyttQVaK1peqifIJkYF0uptAg==
+        -----END SSH SIGNATURE-----
+    steps:
+      - name: draft-record
+        example: { id: draft-no-outputs, given: { epicDir: docs/epics/x }, then: { epicDir: docs/epics/x } }
+      - name: validate/parse
+        example: { id: parse-ok, given: { epicDir: docs/epics/x }, then: { docs: { flow.yaml: parsed } } }
+      - name: validate/schema
+        example: { id: schema-missing-outputs, given: { docs: { flow.yaml: parsed } }, then: { findings: [ { kind: schema, file: flow.yaml, path: pay, message: "missing field outputs" } ] } }
+      - name: validate/refs
+        example: { id: refs-ok, given: { docs: { flow.yaml: parsed } }, then: { findings: [] } }
+      - name: validate/report
+        example: { id: vreport-1, given: { findings: [ schema ] }, then: { report: { command: validate, ok: false } } }
+      - name: valid
+        branch: "no"
+        example: { id: valid-no, given: { report: { ok: false } }, then: { branch: "no" } }
+      - name: draft-record
+    expect: { criterion: S2-A1, state: { exitCode: 1, finding: { file: flow.yaml, path: pay, field: outputs } } }
+
+  - id: S2-unknown-story
+    title: A box points to a story that does not exist
+    status: approved
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:24:54Z'
+      hash: 'sha256:d384df07550d0637960ff0c9768cff225831c15073a09a50c435da017a2e6cef'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABANTKAXRPsLJVxEokYd3yQgDshFochFY0ffMe1NP+wXParPk00+VSvDXZxkJ
+        2pGadHJNprz1GCzR0lWNHW7ES0CA==
+        -----END SSH SIGNATURE-----
+    steps:
+      - name: validate/parse
+        example: { id: parse-ok-2, given: { epicDir: docs/epics/x }, then: { docs: { flow.yaml: parsed, prd.yaml: parsed } } }
+      - name: validate/schema
+        example: { id: schema-ok, given: { docs: { flow.yaml: parsed } }, then: { findings: [] } }
+      - name: validate/refs
+        example: { id: refs-unknown-story, given: { docs: { flow.yaml: parsed } }, then: { findings: [ { kind: reference, path: pay, message: "story S9 unknown" } ] } }
+      - name: validate/report
+        example: { id: vreport-2, given: { findings: [ reference ] }, then: { report: { command: validate, ok: false } } }
+      - { name: valid, branch: "no" }
+      - name: draft-record
+    expect: { criterion: S2-A2, state: { exitCode: 1, finding: { path: pay, ref: S9 } } }
+
+  - id: S2-unknown-step
+    title: A scenario step names a box path that does not exist
+    status: approved
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:25:37Z'
+      hash: 'sha256:3a29b8ec460795b5c01f0b551f72445fb34291906ad194bc19b10bb1e6f6e395'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAFZOo6DKP9Qr7zFi66nmMRCHTR0NjK4U2wDqwzTm8U7RgK+1SD47/FJrFnt
+        kqQCLY0C4//7cIJ+3Y2h3ti4RmAw==
+        -----END SSH SIGNATURE-----
+    steps:
+      - name: validate/parse
+      - name: validate/schema
+      - name: validate/refs
+        example: { id: refs-unknown-step, given: { docs: { scenarios/S9.yaml: parsed } }, then: { findings: [ { kind: reference, path: S9-a/step-2, message: "box path pay/nope unknown" } ] } }
+      - name: validate/report
+      - { name: valid, branch: "no" }
+      - name: draft-record
+    expect: { criterion: S2-A3, state: { exitCode: 1, finding: { scenario: S9-a, step: 2, path: pay/nope } } }
+
+  - id: S2-yaml-syntax
+    title: A record file is not valid YAML
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:fcdc8e942bdde04f561b650b7a7536d7fd163e9dfd8d8032d8216841e2d0971c', note: bootstrap }
+    steps:
+      - name: validate/parse
+        branch: yaml-syntax
+        example: { id: parse-bad, given: { epicDir: docs/epics/x }, then: { exit: yaml-syntax } }
+      - name: validate/report
+        example: { id: vreport-3, given: { findings: [ schema ] }, then: { report: { command: validate, ok: false } } }
+      - { name: valid, branch: "no" }
+      - name: draft-record
+    expect: { state: { exitCode: 1 } }

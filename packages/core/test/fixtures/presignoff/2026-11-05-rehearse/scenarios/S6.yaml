@@ -1,0 +1,72 @@
+story: S6
+scenarios:
+  - id: S6-approve
+    title: Builder approves a draft scenario, gate still fails
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f8addf5539293e0ea10fc7cf56fe9b0cda11b2f8ad7090ccdda8fb53affcfcdf', note: bootstrap }
+    steps:
+      - { name: review/readiness }
+      - name: happy
+        branch: approve
+        example: { id: approve, given: { decision: approve }, then: { branch: approve } }
+      - name: signing-key
+        branch: "yes"
+        example: { id: key-set, given: { signingKey: "~/.ssh/id_ed25519.pub" }, then: { branch: "yes" } }
+      - name: approve
+        example: { id: approve-1, given: { scenarioIds: [shop-1], user: a@b.c, threadId: thr_x }, then: { approvals: [{ by: a@b.c, threadId: thr_x, hash: h1 }] } }
+      - name: more-scenarios
+        branch: "no"
+      - name: gate/traced
+        example: { id: traced-gap, given: { requirements: [R1, R2], stories: { S1: [R1] } }, then: { findings: [{ kind: reference, message: "R2 has no story" }] } }
+      - { name: gate/sim-clean }
+      - { name: gate/no-stale }
+      - { name: gate/report }
+      - name: gate-ok
+        branch: "no"
+      - { name: review/swimlanes }
+    expect: { criterion: S6-A1, state: { Scenario.status: approved, Approval.by: a@b.c } }
+
+  - id: S6-agent-cli
+    title: Agent has CLI access only
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:89cddb867196944fb4a3842e733414aeefdf78a74486b8e2f48f5349cf9fa6cf', note: bootstrap }
+    steps:
+      - name: draft-record
+        example: { id: cli-commands, given: { cli: list-commands }, then: { commands: [new, validate, simulate, gate, serve] } }
+    expect: { criterion: S6-A2, state: { Scenario.status: draft, approveCommand: absent } }
+
+  - id: S6-stale
+    title: An approved scenario changes
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:f95ab2eee497db9cf239d71774a2979e3cc5d1a0ad3aba03814b162d80923909', note: bootstrap }
+    steps:
+      - { name: signed-edit }
+      - name: content-changed
+        example: { id: scenario-changed, given: { approvalHash: h1, contentHash: h2 }, then: { staleScenarios: [shop-1], staleStories: [] } }
+      - { name: review/swimlanes }
+    expect: { criterion: S6-A3, state: { Scenario.status: stale, simulatorUsesIt: false } }
+
+  - id: S6-no-key
+    title: No signing key, so Approve stays off
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: happy, branch: approve }
+      - name: signing-key
+        branch: "no"
+        example: { id: no-key, given: { signingKey: null }, then: { branch: "no" } }
+      - { name: no-key }
+    expect: { criterion: S6-A4, state: { approveButton: off, guide: docs/signing.md } }
+
+  - id: S6-more
+    title: Builder approves one of two drafts and goes back to the review
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: happy, branch: approve }
+      - { name: signing-key, branch: "yes" }
+      - name: approve
+        example: { id: approve-first, given: { scenarioIds: [shop-1] }, then: { approvals: [{ by: a@b.c, hash: h1 }] } }
+      - { name: more-scenarios, branch: "yes" }
+      - { name: review/swimlanes }
+    expect: { criterion: S6-A5, state: { Scenario.status: approved, drafts: 1 } }

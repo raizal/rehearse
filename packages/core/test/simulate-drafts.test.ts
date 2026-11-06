@@ -1,27 +1,11 @@
 // T22 `simulate --drafts`: the same checks with draft and stale scenarios counted as if approved.
 // Findings only, never evidence: the gate never reads it, and it writes nothing.
 
-import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { gateEpic, reportToJson, simulateEpic, simulateRecord, simulationToText } from '../src/index.js';
-import { box, brief, makeEpic, REAL_EPIC, scenario } from './helpers.js';
+import { box, brief, hashDir, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, scenario } from './helpers.js';
+import { approvedEpic } from './trust/helpers.js';
 import { makeApprovedEpic } from './simulate-helpers.js';
-
-/** Hash of every file under `dir` (names and bytes). */
-function hashDir(dir: string): string {
-  const h = createHash('sha256');
-  const walk = (d: string): void => {
-    for (const name of readdirSync(d).sort()) {
-      const p = join(d, name);
-      if (statSync(p).isDirectory()) walk(p);
-      else h.update(`${p}\n`).update(readFileSync(p));
-    }
-  };
-  walk(dir);
-  return h.digest('hex');
-}
 
 describe('simulate --drafts (T22)', () => {
   it('a draft with a contract error gives a finding in drafts mode and none in plain simulate', () => {
@@ -123,11 +107,20 @@ describe('simulate --drafts (T22)', () => {
   });
 
   it('never changes the gate result or any file', () => {
-    for (const dir of [makeEpic({ edit: (d) => (box(d, 'pay').inputs = { orderId: 'number' }) }), REAL_EPIC]) {
+    // Not clean: a changed contract, and the first EPIC frozen before its sign-off. Clean: a signed, approved shop.
+    // The live first EPIC is either, by the owner's signing state and key list; the claim holds for both.
+    const cases: [string, boolean | undefined][] = [
+      [makeEpic({ edit: (d) => (box(d, 'pay').inputs = { orderId: 'number' }) }), false],
+      [PRESIGNOFF_EPIC, false],
+      [approvedEpic(), true],
+      [REAL_EPIC, undefined],
+    ];
+    for (const [dir, ok] of cases) {
       const before = hashDir(dir);
-      const gateBefore = JSON.stringify(gateEpic(dir, simulateRecord));
+      const gate = gateEpic(dir, simulateRecord);
+      if (ok !== undefined) expect(gate.ok, dir).toBe(ok);
       simulateEpic(dir, { drafts: true });
-      expect(JSON.stringify(gateEpic(dir, simulateRecord))).toBe(gateBefore);
+      expect(JSON.stringify(gateEpic(dir, simulateRecord))).toBe(JSON.stringify(gate));
       expect(hashDir(dir)).toBe(before);
     }
   });

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { makeEpic, REAL_EPIC, unsignedRealEpic } from '../../core/test/helpers.js';
+import { hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedRealEpic } from '../../core/test/helpers.js';
 import { approvedEpic } from '../../core/test/trust/helpers.js';
 import { KEY } from '../../core/test/trust/keys.js';
 import { run, USAGE } from '../src/index.js';
@@ -67,11 +67,33 @@ describe('rehearse gate check', () => {
     const a = cli(['gate', 'check', dir, '--json']).out;
     expect(cli(['gate', 'check', dir, '--json']).out).toBe(a);
     expect(readFileSync(join(dir, 'signoff.yaml'), 'utf8')).toBe(before);
-    // The real record: gate check writes nothing and validate passes.
-    const real = readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8');
-    expect(cli(['gate', 'check', '2026-11-05-rehearse']).code).toBe(1);
-    expect(readFileSync(join(REAL_EPIC, 'signoff.yaml'), 'utf8')).toBe(real);
+    // The first EPIC frozen before its sign-off: rule-1 sign-offs and stale stories; gate check writes nothing.
+    const frozen = hashDir(PRESIGNOFF_EPIC);
+    const old = cli(['gate', 'check', PRESIGNOFF_EPIC]);
+    expect(old.code).toBe(1);
+    expect(old.out).toMatch(/signoff\.yaml: S1: gate: story is stale: content changed since sign-off \(hash rule 1\); must be signed again/);
+    expect(old.out).toMatch(/signoff\.yaml: S5: gate: signed under hash rule 1, which does not cover boxes and lane roles \(C11\); must be signed again/);
+    expect(hashDir(PRESIGNOFF_EPIC)).toBe(frozen);
+  });
+
+  it('dogfood: the live first EPIC passes the gate with the key list; nothing is written and validate passes', () => {
+    const before = hashDir(REAL_EPIC);
+    const { code, out } = cli(['gate', 'check', '2026-11-05-rehearse']);
+    expect(hashDir(REAL_EPIC)).toBe(before);
     expect(cli(['validate', '2026-11-05-rehearse']).code).toBe(0);
+    // True without the key list: no story must be signed again for its content or hash rule, no approval lacks a signature.
+    expect(out).not.toMatch(/is stale: content changed|signed under hash rule 1|sigStatus missing|has no approved scenario/);
+    if (liveAllowedSigners()) {
+      // The owner's checkout: every signature is by a key that .rehearse/allowed_signers lists.
+      expect(code, out).toBe(0);
+      expect(out).toMatch(/^gate: OK, no findings\nsigners .*\n {2}\S+@\S+ SHA256:\S+: \d+ approvals, \d+ sign-offs\n/);
+    } else {
+      // No key list (a clean worktree): each finding is a good signature by a key not listed.
+      expect(code).toBe(1);
+      const findings = out.split('\n').filter((l) => /: gate: /.test(l));
+      expect(findings.length).toBeGreaterThan(0);
+      for (const f of findings) expect(f).toMatch(/sigStatus unknown-signer/);
+    }
   });
 });
 

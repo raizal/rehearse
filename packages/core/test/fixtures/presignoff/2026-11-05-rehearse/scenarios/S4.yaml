@@ -1,0 +1,93 @@
+story: S4
+scenarios:
+  - id: S4-swimlanes
+    title: Builder opens a clean design in the panel
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:b6d6f40ccc4878270422572439de1a4094971435fe884e3431583d30d68034a2', note: bootstrap }
+    steps:
+      - { name: simulate/report }
+      - name: design-errors
+        branch: "no"
+        example: { id: no-errors, given: { report: { ok: true } }, then: { branch: "no" } }
+      - name: review/swimlanes
+        example: { id: lanes-2, given: { lanes: [ builder, system ], boxes: { pay: system, cart: builder } }, then: { shown: { builder: [ cart ], system: [ pay ] } } }
+    expect: { criterion: S4-A1, state: { lanesShown: 2, eachBoxInItsLane: true } }
+
+  - id: S4-drill
+    title: Builder drills into a box with children
+    status: approved
+    approval: { by: raizal.pregnanta@systemearth.com, threadId: thr_zpd73mnmgy, at: '2026-11-05T06:49:06Z', hash: 'sha256:9c8d31904ad814cf27d3349ad80bc8b5f0a802db29c8d5e38c539f3924a0352d', note: bootstrap }
+    steps:
+      - { name: review/swimlanes }
+      - name: review/drill
+        example: { id: drill-in, given: { click: ship }, then: { shown: ship/children, breadcrumb: [root, ship] } }
+    expect: { criterion: S4-A2, state: { breadcrumb: [root, ship] } }
+
+  - id: S4-browser
+    title: Builder opens the served UI in a browser
+    status: approved
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T15:47:31Z'
+      hash: 'sha256:e3bc0617dc1ccf35113b2415a4c22be94889e183773f0167809fb26f89a22374'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAPpILa/uIHGf/5VXgUfQN9ItQ/Ab2oVXAxRji/3wzBY2kzV1BK25iAGLkUX
+        A/Gc0WHvm65qErGmq59YG5eD2eDQ==
+        -----END SSH SIGNATURE-----
+    steps:
+      - name: review/swimlanes
+        example: { id: serve-browser, given: { url: "http://127.0.0.1:<port>" }, then: { fullScreen: true, sameUiAsPanel: true } }
+    expect: { criterion: S4-A3, state: { fullScreen: true } }
+
+  - id: S4-big-picture
+    title: Builder sees the whole EPIC and the processes that features share
+    status: approved
+    steps:
+      - { name: review/swimlanes }
+      - name: review/big-picture
+        example: { id: big-picture, given: { stories: { S1: [new-epic, validate], S2: [draft-record, validate] } }, then: { roles: all, processes: in-flow-order, lines: [S1, S2], shared: { validate: [S1, S2] } } }
+    expect: { criterion: S4-A4, state: { shared: { validate: [S1, S2] } } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:25:59Z'
+      hash: 'sha256:a75de8be452a2503a010df12c4420217f73b03544ac3d0dbc9418b602b09d882'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA48nXcjK01OW6f0lHoqG4+F8Or9INP953K6U7gDIxa4aUC4ukUxeLsLkLni
+        jJufF3DbmN2RGwCueP8uXc7BIlAw==
+        -----END SSH SIGNATURE-----
+
+  - id: S4-story-view
+    title: Builder opens one story and sees what, how and output
+    status: approved
+    steps:
+      - { name: review/swimlanes }
+      - name: review/story-view
+        example: { id: story-view, given: { story: S9, boxes: [content-changed, gate, sign-off], writes: ["Story.status:draft->signed"] }, then: { what: S9, how: [content-changed, gate, sign-off], output: { Story.status: "draft → signed" }, then: scenarios, thread: { column: 3, collapsible: true, key: "]" } } }
+    expect: { criterion: S4-A5, state: { panels: [what, how, output], output: { Story.status: "draft → signed" }, threadColumn: collapsible } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:26:02Z'
+      hash: 'sha256:51b4ecc174826dfc005836f547d2df76e6e16411f5112a4e1b70ced434249199'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAVkNok1ctCSWNZp13kiBsSk/ytQwgV+f8DxKArTM+ZCu47ePPHjEeeEpioa
+        DoipJ9yAjVINT6pobu1DR3cl9ZDg==
+        -----END SSH SIGNATURE-----
+
+  - id: S4-story-tests
+    title: Builder opens the Tests tab of a story
+    status: draft
+    steps:
+      - { name: review/swimlanes }
+      - { name: review/story-view }
+      - name: review/story-tests
+        example: { id: tests-tab, given: { story: S1, results: none }, then: { tests: ["S1-create: not run"], player: birdview } }
+    expect: { criterion: S4-A6, state: { rows: one-per-scenario, statusInWords: true } }

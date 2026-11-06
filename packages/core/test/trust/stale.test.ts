@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { allScenarios, detectStale, gateEpic, loadEpic, storyHashV1, storyHashV2, validateEpic } from '../../src/index.js';
-import { BOOTSTRAP_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
+import { BOOTSTRAP_EPIC, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC } from '../helpers.js';
 import { approvedEpic, editYaml, read, signedEpic } from './helpers.js';
 
 describe('story hash rule 2 (C11)', () => {
@@ -54,17 +54,22 @@ describe('story hash rule 2 (C11)', () => {
   });
 
   it('never treats a rule-1 sign-off as fully trusted', () => {
-    for (const dir of [BOOTSTRAP_EPIC, REAL_EPIC]) {
+    // The frozen first EPIC at bootstrap and just before the owner's sign-off: every story is signed under rule 1.
+    for (const dir of [BOOTSTRAP_EPIC, PRESIGNOFF_EPIC]) {
       const result = detectStale(loadEpic(dir).record);
-      expect(result.stories.map((s) => s.trusted)).toEqual(result.stories.map(() => false));
+      expect(result.stories.map((s) => s.hashRule), dir).toEqual(result.stories.map(() => 1));
+      expect(result.stories.map((s) => s.trusted), dir).toEqual(result.stories.map(() => false));
     }
+    // The live record, whatever it is signed with: a story whose latest sign-off is rule 1 is never trusted.
+    for (const s of detectStale(loadEpic(REAL_EPIC).record).stories) if (s.hashRule === 1) expect(s.trusted, s.id).toBe(false);
   });
 
-  it('S9-A3 dogfood: the live first EPIC is stale for the stories whose rule-1 content changed after sign-off', () => {
-    // The live record keeps changing, so pin only the stories that C17–C24 changed (R1, R6, R11, S1–S3 text).
-    const result = detectStale(loadEpic(REAL_EPIC).record);
-    expect(result.staleStories).toEqual(expect.arrayContaining(['S1', 'S2', 'S3', 'S8']));
+  it('S9-A3 dogfood: the first EPIC before its sign-off is stale for the stories whose rule-1 content changed after sign-off', () => {
+    // A frozen copy (7f46920), so the owner's new sign-off does not change it. C17–C24 changed R1, R6, R11, S1–S3 text.
+    const result = detectStale(loadEpic(PRESIGNOFF_EPIC).record);
+    expect(result.staleStories).toEqual(['S1', 'S2', 'S3', 'S4', 'S6', 'S7', 'S8', 'S9']);
     expect(result.stories.filter((s) => s.status === 'stale').map((s) => s.id)).toEqual(result.staleStories);
+    expect(result.stories.filter((s) => s.status !== 'stale').map((s) => `${s.id} ${s.status}`)).toEqual(['S5 signed', 'S10 signed']);
   });
 });
 
