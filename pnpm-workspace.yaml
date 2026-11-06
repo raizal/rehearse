@@ -1,3 +1,9 @@
 packages:
   - packages/*
   - e2e
+# @rehearse/graph uses only the .wasm files of these grammar packages (web-tree-sitter),
+# never their native Node bindings, so their build scripts do not run.
+allowBuilds:
+  tree-sitter-javascript: false
+  tree-sitter-python: false
+  tree-sitter-typescript: false

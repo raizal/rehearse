@@ -320,8 +320,16 @@ describe('T16 5 data: docs/system/architecture.yaml for rehearse v1', () => {
     const arch = loadSystem(REAL_SYSTEM).system.architecture!;
     const paths = arch.components.flatMap((c) => c.code ?? []);
     for (const p of paths) expect(existsSync(join(REPO_ROOT, p)), p).toBe(true);
+    // A package that an open EPIC adds (`change: added`) is a part of the system once that EPIC lands.
+    const epics = join(REPO_ROOT, 'docs/epics');
+    const added = readdirSync(epics)
+      .map((e) => join(epics, e, 'architecture.yaml'))
+      .filter((f) => existsSync(f))
+      .flatMap((f) => ((parse(readFileSync(f, 'utf8')) as { components?: Array<{ change?: string; code?: string[] }> }).components ?? []))
+      .filter((c) => c.change === 'added')
+      .flatMap((c) => c.code ?? []);
     const packages = readdirSync(join(REPO_ROOT, 'packages')).filter((n) => existsSync(join(REPO_ROOT, 'packages', n, 'package.json')));
-    for (const n of packages) expect(paths.some((p) => p.startsWith(`packages/${n}/`)), `packages/${n}`).toBe(true);
+    for (const n of packages) expect([...paths, ...added].some((p) => p.startsWith(`packages/${n}/`)), `packages/${n}`).toBe(true);
   });
 
   it('T16 5 the rehearse EPIC still validates as before with docs/system/ present', () => {
