@@ -5,17 +5,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Id, Scenario } from '@rehearse/core';
-import { fetchBirdview, fetchSession, postBirdviewSelect, type BirdviewInfo } from '../api.js';
+import { fetchBirdview, postBirdviewSelect, type BirdviewInfo } from '../api.js';
+import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 import { embedUrl, playerNotice, testRows, testSummary, type TestRow } from '../model/tests.js';
 
-/** The calls the tab makes. Tests replace `fetch`, not this. */
+/** The calls the tab makes; they take the token from the shared session client. Tests replace `fetch`, not this. */
 export interface TestsApi {
-  token: () => Promise<string>;
-  birdview: (token: string, storyId: Id) => Promise<BirdviewInfo>;
-  select: (token: string, storyId: Id) => Promise<{ ok: true } | { ok: false; error: string }>;
+  birdview: (storyId: Id) => Promise<BirdviewInfo>;
+  select: (storyId: Id) => Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
-const HTTP_TESTS_API: TestsApi = { token: async () => (await fetchSession()).token, birdview: fetchBirdview, select: postBirdviewSelect };
+const HTTP_TESTS_API: TestsApi = { birdview: (id) => fetchBirdview(id), select: (id) => postBirdviewSelect(id) };
 
 /** How often the tab reads the player again while it is open. */
 export const POLL_MS = 5000;
@@ -38,28 +38,15 @@ export interface StoryTestsProps {
 }
 
 export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTestsProps) {
-  const [token, setToken] = useState<string | undefined>();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [selectMsg, setSelectMsg] = useState<string | undefined>();
 
-  useEffect(() => {
-    let live = true;
-    api.token().then(
-      (t) => live && setToken(t),
-      (e: unknown) => live && setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }),
-    );
-    return () => {
-      live = false;
-    };
-  }, [api]);
-
   const refresh = useCallback(() => {
-    if (!token) return;
-    api.birdview(token, storyId).then(
+    api.birdview(storyId).then(
       (info) => setLoad({ kind: 'ready', info }),
       (e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }),
     );
-  }, [api, token, storyId]);
+  }, [api, storyId]);
   useEffect(() => {
     setLoad({ kind: 'loading' });
     setSelectMsg(undefined);
@@ -74,10 +61,9 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
   const selected = info?.player.kind === 'ours' && info.player.selected === info.playlistId;
 
   const select = async () => {
-    if (!token) return;
     setSelectMsg('Asking the player…');
-    const out = await api.select(token, storyId);
-    setSelectMsg(out.ok ? `The player shows the ${storyId} playlist.` : `The player did not switch: ${out.error}`);
+    const out = await api.select(storyId);
+    setSelectMsg(out.ok ? `The player shows the ${storyId} playlist.` : isServerRestarted(out.error) ? out.error : `The player did not switch: ${out.error}`);
     refresh();
   };
 
@@ -92,7 +78,7 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
           {info && !info.playlist ? ' (not written yet: run rehearse playlists)' : ''}
         </span>
         <span className="story-tests-actions">
-          <button type="button" className="action small" data-testid="story-tests-refresh" onClick={refresh} disabled={!token}>
+          <button type="button" className="action small" data-testid="story-tests-refresh" onClick={refresh}>
             Refresh
           </button>
           {notice?.embed && info && (
@@ -107,16 +93,22 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
           )}
         </span>
       </header>
-      {selectMsg && (
-        <p className="small" role="status" data-testid="story-tests-select-msg">
-          {selectMsg}
-        </p>
-      )}
-      {load.kind === 'error' && (
-        <p className="warn" data-testid="story-tests-error">
-          Could not read the tests: {load.message}
-        </p>
-      )}
+      {selectMsg &&
+        (isServerRestarted(selectMsg) ? (
+          <ServerRestarted className="small warn" testId="story-tests-select-msg" />
+        ) : (
+          <p className="small" role="status" data-testid="story-tests-select-msg">
+            {selectMsg}
+          </p>
+        ))}
+      {load.kind === 'error' &&
+        (isServerRestarted(load.message) ? (
+          <ServerRestarted testId="story-tests-error" />
+        ) : (
+          <p className="warn" data-testid="story-tests-error">
+            Could not read the tests: {load.message}
+          </p>
+        ))}
       <div className="story-tests-body">
         <div className="story-tests-list">
           <h4>One test per scenario</h4>

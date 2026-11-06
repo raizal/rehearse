@@ -67,8 +67,10 @@ export type PostOutcome<T> =
   | { kind: 'findings'; findings: Finding[] }
   /** 503: signing is not available. */
   | { kind: 'unavailable'; reason: string }
-  /** 403: bad token or origin. */
+  /** 403: bad origin, or another refusal that is not the token. */
   | { kind: 'forbidden'; message: string }
+  /** 403 token error even after a fresh session: the server restarted again, the page must reload (T24). */
+  | { kind: 'restarted' }
   /** Any other failure. */
   | { kind: 'error'; message: string };
 

@@ -7,6 +7,7 @@ import { useContext, useEffect, useMemo, useState, type MouseEvent } from 'react
 import { CodeApiContext, type BoxCodeOutcome, type BoxCodeView, type CodeIndex } from '../code-api.js';
 import { codeChipText, codeStrip, compareChoices, plainWords, splitPath, splitRows, stripBoxText, taskThreads, unifiedRows, type CodeStripBox } from '../model/code.js';
 import type { StoryDetail } from '../model/storyview.js';
+import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 import type { DiffLine } from '@rehearse/server';
 
 /** The code index for the story header chip and the Code tab; undefined while it loads. */
@@ -44,11 +45,14 @@ export function StoryCode({ d, index }: { d: StoryDetail; index: CodeIndex | und
   return (
     <section className="story-code" data-testid="story-code" aria-labelledby="story-code-h">
       <h3 id="story-code-h">Code</h3>
-      {index && !index.ok && (
-        <p className="warn" data-testid="code-unavailable">
-          No code: {index.reason}.
-        </p>
-      )}
+      {index && !index.ok &&
+        (isServerRestarted(index.reason) ? (
+          <ServerRestarted testId="code-unavailable" />
+        ) : (
+          <p className="warn" data-testid="code-unavailable">
+            No code: {index.reason}.
+          </p>
+        ))}
       {d.how.boxes.length === 0 ? (
         <p className="muted small">No box in flow.yaml serves {d.storyId}.</p>
       ) : (
@@ -141,9 +145,13 @@ function BoxPanel({ b, onLoaded }: { b: CodeStripBox; onLoaded: (view: BoxCodeVi
       ) : outcome === undefined ? (
         <p className="muted">Loading the code of {b.path}…</p>
       ) : !outcome.ok ? (
+        isServerRestarted(outcome.error) ? (
+          <ServerRestarted testId="code-error" />
+        ) : (
         <p className="warn" data-testid="code-error">
           Could not load the code: {outcome.error}
         </p>
+        )
       ) : (
         view && (
           <>

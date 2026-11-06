@@ -7,7 +7,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { Id, Scenario } from '@rehearse/core';
-import { fetchEpic, fetchSession, postApprove, postSignOff } from './api.js';
+import { fetchEpic, postApprove, postSignOff } from './api.js';
+import { sessionClient, type SessionClient } from './session-client.js';
 import type { ScenarioView } from './api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
 import { ApproveBar } from './components/Approve.js';
@@ -45,14 +46,17 @@ const TABS = [
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; view: ReviewEpicView };
 
-/** The write side of `rehearse serve`. Tests replace `fetch`, not this. */
+/**
+ * The write side of `rehearse serve`. Approve and sign-off take the token from the session
+ * client, which reads it again after a server restart (T24). Tests replace `fetch`, not this.
+ */
 export interface ReviewApi {
-  session: () => Promise<Session>;
-  approve: (token: string, scenarioIds: Id[]) => Promise<PostOutcome<ApproveOk>>;
-  signOff: (token: string, storyIds: Id[]) => Promise<PostOutcome<SignOffOk>>;
+  session: SessionClient;
+  approve: (scenarioIds: Id[]) => Promise<PostOutcome<ApproveOk>>;
+  signOff: (storyIds: Id[]) => Promise<PostOutcome<SignOffOk>>;
 }
 
-const HTTP_API: ReviewApi = { session: fetchSession, approve: postApprove, signOff: postSignOff };
+const HTTP_API: ReviewApi = { session: sessionClient, approve: (ids) => postApprove(ids), signOff: (ids) => postSignOff(ids) };
 
 export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise<ReviewEpicView>; api?: ReviewApi }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
@@ -88,10 +92,15 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   }, [load]);
   useEffect(reload, [reload]);
   useEffect(() => {
-    api.session().then(
-      (s) => setSession({ kind: 'ready', session: s }),
-      (e: unknown) => setSession({ kind: 'error', message: e instanceof Error ? e.message : String(e) }),
-    );
+    let live = true;
+    // Each session the client reads (the first, and one after a restart) shows here: the signing chip follows it.
+    const ready = (s: Session) => live && setSession({ kind: 'ready', session: s });
+    const off = api.session.subscribe(ready);
+    api.session.session().then(ready, (e: unknown) => live && setSession({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+    return () => {
+      live = false;
+      off();
+    };
   }, [api]);
 
   const view = state.kind === 'ready' ? state.view : undefined;
@@ -315,7 +324,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       if (!token || ids.length === 0) return;
       setBusy('approve');
       setApproveOutcome(undefined);
-      const outcome = await api.approve(token, ids);
+      const outcome = await api.approve(ids);
       setBusy(undefined);
       setApproveOutcome(outcome);
       if (outcome.kind === 'ok') {
@@ -330,7 +339,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       if (!token) return;
       setBusy('signoff');
       setSignOffOutcome(undefined);
-      const outcome = await api.signOff(token, ids);
+      const outcome = await api.signOff(ids);
       setBusy(undefined);
       setSignOffOutcome(outcome);
       if (outcome.kind === 'ok') reload();

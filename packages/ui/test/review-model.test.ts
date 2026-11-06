@@ -5,7 +5,7 @@ import type { Finding } from '@rehearse/core';
 import { postApprove, postSignOff } from '../src/api.js';
 import { approveReason, blockingFindings, findingStories, groupByStory, matrixAxes, sigText } from '../src/model/review.js';
 import { reviewEpic } from './fixture.js';
-import { mockServer } from './mock-server.js';
+import { mockServer, SESSION } from './mock-server.js';
 
 const view = reviewEpic();
 const sv = (id: string) => view.scenarios.find((s) => s.scenario.id === id)!;
@@ -72,22 +72,22 @@ describe('POST outcomes (HTTP contract)', () => {
 
   it('200, 409, 503 and 403 each map to their outcome', async () => {
     routes({ status: 200, body: { ok: true, approved: ['S1-empty'] } });
-    expect(await postApprove('t', ['S1-empty'])).toEqual({ kind: 'ok', body: { ok: true, approved: ['S1-empty'] } });
+    expect(await postApprove(['S1-empty'])).toEqual({ kind: 'ok', body: { ok: true, approved: ['S1-empty'] } });
     const finding = f('prd.yaml', 'S2', ['S2']);
     routes({ status: 409, body: { ok: false, findings: [finding] } });
-    expect(await postSignOff('t', ['S2'])).toEqual({ kind: 'findings', findings: [finding] });
+    expect(await postSignOff(['S2'])).toEqual({ kind: 'findings', findings: [finding] });
     routes({ status: 503, body: { ok: false, reason: 'no key' } });
-    expect(await postApprove('t', ['x'])).toEqual({ kind: 'unavailable', reason: 'no key' });
+    expect(await postApprove(['x'])).toEqual({ kind: 'unavailable', reason: 'no key' });
     routes({ status: 403, body: 'forbidden' });
-    expect(await postSignOff('t', ['S1'])).toMatchObject({ kind: 'forbidden' });
+    expect(await postSignOff(['S1'])).toMatchObject({ kind: 'forbidden' });
     routes({ status: 405, body: { error: 'method' } });
-    expect(await postApprove('t', ['x'])).toEqual({ kind: 'error', message: 'POST api/approve: HTTP 405: method' });
+    expect(await postApprove(['x'])).toEqual({ kind: 'error', message: 'POST api/approve: HTTP 405: method' });
   });
 
   it('a 403 with a body that is not JSON still gives a forbidden outcome; a network error is an error', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 403, json: async () => { throw new SyntaxError('not json'); } })));
-    expect(await postApprove('t', ['x'])).toMatchObject({ kind: 'forbidden', message: expect.stringContaining('token') });
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (url === 'api/session' ? { ok: true, status: 200, json: async () => SESSION } : { ok: false, status: 403, json: async () => { throw new SyntaxError('not json'); } })));
+    expect(await postApprove(['x'])).toMatchObject({ kind: 'forbidden', message: expect.stringContaining('token') });
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('connection refused'); }));
-    expect(await postApprove('t', ['x'])).toEqual({ kind: 'error', message: 'POST api/approve: connection refused' });
+    expect(await postApprove(['x'])).toEqual({ kind: 'error', message: 'POST api/approve: connection refused' });
   });
 });

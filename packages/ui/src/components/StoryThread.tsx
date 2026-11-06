@@ -2,7 +2,8 @@
 // One bb thread per story: its status, the brief, the messages (polled), earlier task threads
 // from Flow-Box trailers, and a composer that sends with the context line on top. » collapses it
 // to a 56 px strip for every story (localStorage); `]` toggles it. Without bb it says so in
-// words and shows the thread id only. All talk goes through `rehearse serve` (api.ts).
+// words and shows the thread id only. All talk goes through `rehearse serve` (api.ts), with the
+// token of the shared session client (T24).
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { Id } from '@rehearse/core';
@@ -27,19 +28,18 @@ import {
   whoLabel,
   type ReadMarks,
 } from '../model/storythread.js';
+import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 
 /** The server calls, replaceable in tests. */
 export interface StoryThreadApi {
-  load: (token: string, story: Id) => Promise<ThreadOutcome<StoryThreadView>>;
-  post: (token: string, action: StoryThreadAction, body: { story: Id } & Record<string, string>) => Promise<ThreadOutcome<unknown>>;
+  load: (story: Id) => Promise<ThreadOutcome<StoryThreadView>>;
+  post: (action: StoryThreadAction, body: { story: Id } & Record<string, string>) => Promise<ThreadOutcome<unknown>>;
 }
 
-const HTTP: StoryThreadApi = { load: fetchStoryThread, post: postStoryThread };
+const HTTP: StoryThreadApi = { load: (story) => fetchStoryThread(story), post: (action, body) => postStoryThread(action, body) };
 
 export interface StoryThreadProps {
   storyId: Id;
-  /** The session token; undefined while the session loads. */
-  token: string | undefined;
   /** What the owner is looking at, for the composer's chip (see contextLabel). */
   context: string;
   api?: StoryThreadApi;
@@ -49,7 +49,7 @@ export interface StoryThreadProps {
 
 type Data = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ok'; view: StoryThreadView };
 
-export function StoryThread({ storyId, token, context, api = HTTP, storage = browserLocalStorage(), now = Date.now }: StoryThreadProps) {
+export function StoryThread({ storyId, context, api = HTTP, storage = browserLocalStorage(), now = Date.now }: StoryThreadProps) {
   const [collapsed, setCollapsedState] = useState(() => loadCollapsed(storage));
   const [data, setData] = useState<Data>({ kind: 'loading' });
   const [marks, setMarks] = useState<ReadMarks>(() => loadReadMarks(storage));
@@ -106,15 +106,13 @@ export function StoryThread({ storyId, token, context, api = HTTP, storage = bro
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
-    const r = await api.load(token, storyId);
+    const r = await api.load(storyId);
     if (r.kind === 'ok') accept(r.body);
     else setData((old) => (old.kind === 'ok' ? old : { kind: 'error', message: r.message }));
-  }, [api, token, storyId, accept]);
+  }, [api, storyId, accept]);
 
   // Poll: often while open, slower while collapsed (for the unread count and the toast).
   useEffect(() => {
-    if (!token) return;
     let stop = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const tick = async () => {
@@ -126,7 +124,7 @@ export function StoryThread({ storyId, token, context, api = HTTP, storage = bro
       stop = true;
       if (timer) clearTimeout(timer);
     };
-  }, [refresh, token, collapsed]);
+  }, [refresh, collapsed]);
 
   useEffect(() => {
     if (!toast) return;
@@ -150,10 +148,9 @@ export function StoryThread({ storyId, token, context, api = HTTP, storage = bro
   const tone = bb?.ok ? toneOf(bb.statusText) : 'none';
 
   const act = async (action: StoryThreadAction, body: Record<string, string> = {}): Promise<boolean> => {
-    if (!token) return false;
     setBusy(action);
     setActionError(undefined);
-    const r = await api.post(token, action, { story: storyId, ...body });
+    const r = await api.post(action, { story: storyId, ...body });
     setBusy(undefined);
     if (r.kind === 'error') {
       setActionError(r.message);
@@ -203,7 +200,7 @@ export function StoryThread({ storyId, token, context, api = HTTP, storage = bro
   const onComposerKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send();
   };
-  const canTalk = Boolean(threadId && bb?.ok && token);
+  const canTalk = Boolean(threadId && bb?.ok);
 
   return (
     <aside className="story-thread" id={panelId} data-testid="story-thread" aria-labelledby={`${panelId}-h`}>
@@ -226,14 +223,17 @@ export function StoryThread({ storyId, token, context, api = HTTP, storage = bro
       </header>
 
       {view && <Brief view={view} />}
-      {data.kind === 'loading' && <p className="muted small thread-pad">{token ? 'Loading the story thread…' : 'Waiting for the session…'}</p>}
-      {data.kind === 'error' && (
-        <p className="warn thread-pad" data-testid="story-thread-error">
-          The story thread is not available: {data.message}
-        </p>
-      )}
+      {data.kind === 'loading' && <p className="muted small thread-pad">Loading the story thread…</p>}
+      {data.kind === 'error' &&
+        (isServerRestarted(data.message) ? (
+          <ServerRestarted className="warn thread-pad" testId="story-thread-error" />
+        ) : (
+          <p className="warn thread-pad" data-testid="story-thread-error">
+            The story thread is not available: {data.message}
+          </p>
+        ))}
 
-      {view && !threadId && <NoThread busy={busy} disabled={!token} onLink={(id) => void act('link', { threadId: id })} onStart={() => void act('start')} />}
+      {view && !threadId && <NoThread busy={busy} onLink={(id) => void act('link', { threadId: id })} onStart={() => void act('start')} />}
       {view && threadId && bb && !bb.ok && (
         <p className="warn thread-pad" data-testid="story-thread-no-bb">
           bb is not available, so the thread cannot be shown here: {bb.error}. The thread of this story is <code>{threadId}</code>.
@@ -258,11 +258,14 @@ export function StoryThread({ storyId, token, context, api = HTTP, storage = bro
         </section>
       )}
 
-      {actionError && (
-        <p className="warn thread-pad" role="alert" data-testid="story-thread-action-error">
-          {actionError}
-        </p>
-      )}
+      {actionError &&
+        (isServerRestarted(actionError) ? (
+          <ServerRestarted className="warn thread-pad" testId="story-thread-action-error" />
+        ) : (
+          <p className="warn thread-pad" role="alert" data-testid="story-thread-action-error">
+            {actionError}
+          </p>
+        ))}
 
       {view && threadId && (
         <form className="thread-composer" data-testid="story-thread-composer" onSubmit={(e) => void send(e)}>
@@ -337,7 +340,7 @@ function Messages({ view, now }: { view: StoryThreadView; now: number }) {
   );
 }
 
-function NoThread({ busy, disabled, onLink, onStart }: { busy: StoryThreadAction | undefined; disabled: boolean; onLink: (id: string) => void; onStart: () => void }) {
+function NoThread({ busy, onLink, onStart }: { busy: StoryThreadAction | undefined; onLink: (id: string) => void; onStart: () => void }) {
   const [text, setText] = useState('');
   const id = threadIdOf(text);
   const inputId = useId();
@@ -357,13 +360,13 @@ function NoThread({ busy, disabled, onLink, onStart }: { busy: StoryThreadAction
           Thread id
         </label>
         <input id={inputId} data-testid="story-thread-link-id" placeholder="thr_…" value={text} onChange={(e) => setText(e.target.value)} aria-invalid={text.trim() !== '' && !id} />
-        <button type="submit" className="action" data-testid="story-thread-link" disabled={disabled || !id || busy !== undefined}>
+        <button type="submit" className="action" data-testid="story-thread-link" disabled={!id || busy !== undefined}>
           {busy === 'link' ? 'Linking…' : 'Link a thread'}
         </button>
       </form>
       {text.trim() !== '' && !id && <p className="small warn">A thread id looks like thr_abc123.</p>}
       <p className="small muted">Or start one: bb spawns a thread with the story brief as its first message.</p>
-      <button type="button" className="action primary" data-testid="story-thread-start" disabled={disabled || busy !== undefined} onClick={onStart}>
+      <button type="button" className="action primary" data-testid="story-thread-start" disabled={busy !== undefined} onClick={onStart}>
         {busy === 'start' ? 'Starting…' : 'Start a thread'}
       </button>
     </div>
