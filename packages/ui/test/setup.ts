@@ -2,8 +2,11 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
+import { sessionClient } from '../src/session-client.js';
 
 afterEach(cleanup);
+// The UI shares one cached session (T24): each test reads its own.
+afterEach(() => sessionClient.reset());
 // The UI keeps its place in the URL hash (T23): each test starts on a clean URL and history entry.
 afterEach(() => window.history.replaceState(null, '', window.location.pathname + window.location.search));
 

@@ -5,7 +5,8 @@
 
 import type { Finding, Id } from '@rehearse/core';
 import type { StoryThreadView } from '@rehearse/server';
-import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
+import type { ApproveOk, PostOutcome, ReviewEpicView, SignOffOk } from './contract.js';
+import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
 import type { BirdviewInfo } from '@rehearse/server';
 
@@ -17,66 +18,66 @@ export async function fetchEpic(): Promise<ReviewEpicView> {
   return (await res.json()) as ReviewEpicView;
 }
 
-export async function fetchSession(): Promise<Session> {
-  const res = await fetch('api/session', { cache: 'no-store' });
-  if (!res.ok) throw new Error(`GET api/session: HTTP ${res.status}`);
-  return (await res.json()) as Session;
+export { fetchSession } from './session-client.js';
+
+/** A GET or a JSON POST with the session token (through the shared session client). */
+function tokenCall(client: SessionClient, url: string, body?: unknown): Promise<TokenReply> {
+  return client.withToken((token) =>
+    fetch(
+      url,
+      body === undefined
+        ? { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }
+        : { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json', [TOKEN_HEADER]: token }, body: JSON.stringify(body) },
+    ),
+  );
 }
 
-export function postApprove(token: string, scenarioIds: Id[]): Promise<PostOutcome<ApproveOk>> {
-  return post<ApproveOk>('api/approve', token, { scenarioIds });
+export function postApprove(scenarioIds: Id[], client: SessionClient = sessionClient): Promise<PostOutcome<ApproveOk>> {
+  return post<ApproveOk>(client, 'api/approve', { scenarioIds });
 }
 
-export function postSignOff(token: string, storyIds: Id[]): Promise<PostOutcome<SignOffOk>> {
-  return post<SignOffOk>('api/sign-off', token, { storyIds });
+export function postSignOff(storyIds: Id[], client: SessionClient = sessionClient): Promise<PostOutcome<SignOffOk>> {
+  return post<SignOffOk>(client, 'api/sign-off', { storyIds });
 }
 
 /** This story's tests and the Birdview player, read by the server. */
-export async function fetchBirdview(token: string, storyId: Id): Promise<BirdviewInfo> {
+export async function fetchBirdview(storyId: Id, client: SessionClient = sessionClient): Promise<BirdviewInfo> {
   const url = `api/birdview?story=${encodeURIComponent(storyId)}`;
-  const res = await fetch(url, { cache: 'no-store', headers: { 'x-rehearse-token': token } });
-  if (!res.ok) throw new Error(`GET ${url}: HTTP ${res.status}`);
-  return (await res.json()) as BirdviewInfo;
+  const r = await tokenCall(client, url);
+  if (tokenRejected(r)) throw new Error(SERVER_RESTARTED);
+  if (!r.ok) throw new Error(`GET ${url}: HTTP ${r.status}`);
+  return r.body as unknown as BirdviewInfo;
 }
 
 /** Pick this story's playlist in the player. */
-export async function postBirdviewSelect(token: string, storyId: Id): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function postBirdviewSelect(storyId: Id, client: SessionClient = sessionClient): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const res = await fetch('api/birdview/action', {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { 'content-type': 'application/json', 'x-rehearse-token': token },
-      body: JSON.stringify({ action: 'playlist-select', storyId }),
-    });
-    const json = (await res.json().catch(() => undefined)) as { ok?: boolean; error?: string } | undefined;
-    if (res.status === 200 && json?.ok === true) return { ok: true };
-    return { ok: false, error: json?.error ?? `HTTP ${res.status}` };
+    const r = await tokenCall(client, 'api/birdview/action', { action: 'playlist-select', storyId });
+    if (r.status === 200 && r.body?.ok === true) return { ok: true };
+    if (tokenRejected(r)) return { ok: false, error: SERVER_RESTARTED };
+    return { ok: false, error: typeof r.body?.error === 'string' ? r.body.error : `HTTP ${r.status}` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-async function post<T>(url: string, token: string, body: unknown): Promise<PostOutcome<T>> {
-  let res: Response;
+async function post<T>(client: SessionClient, url: string, body: unknown): Promise<PostOutcome<T>> {
+  let r: TokenReply;
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { 'content-type': 'application/json', 'x-rehearse-token': token },
-      body: JSON.stringify(body),
-    });
+    r = await tokenCall(client, url, body);
   } catch (e) {
     return { kind: 'error', message: `POST ${url}: ${e instanceof Error ? e.message : String(e)}` };
   }
-  const json = (await res.json().catch(() => undefined)) as Record<string, unknown> | undefined;
+  const json = r.body;
   const text = (key: string) => (typeof json?.[key] === 'string' ? (json[key] as string) : undefined);
-  if (res.status === 200 && json?.ok === true) return { kind: 'ok', body: json as T };
-  if (res.status === 409) return { kind: 'findings', findings: Array.isArray(json?.findings) ? (json.findings as Finding[]) : [] };
-  if (res.status === 503) return { kind: 'unavailable', reason: text('reason') ?? 'signing is not available' };
-  if (res.status === 403) {
+  if (r.status === 200 && json?.ok === true) return { kind: 'ok', body: json as T };
+  if (r.status === 409) return { kind: 'findings', findings: Array.isArray(json?.findings) ? (json.findings as Finding[]) : [] };
+  if (r.status === 503) return { kind: 'unavailable', reason: text('reason') ?? 'signing is not available' };
+  if (tokenRejected(r)) return { kind: 'restarted' };
+  if (r.status === 403) {
     return { kind: 'forbidden', message: text('reason') ?? text('error') ?? 'the server refused the request (session token or origin); reload the page' };
   }
-  return { kind: 'error', message: `POST ${url}: HTTP ${res.status}${text('error') ? `: ${text('error')}` : ''}` };
+  return { kind: 'error', message: `POST ${url}: HTTP ${r.status}${text('error') ? `: ${text('error')}` : ''}` };
 }
 
 // ---------------------------------------------------------------- the story thread panel (T12)
@@ -89,28 +90,24 @@ export type ThreadOutcome<T> = { kind: 'ok'; body: T } | { kind: 'error'; status
 export type StoryThreadAction = 'link' | 'start' | 'send' | 'open';
 
 /** `GET api/story-thread?story=`. Needs the session token, like every story-thread route. */
-export function fetchStoryThread(token: string, story: Id): Promise<ThreadOutcome<StoryThreadView>> {
-  return threadCall<StoryThreadView>(`api/story-thread?story=${encodeURIComponent(story)}`, { method: 'GET', headers: { 'x-rehearse-token': token } });
+export function fetchStoryThread(story: Id, client: SessionClient = sessionClient): Promise<ThreadOutcome<StoryThreadView>> {
+  return threadCall<StoryThreadView>(client, `api/story-thread?story=${encodeURIComponent(story)}`);
 }
 
 /** `POST api/story-thread/<action>`. link: { threadId }, send: { text, context }, start and open: nothing more. */
-export function postStoryThread<T = StoryThreadView>(token: string, action: StoryThreadAction, body: { story: Id } & Record<string, string>): Promise<ThreadOutcome<T>> {
-  return threadCall<T>(`api/story-thread/${action}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-rehearse-token': token },
-    body: JSON.stringify(body),
-  });
+export function postStoryThread<T = StoryThreadView>(action: StoryThreadAction, body: { story: Id } & Record<string, string>, client: SessionClient = sessionClient): Promise<ThreadOutcome<T>> {
+  return threadCall<T>(client, `api/story-thread/${action}`, body);
 }
 
-async function threadCall<T>(url: string, init: RequestInit): Promise<ThreadOutcome<T>> {
-  let res: Response;
+async function threadCall<T>(client: SessionClient, url: string, body?: unknown): Promise<ThreadOutcome<T>> {
+  let r: TokenReply;
   try {
-    res = await fetch(url, { cache: 'no-store', ...init });
+    r = await tokenCall(client, url, body);
   } catch (e) {
     return { kind: 'error', status: 0, message: `cannot reach rehearse serve: ${e instanceof Error ? e.message : String(e)}` };
   }
-  const json = (await res.json().catch(() => undefined)) as Record<string, unknown> | undefined;
-  if (res.ok && json !== undefined) return { kind: 'ok', body: json as T };
-  const error = typeof json?.error === 'string' ? json.error : `HTTP ${res.status}`;
-  return { kind: 'error', status: res.status, message: res.status === 404 && error.startsWith('no endpoint') ? 'this rehearse serve has no story thread API; update rehearse' : error };
+  if (r.ok && r.body !== undefined) return { kind: 'ok', body: r.body as T };
+  if (tokenRejected(r)) return { kind: 'error', status: r.status, message: SERVER_RESTARTED };
+  const error = typeof r.body?.error === 'string' ? r.body.error : `HTTP ${r.status}`;
+  return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? 'this rehearse serve has no story thread API; update rehearse' : error };
 }

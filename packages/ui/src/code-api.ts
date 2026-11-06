@@ -1,10 +1,11 @@
 // The code reads of the story Code tab: `GET api/code-index` and `GET api/box-code`. Both run
 // git on the server, so they send the session token like a write; the browser adds Origin.
-// Tests give the Code tab a fake through CodeApiContext.
+// Tests give the Code tab a fake through CodeApiContext. The token comes from the shared session
+// client, which reads it again when the server restarted (T24).
 
 import { createContext } from 'react';
 import type { BoxCodeQuery, BoxCodeView, CodeIndex } from '@rehearse/server';
-import { fetchSession } from './api.js';
+import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
 export type { BoxCodeView, CodeIndex } from '@rehearse/server';
 
@@ -15,23 +16,11 @@ export interface CodeApi {
   box: (q: BoxCodeQuery) => Promise<BoxCodeOutcome>;
 }
 
-/** The HTTP client. It reads the session token once, from `GET api/session`. */
-export function httpCodeApi(session: () => Promise<{ token: string }> = fetchSession): CodeApi {
-  let token: Promise<string> | undefined;
-  const get = async (url: string): Promise<{ status: number; body: Record<string, unknown> | undefined }> => {
-    token ??= session().then((s) => s.token);
-    let t: string;
-    try {
-      t = await token;
-    } catch (e) {
-      token = undefined;
-      throw e;
-    }
-    const res = await fetch(url, { cache: 'no-store', headers: { 'x-rehearse-token': t } });
-    return { status: res.status, body: (await res.json().catch(() => undefined)) as Record<string, unknown> | undefined };
-  };
-  const message = (url: string, r: { status: number; body: Record<string, unknown> | undefined }) =>
-    typeof r.body?.error === 'string' ? r.body.error : `GET ${url}: HTTP ${r.status}`;
+/** The HTTP client. The session token comes from the session client. */
+export function httpCodeApi(client: SessionClient = sessionClient): CodeApi {
+  const get = (url: string): Promise<TokenReply> => client.withToken((token) => fetch(url, { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
+  const message = (url: string, r: TokenReply) =>
+    tokenRejected(r) ? SERVER_RESTARTED : typeof r.body?.error === 'string' ? r.body.error : `GET ${url}: HTTP ${r.status}`;
   return {
     async index() {
       try {

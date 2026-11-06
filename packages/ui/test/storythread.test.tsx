@@ -40,7 +40,7 @@ function fakeApi(first: StoryThreadView) {
   const posts: { action: string; body: Record<string, string> }[] = [];
   const api: StoryThreadApi = {
     load: vi.fn(async () => ok(current)),
-    post: vi.fn(async (_t, action, body) => {
+    post: vi.fn(async (action, body) => {
       posts.push({ action, body });
       if (action === 'link') current = { ...current, threadId: body.threadId!, messages: [] };
       if (action === 'start') current = { ...current, threadId: 'thr_newstory1', bb: { ok: true, status: 'active', statusText: 'working', title: null }, messages: [] };
@@ -56,7 +56,7 @@ function draw(view: StoryThreadView, context = 'overview · S1-buy') {
   render(
     <main className="storyboard">
       <button type="button">elsewhere</button>
-      <StoryThread storyId="S1" token="tok-123" context={context} api={fake.api} storage={localStorage} now={() => NOW} />
+      <StoryThread storyId="S1" context={context} api={fake.api} storage={localStorage} now={() => NOW} />
     </main>,
   );
   return fake;

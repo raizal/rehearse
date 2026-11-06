@@ -3,6 +3,7 @@
 import type { Finding } from '@rehearse/core';
 import { SIGNING_DOC, type ApprovalView, type PostOutcome, type Session, type SigStatus } from '../contract.js';
 import { findingText, sigText } from '../model/review.js';
+import { ServerRestarted } from './ServerRestarted.js';
 
 /** Session as the app holds it: loading, failed, or loaded. */
 export type SessionState = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; session: Session };
@@ -118,6 +119,7 @@ export function OutcomeMessage({ outcome, okText, testId }: { outcome: PostOutco
         </>
       )}
       {outcome?.kind === 'forbidden' && <p className="warn">Forbidden: {outcome.message}</p>}
+      {outcome?.kind === 'restarted' && <ServerRestarted testId={`${testId}-restarted`} />}
       {outcome?.kind === 'error' && <p className="warn">Error: {outcome.message}</p>}
     </div>
   );

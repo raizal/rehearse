@@ -135,7 +135,7 @@ export function Storyboard(props: StoryboardProps) {
           </p>
         )}
       </div>
-      {rail && <StoryThread storyId={storyId} token={props.session.kind === 'ready' ? props.session.session.token : undefined} context={contextLabel({ tab: storyTab, detail: active?.scenario.id })} />}
+      {rail && <StoryThread storyId={storyId} context={contextLabel({ tab: storyTab, detail: active?.scenario.id })} />}
     </main>
   );
 }
