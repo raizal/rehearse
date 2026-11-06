@@ -21,7 +21,7 @@ import { queueRows, scenarioSummary, stepTitle, storyColor } from '../model/stor
 import { ApproveBar } from './Approve.js';
 import { PathMap } from './PathMap.js';
 import { StoryThread } from './StoryThread.js';
-import { isStoryPage, StoryView, type StoryTab } from './StoryView.js';
+import { BackButton, CrumbStart, isStoryPage, StoryView, type BackControl, type StoryTab } from './StoryView.js';
 import type { ApproveControls } from './Playback.js';
 import { OutcomeMessage, SignerInfo, type SessionState } from './Review.js';
 import { KeyValues, show } from './Values.js';
@@ -62,13 +62,28 @@ export interface StoryboardProps {
   onBack?: () => void;
   /** The breadcrumb's "Big picture". */
   onBigPicture?: () => void;
+  /** The breadcrumb's "Stories": the story list. */
+  onStories?: () => void;
+  /** Open a story's page on WHAT (a story crumb, or a story named on another story's page). */
+  onOpenStory?: (id: Id) => void;
+  /** Show the story list (one row per story) instead of a story. */
+  list?: boolean;
+  /** The open tab of the story, when the parent keeps it. */
+  storyTab?: StoryTab;
+  onStoryTab?: (tab: StoryTab) => void;
+  /** The in-app "← Back" button. */
+  back?: BackControl;
 }
 
 export function Storyboard(props: StoryboardProps) {
   const { view, scenarioId, seen } = props;
-  const [storyTab, setStoryTab] = useState<StoryTab>('what');
+  const [ownTab, setOwnTab] = useState<StoryTab>('what');
+  const storyTab = props.storyTab ?? ownTab;
+  const setStoryTab = props.onStoryTab ?? setOwnTab;
   const active = view.scenarios.find((s) => s.scenario.id === scenarioId);
   const storyId = props.storyId ?? active?.scenario.story;
+
+  if (props.list) return <StoryList {...props} />;
 
   if (props.board && active) {
     return (
@@ -86,6 +101,8 @@ export function Storyboard(props: StoryboardProps) {
             outcome={props.outcome}
             onBack={props.onBack}
             onBigPicture={props.onBigPicture}
+            onStories={props.onStories}
+            back={props.back}
           />
         </div>
       </main>
@@ -103,7 +120,13 @@ export function Storyboard(props: StoryboardProps) {
       )}
       <div className="card-wrap">
         {storyId !== undefined ? (
-          <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} tab={storyTab} onTab={setStoryTab} onBigPicture={props.onBigPicture}>
+          <StoryView view={view} storyId={storyId} onOpenBox={props.onOpenBox ?? (() => undefined)} tab={storyTab}
+            onTab={setStoryTab}
+            onBigPicture={props.onBigPicture}
+            onStories={props.onStories}
+            onOpenStory={props.onOpenStory}
+            back={props.back}
+          >
             <StoryScenarios {...props} storyId={storyId} />
           </StoryView>
         ) : (
@@ -113,6 +136,61 @@ export function Storyboard(props: StoryboardProps) {
         )}
       </div>
       {rail && <StoryThread storyId={storyId} token={props.session.kind === 'ready' ? props.session.session.token : undefined} context={contextLabel({ tab: storyTab, detail: active?.scenario.id })} />}
+    </main>
+  );
+}
+
+// ---------------------------------------------------------------- the story list (the "Stories" crumb)
+
+function StoryList({ view, onOpenStory, onPickStory, onBigPicture, back }: StoryboardProps) {
+  const rows = useMemo(() => queueRows(view), [view]);
+  const open = onOpenStory ?? onPickStory;
+  return (
+    <main className="storyboard is-list" data-testid="story-list">
+      <div className="card-wrap">
+        <header className="story-head">
+          <nav className="crumbs" aria-label="Breadcrumb">
+            <BackButton back={back} />
+            {onBigPicture ? (
+              <button type="button" className="crumb" data-testid="crumb-bigpicture" onClick={onBigPicture}>
+                Big picture
+              </button>
+            ) : (
+              <span className="crumb">Big picture</span>
+            )}
+            <span aria-hidden="true">/</span>
+            <span className="crumb is-current" aria-current="page">
+              Stories
+            </span>
+          </nav>
+          <h1 className="story-title">Stories</h1>
+          <p className="story-so-that">One row per story: open one to review its scenarios.</p>
+        </header>
+        {rows.length === 0 ? (
+          <p className="muted status-msg" data-testid="card-empty">
+            This EPIC has no stories and no scenarios.
+          </p>
+        ) : (
+          <ul className="queue-rows story-list-rows" aria-label="Stories">
+            {rows.map((r) => (
+              <li key={r.storyId}>
+                <button
+                  type="button"
+                  className="queue-story"
+                  style={{ ['--role' as string]: r.color }}
+                  data-testid={`story-list-row-${r.storyId}`}
+                  aria-label={`Open story ${r.storyId}: ${r.want}; ${r.note}`}
+                  onClick={() => open?.(r.storyId)}
+                >
+                  <span className="queue-id">{r.storyId}</span>
+                  <span className="queue-want">{r.want}</span>
+                  <span className="queue-note">{r.note}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </main>
   );
 }
@@ -283,9 +361,11 @@ interface StoryCardProps {
   outcome?: PostOutcome<ApproveOk>;
   onBack?: () => void;
   onBigPicture?: () => void;
+  onStories?: () => void;
+  back?: BackControl;
 }
 
-export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session, outcome, onBack, onBigPicture }: StoryCardProps) {
+export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session, outcome, onBack, onBigPicture, onStories, back }: StoryCardProps) {
   const { scenario } = sv;
   const { flow, prd } = view;
   const id = scenario.id;
@@ -341,16 +421,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session
   return (
     <article className="story-card" data-testid="story-card" aria-labelledby="card-title" style={{ ['--role' as string]: laneColor(flow, story?.role) }}>
       <nav className="crumbs" aria-label="Breadcrumb">
-        {onBigPicture ? (
-          <button type="button" className="crumb" onClick={onBigPicture}>
-            Big picture
-          </button>
-        ) : (
-          <span className="crumb">Big picture</span>
-        )}
-        <span aria-hidden="true">/</span>
-        <span className="crumb">Stories</span>
-        <span aria-hidden="true">/</span>
+        <CrumbStart onBigPicture={onBigPicture} onStories={onStories} back={back} />
         {onBack ? (
           <button type="button" className="crumb" data-testid="card-back" aria-label={`Back to story ${scenario.story}`} onClick={onBack}>
             {scenario.story}

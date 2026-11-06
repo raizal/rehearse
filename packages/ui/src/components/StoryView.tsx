@@ -35,11 +35,17 @@ export interface StoryViewProps {
   onTab?: (tab: StoryTab) => void;
   /** The breadcrumb's "Big picture". */
   onBigPicture?: () => void;
+  /** The breadcrumb's "Stories": the story list. */
+  onStories?: () => void;
+  /** Open another story's page (a story named on this page). */
+  onOpenStory?: (id: Id) => void;
+  /** The in-app "← Back" button (the previous place). */
+  back?: BackControl;
   /** More of the story page, under the three cards (for example the scenario cards). */
   children?: ReactNode;
 }
 
-export function StoryView({ view, storyId, onOpenBox, onBigPicture, children, ...props }: StoryViewProps) {
+export function StoryView({ view, storyId, onOpenBox, onBigPicture, onStories, onOpenStory, back, children, ...props }: StoryViewProps) {
   const d = useMemo(() => storyDetail(view, storyId), [view, storyId]);
   const [ownTab, setOwnTab] = useState<StoryTab>('what');
   const tab = props.tab ?? ownTab;
@@ -63,9 +69,17 @@ export function StoryView({ view, storyId, onOpenBox, onBigPicture, children, ..
   return (
     <article className={`story-view${page ? ' is-page' : ' is-tab'}`} data-testid="story-view" aria-labelledby={`${tabId}-title`} style={{ ['--role' as string]: color }}>
       {page ? (
-        <PageHead view={view} d={d} titleId={`${tabId}-title`} code={<CodeChip d={d} index={code} />} onBigPicture={onBigPicture} />
+        <PageHead view={view} d={d} titleId={`${tabId}-title`} code={<CodeChip d={d} index={code} />} crumbs={{ onBigPicture, onStories, back }} />
       ) : (
-        <CardHead view={view} d={d} titleId={`${tabId}-title`} code={<CodeChip d={d} index={code} />} onBack={() => pick('what')} />
+        <CardHead
+          view={view}
+          d={d}
+          titleId={`${tabId}-title`}
+          code={<CodeChip d={d} index={code} />}
+          crumbs={{ onBigPicture, onStories, back }}
+          tabLabel={STORY_TABS.find((t) => t.id === tab)?.label ?? tab}
+          onBack={() => pick('what')}
+        />
       )}
       <div className="story-tabs seg" role="tablist" aria-label={`Views of story ${storyId}`} data-testid="story-tabs">
         {STORY_TABS.map((t) => (
@@ -88,7 +102,7 @@ export function StoryView({ view, storyId, onOpenBox, onBigPicture, children, ..
         {page && (
           <div className="story-panels">
             <What view={view} d={d} id={`${tabId}-what-card`} focus={picked && tab === 'what'} />
-            <How view={view} d={d} onOpenBox={onOpenBox} id={`${tabId}-how-card`} focus={picked && tab === 'how'} />
+            <How view={view} d={d} onOpenBox={onOpenBox} onOpenStory={onOpenStory} id={`${tabId}-how-card`} focus={picked && tab === 'how'} />
             <Output d={d} onOpenBox={onOpenBox} id={`${tabId}-output-card`} focus={picked && tab === 'output'} />
           </div>
         )}
@@ -124,22 +138,62 @@ function StoryChips({ view, d }: { view: ReviewEpicView; d: StoryDetail }) {
   );
 }
 
+/** The in-app "← Back" button: the previous place (the bb panel has no browser buttons). */
+export interface BackControl {
+  can: boolean;
+  onBack: () => void;
+}
+
+export function BackButton({ back }: { back?: BackControl }) {
+  if (!back) return null;
+  return (
+    <button type="button" className="crumb-back" data-testid="nav-back" disabled={!back.can} aria-label="Back to the previous place" onClick={back.onBack}>
+      ← Back
+    </button>
+  );
+}
+
+export interface CrumbLinks {
+  onBigPicture?: () => void;
+  onStories?: () => void;
+  back?: BackControl;
+}
+
+/** A crumb that is a link when it has somewhere to go. */
+function Crumb({ onClick, children, ...rest }: { onClick?: () => void; children: ReactNode; testId?: string; label?: string }) {
+  return onClick ? (
+    <button type="button" className="crumb" data-testid={rest.testId} aria-label={rest.label} onClick={onClick}>
+      {children}
+    </button>
+  ) : (
+    <span className="crumb">{children}</span>
+  );
+}
+
+/** "← Back · Big picture / Stories", the start of every story breadcrumb. */
+export function CrumbStart({ onBigPicture, onStories, back }: CrumbLinks) {
+  return (
+    <>
+      <BackButton back={back} />
+      <Crumb onClick={onBigPicture} testId="crumb-bigpicture">
+        Big picture
+      </Crumb>
+      <span aria-hidden="true">/</span>
+      <Crumb onClick={onStories} testId="crumb-stories">
+        Stories
+      </Crumb>
+      <span aria-hidden="true">/</span>
+    </>
+  );
+}
+
 /** Design page 2: breadcrumb, `S6 · Builder wants …`, the "so that" line and the chips. */
-function PageHead({ view, d, titleId, code, onBigPicture }: { view: ReviewEpicView; d: StoryDetail; titleId: string; code: ReactNode; onBigPicture?: () => void }) {
+function PageHead({ view, d, titleId, code, crumbs }: { view: ReviewEpicView; d: StoryDetail; titleId: string; code: ReactNode; crumbs: CrumbLinks }) {
   return (
     <header className="story-head">
       <nav className="crumbs" aria-label="Breadcrumb">
-        {onBigPicture ? (
-          <button type="button" className="crumb" onClick={onBigPicture}>
-            Big picture
-          </button>
-        ) : (
-          <span className="crumb">Big picture</span>
-        )}
-        <span aria-hidden="true">/</span>
-        <span className="crumb">Stories</span>
-        <span aria-hidden="true">/</span>
-        <span className="crumb is-current" aria-current="page">
+        <CrumbStart {...crumbs} />
+        <span className="crumb is-current" aria-current="page" data-testid="crumb-story">
           {d.storyId}
         </span>
       </nav>
@@ -155,17 +209,34 @@ function PageHead({ view, d, titleId, code, onBigPicture }: { view: ReviewEpicVi
   );
 }
 
-/** Design pages 12–15: breadcrumb and the story card with its chips. */
-function CardHead({ view, d, titleId, code, onBack }: { view: ReviewEpicView; d: StoryDetail; titleId: string; code: ReactNode; onBack: () => void }) {
+/** Design pages 12–15: breadcrumb (Big picture / Stories / S6 / Code) and the story card with its chips. */
+function CardHead({
+  view,
+  d,
+  titleId,
+  code,
+  crumbs,
+  tabLabel,
+  onBack,
+}: {
+  view: ReviewEpicView;
+  d: StoryDetail;
+  titleId: string;
+  code: ReactNode;
+  crumbs: CrumbLinks;
+  tabLabel: string;
+  onBack: () => void;
+}) {
   return (
     <header className="story-head is-card">
       <nav className="crumbs" aria-label="Breadcrumb">
-        <button type="button" className="crumb" onClick={onBack} aria-label={`Back to the story page of ${d.storyId}`}>
-          Stories
+        <CrumbStart {...crumbs} />
+        <button type="button" className="crumb" data-testid="crumb-story" onClick={onBack} aria-label={`Back to the story page of ${d.storyId}`}>
+          {d.storyId}
         </button>
         <span aria-hidden="true">/</span>
         <span className="crumb is-current" aria-current="page">
-          {d.storyId}
+          {tabLabel}
         </span>
       </nav>
       <div className="story-head-card">
@@ -255,7 +326,21 @@ function What({ view, d, id, focus }: { view: ReviewEpicView; d: StoryDetail; id
   );
 }
 
-function How({ view, d, onOpenBox, id, focus }: { view: ReviewEpicView; d: StoryDetail; onOpenBox: (path: string) => void; id: string; focus: boolean }) {
+function How({
+  view,
+  d,
+  onOpenBox,
+  onOpenStory,
+  id,
+  focus,
+}: {
+  view: ReviewEpicView;
+  d: StoryDetail;
+  onOpenBox: (path: string) => void;
+  onOpenStory?: (id: Id) => void;
+  id: string;
+  focus: boolean;
+}) {
   const f = useMemo(() => howFlow(view, d), [view, d]);
   const titles = new Map(f.steps.map((s) => [s.path, s.title]));
   const linkText = (l: HowLink) => [l.label, l.via.length ? `via ${l.via.join(', ')}` : undefined].filter(Boolean).join(' · ');
@@ -298,6 +383,23 @@ function How({ view, d, onOpenBox, id, focus }: { view: ReviewEpicView; d: Story
                       <span className="shared-space" aria-hidden="true" />
                     )}
                   </div>
+                  {onOpenStory && s.also.length > 0 && (
+                    <p className="how-also">
+                      also in{' '}
+                      {s.also.map((other) => (
+                        <button
+                          key={other}
+                          type="button"
+                          className="story-link"
+                          data-testid={`story-how-also-${s.path}-${other}`}
+                          aria-label={`Open story ${other}, which also runs ${s.title}`}
+                          onClick={() => onOpenStory(other)}
+                        >
+                          {other}
+                        </button>
+                      ))}
+                    </p>
+                  )}
                   {i < f.steps.length - 1 &&
                     (link ? (
                       <div
