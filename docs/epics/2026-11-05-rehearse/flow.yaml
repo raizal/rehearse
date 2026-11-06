@@ -273,6 +273,8 @@ root:
       writes:  ["Story.status:draft->signed", "Story.status:stale->signed",
                 "Epic.status:draft->signed", "Epic.status:partly-stale->signed", SignOff.*]
       # No error exit: the CLI has no sign-off command (R14).
+      # Before the button, GET /api/sign-off/preview shows per story what the hash covers and
+      # what changed since its last sign-off (from git; read only, never blocks). (C42, S9-A4)
 
     - id: signed
       kind: end

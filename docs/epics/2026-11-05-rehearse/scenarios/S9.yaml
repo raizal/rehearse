@@ -73,3 +73,19 @@ scenarios:
         example: { id: r4-changed, given: { changed: [ R4 ], links: { S3: [ R4 ], S1: [ R1 ] } }, then: { staleStories: [ S3 ], staleScenarios: [] } }
       - { name: review/swimlanes }
     expect: { criterion: S9-A3, state: { Story.S3: stale, Story.S1: signed, Epic.status: partly-stale } }
+
+  - id: S9-preview
+    title: Builder previews what a sign-off agrees to, and what changed
+    status: draft
+    steps:
+      - { name: gate/traced }
+      - { name: gate/sim-clean }
+      - { name: gate/no-stale }
+      - { name: gate/report }
+      - name: gate-ok
+        branch: "yes"
+        example: { id: gate-yes-preview, given: { report: { ok: true } }, then: { branch: "yes" } }
+      - name: sign-off
+        example: { id: sign-preview, given: { storyIds: [ S1, S4 ], user: a@b.c }, then: { signOff: { by: a@b.c, storyHashes: { S1: h1, S4: h4 } } } }
+      - { name: signed }
+    expect: { criterion: S9-A4, state: { Epic.status: signed, SignOff.by: a@b.c } }

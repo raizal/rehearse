@@ -238,6 +238,12 @@ The owner must approve them again.
   - Why: R9, R10, S4 and S5 described a single panel that holds the flow, the drill-down and playback. The UI no longer has that panel.
   - Fix (owner's choice): The Flow tab is gone. A box link opens a drawer over the current page (`?box=<path>`); a box with children shows its steps there, with a breadcrumb of its parent boxes and Back. Old `#/flow/…` links open the Big picture with the drawer. Playback lives on the scenario storyboard, now a flowchart in role lanes with a step detail panel (Prev, Next, Play, arrow keys). R9, R10, S4-A1, S4-A2, S5-A1, S4-drill (the breadcrumb has no "root"), the `review/*` box titles and outputs, and brainstorm.md say so. Design page 3 (`3-scenario-storyboard.png`) still shows step panels left to right; the built storyboard is the reference until it is redrawn. A step has no link of its own yet.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 25 `caught-after-build` (C17–C41).
+- **C42** `caught-after-build` · S9, box `sign-off`
+  - Status: DONE in T39
+  - What: The owner did not know what a sign-off agrees to. The confirm step listed only story IDs.
+  - Why: D17 makes the sign-off the owner's explicit agreement, but the owner could not see what they agreed to or what changed since the last sign-off.
+  - Fix (owner's choice, "content + changes"): The confirm step says what a sign-off means and shows, per story, the content its hash covers and what changed since that story's last sign-off (read from the commit that added the sign-off; if git cannot be read it says so and never blocks). The button reads "I agree — sign off …". The story page links to the same preview. New criterion S9-A4, new draft scenario S9-preview, a note on the `sign-off` box. What a sign-off writes, the hash rules and the gate did not change.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 26 `caught-after-build` (C17–C42).
 
 After T19: `rehearse validate` gives no findings. `rehearse simulate` gives 13 findings: the new branches of `happy`, `signing-key` and `more-scenarios` and the criteria S4-A2, S4-A4, S4-A5, S4-A6, S6-A1, S6-A4, S6-A5 and S7-A1 have no approved scenario, and S4-drill, S6-approve and S7-matrix are stale. The builder approves S4-drill, S6-approve and the new drafts in the UI.

@@ -350,6 +350,14 @@ stories:
         given: a signed EPIC, and the builder changes the text of R4
         when: the builder runs gate check
         then: only the stories linked to R4 are stale and need a new sign-off
+      - id: S9-A4
+        given: stories S1 and S4 selected in the Sign off tab, and S4 changed since its last sign-off
+        when: the builder opens the sign-off confirmation
+        then: >-
+          for each story it shows what the sign-off covers (sentence, requirements,
+          criteria, scenarios with their approval, boxes) and what changed since that
+          story's last sign-off, read from git; if git cannot be read it says so and the
+          sign-off still works (C42)
 
   - id: S10
     role: ci
