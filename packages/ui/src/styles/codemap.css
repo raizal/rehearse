@@ -1,0 +1,52 @@
+/* The Code map tab (T40): the repo, one level at a time. The nodes reuse the call graph look of
+   T36 (.cg-node, the trust styles of .cg-edge); this file adds the page, the badge, the chips,
+   the search and the side panel. Tokens only (styles.css). */
+
+.code-map-page { display: flex; flex-direction: column; padding-bottom: var(--s-5); }
+.code-map { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--s-3); }
+.cm-head { display: flex; flex-direction: column; gap: var(--s-2); }
+.cm-title { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-bold); }
+.cm-plain { margin: 0; font-size: var(--fs-md); color: var(--ink-2); }
+.cm-crumbs { display: flex; align-items: center; gap: var(--s-3); }
+.cm-crumb-list { margin: 0; padding: 0; list-style: none; }
+.cm-crumb-list li + li::before { content: '›'; margin-right: var(--s-2); color: var(--faint); }
+.cm-crumb-list [aria-current] { color: var(--ink); font-weight: var(--fw-semibold); font-family: var(--mono); font-size: var(--fs-sm); }
+.cm-search { display: flex; flex-direction: column; gap: var(--s-2); }
+.cm-search-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.cm-search-row input { min-width: 240px; padding: 4px var(--s-2); border: 1px solid var(--line-strong); border-radius: var(--r-xs); font: inherit; font-size: var(--fs-sm); }
+.cm-results { max-height: 220px; overflow: auto; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); box-shadow: var(--shadow-sm); }
+.cm-path { margin: 0; padding-left: var(--s-5); display: flex; flex-direction: column; gap: 2px; }
+.cm-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.cm-chip { padding: 2px var(--s-3); border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--card); font-size: var(--fs-sm); color: var(--ink-2); cursor: pointer; }
+.cm-chip:hover { border-color: var(--accent); }
+.cm-chip.is-on { border-color: var(--builder); background: var(--builder-tint); color: var(--builder-strong); font-weight: var(--fw-semibold); }
+.cm-epic select { font: inherit; font-size: var(--fs-sm); }
+.cm-body { flex: 1; min-height: 480px; display: flex; gap: var(--s-3); }
+.cm-canvas-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cm-canvas { flex: 1; min-height: 480px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); }
+.cm-canvas .react-flow__handle { opacity: 0; pointer-events: none; }
+.cm-node { position: relative; }
+.cg-node.cm-node.kind-package { border-color: var(--builder-line); border-width: 2px; background: var(--builder-tint); }
+.cg-node.cm-node.kind-package .cg-name { font-family: var(--font); font-size: var(--fs-md); }
+.cg-node.cm-node.kind-stub { border-style: dashed; border-color: var(--builder-line); background: var(--card); }
+.cg-node.cm-node.is-test { border-color: var(--rehearse); border-left-width: 4px; background: var(--rehearse-tint); }
+.cg-node.cm-node.is-outside { opacity: 0.75; }
+.cg-node.cm-node.is-center { opacity: 1; }
+.cm-badge { position: absolute; top: 2px; right: 4px; padding: 0 4px; border-radius: var(--r-pill); background: var(--agent-tint); color: var(--agent-ink); font-size: var(--fs-2xs); font-weight: var(--fw-bold); line-height: 1.5; }
+.cg-legend .cm-badge { position: static; }
+.react-flow__edge.cm-edge .react-flow__edge-text { font-size: 10px; fill: var(--muted); }
+.cm-panel { width: min(360px, 40vw); flex-shrink: 0; overflow: auto; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); box-shadow: var(--shadow-sm); }
+.cm-panel-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-1); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+.cm-panel-head h3 { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: var(--fs-lg); }
+.cm-panel-head p { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
+.cm-panel-body { padding: var(--s-3) var(--s-4); gap: var(--s-3); }
+.cm-panel-body h4, .cm-panel-boxes h4 { margin: 0 0 var(--s-1); font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--muted); }
+.cm-panel-body .trust-name-match .link { text-decoration-style: dashed; }
+.cm-panel-body .trust-unresolved { opacity: 0.7; }
+.cm-panel-boxes { padding: var(--s-3) var(--s-4) var(--s-5); border-top: 1px solid var(--line); }
+@media (max-width: 900px) {
+  .cm-body { flex-direction: column; }
+  .cm-panel { width: auto; }
+}
+.react-flow__edge.cm-edge.is-outside .react-flow__edge-path { opacity: 0.3; }
+.react-flow__edge.cm-edge .react-flow__edge-path { stroke-opacity: 0.75; }
