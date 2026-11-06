@@ -76,7 +76,7 @@ scenarios:
 
   - id: S9-preview
     title: Builder previews what a sign-off agrees to, and what changed
-    status: draft
+    status: approved
     steps:
       - { name: gate/traced }
       - { name: gate/sim-clean }
@@ -89,3 +89,14 @@ scenarios:
         example: { id: sign-preview, given: { storyIds: [ S1, S4 ], user: a@b.c }, then: { signOff: { by: a@b.c, storyHashes: { S1: h1, S4: h4 } } } }
       - { name: signed }
     expect: { criterion: S9-A4, state: { Epic.status: signed, SignOff.by: a@b.c } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T13:06:43Z'
+      hash: 'sha256:f830d4345ce76b4dfbb359d63d544c8400999517d25ed1d0d6bd6f3e83a5560e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAgfEqyJR2eWT3WKFuF9+sGjgoc3jsOKIGZya9yRl11A1mb6eWx4hvSHHJVl
+        pqIO4inro8T56ZmBp33+9HB0y5Bg==
+        -----END SSH SIGNATURE-----

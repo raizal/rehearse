@@ -22,3 +22,22 @@ signOffs:
       MjU1MTkAAABAF2OoA7cY73NdwjPLZ5eqpCif8jRBmpmTvqKHfUBOjOe6ho0hs1KaipSW81
       rkvFX9IvzYkRbdRjGQmoR+rmPvCg==
       -----END SSH SIGNATURE-----
+  - by: raizal.pregnanta@systemearth.com
+    at: '2026-11-06T13:09:27Z'
+    hashRule: 2
+    storyHashes:
+      S2: 'sha256:c021258024e9835cdb45f9208ee3ae2800211ac932d0164dee213f2c1339967c'
+      S4: 'sha256:0e9cca8c0290fed6cd705992b155e60b25ef1a8c11a335d9f0cabb646a4b187f'
+      S5: 'sha256:a9843a2585c7e6af7581d795d50a421f3078208efbfc26a0c5458b871fea0e78'
+      S6: 'sha256:428e53940dfee68aaf04ca98e630b6fe9e280c380ecb475a919275a0688dc518'
+      S7: 'sha256:25f24a1b40e82ed11270a8734a1542939ac3ca53e8e927418bae6fa4fee34d03'
+      S8: 'sha256:0d584ea1d504da87188c9a22689847219f96bae9d26211fad96b653cdd92ff4e'
+      S9: 'sha256:e2850f1455b3551fc8e472e58f7536b98f2d5eb3b16588c92eb7530c8681fc82'
+      S10: 'sha256:862d71881e90b629fe55c2fe994df4f246081a35af5ec366c6249768c86db431'
+    sig: |
+      -----BEGIN SSH SIGNATURE-----
+      U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+      j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+      MjU1MTkAAABA3WUYR33OfAjrnZwfiPcyXaDzVmZkZ5R6O++C3uy/rqpSJlY1wysCeLyTqz
+      BMhMeiDHnCXmUmyPMchep0Zf0yBg==
+      -----END SSH SIGNATURE-----
