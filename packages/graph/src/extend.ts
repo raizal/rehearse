@@ -12,13 +12,14 @@
 import type { RefSite } from './readers/reader.js';
 import type { Scope } from './scope.js';
 import type { StoredRef } from './store.js';
-import type { EdgeKind, EdgeSource, GraphEdge, GraphNode, IndexMode, IndexRun, Trust } from './types.js';
+import type { EdgeKind, EdgeSource, GraphEdge, GraphNode, IndexMode, IndexRun, NodeKind, Trust } from './types.js';
 
 /** A read-only view of the graph as it stands during an update (after the readers ran). */
 export interface GraphView {
   node(id: string): GraphNode | undefined;
   nodesInFile(path: string): GraphNode[];
   nodesNamed(name: string): GraphNode[];
+  nodesOfKind(kind: NodeKind): GraphNode[];
   edges(filter: { from?: string; to?: string; kind?: EdgeKind }): GraphEdge[];
 }
 
@@ -51,12 +52,22 @@ export interface Resolver {
   close?(): Promise<void>;
 }
 
+/**
+ * A linker's own memo between runs: what it read last time (a git HEAD, file hashes, parsed sites).
+ * The store keeps it as JSON; a cold index clears it.
+ */
+export interface LinkState {
+  get<T>(): T | undefined;
+  set(value: unknown): void;
+}
+
 export interface LinkInput {
   root: string;
   mode: Exclude<IndexMode, 'none'>;
   changed: string[];
   removed: string[];
   graph: GraphView;
+  state: LinkState;
 }
 
 /** Nodes and edges of one linker; they replace the linker's output of the last run. */
@@ -71,6 +82,11 @@ export interface Linker {
   source: EdgeSource;
   /** `keep`: nothing the linker reads changed, keep its rows from the last run. */
   link(input: LinkInput): Promise<LinkOutput | 'keep'>;
+  /**
+   * True when what the linker reads outside the scope files changed (a new commit, a record file),
+   * so an update must run even though no source file changed.
+   */
+  stale?(input: { root: string; state: LinkState }): Promise<boolean>;
 }
 
 export interface Ranker {

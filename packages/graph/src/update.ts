@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import type { GraphView, Linker, Ranker, Resolver } from './extend.js';
+import type { GraphView, Linker, LinkState, Ranker, Resolver } from './extend.js';
 import { loadGrammars, type ReaderAdapter } from './readers/reader.js';
 import { pythonReader } from './readers/python.js';
 import { typescriptReader } from './readers/typescript.js';
@@ -48,7 +48,9 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
     const cold = opts.rebuild === true || !store.indexed();
     const changed = cold ? files : files.filter((f) => stored.get(f.path) !== hashes.get(f.path));
     const removed = cold ? [] : [...stored.keys()].filter((p) => !hashes.has(p));
-    const mode: IndexMode = cold ? 'cold' : changed.length + removed.length > 0 ? 'update' : 'none';
+    let mode: IndexMode = cold ? 'cold' : changed.length + removed.length > 0 ? 'update' : 'none';
+    // No source file changed, but a linker's input did (a new commit, a record file): update anyway.
+    if (mode === 'none' && (await linkersStale(root, store, opts.linkers ?? []))) mode = 'update';
     const runId = store.startRun({
       mode, trigger: opts.trigger ?? 'query', files: files.length, changedFiles: changed.length, startedAt,
       ...(scope.venv !== undefined ? { venv: scope.venv } : {}),
@@ -94,7 +96,7 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
     linkRefs(root, store, scope);
 
     for (const linker of opts.linkers ?? []) {
-      const out = await linker.link({ root, mode, changed: changedPaths, removed, graph: view });
+      const out = await linker.link({ root, mode, changed: changedPaths, removed, graph: view, state: linkState(store, linker.name) });
       if (out === 'keep') continue;
       store.deleteEdges(`link:${linker.name}`);
       store.deleteNodes(`link:${linker.name}`);
@@ -109,6 +111,17 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
     return runId;
   });
   return store.runs().find((r) => r.id === id)!;
+}
+
+async function linkersStale(root: string, store: Store, linkers: Linker[]): Promise<boolean> {
+  for (const linker of linkers) {
+    if (linker.stale && (await linker.stale({ root, state: linkState(store, linker.name) }))) return true;
+  }
+  return false;
+}
+
+function linkState(store: Store, name: string): LinkState {
+  return { get: <T>() => store.linkState(name) as T | undefined, set: (value) => store.setLinkState(name, value) };
 }
 
 /** Make the edges of every reference site again: the resolver answers, then name-match for the rest. */
@@ -164,6 +177,7 @@ export function storeView(store: Store): GraphView {
     node: (id) => store.node(id),
     nodesInFile: (path) => store.nodesWhere('file = ?', path),
     nodesNamed: (name) => store.nodesWhere('name = ?', name),
+    nodesOfKind: (kind) => store.nodesWhere('kind = ?', kind),
     edges: (filter: { from?: string; to?: string; kind?: EdgeKind }) => {
       const where: string[] = [];
       const params: string[] = [];

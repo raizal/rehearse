@@ -96,7 +96,17 @@ export class Store {
     this.db.exec(DROP);
     this.db.exec(TABLES);
     this.db.prepare(`INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)`).run(SCHEMA_VERSION);
-    this.db.exec(`DELETE FROM meta WHERE key = 'indexed'`);
+    this.db.exec(`DELETE FROM meta WHERE key = 'indexed' OR key LIKE 'link:%'`);
+  }
+
+  /** The memo of one Linker (LinkState), or undefined. */
+  linkState(name: string): unknown {
+    const r = this.db.prepare('SELECT value FROM meta WHERE key = ?').get(`link:${name}`) as { value: string } | undefined;
+    return r === undefined ? undefined : JSON.parse(r.value);
+  }
+
+  setLinkState(name: string, value: unknown): void {
+    this.db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run(`link:${name}`, JSON.stringify(value));
   }
 
   /** True once an index run has written the graph tables (and no reset since). */
