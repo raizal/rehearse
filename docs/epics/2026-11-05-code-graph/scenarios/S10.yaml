@@ -37,14 +37,14 @@ scenarios:
     expect: { criterion: S10-A2, state: { updateMsBelow: 300, queryMsBelow: 100, exitCode: 0 } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-06T04:25:06Z'
-      hash: 'sha256:8ada293a0a739107e661d9ad42d908004482847e249e6f9538c428636ef3c8fe'
+      at: '2026-11-06T10:10:55Z'
+      hash: 'sha256:bb802b14da15f4857fe3c4092e389bbd046fe66c508588d09603873ab24fae79'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABAwgR9yCYK9sWU0Lj9mKxL+EW+Is3/g186/YM3N5/XCnsufzNM/b1kbERgsQ
-        3P4SaxnjqhM1EUm10+iVm3qQshBg==
+        MjU1MTkAAABAheO5f9XzsCCea1e226xSFyLAWlEyrI1KKVVZmLz4fni0lUgdQ30Bm1wWKp
+        wx/gbKJdhg1ojZjkONmvCyy660Cw==
         -----END SSH SIGNATURE-----
 
   - id: S10-too-slow

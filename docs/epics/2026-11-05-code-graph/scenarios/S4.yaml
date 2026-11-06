@@ -26,14 +26,14 @@ scenarios:
     expect: { criterion: S4-A1, state: { bundleTokensAtMost: 2000, firstItem: getOrderById, order: "graph distance, then PageRank" } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-06T04:26:14Z'
-      hash: 'sha256:51bd4924f6fbae6218d86e1439ddf5864e429d32604734074b4b5f185fc2504a'
+      at: '2026-11-06T10:10:14Z'
+      hash: 'sha256:732ebaf30ff20045c364533b1f1e3c22fef2bc2e4d1b0fe4a41bae456413e603'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABAc1IpN42Q1NK6P0EGCLvLxtFVhyPLMg+QCs+mbFJXlSeYipbtE1cDrZPTJG
-        V1mRviYyQZbxLPbKza5DQiTIL/Cw==
+        MjU1MTkAAABAnQbmXLI+D5QFnriByeqKKR6p7AoUxaO71TYHAQUzuyhXZrZQ36ibYPWaXW
+        FC4y+lseV01amOzkCt5rvmhCRABA==
         -----END SSH SIGNATURE-----
 
   - id: S4-no-venv

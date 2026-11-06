@@ -71,14 +71,14 @@ scenarios:
     expect: { criterion: S6-A3, state: { repoCalls: exact, requestsCalls: exact, resolvers: "scip-python from npm on a cold index" } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-06T04:24:40Z'
-      hash: 'sha256:10ad7416c55bcff5517ac41f17c638ece47f21f0aa0e8ce92151175334dbf90f'
+      at: '2026-11-06T10:10:31Z'
+      hash: 'sha256:0ea085e92408ae901b802fa412d49719921ff73e8bd9272cdb61674d806e87b4'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABAVS5UarChA1/taU4oKxnj1xRJQyobs+lKbJzknFz0Peyg2iB0PUCz3kNAuh
-        uCoraFfXxH+EsAEld3D2xenAWIBg==
+        MjU1MTkAAABAaqPv81qXusGUwyYVBmZoXjyQJ/kWHzT1x/jY4KeBb3H1Ru8YPDwjLA8ISS
+        /OV6xlu8jqTquq8CwP8BUjsDNkAA==
         -----END SSH SIGNATURE-----
 
   - id: S6-bulk-resolvers

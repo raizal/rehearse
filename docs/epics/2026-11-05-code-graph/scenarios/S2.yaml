@@ -41,14 +41,14 @@ scenarios:
     expect: { criterion: S2-A2, state: { linked: [ loadOrder, loadRow, orders.test.ts, orders/get ], eachEdgeHas: [ kind, trust ] } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-06T04:23:19Z'
-      hash: 'sha256:bf0c90480809ede8e1ce2537ceda5f70d0251128da183ff6f4533793b384d446'
+      at: '2026-11-06T10:09:59Z'
+      hash: 'sha256:0c00bf2ccab5cd90f2812c0c729e18853af1f1ce0db2fa8e6bb353dd0c38cd22'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABA3F+d1WLwduRBgXDU5dsQEwrO6DJxwa0fRgs0L2kbSvy6bbYasQJorWkjD5
-        lcL48R5DZt59VuyjlE5cTNehIZCg==
+        MjU1MTkAAABAlzkGWagqZRwntebR4Ne1XKW1IZR5f3DK3UVbV7GVgSV1cHfD1lwjEOlU22
+        N92Fc6OfD4pij/RxOzRIYH5Nk2Dw==
         -----END SSH SIGNATURE-----
 
   - id: S2-not-found

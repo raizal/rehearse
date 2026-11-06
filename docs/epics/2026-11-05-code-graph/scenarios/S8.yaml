@@ -42,12 +42,12 @@ scenarios:
     expect: { criterion: S8-A2, state: { testsEdges: [ "orders > reads one order by its id -> getOrderById", "test_get_order_by_id -> get_order_by_id" ] } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-06T04:24:54Z'
-      hash: 'sha256:9089b91d92c4529f9af35a56399115e1e4447a57e3d85f40fe96c2339455d135'
+      at: '2026-11-06T10:10:42Z'
+      hash: 'sha256:77d0e4340080257c32477c1bf35beddbaf16b653829e31bb390f836ea4e77791'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABAvHGos8xQOxyk6SSetZabi7/VipHDDZnZOs4beLzZNMd5DfZWTEDH4VR5na
-        QWJyrgaAt/IgWdylpzx+Hi/C6JBQ==
+        MjU1MTkAAABA2BcSbO1gCizLfWiLXSMhJL3Erdnxg35z8GkohYTm/hxDCOdpec/jcELCsl
+        XMomsUt9s58M8FN+9SolBfcsgaCw==
         -----END SSH SIGNATURE-----
