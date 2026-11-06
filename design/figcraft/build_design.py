@@ -1,6 +1,7 @@
 """Draw the rehearse review UI (D42) in FigCraft through its control server.
 
 Run: python3 build_design.py   (FigCraft must listen on 127.0.0.1:4800)
+     python3 build_design.py 3 redraws page 3 only in rehearse-review.figcraft.
 Data: epic.json (a snapshot) in this folder, made from docs/epics/2026-11-05-rehearse.
 """
 import os as _os
@@ -151,7 +152,7 @@ def new_page(name):
     return pid
 
 
-def app_shell(name, tab, epic='2026-11-05-rehearse  ·  draft'):
+def app_shell(name, tab, epic='2026-11-05-rehearse  ·  draft', tabs=None):
     """Window frame with the top bar and tabs of the served UI. Returns (frame id, content y)."""
     f = frame(name, 0, 0, 1920, 1200, fill=BG, clip=True)
     rect(f, 0, 0, 1920, 64, CARD, name='top bar')
@@ -159,7 +160,7 @@ def app_shell(name, tab, epic='2026-11-05-rehearse  ·  draft'):
     text(f, 32, 20, 'rehearse', 20, 700, INK)
     text(f, 140, 24, epic, 13, 500, MUTED)
     x = 480
-    for t in ['PRD', 'Tech spec', 'Big picture', 'Stories', 'Use cases', 'Readiness', 'Sign off', 'Flow']:
+    for t in tabs or ['PRD', 'Tech spec', 'Big picture', 'Stories', 'Use cases', 'Readiness', 'Sign off', 'Flow']:
         tid = text(f, x, 22, t, 14, 600 if t == tab else 500, ROLE['builder'][0] if t == tab else MUTED)
         w, _ = size(tid)
         if t == tab: rect(f, x, 61, w, 3, ROLE['builder'][0], 1, name='active tab')
@@ -418,80 +419,183 @@ def story_view(sid='S6'):
     return f
 
 
-# ---- page 3: storyboard card ---------------------------------------------
-def kv(d, depth=0):
-    if d is None: return '—'
-    if isinstance(d, dict):
-        return '\n'.join(f"{k}: {kv(v, depth + 1) if not isinstance(v, (dict, list)) else json.dumps(v)[:44]}" for k, v in d.items())
-    return str(d)
+# ---- page 3: scenario storyboard ----------------------------------------
+# As built in T37/T38: the path as a flowchart in role lanes, the detail of the current step
+# beside it with playback (Prev, Next, Play, arrow keys), the expected end state and Approve.
+# "Open box" opens the box drawer over the page (C41).
+def kv(d):
+    if not d: return '—'
+    return '\n'.join(f"{k}: {json.dumps(v) if isinstance(v, (dict, list, bool)) else v}" for k, v in d.items())
 
 
-def storyboard(sid='S6', scid='S6-approve'):
+def diamond(parent, x, y, w, h, fill, stroke, sw=2, name='decision'):
+    return ex('vector.create', parent=parent, points=[[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]], x=x, y=y,
+              closed=True, name=name, props={"fill": fill, "stroke": stroke, "strokeWeight": sw}, select=False)['id']
+
+
+def button(parent, x, y, w, label, primary=False, off=False, h=36, fs=13):
+    fill = '#CBD5E1' if off else CARD
+    rect(parent, x, y, w, h, fill, 8, None if off else (ROLE['builder'][0] if primary else LINE), 1, name=f'button {label}')
+    t = text(parent, x, y, label, fs, 600, CARD if off else (ROLE['builder'][0] if primary else INK), width=w, align='center')
+    ex('node.set', ids=[t], props={"y": y + (h - size(t)[1]) / 2})
+
+
+def storyboard(sid='S1', scid='S1-new', cur=1):
     sc = next(x for x in D['scenarios'][sid] if x['id'] == scid)
     s = next(x for x in D['stories'] if x['id'] == sid)
-    c, tint = ROLE[s['role']]
-    f = app_shell(f'Storyboard — {scid}', 'Stories')
-    text(f, 40, 92, f'Big picture  /  Stories  /  {sid}  /  {scid}', 12, 500, MUTED)
-    text(f, 40, 116, sc['title'], 26, 700)
-    text(f, 40, 156, f"Proves {sc['expect']['criterion']}: " + next(a['then'] for a in s['acceptance'] if a['id'] == sc['expect']['criterion']), 15, 400, MUTED)
-
-    # lane strip: which role is active at each step
+    crit = sc['expect'].get('criterion')
     steps = sc['steps']
-    CW_, CH, GX = 188, 320, 14
-    y0 = 236
-    seen = 4
+    seen = set(range(cur + 1))  # the steps the panel has shown so far
+    tabs = ['PRD', 'Tech spec', 'Big picture', 'Stories', 'Use cases', 'Readiness', 'Sign off']
+    f = app_shell(f'Storyboard — {scid}', 'Stories', tabs=tabs)
+
+    # header: breadcrumb, title, the criterion it proves
+    chip(f, 40, 90, '←  Back', MUTED, CARD, 12, 500, 10, 24, 12, stroke=LINE)
+    text(f, 118, 93, f'Big picture   /   Stories   /   {sid}   /   {scid}', 13, 500, MUTED)
+    text(f, 40, 128, sc['title'], 30, 700)
+    if crit:
+        a = next(x for x in s['acceptance'] if x['id'] == crit)
+        text(f, 40, 176, f"Proves {crit}: {a['then']}", 16, 400, MUTED, width=1840, lh='145%')
+
+    # flowchart in role lanes
+    y0, ch = 248, 560
+    c = frame('Flowchart', 40, y0, 1300, ch, f, BG, 12, LINE, clip=True)
+    lanes = [l['role'] for l in sorted(D['lanes'], key=lambda l: l['order'])]
+    used = [r for r in lanes if any((find_box(st['name']) or {}).get('lane') == r for st in steps)]
+    SW, SH, PAD, LW = 236, 76, 22, 236 + 44
+    lx0 = (1300 - LW * len(used)) / 2
+    lane_x = {}
+    for k, r in enumerate(used):
+        col, tint = ROLE[r]
+        x = lx0 + k * LW
+        lane_x[r] = x
+        rect(c, x, 0, LW, ch, tint, name=f'lane {r}')
+        rect(c, x, 0, LW, 4, col, name='lane bar')
+        kind = next(o['kind'] for o in D['roles'] if o['id'] == r)
+        text(c, x + 16, 16, role_name(r), 14, 700, INK)
+        text(c, x + 16, 36, kind, 11, 500, MUTED)
+    pos = []
+    y = 84
     for i, st in enumerate(steps):
         b = find_box(st['name'])
-        lane = b['lane'] if b else 'rehearse'
-        bc, bt = ROLE[lane]
-        x = 40 + i * (CW_ + GX)
-        is_seen = i < seen
-        cur = i == seen
-        card = frame(f'step {i + 1} {st["name"]}', x, y0, CW_, CH, f, CARD, 12, c if cur else LINE, 3 if cur else 1)
-        rect(card, 0, 0, CW_, 6, bc, 0)
-        ellipse(card, 14, 18, 26, 26, bc if is_seen or cur else CARD, bc, 2)
-        text(card, 14, 22, str(i + 1), 12, 700, CARD if is_seen or cur else bc, width=26, align='center')
-        text(card, 48, 22, role_name(lane), 11, 700, bc)
-        title = b['title'] if b else st['name']
-        if '/' in st['name']:
-            parent = find_box(st['name'].split('/')[0])
-            title = f"{parent['title']} → {b['title']}" if b is not parent else b['title']
-        tt = text(card, 14, 54, wrap(title, 22), 14, 700, INK, lh='130%')
-        yy = max(120, 54 + size(tt)[1] + 16)
-        if st.get('branch'):
-            chip(card, 14, yy - 8, 'branch: ' + st['branch'], INK, BG, 10, 600, 6, 18, 9, stroke=LINE); yy += 20
-        if st.get('given') is not None:
-            text(card, 14, yy, 'GIVEN', 10, 800, MUTED)
-            t = text(card, 14, yy + 16, wrap(kv(st['given']), 27), 11, 400, INK, lh='135%'); yy += 22 + size(t)[1]
-        if st.get('then') is not None:
-            text(card, 14, yy, 'THEN', 10, 800, OK)
-            text(card, 14, yy + 16, wrap(kv(st['then']), 27), 11, 400, INK, lh='135%')
-        if st.get('given') is None and st.get('then') is None:
-            text(card, 14, yy, wrap('Passes through. No example on this step.', 26), 11, 400, MUTED, lh='135%')
-        if is_seen: chip(card, CW_ - 64, 20, 'seen', OK, '#F0FDF4', 10, 700, 7, 20, 10)
-        if i < len(steps) - 1:
-            arrow(f, [[x + CW_ + 2, y0 + CH / 2], [x + CW_ + GX - 2, y0 + CH / 2]], MUTED, 2)
+        r = b['lane']
+        dec = b['kind'] == 'decision'
+        w, h = (250, 112) if dec else (SW, SH)
+        x = lane_x[r] + (LW - w) / 2
+        pos.append((x, y, w, h))
+        y += h + 58
+    for i in range(len(steps) - 1):  # the path: played part in the lane colour
+        x, yy, w, h = pos[i]; nx, ny, nw, nh = pos[i + 1]
+        col = ROLE[find_box(steps[i]['name'])['lane']][0] if i < cur else '#94A3B8'
+        a, bx = x + w / 2, nx + nw / 2
+        pts = [[a, yy + h + 2], [a, ny - 2]] if a == bx else [[a, yy + h + 2], [a, yy + h + 26], [bx, yy + h + 26], [bx, ny - 2]]
+        arrow(c, pts, col, 2)
+    for i, st in enumerate(steps):
+        b = find_box(st['name'])
+        col, tint = ROLE[b['lane']]
+        x, yy, w, h = pos[i]
+        on = i == cur
+        if b['kind'] == 'decision':
+            diamond(c, x, yy, w, h, CARD, col, 3 if on else 2)
+            bx, by = x + w / 2 - 13, yy + 20
+            text(c, x + 40, yy + 54, wrap(b['title'], 22), 12, 600, INK, width=w - 80, align='center')
+        else:
+            rect(c, x, yy, w, h, CARD, 8, col if on else LINE, 3 if on else 1, name=f'step {i + 1}')
+            rect(c, x, yy, 5, h, col, 2, name='lane edge')
+            bx, by = x + 18, yy + 16
+            text(c, x + 58, yy + 18, wrap(b['title'], 22), 14, 600, INK, lh='130%')
+            if '/' in st['name']:
+                text(c, x + 58, yy + h - 22, 'in ' + find_box(st['name'].split('/')[0])['title'], 11, 400, MUTED)
+        ellipse(c, bx, by, 26, 26, col if on else CARD, col, 2)
+        text(c, bx, by + 5, str(i + 1), 12, 700, CARD if on else col, width=26, align='center')
+        if i in seen:
+            text(c, bx + 7, by + 30, '✓', 13, 700, OK)
+        if on:
+            chip(c, x + w + 10, yy + h / 2 - 11, 'current step', col, CARD, 11, 700, 8, 22, 11, stroke=col)
+    # zoom controls and legend
+    z = frame('Zoom', 16, ch - 124, 40, 108, c, CARD, 6, LINE)
+    for k, g in enumerate(['+', '–', '⛶']):
+        text(z, 0, 8 + k * 34, g, 16, 500, INK, width=40, align='center')
+    lg = frame('Legend', 1300 - 300, ch - 132, 284, 116, c, CARD, 8, LINE)
+    rect(lg, 14, 14, 30, 18, CARD, 4, MUTED); text(lg, 56, 15, 'step (a box)', 12, 500, INK)
+    diamond(lg, 14, 40, 30, 20, CARD, MUTED, 1.5); text(lg, 56, 42, 'decision', 12, 500, INK)
+    rect(lg, 14, 66, 30, 18, '#F8FAFC', 4, '#94A3B8', 1.5, name='not taken', dashes=[4, 3]); text(lg, 56, 68, 'branch not taken (faded)', 12, 500, INK)
+    text(lg, 24, 90, '✓', 13, 700, OK); text(lg, 56, 92, 'seen in the step panel', 12, 500, INK)
 
-    # expected end state + approve bar
-    y = y0 + CH + 40
-    e = frame('Expected end state', 40, y, 900, 170, f, CARD, 12, LINE)
-    text(e, 24, 20, 'Expected end state', 16, 700)
-    text(e, 24, 46, f"checked against {sc['expect']['criterion']}", 12, 500, MUTED)
-    yy = 80
+    # step detail panel with playback
+    st = steps[cur]
+    b = find_box(st['name'])
+    col, tint = ROLE[b['lane']]
+    p = frame('Step detail', 1370, y0, 510, ch, f, CARD, 12, LINE)
+    button(p, 24, 22, 44, '←')
+    text(p, 80, 31, f'Step {cur + 1} of {len(steps)}', 14, 700, INK)
+    button(p, 186, 22, 128, 'Next step →', primary=True)
+    button(p, 326, 22, 90, '▶  Play')
+    text(p, 24, 70, 'or ← → on the keyboard; Play shows one step after another', 12, 400, MUTED)
+    rect(p, 24, 100, 462, 4, col, 2, name='lane bar')
+    ellipse(p, 24, 120, 28, 28, col, col)
+    text(p, 24, 126, str(cur + 1), 13, 700, CARD, width=28, align='center')
+    text(p, 64, 125, role_name(b['lane']), 14, 700, col)
+    chip(p, 430, 123, 'seen', OK, '#F0FDF4', 11, 700, 8, 22, 11)
+    text(p, 24, 164, b['title'], 22, 700, INK)
+    t = text(p, 24, 204, 'Open box', 13, 600, ROLE['builder'][0])
+    m = ex('text.create', text=st['name'], x=24 + size(t)[0] + 10, y=205, parent=p, select=False,
+           props={"fontSize": 12, "fontFamily": 'Menlo', "fills": [MUTED]})['id']
+    text(p, 24 + size(t)[0] + size(m)[0] + 26, 205, '← opens the box drawer over this page', 12, 400, MUTED)
+    ex_ = st.get('given') is not None or st.get('then') is not None
+    yy = 244
+    if ex_:
+        g = rect(p, 24, yy, 462, 10, BG, 8, LINE, name='GIVEN')
+        text(p, 40, yy + 12, 'GIVEN · new-ok' if st['name'] == 'new-epic' else 'GIVEN', 11, 800, MUTED)
+        gt = text(p, 40, yy + 32, kv(st.get('given')), 13, 400, INK, lh='145%')
+        gh = 44 + size(gt)[1]; ex('node.set', ids=[g], props={"height": gh}); yy += gh + 10
+        th = rect(p, 24, yy, 462, 10, '#F0FDF4', 8, '#BBF7D0', name='THEN')
+        text(p, 40, yy + 12, 'THEN', 11, 800, OK)
+        tt = text(p, 40, yy + 32, kv(st.get('then')), 13, 400, INK, lh='145%')
+        hh = 44 + size(tt)[1]; ex('node.set', ids=[th], props={"height": hh}); yy += hh + 18
+    else:
+        text(p, 24, yy, 'Passes through. No example on this step.', 13, 400, MUTED); yy += 36
+    rect(p, 24, yy, 462, 1, LINE); yy += 16
+    for lab, val in [('in', ', '.join(f'{k}: {v}' for k, v in b['inputs'].items()) or '—'),
+                     ('out', ', '.join(f'{k}: {v}' for k, v in b['outputs'].items()) or '—'),
+                     ('writes', ', '.join(b['writes']) or '—')]:
+        text(p, 24, yy, lab, 12, 600, MUTED)
+        v = text(p, 92, yy, wrap(val, 52), 12, 400, INK, lh='140%'); yy += size(v)[1] + 10
+    text(p, 24, yy + 4, 'in: what the step takes   ·   out: what it gives   ·   writes: the state it changes', 11, 400, MUTED)
+
+    # expected end state and approve
+    y = y0 + ch + 28
+    e = frame('Expected end state', 40, y, 860, 236, f, CARD, 12, LINE)
+    text(e, 24, 22, 'Expected end state', 17, 700)
+    text(e, 24, 50, f'checked against {crit}', 12, 500, MUTED)
+    yy = 84
     for k, v in sc['expect']['state'].items():
-        rect(e, 24, yy, 420, 32, BG, 6, LINE); text(e, 36, yy + 8, f'{k} = {v}', 13, 600, INK); yy += 38
-    text(e, 480, 84, wrap('The simulator checks this state at the end of the path. If it differs, simulate reports a finding.', 50), 12, 400, MUTED, lh='140%')
+        r = rect(e, 24, yy, 470, 36, BG, 6, LINE)
+        t = text(e, 38, yy + 9, wrap(f'{k} = {json.dumps(v) if isinstance(v, list) else v}', 58), 13, 600, INK, lh='145%')
+        hh = size(t)[1] + 18; ex('node.set', ids=[r], props={"height": hh}); yy += hh + 8
+    text(e, 524, 88, wrap('The simulator checks this state at the end of the path. If it differs, simulate reports a finding.', 42), 12, 400, MUTED, lh='145%')
 
-    a = frame('Approve bar', 970, y, 910, 170, f, CARD, 12, LINE)
-    text(a, 24, 20, 'Approve this scenario', 16, 700)
-    text(a, 24, 46, f'You saw {seen} of {len(steps)} steps. Approve turns on when you saw every step.', 13, 400, MUTED)
-    rect(a, 24, 80, 560, 10, BG, 5, LINE)
-    rect(a, 24, 80, 560 * seen / len(steps), 10, c, 5)
-    rect(a, 24, 108, 160, 40, '#CBD5E1', 8, name='Approve (off)')
-    text(a, 24, 119, 'Approve', 14, 700, CARD, width=160, align='center')
-    rect(a, 200, 108, 120, 40, CARD, 8, LINE, name='Next step')
-    text(a, 200, 119, 'Next step →', 14, 700, INK, width=120, align='center')
-    text(a, 620, 76, wrap('Signs with SSH key SHA256:9fQ…k2 as raizal.pregnanta@… The approval counts as evidence only with a valid signature.', 40), 12, 400, MUTED, lh='140%')
+    n, m = len(seen), len(steps)
+    a = frame('Approve', 930, y, 950, 236, f, CARD, 12, LINE)
+    text(a, 24, 22, 'Approve this scenario', 17, 700)
+    text(a, 24, 50, f'You saw {n} of {m} steps. Approve turns on when you saw every step.', 13, 400, MUTED)
+    rect(a, 24, 84, 560, 8, BG, 4, LINE)
+    rect(a, 24, 84, 560 * n / m, 8, ROLE['builder'][0], 4)
+    button(a, 24, 108, 130, 'Approve', off=True, h=40, fs=14)
+    unseen = next(i for i in range(m) if i not in seen) if n < m else None
+    if unseen is not None:
+        button(a, 168, 108, 230, f'Step {unseen + 1}, not seen yet →', h=40, fs=14)
+    text(a, 24, 166, 'Approval:', 13, 500, INK)
+    chip(a, 92, 164, 'draft, not approved', '#B45309', '#FFFBEB', 11, 600)
+    text(a, 24, 196, 'See every step first: pick each step in the chart, or use “Next step” or “Play”.', 12, 400, MUTED)
+    text(a, 624, 84, 'Signing as', 12, 500, MUTED)
+    text(a, 624, 104, 'raizal.pregnanta@…', 13, 700, INK)
+    text(a, 624, 126, wrap('with key SHA256:9fQ…k2. The approval counts as evidence only with a valid signature.', 40), 12, 400, MUTED, lh='145%')
+
+    # the story, criterion and path map, folded
+    d = frame('Story, criterion and path map', 40, y + 236 + 24, 1840, 56, f, CARD, 12, LINE)
+    text(d, 24, 18, '▶  Story, criterion and path map', 15, 600, INK)
+    text(d, 330, 20, f"{sid}: As a {role_name(s['role']).lower()}, I want {s['want']}  ·  criterion {crit}", 13, 400, MUTED)
     return f
 
 
@@ -586,7 +690,26 @@ def use_cases():
     return f
 
 
+def redraw(name, fn):
+    """Redraw one page of rehearse-review.figcraft; the other pages stay as they are. The file goes
+    over the socket as data, since FigCraft may only open paths in folders it was given."""
+    import base64
+    out = ROOT + '/design/rehearse-review.figcraft'
+    ex('file.open', data=base64.b64encode(open(out, 'rb').read()).decode(), name='rehearse-review.figcraft')
+    pid = next(p['id'] for p in ex('page.list') if p['name'] == name)
+    ex('page.select', id=pid)
+    ids = ex('node.find', root=pid)['ids']
+    if ids: ex('edit.delete', ids=ids)
+    fn()
+    open(out, 'wb').write(base64.b64decode(ex('file.saveAs', data=True)['data']))
+    ex('file.markSaved')
+    print('saved', out)
+
+
 if __name__ == '__main__':
+    import sys
+    if sys.argv[1:] == ['3']:  # python3 build_design.py 3: page 3 only
+        redraw('3 Scenario storyboard', storyboard); sys.exit()
     clear_document()
     big_picture()
     new_page('2 Story view'); story_view()
