@@ -6,7 +6,7 @@ FigCraft file: `rehearse-review.figcraft`. Each page is also a PNG in this folde
 |---|---|
 | 1 Big picture | Feature map: stories, boxes and roles (D42) |
 | 2 Story view | One story: WHAT, HOW, OUTPUT and its scenarios |
-| 3 Scenario storyboard | A scenario step by step |
+| 3 Scenario storyboard | A scenario step by step: the path as a flowchart in role lanes, the step detail, playback and Approve |
 | 4 Use cases | Roles and their use cases |
 | 5–8 | User flow, data flow, system flowchart, system architecture |
 | 9 PRD, 10 Tech spec | The record as documents, linked to stories, boxes and scenarios |
@@ -27,5 +27,7 @@ cd design/figcraft
 python3 build_story.py   # draws all pages and saves rehearse-review.figcraft
 python3 export.py        # writes the PNGs
 ```
+
+`python3 build_design.py 3` redraws page 3 only in `rehearse-review.figcraft`.
 
 `figcraft/epic.json` is a snapshot of `docs/epics/2026-11-05-rehearse` that pages 1–4 use.
