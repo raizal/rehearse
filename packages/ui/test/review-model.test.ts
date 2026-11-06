@@ -50,8 +50,8 @@ describe('finding → stories (S8, S9-A1)', () => {
     const groups = groupByStory(view, view.gate!.findings);
     expect(groups.map((g) => [g.story, g.findings.length])).toEqual([
       [undefined, 2],
-      ['S1', 1],
-      ['S2', 3],
+      ['S1', 2],
+      ['S2', 4],
     ]);
   });
 });

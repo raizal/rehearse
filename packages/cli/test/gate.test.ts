@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedRealEpic } from '../../core/test/helpers.js';
-import { approvedEpic } from '../../core/test/trust/helpers.js';
+import { signedEpic } from '../../core/test/trust/helpers.js';
 import { KEY } from '../../core/test/trust/keys.js';
 import { run, USAGE } from '../src/index.js';
 
@@ -20,20 +20,20 @@ function cli(args: string[], cwd = REPO): { code: number; out: string; err: stri
 
 describe('rehearse gate check', () => {
   it('exit 0 on a signed, approved, valid record that simulates clean; it shows each signer key', () => {
-    const dir = approvedEpic();
+    const dir = signedEpic();
     const { code, out } = cli(['gate', 'check', dir]);
     expect(code).toBe(0);
     expect(out).toBe(
       'gate: OK, no findings\n' +
         'signers (check each key; a change to .rehearse/allowed_signers needs human review):\n' +
-        `  a@b.c ${KEY.signer.keyFingerprint}: 3 approvals, 0 sign-offs\n`,
+        `  a@b.c ${KEY.signer.keyFingerprint}: 3 approvals, 1 sign-off\n`,
     );
     expect(JSON.parse(cli(['gate', 'check', dir, '--json']).out)).toEqual({
       command: 'gate',
       ok: true,
       findings: [],
       simulation: 'simulate',
-      signers: [{ by: 'a@b.c', fingerprint: KEY.signer.keyFingerprint, approvals: ['S1-buy', 'S1-empty', 'S2-out-of-stock'], signOffs: [] }],
+      signers: [{ by: 'a@b.c', fingerprint: KEY.signer.keyFingerprint, approvals: ['S1-buy', 'S1-empty', 'S2-out-of-stock'], signOffs: [0] }],
     });
   });
 

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { gateEpic, reportToJson, simulateEpic, simulateRecord, simulationToText } from '../src/index.js';
 import { box, brief, hashDir, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, scenario } from './helpers.js';
-import { approvedEpic } from './trust/helpers.js';
+import { signedEpic } from './trust/helpers.js';
 import { makeApprovedEpic } from './simulate-helpers.js';
 
 describe('simulate --drafts (T22)', () => {
@@ -112,7 +112,7 @@ describe('simulate --drafts (T22)', () => {
     const cases: [string, boolean | undefined][] = [
       [makeEpic({ edit: (d) => (box(d, 'pay').inputs = { orderId: 'number' }) }), false],
       [PRESIGNOFF_EPIC, false],
-      [approvedEpic(), true],
+      [signedEpic(), true],
       [REAL_EPIC, undefined],
     ];
     for (const [dir, ok] of cases) {

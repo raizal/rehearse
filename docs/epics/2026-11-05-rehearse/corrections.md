@@ -226,6 +226,12 @@ The owner must approve them again.
   - Why: The story view finds the boxes of a story by the box `stories` field. Four boxes that serve S6 did not name it.
   - Fix: `review` (the builder reviews each scenario before approval, C30), `happy` (its approve branch starts the approval), `gate` (it counts only signed approvals, R13) and `gate-ok` (S6-approve goes through it) name S6. The new decisions `signing-key` and `more-scenarios` also name S6. `content-changed` and `approve` already did.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 23 `caught-after-build` (C17–C39).
+- **C40** `caught-after-build` · D17, R14, S9-A1, box `gate`
+  - Status: DONE in T27
+  - What: The parent thread (thr_zpd73mnmgy), in the owner's review of the code-graph gate, found that `rehearse gate check` said "gate: OK, no findings" on `docs/epics/2026-11-05-code-graph` with 29 signed approvals and no `signoff.yaml`. The gate checked traced, sim-clean, no-stale and the signatures, but a story with no sign-off at all was not a finding.
+  - Why: D17 says the owner signs off explicitly and the sign-off is a recorded event. A gate that passes with no sign-off lets an EPIC through that nobody signed off.
+  - Fix: A new gate check `signed-off`: each story in prd.yaml needs a sign-off in `signoff.yaml`. A story with none gives the finding "S… is not signed off; the owner signs it off in the UI". A stale sign-off, an old hash rule and a sign-off without a valid signature stay no-stale findings. A new sign-off of the story clears the finding, so it does not block that sign-off. No scenario, prd.yaml, signoff.yaml or approval changed.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 24 `caught-after-build` (C17–C40).
 
 After T19: `rehearse validate` gives no findings. `rehearse simulate` gives 13 findings: the new branches of `happy`, `signing-key` and `more-scenarios` and the criteria S4-A2, S4-A4, S4-A5, S4-A6, S6-A1, S6-A4, S6-A5 and S7-A1 have no approved scenario, and S4-drill, S6-approve and S7-matrix are stale. The builder approves S4-drill, S6-approve and the new drafts in the UI.

@@ -5,18 +5,18 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { countCorrectionTags, gateEpic, loadEpic, parseCorrections, readiness } from '../../src/index.js';
 import { BOOTSTRAP_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
-import { approvedEpic } from './helpers.js';
+import { signedEpic } from './helpers.js';
 
 describe('readiness', () => {
   it('gives the chain requirement → stories → boxes → scenarios → status', () => {
-    const dir = approvedEpic();
+    const dir = signedEpic();
     const view = readiness(loadEpic(dir).record, gateEpic(dir));
     expect(view.requirements[1]).toEqual({
       id: 'R2',
       text: 'The shop ships a paid order.',
       proven: true,
       stories: [
-        { id: 'S2', status: 'draft', trusted: false, boxes: ['ship'], scenarios: [{ id: 'S2-out-of-stock', status: 'approved' }], gateFindings: 0 },
+        { id: 'S2', status: 'signed', trusted: true, boxes: ['ship'], scenarios: [{ id: 'S2-out-of-stock', status: 'approved' }], gateFindings: 0 },
       ],
     });
     expect(view.gateOk).toBe(true);

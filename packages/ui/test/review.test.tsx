@@ -285,9 +285,11 @@ describe('readiness (S8)', () => {
     expect(screen.getByTestId('readiness-gate-epic')).toHaveTextContent('branch no of decision in-stock');
     expect(screen.getByTestId('readiness-gate-S1')).toHaveTextContent('error exit empty-cart of cart');
     const s2 = screen.getByTestId('readiness-gate-S2-list');
-    expect(within(s2).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(s2).getAllByRole('listitem')).toHaveLength(4);
     expect(s2).toHaveTextContent('S2 has no approved scenario');
     expect(s2).toHaveTextContent('scenario is stale');
+    // D17: a story with no sign-off is a gate finding too.
+    expect(s2).toHaveTextContent('S2 is not signed off; the owner signs it off in the UI');
   });
 });
 
@@ -307,13 +309,15 @@ describe('sign-off (S9)', () => {
     expect(screen.getByTestId('signoff-gate-findings')).toHaveTextContent('S2 has no approved scenario');
     expect(screen.getByTestId('signoff-button')).toBeDisabled();
     expect(screen.getByTestId('signoff-why')).toHaveTextContent('select at least one story');
-    expect(screen.getByTestId('signoff-story-findings-S2')).toHaveTextContent('3 findings');
+    expect(screen.getByTestId('signoff-story-findings-S2')).toHaveTextContent('4 findings');
     expect(screen.getByTestId('signoff-story-findings-S1')).toHaveTextContent('no findings');
 
     await user.click(screen.getByTestId('signoff-story-S2'));
     expect(screen.getByTestId('signoff-button')).toBeDisabled();
+    // "S2 is not signed off" is cleared by this sign-off, so it does not block it (D17).
     expect(screen.getByTestId('signoff-why')).toHaveTextContent('3 gate findings for the selected stories');
     expect(screen.getByTestId('signoff-blocking-list')).toHaveTextContent('scenario is stale');
+    expect(screen.getByTestId('signoff-blocking-list')).not.toHaveTextContent('is not signed off');
   });
 
   it('S9-A1: an EPIC-wide finding blocks every story', async () => {
