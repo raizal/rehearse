@@ -9,7 +9,7 @@ import { diagramAt, lanesFor } from '../model/diagram.js';
 import { toFlowElements, type BoxNode, type LaneNode } from '../model/elements.js';
 import { layoutDiagram, type SwimlaneLayout } from '../model/layout.js';
 
-function LaneView({ data }: NodeProps<LaneNode>) {
+export function LaneView({ data }: NodeProps<LaneNode>) {
   const { lane, width, height } = data;
   return (
     <div className={`lane${lane.unknown ? ' lane-unknown' : ''}`} data-testid={`lane-${lane.role}`} data-role={lane.role} style={{ width, height }}>

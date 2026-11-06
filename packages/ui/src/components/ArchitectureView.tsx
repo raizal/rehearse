@@ -23,6 +23,16 @@ export function StatusBadge({ status, link = false }: { status: DiffStatus | und
   );
 }
 
+/** One side of the before / after, with its title. */
+export function Side({ title, after = false, children }: { title: string; after?: boolean; children: React.ReactNode }) {
+  return (
+    <section className={`ba-side${after ? ' is-after' : ''}`} aria-label={title}>
+      <h3 className="ba-side-title">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 /** One architecture drawing. `lay` is shared when two sides must line up. */
 export function ArchDiagram({ d, lay, label, testId }: { d: ArchDrawing; lay?: ArchLayout; label: string; testId: string }) {
   const layout = useMemo(() => lay ?? archLayout(d), [d, lay]);

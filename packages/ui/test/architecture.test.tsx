@@ -2,7 +2,8 @@
 // before / after tab (page 12), drawn in the app. Layout and diff numbers are tested in
 // architecture-model.test.ts; here: what shows, what the toggles and tabs do, by mouse and key.
 
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { compareSystem } from '@rehearse/core';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.js';
@@ -123,10 +124,10 @@ describe('T16 3 before / after of the system (page 11)', () => {
 
     await user.click(screen.getByTestId('ba-subject-flow'));
     await user.click(screen.getByTestId('ba-mode-diff'));
-    const flow = screen.getByTestId('ba-flow-diff');
-    expect(within(flow).getByTestId('ba-flow-diff-grep-code')).toHaveTextContent('removed');
-    expect(within(flow).getByTestId('ba-flow-diff-grep-code')).toHaveClass('is-removed');
-    expect(within(flow).getByTestId('ba-flow-diff-ask-context')).toHaveTextContent('added');
+    const flow = await screen.findByTestId('ba-flow-diff');
+    expect(within(flow).getByTestId('ba-box-grep-code')).toHaveTextContent('removed');
+    expect(within(flow).getByTestId('ba-box-grep-code')).toHaveClass('is-removed');
+    expect(within(flow).getByTestId('ba-box-ask-context')).toHaveTextContent('added');
 
     await user.click(screen.getByTestId('ba-subject-entities'));
     await user.click(screen.getByTestId('ba-mode-side'));
@@ -159,6 +160,89 @@ describe('T16 3 before / after of the system (page 11)', () => {
     expect(empty).toHaveTextContent('This EPIC has no architecture.yaml');
     expect(within(empty).getByLabelText('Example architecture.yaml of an EPIC')).toHaveTextContent('change: added');
     expect(screen.queryByRole('group', { name: 'What to compare' })).toBeNull();
+  });
+});
+
+describe('T42 2 before / after → Flow is a flow chart', () => {
+  const boxIn = (side: HTMLElement, path: string) => within(side).queryByTestId(`ba-box-${path}`);
+  const nodeOf = (side: HTMLElement, path: string) => side.querySelector(`.react-flow__node[data-id="box:${path}"]`) as HTMLElement;
+
+  it('T42 2 side by side: the as-is root on the left, the EPIC root on the right, each a chart of its boxes', async () => {
+    const user = userEvent.setup();
+    render(<BeforeAfterView view={codeGraphEpic()} />);
+    await user.click(screen.getByTestId('ba-subject-flow'));
+    const before = await screen.findByTestId('ba-flow-before');
+    const after = screen.getByTestId('ba-flow-after');
+    // Before: the flow as built, no status; the boxes this EPIC adds are not there.
+    expect(boxIn(before, 'draft-record')).toHaveAttribute('data-status', '');
+    expect(boxIn(before, 'ask-context')).toBeNull();
+    // After: each box and edge in its status look.
+    expect(boxIn(after, 'ask-context')).toHaveAttribute('data-status', 'added');
+    expect(boxIn(after, 'ask-context')).toHaveClass('is-added');
+    expect(boxIn(after, 'draft-record')).toHaveAttribute('data-status', 'changed');
+    expect(boxIn(after, 'validate')).toHaveAttribute('data-status', 'same');
+    expect(boxIn(after, 'grep-code')).toBeNull();
+    // Cards are gone from the Flow subject.
+    expect(screen.queryByTestId('ba-flow-diff-ask-context')).toBeNull();
+  });
+
+  it('T42 2 after with diff: one chart with every box and edge, the removed ones dashed red', async () => {
+    const user = userEvent.setup();
+    render(<BeforeAfterView view={codeGraphEpic()} />);
+    await user.click(screen.getByTestId('ba-subject-flow'));
+    await user.click(screen.getByTestId('ba-mode-diff'));
+    const diff = await screen.findByTestId('ba-flow-diff');
+    expect(screen.queryByTestId('ba-flow-before')).toBeNull();
+    expect(boxIn(diff, 'grep-code')).toHaveAttribute('data-status', 'removed');
+    expect(boxIn(diff, 'ask-context')).toHaveAttribute('data-status', 'added');
+    expect(boxIn(diff, 'draft-record')).toHaveAttribute('data-status', 'changed');
+  });
+
+  it('T42 2 before only: the as-is chart alone, without status', async () => {
+    const user = userEvent.setup();
+    render(<BeforeAfterView view={codeGraphEpic()} />);
+    await user.click(screen.getByTestId('ba-subject-flow'));
+    await user.click(screen.getByTestId('ba-mode-before'));
+    const before = await screen.findByTestId('ba-flow-before');
+    expect(screen.queryByTestId('ba-flow-after')).toBeNull();
+    expect(within(before).getAllByTestId(/^ba-box-/).map((b) => b.dataset.testid)).toEqual(['ba-box-start', 'ba-box-draft-record', 'ba-box-validate', 'ba-box-sign-off', 'ba-box-done']);
+    expect(before.querySelector('.ba-box.is-added, .ba-box.is-changed, .ba-box.is-removed')).toBeNull();
+  });
+
+  it('T42 2 a click on a box of the EPIC opens the box drawer; a box only the as-is flow has does not', async () => {
+    const user = userEvent.setup();
+    const onOpenBox = vi.fn();
+    render(<BeforeAfterView view={codeGraphEpic()} onOpenBox={onOpenBox} />);
+    await user.click(screen.getByTestId('ba-subject-flow'));
+    await user.click(screen.getByTestId('ba-mode-diff'));
+    const diff = await screen.findByTestId('ba-flow-diff');
+    // A plain click: user-event's mousedown trips d3-zoom in jsdom.
+    fireEvent.click(within(diff).getByTestId('ba-box-draft-record'));
+    expect(onOpenBox).toHaveBeenCalledWith('draft-record');
+    fireEvent.click(within(diff).getByTestId('ba-box-grep-code'));
+    expect(onOpenBox).toHaveBeenCalledTimes(1);
+  });
+
+  it('T42 2 a box stands in the same place on both sides', async () => {
+    const user = userEvent.setup();
+    render(<BeforeAfterView view={codeGraphEpic()} />);
+    await user.click(screen.getByTestId('ba-subject-flow'));
+    const before = await screen.findByTestId('ba-flow-before');
+    const after = screen.getByTestId('ba-flow-after');
+    for (const path of ['start', 'draft-record', 'validate', 'sign-off', 'done']) {
+      expect(nodeOf(before, path).style.transform).toBeTruthy();
+      expect(nodeOf(before, path).style.transform).toBe(nodeOf(after, path).style.transform);
+    }
+  });
+
+  it('T42 2 no docs/system/flow.yaml: the Before side says so, the After side draws the EPIC', async () => {
+    const user = userEvent.setup();
+    const view = codeGraphEpic();
+    const system = { ...view.system!, flow: undefined };
+    render(<BeforeAfterView view={{ ...view, system, compare: compareSystem(system, view) }} />);
+    await user.click(screen.getByTestId('ba-subject-flow'));
+    expect(await screen.findByTestId('ba-flow-before-none')).toHaveTextContent('no docs/system/flow.yaml');
+    expect(boxIn(screen.getByTestId('ba-flow-after'), 'draft-record')).toBeInTheDocument();
   });
 });
 

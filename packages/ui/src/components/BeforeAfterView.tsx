@@ -1,13 +1,16 @@
 // Before / after of the whole system (design page 11, D43 proposed): the as-is (docs/system/)
 // and the to-be (as-is + the EPIC's architecture.yaml). Toggles: Architecture · Flow · Entities
 // and Side by side · After with diff · Before only. Colours and words: added, changed, same,
-// removed (dashed), new link. Below: the "Changes in this EPIC" table.
+// removed (dashed), new link. Flow is a flow chart (FlowCompare.tsx). Below: the "Changes in
+// this EPIC" table.
 
 import { useMemo, useState } from 'react';
 import type { DiffStatus, SystemCompare } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
 import { archLayout, changeRows, diffDrawing, partCountsText, storyNote, type DiffSide } from '../model/architecture.js';
-import { ArchDiagram, ArchLegend, NoArchitecture, StatusBadge } from './ArchitectureView.js';
+import { ArchDiagram, ArchLegend, NoArchitecture, Side, StatusBadge } from './ArchitectureView.js';
+import type { BigViewProps } from './BigPictureViews.js';
+import { FlowCompare } from './FlowCompare.js';
 
 const SUBJECTS = [
   { id: 'architecture', label: 'Architecture' },
@@ -44,7 +47,7 @@ export function Toggle<T extends string>({ label, items, value, onChange, testId
   );
 }
 
-export function BeforeAfterView({ view }: { view: ReviewEpicView }) {
+export function BeforeAfterView({ view, onOpenBox = () => {} }: { view: ReviewEpicView; onOpenBox?: BigViewProps['onOpenBox'] }) {
   const [subject, setSubject] = useState<Subject>('architecture');
   const [mode, setMode] = useState<Mode>('side');
   const c = view.compare;
@@ -72,14 +75,7 @@ export function BeforeAfterView({ view }: { view: ReviewEpicView }) {
             <ArchLegend diff />
           </div>
           {subject === 'architecture' && <ArchitectureCompareView c={c} mode={mode} />}
-          {subject === 'flow' && (
-            <CardCompare
-              mode={mode}
-              testId="ba-flow"
-              noun="box"
-              items={c.boxes.map((b) => ({ key: b.path, title: b.title, sub: b.what ?? (b.inEpic ? '' : 'not in this EPIC'), status: b.status, onBefore: b.status !== 'added', onAfter: b.status !== 'removed' }))}
-            />
-          )}
+          {subject === 'flow' && <FlowCompare c={c} asIs={view.system?.flow} epic={view.flow} prd={view.prd} mode={mode} onOpenBox={onOpenBox} />}
           {subject === 'entities' && (
             <CardCompare
               mode={mode}
@@ -112,15 +108,6 @@ function ArchitectureCompareView({ c, mode }: { c: SystemCompare; mode: Mode }) 
   );
 }
 
-function Side({ title, after = false, children }: { title: string; after?: boolean; children: React.ReactNode }) {
-  return (
-    <section className={`ba-side${after ? ' is-after' : ''}`} aria-label={title}>
-      <h3 className="ba-side-title">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
 interface CardItem {
   key: string;
   title: string;
@@ -130,7 +117,7 @@ interface CardItem {
   onAfter: boolean;
 }
 
-/** Flow boxes or entities as cards with their status, for the Flow and Entities toggles. */
+/** Entities as cards with their status, for the Entities toggle. */
 function CardCompare({ items, mode, testId, noun }: { items: CardItem[]; mode: Mode; testId: string; noun: string }) {
   const list = (side: DiffSide) => {
     const shown = items.filter((i) => (side === 'before' ? i.onBefore : side === 'after' ? i.onAfter : true));
