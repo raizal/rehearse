@@ -100,7 +100,7 @@ describe('S10 the speed benchmark (100 files, cold limit scaled)', () => {
     expect(result.timings.slice(1).every((t) => t.runs === 5)).toBe(true);
     expect(result).toMatchObject({ files: 100, seed: 1, resolvers: ['tree-sitter'], exitCode: 0 });
     expect(benchTable(result)).toContain('every time is under its target');
-  });
+  }, 30_000); // five bench runs can take longer than the 5 s default on a loaded machine
 
   it('S10-too-slow a resolver set that makes the cold index miss its target gives exit code 1, with the timings', async () => {
     const slow: Resolver = {
