@@ -362,7 +362,7 @@ function How({
                       type="button"
                       className={`how-step${s.decision ? ' is-decision' : ''}`}
                       data-testid={`story-how-box-${s.path}`}
-                      aria-label={`Open box ${s.title} (${s.path}) in the flow view${s.parent ? `, inside ${s.parent}` : ''}`}
+                      aria-label={`Open box ${s.title} (${s.path}) in the box drawer${s.parent ? `, inside ${s.parent}` : ''}`}
                       onClick={() => onOpenBox(s.path)}
                     >
                       <span className="how-title">
@@ -439,7 +439,7 @@ function Output({ d, onOpenBox, id, focus }: { d: StoryDetail; onOpenBox: (path:
   const { changes, sideEffects, screens, states } = d.output;
   const machine = useMemo(() => statusMachine(d), [d]);
   const boxLink = (path: string, title: string) => (
-    <button type="button" className="box-link" aria-label={`Open box ${title} (${path}) in the flow view`} title={title} onClick={() => onOpenBox(path)}>
+    <button type="button" className="box-link" aria-label={`Open box ${title} (${path}) in the box drawer`} title={title} onClick={() => onOpenBox(path)}>
       {path}
     </button>
   );

@@ -31,9 +31,10 @@ async function pick(user: ReturnType<typeof userEvent.setup>, id: string, testid
   return page;
 }
 
+/** The box opened in the drawer over the Big picture. */
 async function expectOpened(path: string) {
-  expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-  expect(await screen.findByTestId('contract-path')).toHaveTextContent(path);
+  expect(await screen.findByTestId('box-drawer')).toHaveAttribute('data-box', path);
+  expect(screen.getByTestId('nav-bigpicture')).toHaveAttribute('aria-current', 'page');
 }
 
 describe('view switcher', () => {
@@ -51,7 +52,7 @@ describe('view switcher', () => {
   it('T14 1: the chosen view stays when the reviewer comes back to Big picture', async () => {
     const { user } = await start();
     await pick(user, 'dataflow', 'data-flow', 'df');
-    await user.click(screen.getByTestId('nav-flow'));
+    await user.click(screen.getByTestId('nav-stories'));
     await user.click(screen.getByTestId('nav-bigpicture'));
     expect(await screen.findByTestId('data-flow')).toBeInTheDocument();
     expect(screen.getByTestId('bpv-dataflow')).toHaveAttribute('aria-pressed', 'true');
@@ -72,7 +73,7 @@ describe('user flow (design page 5)', () => {
     expect(within(page).getByRole('list', { name: 'Legend' })).toHaveTextContent('Decision');
   });
 
-  it('T14 5: a click on a human box opens it in the flow view', async () => {
+  it('T14 5: a click on a human box opens it in the box drawer', async () => {
     const { user } = await start();
     await pick(user, 'userflow', 'user-flow', 'uf');
     await user.click(screen.getByTestId('uf-node-cart'));
@@ -104,7 +105,7 @@ describe('data flow (design page 6)', () => {
     expect(within(page).queryByTestId('df-only-writers')).toBeNull();
   });
 
-  it('T14 5: Enter on a process opens it in the flow view', async () => {
+  it('T14 5: Enter on a process opens it in the box drawer', async () => {
     const { user } = await start();
     await pick(user, 'dataflow', 'data-flow', 'df');
     screen.getByTestId('df-node-p:pay').focus();
@@ -124,7 +125,7 @@ describe('system flowchart (design page 7)', () => {
     expect(within(page).getByTestId('sf-edge-in-stock-o:failed')).toHaveTextContent('no');
   });
 
-  it('T14 5: a nested step, its frame and a box of another lane each open in the flow view', async () => {
+  it('T14 5: a nested step, its frame and a box of another lane each open in the box drawer', async () => {
     const { user } = await start();
     await pick(user, 'sysflow', 'system-flowchart', 'sf');
     await user.click(screen.getByTestId('sf-node-ship/pack'));

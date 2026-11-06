@@ -1,5 +1,5 @@
 // The path map of a storyboard card (S6-A1): each diagram the scenario's path goes through,
-// laid out with the flow view's swimlane layout (elkjs). Path boxes are in their lane colour
+// laid out with the swimlane layout of the box diagrams (elkjs). Path boxes are in their lane colour
 // with their step numbers; the other boxes are grey. The edges the path takes are drawn in
 // colour with the branch label they take.
 

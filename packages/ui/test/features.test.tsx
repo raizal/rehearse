@@ -42,7 +42,7 @@ describe('big picture (S4-A4)', () => {
   it('S4-A4: the review opens on the big picture: roles in rows, processes, one line per story, a legend', async () => {
     await start();
     expect(screen.getByTestId('nav-bigpicture')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getAllByTestId(/^nav-/).map((el) => el.textContent)).toEqual(['PRD', 'Tech spec', 'Big picture', 'Stories', 'Use cases', 'Readiness', 'Sign off', 'Flow']);
+    expect(screen.getAllByTestId(/^nav-/).map((el) => el.textContent)).toEqual(['PRD', 'Tech spec', 'Big picture', 'Stories', 'Use cases', 'Readiness', 'Sign off']);
     const builder = screen.getByTestId('bp-role-builder');
     expect(builder).toHaveTextContent('Builder');
     expect(builder).toHaveTextContent('human');
@@ -76,7 +76,7 @@ describe('big picture (S4-A4)', () => {
     await start(sharedShop());
     expect(screen.getByTestId('bp-shared-ship')).toHaveTextContent('shared: S1, S2');
     expect(screen.queryByTestId('bp-shared-cart')).not.toBeInTheDocument();
-    expect(screen.getByTestId('bp-process-ship')).toHaveAccessibleName('Open process Ship the order (ship) in the flow view; process; serves S1, S2; shared');
+    expect(screen.getByTestId('bp-process-ship')).toHaveAccessibleName('Open process Ship the order (ship) in the box drawer; process; serves S1, S2; shared');
     expect(screen.getByTestId('bp-line-S1')).toHaveAttribute('data-points', '3');
     // One chip per story under the shared box.
     expect(screen.getByTestId('bp-line-S2')).toHaveTextContent('S2');
@@ -92,12 +92,11 @@ describe('big picture (S4-A4)', () => {
     expect(screen.getByTestId('story-scenario-S2-out-of-stock')).toBeInTheDocument();
   });
 
-  it('S4-A4: a click on a process opens it in the flow view', async () => {
+  it('S4-A4: a click on a process opens it in the box drawer over the big picture', async () => {
     const { user } = await start();
     await user.click(screen.getByTestId('bp-process-pay'));
-    expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-    expect(await screen.findByTestId('box-pay')).toBeInTheDocument();
-    expect(screen.getByTestId('contract-path')).toHaveTextContent('pay');
+    expect(screen.getByTestId('nav-bigpicture')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'pay');
   });
 
   it('S4-A4: the keyboard reaches every process and opens it with Enter', async () => {
@@ -105,7 +104,9 @@ describe('big picture (S4-A4)', () => {
     for (const id of ['cart', 'pay', 'ship', 'notify']) expect(screen.getByTestId(`bp-process-${id}`)).toHaveAttribute('tabindex', '0');
     screen.getByTestId('bp-process-ship').focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByTestId('box-ship')).toBeInTheDocument();
+    expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'ship');
+    // Its steps are drilled into in the drawer.
+    expect(await within(screen.getByTestId('drawer-steps')).findByTestId('box-ship/pack')).toBeInTheDocument();
   });
 
   it('S4-A4: the real EPIC shows every role, every main process and every story', async () => {
@@ -146,15 +147,15 @@ describe('story view (S4-A5)', () => {
     await user.click(screen.getByTestId('bp-story-S1'));
     const how = await screen.findByTestId('story-how');
     expect(within(how).getAllByTestId(/^story-how-box-/).map((el) => el.dataset.testid)).toEqual(['story-how-box-cart', 'story-how-box-pay', 'story-how-box-ship', 'story-how-box-ship/pack']);
-    expect(within(how).getByTestId('story-how-box-ship/pack')).toHaveAccessibleName('Open box Pack (ship/pack) in the flow view, inside Ship the order');
+    expect(within(how).getByTestId('story-how-box-ship/pack')).toHaveAccessibleName('Open box Pack (ship/pack) in the box drawer, inside Ship the order');
     // The decision in-stock serves no story: the edge passes through it, dashed, and says so.
     const edge = within(how).getByTestId('story-how-edge-pay-ship');
     expect(edge).toHaveClass('is-via');
     expect(edge).toHaveTextContent('via Item in stock?');
     screen.getByTestId('story-how-box-ship/pack').focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByTestId('box-ship/pack')).toBeInTheDocument();
-    expect(screen.getByTestId('contract-path')).toHaveTextContent('ship/pack');
+    expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'ship/pack');
+    expect(screen.getByTestId('story-how')).toBeInTheDocument();
   });
 
   it('S4-A5: OUTPUT: data changes as from → to, side effects and what the user sees', async () => {
@@ -236,8 +237,8 @@ describe('use cases (S7-A1)', () => {
     expect(pay).toHaveAccessibleName('Open box Charge the buyer (pay); System; Order.status draft → paid');
     pay.focus();
     await user.keyboard('{Enter}');
-    expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByTestId('contract-path')).toHaveTextContent('pay');
+    expect(screen.getByTestId('nav-usecases')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'pay');
   });
 
   it('S7-A1: the old matrix stays behind the "Table" toggle', async () => {

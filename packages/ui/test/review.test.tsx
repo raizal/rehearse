@@ -1,7 +1,7 @@
 // Approve, permission matrix, readiness and sign-off against a mock fetch of the HTTP contract
 // (S6-A1, S7-A1, S8-A1..A3, S9-A1, S9-A2). The real server side is T6.
 
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.js';
@@ -16,17 +16,33 @@ afterEach(() => {
 });
 
 /**
- * The app on the flow view, with every step of every scenario seen (Approve is off until then;
- * the gate itself is tested in storyboard.test.tsx).
+ * The app on the story page of S1 (its scenario cards and the approve bar), with every step of
+ * every scenario seen (Approve is off until then; the gate itself is tested in storyboard.test.tsx).
  */
 async function start(routes: Partial<MockRoutes> = {}, view: ReviewEpicView = reviewEpic()) {
   seeAll(view);
   const server = mockServer({ epic: () => view, ...routes });
   const user = userEvent.setup();
   render(<App />);
-  fireEvent.click(screen.getByTestId('nav-flow'));
-  await screen.findByTestId('box-cart');
+  await screen.findByTestId('big-picture');
+  await user.click(screen.getByTestId('nav-stories'));
+  await screen.findByTestId('story-scenarios');
   return { server, user, view };
+}
+
+/** The storyboard of scenario `id`: its story in the queue, then "Open storyboard" on its card. */
+async function openCard(user: ReturnType<typeof userEvent.setup>, id: string) {
+  const back = screen.queryByTestId('card-back');
+  if (back) await user.click(back);
+  await user.click(screen.getByTestId(`queue-story-${id.split('-')[0]}`));
+  await user.click(await screen.findByTestId(`story-scenario-open-${id}`));
+  await waitFor(() => expect(screen.getByTestId('story-card')).toHaveTextContent(id));
+}
+
+/** Select scenario `id` on its story page. */
+async function select(user: ReturnType<typeof userEvent.setup>, id: string) {
+  await user.click(screen.getByTestId(`queue-story-${id.split('-')[0]}`));
+  await user.click(await screen.findByTestId(`story-scenario-select-${id}`));
 }
 
 const NO_SIGNING = { status: 200, body: { ...SESSION, signing: { ok: false, reason: 'git user.signingkey is not set' } } };
@@ -51,15 +67,20 @@ describe('shell: slug, status and signing chip (T17)', () => {
 
 describe('approve (S6-A1)', () => {
   it('S6-A1: draft and stale scenarios have an Approve button; a well-signed approved one shows its signature status', async () => {
-    await start();
+    const { user } = await start();
     await screen.findByTestId('approve-signer-key');
-    expect(screen.getByTestId('approve-S1-empty')).toBeEnabled();
-    expect(screen.getByTestId('approve-reason-S1-empty')).toHaveTextContent('draft');
-    expect(screen.getByTestId('approve-S2-out-of-stock')).toBeEnabled();
-    expect(screen.getByTestId('approve-reason-S2-out-of-stock')).toHaveTextContent('stale');
-    expect(screen.queryByTestId('approve-S1-buy')).not.toBeInTheDocument();
-    expect(screen.getByTestId('sig-status-S1-buy')).toHaveTextContent('signature valid');
-    expect(screen.getByTestId('sig-status-S1-buy')).toHaveAttribute('title', `signer key ${FIXTURE_KEY}`);
+    expect(screen.getByTestId('story-scenario-select-S1-empty')).toBeEnabled();
+    expect(screen.getByTestId('story-scenario-status-S1-empty')).toHaveTextContent('draft');
+    expect(screen.queryByTestId('story-scenario-select-S1-buy')).not.toBeInTheDocument();
+    expect(screen.getByTestId('story-scenario-status-S1-buy')).toHaveTextContent('approved, signature valid');
+    await openCard(user, 'S1-empty');
+    expect(screen.getByTestId('card-approve')).toBeEnabled();
+    expect(screen.getByTestId('card-approve')).toHaveAccessibleName('Approve S1-empty (draft)');
+    await openCard(user, 'S2-out-of-stock');
+    expect(screen.getByTestId('card-approve')).toBeEnabled();
+    expect(screen.getByTestId('card-approve')).toHaveAccessibleName(/^Approve S2-out-of-stock \(stale/);
+    await openCard(user, 'S1-buy');
+    expect(screen.queryByTestId('card-approve')).not.toBeInTheDocument();
   });
 
   it('S6-A1: shows who signs, from the session identity and the key fingerprint', async () => {
@@ -71,58 +92,60 @@ describe('approve (S6-A1)', () => {
 
   it('S6-A1: Approve posts the scenario id with the session token as JSON, then loads the EPIC again', async () => {
     const view = reviewEpic();
-    const { server, user } = await start({}, view);
+    // After the approval the record on disk has S1-empty approved and signed.
+    const approve = (body: { scenarioIds: string[] }) => {
+      view.scenarios.find((s) => s.scenario.id === 'S1-empty')!.status = 'approved';
+      view.approvals!['S1-empty'] = { by: 'builder@example.com', at: '2026-11-05T01:00:00Z', signer: FIXTURE_KEY, sigStatus: 'valid' };
+      return { status: 200, body: { ok: true, approved: body.scenarioIds } };
+    };
+    const { server, user } = await start({ approve }, view);
     await screen.findByTestId('approve-signer-key');
     expect(server.gets('api/epic')).toHaveLength(1);
-    // After the approval the record on disk has S1-empty approved and signed.
-    const draft = view.scenarios.find((s) => s.scenario.id === 'S1-empty')!;
-    draft.status = 'approved';
-    view.approvals!['S1-empty'] = { by: 'builder@example.com', at: '2026-11-05T01:00:00Z', signer: FIXTURE_KEY, sigStatus: 'valid' };
 
-    await user.click(screen.getByTestId('approve-S1-empty'));
+    await select(user, 'S1-empty');
+    await user.click(screen.getByTestId('approve-selected'));
     const [post] = server.posts('api/approve');
     expect(post!.body).toEqual({ scenarioIds: ['S1-empty'] });
     expect(post!.headers['x-rehearse-token']).toBe('tok-123');
     expect(post!.headers['content-type']).toBe('application/json');
     expect(await screen.findByText('Approved S1-empty.')).toBeInTheDocument();
     await waitFor(() => expect(server.gets('api/epic')).toHaveLength(2));
-    await waitFor(() => expect(screen.getByTestId('scenario-status-S1-empty')).toHaveTextContent('approved'));
-    expect(screen.queryByTestId('approve-S1-empty')).not.toBeInTheDocument();
-    expect(screen.getByTestId('sig-status-S1-empty')).toHaveTextContent('signature valid');
+    await waitFor(() => expect(screen.getByTestId('story-scenario-status-S1-empty')).toHaveTextContent('approved, signature valid'));
+    expect(screen.queryByTestId('story-scenario-select-S1-empty')).not.toBeInTheDocument();
   });
 
   it('S6-A1: approve the selected ones posts every checked scenario', async () => {
     const { server, user } = await start();
     await screen.findByTestId('approve-signer-key');
     expect(screen.getByTestId('approve-selected')).toBeDisabled();
-    await user.click(screen.getByTestId('select-S2-out-of-stock'));
-    await user.click(screen.getByTestId('select-S1-empty'));
+    await select(user, 'S2-out-of-stock');
+    await select(user, 'S1-empty');
     expect(screen.getByTestId('approve-selected')).toHaveTextContent('Approve selected (2)');
     await user.click(screen.getByTestId('approve-selected'));
     expect(server.posts('api/approve')[0]!.body).toEqual({ scenarioIds: ['S1-empty', 'S2-out-of-stock'] });
     await waitFor(() => expect(screen.getByTestId('approve-selected')).toHaveTextContent('Approve selected (0)'));
   });
 
-  it('S6-A1: playback has an Approve button for the scenario it plays', async () => {
+  it('S6-A1: the storyboard of a scenario has an Approve button for it', async () => {
     const { server, user } = await start();
     await screen.findByTestId('approve-signer-key');
-    await user.click(screen.getByTestId('scenario-S2-out-of-stock'));
-    await user.click(screen.getByTestId('playback-approve'));
+    await openCard(user, 'S2-out-of-stock');
+    await user.click(screen.getByTestId('card-approve'));
     expect(server.posts('api/approve')[0]!.body).toEqual({ scenarioIds: ['S2-out-of-stock'] });
-    await user.click(screen.getByTestId('scenario-S1-buy'));
-    expect(screen.queryByTestId('playback-approve')).not.toBeInTheDocument();
   });
 
   it('S6-A1: an approved scenario with a bad, missing or unknown signature can be approved again', async () => {
     const view = reviewEpic();
     view.approvals!['S1-buy']!.sigStatus = 'invalid';
-    await start({}, view);
-    expect(await screen.findByTestId('sig-status-S1-buy')).toHaveTextContent('bad signature');
-    expect(screen.getByTestId('approve-S1-buy')).toHaveAccessibleName('Approve S1-buy (bad signature)');
+    const { user } = await start({}, view);
+    expect(await screen.findByTestId('story-scenario-status-S1-buy')).toHaveTextContent('approved, signature invalid');
+    expect(screen.getByTestId('story-scenario-select-S1-buy')).toBeInTheDocument();
+    await openCard(user, 'S1-buy');
+    expect(screen.getByTestId('card-approve')).toHaveAccessibleName('Approve S1-buy (bad signature)');
   });
 
   it('S6-A1 (C29): when signing is off, the buttons are disabled and the setup steps are shown, with the guide path as text', async () => {
-    const { server } = await start({ session: () => NO_SIGNING });
+    const { server, user } = await start({ session: () => NO_SIGNING });
     const blocked = await screen.findByTestId('approve-signer-blocked');
     expect(blocked).toHaveTextContent('git user.signingkey is not set');
     const help = screen.getByTestId('approve-signer-doc');
@@ -131,23 +154,25 @@ describe('approve (S6-A1)', () => {
     expect(help).toHaveTextContent('.rehearse/allowed_signers');
     // serve does not serve docs/ (R20): no link that would 404.
     expect(within(help).queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.getByTestId('approve-S1-empty')).toBeDisabled();
-    expect(screen.getByTestId('select-S1-empty')).toBeDisabled();
+    expect(screen.getByTestId('story-scenario-select-S1-empty')).toBeDisabled();
     expect(screen.getByTestId('approve-selected')).toBeDisabled();
+    await openCard(user, 'S1-empty');
+    expect(screen.getByTestId('card-approve')).toBeDisabled();
     expect(server.posts('api/approve')).toHaveLength(0);
   });
 
   it('S6-A1: a session that does not load keeps the buttons disabled and says why', async () => {
     await start({ session: () => ({ status: 500, body: {} }) });
     expect(await screen.findByTestId('approve-signer-blocked')).toHaveTextContent('HTTP 500');
-    expect(screen.getByTestId('approve-S1-empty')).toBeDisabled();
+    expect(screen.getByTestId('story-scenario-select-S1-empty')).toBeDisabled();
   });
 
   it('S6-A1: 409 lists the findings, and the EPIC is not loaded again', async () => {
     const finding = { kind: 'reference', file: 'scenarios', path: 'S1-empty', message: 'scenario S1-empty unknown', refs: [] };
     const { server, user } = await start({ approve: () => ({ status: 409, body: { ok: false, findings: [finding] } }) });
     await screen.findByTestId('approve-signer-key');
-    await user.click(screen.getByTestId('approve-S1-empty'));
+    await select(user, 'S1-empty');
+    await user.click(screen.getByTestId('approve-selected'));
     expect(await screen.findByTestId('approve-outcome-findings')).toHaveTextContent('scenario S1-empty unknown');
     expect(screen.getByTestId('approve-outcome')).toHaveTextContent('Refused: 1 finding');
     expect(server.gets('api/epic')).toHaveLength(1);
@@ -157,14 +182,15 @@ describe('approve (S6-A1)', () => {
     let reply: { status: number; body: unknown } = { status: 503, body: { ok: false, reason: 'ssh-agent has no key' } };
     const { user } = await start({ approve: () => reply });
     await screen.findByTestId('approve-signer-key');
-    await user.click(screen.getByTestId('approve-S1-empty'));
+    await select(user, 'S1-empty');
+    await user.click(screen.getByTestId('approve-selected'));
     const outcome = screen.getByTestId('approve-outcome');
     await waitFor(() => expect(outcome).toHaveTextContent('Signing is not available: ssh-agent has no key'));
     expect(within(outcome).getByTestId('approve-outcome-doc')).toHaveTextContent('docs/signing.md');
     expect(within(outcome).queryByRole('link')).not.toBeInTheDocument();
 
     reply = { status: 403, body: { error: 'bad token' } };
-    await user.click(screen.getByTestId('approve-S1-empty'));
+    await user.click(screen.getByTestId('approve-selected'));
     await waitFor(() => expect(outcome).toHaveTextContent('Forbidden: bad token'));
   });
 });
@@ -176,7 +202,7 @@ async function openMatrix(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('permission matrix (S7-A1)', () => {
-  it('S7-A1: the cell builder × Order × write is marked, with a link to box cart that opens it in the flow view', async () => {
+  it('S7-A1: the cell builder × Order × write is marked, with a link to box cart that opens it in the box drawer', async () => {
     const { user } = await start();
     await openMatrix(user);
     expect(screen.getByTestId('nav-usecases')).toHaveAttribute('aria-current', 'page');
@@ -190,20 +216,18 @@ describe('permission matrix (S7-A1)', () => {
     const link = within(cell).getByTestId('matrix-box-builder-Order-write-cart');
     expect(link).toHaveAccessibleName('Open box cart (builder can write Order)');
     await user.click(link);
-    expect(screen.getByTestId('nav-flow')).toHaveAttribute('aria-current', 'page');
-    expect(await screen.findByTestId('box-cart')).toBeInTheDocument();
-    expect(screen.getByTestId('contract-path')).toHaveTextContent('cart');
+    expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'cart');
+    expect(screen.getByTestId('nav-usecases')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('S7-A1: a link to a nested box opens its diagram', async () => {
+  it('S7-A1: a link to a nested box opens it in the drawer, under its parent', async () => {
     const view = reviewEpic();
     view.simulation!.permissionBoxes.system!.Order!.write = ['pay', 'ship/send'];
     const { user } = await start({}, view);
     await openMatrix(user);
     await user.click(screen.getByTestId('matrix-box-system-Order-write-ship/send'));
-    expect(await screen.findByTestId('box-ship/send')).toBeInTheDocument();
-    expect(screen.getByTestId('breadcrumb-ship')).toBeInTheDocument();
-    expect(screen.getByTestId('contract-path')).toHaveTextContent('ship/send');
+    expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'ship/send');
+    expect(screen.getByTestId('drawer-crumb-ship')).toBeInTheDocument();
   });
 
   it('a role with no access to an entity says so in words', async () => {
@@ -261,8 +285,8 @@ describe('readiness (S8)', () => {
     expect(within(story).getByTestId('readiness-scenario-R1-S1-buy')).toHaveTextContent('approved');
     expect(within(story).getByTestId('readiness-scenario-R1-S1-empty')).toHaveTextContent('draft');
     await user.click(within(story).getByTestId('readiness-box-R1-S1-pay'));
-    expect(await screen.findByTestId('box-pay')).toBeInTheDocument();
-    expect(screen.getByTestId('contract-path')).toHaveTextContent('pay');
+    expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'pay');
+    expect(screen.getByTestId('nav-readiness')).toHaveAttribute('aria-current', 'page');
   });
 
   it('S8-A2: a box that serves no requirement is in the list "no requirement"', async () => {
@@ -420,8 +444,8 @@ describe('accessibility', () => {
   it('review buttons have names, and status is in words, not only color', async () => {
     const { user } = await start();
     await screen.findByTestId('approve-signer-key');
-    expect(screen.getByTestId('approve-S1-empty')).toHaveAccessibleName('Approve S1-empty (draft)');
-    expect(screen.getByTestId('select-S1-empty')).toHaveAccessibleName('Select S1-empty to approve');
+    expect(screen.getByTestId('story-scenario-select-S1-empty')).toHaveAccessibleName('Select S1-empty to approve');
+    expect(screen.getByTestId('story-scenario-open-S1-empty')).toHaveAccessibleName(/^Open the storyboard of S1-empty: .* \(draft, not approved\)$/);
     expect(screen.getByTestId('approve-selected')).toHaveAccessibleName('Approve the selected scenarios (none selected)');
     await user.click(screen.getByTestId('nav-signoff'));
     expect(screen.getByTestId('signoff-story-S1')).toHaveAccessibleName(/S1/);
@@ -430,24 +454,11 @@ describe('accessibility', () => {
     for (const el of screen.getAllByText(/^(proven|no proof)$/)) expect(el.textContent).toMatch(/proven|no proof/);
   });
 
-  it('focus order in the scenario list: the scenario, its checkbox, then its Approve button', async () => {
+  it('focus order on a scenario card: its checkbox, then its Open storyboard button', async () => {
     const { user } = await start();
     await screen.findByTestId('approve-signer-key');
-    screen.getByTestId('scenario-S1-empty').focus();
+    screen.getByTestId('story-scenario-select-S1-empty').focus();
     await user.tab();
-    expect(screen.getByTestId('select-S1-empty')).toHaveFocus();
-    await user.tab();
-    expect(screen.getByTestId('approve-S1-empty')).toHaveFocus();
-    await user.tab();
-    expect(screen.getByTestId('scenario-S2-out-of-stock')).toHaveFocus();
-  });
-
-  it('arrow keys do not step playback while another view is open', async () => {
-    const { user } = await start();
-    await user.click(screen.getByTestId('scenario-S1-buy'));
-    await openMatrix(user);
-    fireEvent.keyDown(window, { key: 'ArrowRight' });
-    await user.click(screen.getByTestId('nav-flow'));
-    expect(await screen.findByTestId('playback-step')).toHaveTextContent('Step 1 of 4');
+    expect(screen.getByTestId('story-scenario-open-S1-empty')).toHaveFocus();
   });
 });

@@ -46,7 +46,7 @@ describe('T15 feature 2: links', () => {
     expect(within(legend).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'requirement R1 → Readiness row',
       'story S1 → Story view',
-      'box cart → Flow / Tech spec contract',
+      'box cart → Box drawer / Tech spec contract',
       'scenario S1-buy → Storyboard',
       'entity Order → Tech spec entity',
       'decision D1 → Decision log',
@@ -64,7 +64,7 @@ describe('T15 feature 2: links', () => {
     for (const link of screen.getAllByRole('button').filter((b) => b.classList.contains('id-link'))) expect(link.getAttribute('aria-label')).toMatch(/^(Requirement|Story|Acceptance criterion|Box|Scenario|Entity|Decision|Correction) /);
   });
 
-  it('T15 2 a requirement opens its Readiness row; a story the Story view; a scenario the Storyboard; a box the Flow', async () => {
+  it('T15 2 a requirement opens its Readiness row; a story the Story view; a scenario the Storyboard; a box its drawer over the page', async () => {
     const { user } = await start();
     await user.click(within(screen.getByTestId('prd-req-R1')).getByTestId('link-requirement-R1'));
     expect(await screen.findByTestId('readiness-req-R1')).toBeInTheDocument();
@@ -80,8 +80,8 @@ describe('T15 feature 2: links', () => {
 
     await user.click(screen.getByTestId('nav-prd'));
     await user.click(within(screen.getByTestId('prd-story-S1')).getByTestId('link-box-pay'));
-    expect(await screen.findByTestId('flow-view')).toBeInTheDocument();
-    expect(screen.getByTestId('detail-pane')).toHaveTextContent('pay');
+    expect(await screen.findByTestId('box-drawer')).toHaveAttribute('data-box', 'pay');
+    expect(screen.getByTestId('nav-prd')).toHaveAttribute('aria-current', 'page');
   });
 
   it('T15 2 an entity and a decision open the Tech spec at that item', async () => {
@@ -95,7 +95,7 @@ describe('T15 feature 2: links', () => {
     expect(screen.getByTestId('ts-entity-Order')).toHaveClass('is-selected');
   });
 
-  it('T15 2 hovering or focusing a box chip shows its contract, with Open in Flow and Contract in Tech spec', async () => {
+  it('T15 2 hovering or focusing a box chip shows its contract, with Open box and Contract in Tech spec', async () => {
     const { user } = await start();
     const card = screen.getByTestId('prd-story-S1');
     await user.hover(within(card).getByTestId('link-box-pay'));
@@ -227,8 +227,10 @@ describe('T15 feature 4: Tech spec page', () => {
     expect(within(panel).getByTestId('link-requirement-R1')).toBeInTheDocument();
     expect(within(panel).getByTestId('link-scenario-S1-buy')).toBeInTheDocument();
     expect(within(panel).getByTestId('change-rule')).toHaveTextContent('makes S1 and its scenarios stale');
-    await user.click(within(within(panel).getByRole('list', { name: 'Shown in the tool' })).getByRole('button', { name: /^Open in Flow/ }));
-    expect(await screen.findByTestId('flow-view')).toBeInTheDocument();
+    await user.click(within(within(panel).getByRole('list', { name: 'Shown in the tool' })).getByRole('button', { name: /^Open in Box/ }));
+    // T38: the box opens in the drawer over the Tech spec page.
+    expect(await screen.findByTestId('box-drawer')).toHaveAttribute('data-box', 'pay');
+    expect(screen.getByTestId('nav-techspec')).toHaveAttribute('aria-current', 'page');
   });
 
   it('T15 4 the real EPIC: every box, entity and lifecycle on the Tech spec', async () => {

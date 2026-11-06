@@ -1,21 +1,13 @@
-// Swimlanes for one diagram (R9, S4-A1) and the breadcrumb back up (S4-A2).
+// The diagram inside a box as swimlanes (R9, S4-A1), drawn in the box drawer (T38): one lane per
+// role its boxes use, each box in its lane, the edges with their labels. A click opens a box.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Background, Controls, Handle, Position, ReactFlow, type NodeProps, type NodeTypes } from '@xyflow/react';
 import type { Flow, Prd } from '@rehearse/core';
-import { breadcrumb, diagramAt, lanesFor } from '../model/diagram.js';
+import { KIND_ICON } from '../model/boxdrawer.js';
+import { diagramAt, lanesFor } from '../model/diagram.js';
 import { toFlowElements, type BoxNode, type LaneNode } from '../model/elements.js';
 import { layoutDiagram, type SwimlaneLayout } from '../model/layout.js';
-
-const KIND_ICON: Record<string, string> = {
-  start: '●',
-  end: '◉',
-  process: '▭',
-  decision: '◇',
-  input: '⇥',
-  output: '⇤',
-  external: '☁',
-};
 
 function LaneView({ data }: NodeProps<LaneNode>) {
   const { lane, width, height } = data;
@@ -41,7 +33,7 @@ function BoxView({ data }: NodeProps<BoxNode>) {
       data-lane={lane}
       data-kind={box.kind}
       data-highlighted={current ? 'true' : 'false'}
-      title={hasChildren ? `${box.title} — click to open` : box.title}
+      title={`${box.title} — click to open`}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <div className="box-top">
@@ -68,20 +60,22 @@ function BoxView({ data }: NodeProps<BoxNode>) {
 
 const nodeTypes: NodeTypes = { lane: LaneView, box: BoxView };
 
-export interface FlowViewProps {
+/** The smallest zoom the diagram opens at. */
+const ZOOM = 0.6;
+
+export interface BoxDiagramProps {
   flow: Flow | undefined;
   prd: Prd | undefined;
-  /** '' for the root diagram. */
+  /** Path of the box whose diagram this is. */
   diagramPath: string;
-  current?: string;
-  selected?: string;
-  onOpen: (path: string) => void;
+  label: string;
   onSelect: (path: string) => void;
 }
 
-export function FlowView({ flow, prd, diagramPath, current, selected, onOpen, onSelect }: FlowViewProps) {
+/** The diagram inside a box, as swimlanes. A click on a box opens it. */
+export function BoxDiagram({ flow, prd, diagramPath, label, onSelect }: BoxDiagramProps) {
   const diagram = diagramAt(flow, diagramPath);
-  const lanes = useMemo(() => lanesFor(flow, prd, diagram, diagramPath === ''), [flow, prd, diagram, diagramPath]);
+  const lanes = useMemo(() => lanesFor(flow, prd, diagram, false), [flow, prd, diagram]);
   const [layout, setLayout] = useState<{ path: string; layout: SwimlaneLayout } | undefined>();
 
   useEffect(() => {
@@ -96,57 +90,39 @@ export function FlowView({ flow, prd, diagramPath, current, selected, onOpen, on
   }, [diagram, lanes, diagramPath]);
 
   const elements = useMemo(
-    () => (layout && layout.path === diagramPath ? toFlowElements(diagram, layout.layout, { diagramPath, current, selected }) : undefined),
-    [layout, diagram, diagramPath, current, selected],
+    () => (layout && layout.path === diagramPath ? toFlowElements(diagram, layout.layout, { diagramPath }) : undefined),
+    [layout, diagram, diagramPath],
   );
-  const crumbs = breadcrumb(flow, diagramPath);
+  // Boxes stay readable: a wide diagram shows its start at ZOOM and pans, it does not shrink to fit.
+  const height = Math.min(320, Math.max(160, (layout?.layout.lanes.reduce((h, l) => h + l.height, 0) ?? 160) * ZOOM + 24));
 
   return (
-    <section className="flow-view" data-testid="flow-view">
-      <nav className="breadcrumb" data-testid="breadcrumb" aria-label="Diagram path">
-        {crumbs.map((c, i) => (
-          <span key={c.path} className="crumb">
-            {i > 0 && <span className="crumb-sep">›</span>}
-            {i < crumbs.length - 1 ? (
-              <button type="button" data-testid={c.path === '' ? 'breadcrumb-root' : `breadcrumb-${c.path}`} title={c.title} onClick={() => onOpen(c.path)}>
-                {c.label}
-              </button>
-            ) : (
-              <span className="crumb-current" data-testid={c.path === '' ? 'breadcrumb-root' : `breadcrumb-${c.path}`} title={c.title} aria-current="page">
-                {c.label}
-              </span>
-            )}
-          </span>
-        ))}
-        {diagramPath !== '' && <span className="crumb-title">{crumbs[crumbs.length - 1]?.title}</span>}
-      </nav>
-      <div className="canvas" data-testid="canvas">
-        {!diagram && <div className="empty">No diagram at {diagramPath === '' ? 'root' : diagramPath}.</div>}
-        {elements && (
-          <ReactFlow
-            key={diagramPath}
-            nodes={elements.nodes}
-            edges={elements.edges}
-            nodeTypes={nodeTypes}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
-            fitView
-            fitViewOptions={{ padding: 0.08 }}
-            minZoom={0.1}
-            proOptions={{ hideAttribution: true }}
-            onNodeClick={(_, node) => {
-              if (node.type !== 'box') return;
-              const data = (node as BoxNode).data;
-              onSelect(data.path);
-              if (data.hasChildren) onOpen(data.path);
-            }}
-          >
-            <Background gap={24} size={1} />
-            <Controls showInteractive={false} />
-          </ReactFlow>
-        )}
-      </div>
-    </section>
+    <div className="canvas box-diagram" data-testid="box-diagram" role="img" aria-label={label} style={{ height }}>
+      {elements && (
+        <ReactFlow
+          key={diagramPath}
+          nodes={elements.nodes}
+          edges={elements.edges}
+          nodeTypes={nodeTypes}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          nodesFocusable={false}
+          edgesFocusable={false}
+          fitView
+          fitViewOptions={{ padding: 0.06, minZoom: ZOOM }}
+          minZoom={0.1}
+          zoomOnScroll={false}
+          preventScrolling={false}
+          proOptions={{ hideAttribution: true }}
+          onNodeClick={(_, node) => {
+            if (node.type === 'box') onSelect((node as BoxNode).data.path);
+          }}
+        >
+          <Background gap={24} size={1} />
+          <Controls showInteractive={false} orientation="horizontal" position="top-right" />
+        </ReactFlow>
+      )}
+    </div>
   );
 }

@@ -154,8 +154,7 @@ p { margin: 0; }
 .page h3 { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
 .page h4 { font-size: var(--fs-md); font-weight: var(--fw-bold); }
 
-/* The flow view: queue, canvas, detail. */
-.workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--queue-w) minmax(0, 1fr) 340px; }
+/* Side columns (the storyboard queue). */
 .left, .right { background: var(--card); overflow: auto; padding: var(--s-5); }
 .left { border-right: 1px solid var(--line); }
 .right { border-left: 1px solid var(--line); }
@@ -165,7 +164,6 @@ p { margin: 0; }
   .topbar { height: auto; grid-template-columns: 1fr; padding: var(--s-2) var(--s-4); }
   .tabs { flex-wrap: wrap; gap: var(--s-4); }
   .tab { padding: var(--s-2) 2px; }
-  .workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(360px, 1fr) auto; overflow: auto; }
   .left, .right { border: 0; border-bottom: 1px solid var(--line); }
   .page-wrap { padding: var(--s-5); }
 }

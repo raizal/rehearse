@@ -354,21 +354,6 @@ describe('approve only after every step was seen (S6-A1)', () => {
     await open(user, 'S1-empty');
     expect(screen.getByTestId('card-approve')).toBeDisabled();
   });
-
-  it('S6-A1: in the flow view, Approve is off too until playback stepped through every step', async () => {
-    const { user } = await start();
-    await user.click(screen.getByTestId('nav-flow'));
-    await screen.findByTestId('box-cart');
-    expect(screen.getByTestId('approve-S2-out-of-stock')).toBeDisabled();
-    expect(screen.getByTestId('select-S2-out-of-stock')).toBeDisabled();
-    expect(screen.getByTestId('approve-reason-S2-out-of-stock')).toHaveTextContent('see every step first');
-    await user.click(screen.getByTestId('scenario-S2-out-of-stock'));
-    expect(screen.getByTestId('playback-approve')).toBeDisabled();
-    await user.click(screen.getByTestId('playback-next'));
-    await user.click(screen.getByTestId('playback-next'));
-    expect(screen.getByTestId('playback-approve')).toBeEnabled();
-    expect(screen.getByTestId('approve-S2-out-of-stock')).toBeEnabled();
-  });
 });
 
 describe('review queue', () => {

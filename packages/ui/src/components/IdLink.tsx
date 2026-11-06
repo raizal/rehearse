@@ -159,8 +159,8 @@ export function BoxChip({ path, row, onGo }: { path: string; row: ContractRow | 
             <span className="box-pop-body">This box is not in flow.yaml.</span>
           )}
           <span className="box-pop-actions">
-            <button type="button" className="link" onClick={() => onGo({ view: 'flow', box: path })}>
-              Open in Flow
+            <button type="button" className="link" onClick={() => onGo({ view: 'box', box: path })}>
+              Open box
             </button>
             <span aria-hidden="true">·</span>
             <button type="button" className="link" onClick={() => onGo({ view: 'techspec', focus: `box:${path}` })}>

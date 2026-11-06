@@ -2,7 +2,7 @@
 // a token 403 and sends the request once more; a second token 403 says "reload" in plain words,
 // and the Origin 403 is never retried.
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.js';
@@ -124,13 +124,14 @@ describe('T24 in the app', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.click(screen.getByTestId('nav-flow'));
+    await user.click(await screen.findByTestId('nav-stories'));
     await screen.findByTestId('approve-signer-key');
     expect(screen.getByTestId('signing-chip')).toHaveTextContent(shortKey(FIXTURE_KEY));
 
     // The server restarts: a new token and a new key.
     current = { ...SESSION, token: 'tok-new', signing: { ok: true, keyFingerprint: NEW_KEY } };
-    await user.click(screen.getByTestId('approve-S1-empty'));
+    await user.click(screen.getByTestId('story-scenario-select-S1-empty'));
+    await user.click(screen.getByTestId('approve-selected'));
     expect(await screen.findByText('Approved S1-empty.')).toBeInTheDocument();
     expect(server.posts('api/approve').map((p) => p.headers['x-rehearse-token'])).toEqual(['tok-123', 'tok-new']);
     expect(server.gets('api/session')).toHaveLength(2);
@@ -143,9 +144,10 @@ describe('T24 in the app', () => {
     mockServer({ epic: () => view, approve: () => ({ status: 403, body: { error: TOKEN_ERROR } }) });
     const user = userEvent.setup();
     render(<App />);
-    fireEvent.click(screen.getByTestId('nav-flow'));
+    await user.click(await screen.findByTestId('nav-stories'));
     await screen.findByTestId('approve-signer-key');
-    await user.click(screen.getByTestId('approve-S1-empty'));
+    await user.click(screen.getByTestId('story-scenario-select-S1-empty'));
+    await user.click(screen.getByTestId('approve-selected'));
     const msg = await screen.findByText(/The rehearse server restarted\. Reload the page\./);
     expect(msg).not.toHaveTextContent('x-rehearse-token');
     expect(screen.getByTestId('server-restarted-reload')).toHaveTextContent('Reload');

@@ -21,11 +21,10 @@ import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.j
 import { contextLabel } from '../model/storythread.js';
 import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue, type ApprovalKind } from '../model/storyboard.js';
 import { queueRows, scenarioSummary, stepTitle, storyColor } from '../model/storypage.js';
-import { ApproveBar } from './Approve.js';
+import { ApproveBar, type ApproveControls } from './Approve.js';
 import { PathMap } from './PathMap.js';
 import { StoryThread } from './StoryThread.js';
 import { BackButton, CrumbStart, isStoryPage, StoryView, type BackControl, type StoryTab } from './StoryView.js';
-import type { ApproveControls } from './Playback.js';
 import { OutcomeMessage, SignerInfo, type SessionState } from './Review.js';
 import { KeyValues, show } from './Values.js';
 

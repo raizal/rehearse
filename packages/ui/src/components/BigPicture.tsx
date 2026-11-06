@@ -3,7 +3,7 @@
 // in flow order with the stories that use them as chips underneath, and arrows join the boxes;
 // and the list of features (stories). A process that two or more stories use says "shared".
 // Hover or focus a story to light up its processes; click it to open its story view; click a
-// process to open it in the flow view.
+// process to open it in the box drawer.
 
 import { useMemo, useState } from 'react';
 import type { Id } from '@rehearse/core';
@@ -120,7 +120,7 @@ export function BigPicture({ view, onOpenStory, onOpenBox }: BigPictureProps) {
                     key={p.id}
                     className={`fm-process${p.shared ? ' is-shared' : ''}${isSel ? ' is-selected' : ''}`}
                     data-testid={`bp-process-${p.id}`}
-                    {...svgButton(`Open process ${p.title} (${p.id}) in the flow view; ${p.kind}; ${stories}${p.shared ? '; shared' : ''}`, () => onOpenBox(p.id))}
+                    {...svgButton(`Open process ${p.title} (${p.id}) in the box drawer; ${p.kind}; ${stories}${p.shared ? '; shared' : ''}`, () => onOpenBox(p.id))}
                   >
                     <title>{`${p.title} (${p.id}), ${p.kind}; ${stories}`}</title>
                     <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={10} stroke={color} />

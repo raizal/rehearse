@@ -1,22 +1,20 @@
 // The rehearse review shell. One UI for the bb panel and a full-screen browser tab (R12, D31).
 // Review from big to small (D42): the big picture (the default view: roles, main processes and
 // one line per story), stories (the queue, the story view and its storyboard cards), use cases
-// (who may change what; the permission matrix behind a toggle), readiness, sign-off, and the
-// flow view (swimlanes, drill-down, playback, approve). Approve and sign-off are UI buttons only, signed by the serve process (R13, R14, D41).
+// (who may change what; the permission matrix behind a toggle), readiness and sign-off. A box
+// opens in a drawer over the page that is open (T38): its contract, the steps inside it, its edges
+// and its code. Approve and sign-off are UI buttons only, signed by the serve process (R13, R14, D41).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ReactFlowProvider } from '@xyflow/react';
-import type { Id, Scenario } from '@rehearse/core';
+import type { Id } from '@rehearse/core';
 import { fetchEpic, postApprove, postSignOff } from './api.js';
 import { sessionClient, type SessionClient } from './session-client.js';
 import type { ScenarioView } from './api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
-import { ApproveBar } from './components/Approve.js';
 import { BigPictureViews } from './components/BigPictureViews.js';
-import { BoxContract } from './components/DetailPane.js';
-import { FlowView } from './components/FlowView.js';
+import { BoxDrawer } from './components/BoxDrawer.js';
 import { PrdView } from './components/PrdView.js';
-import { Playback, StepDetail, type ApproveControls } from './components/Playback.js';
+import type { ApproveControls } from './components/Approve.js';
 import { ReadinessView } from './components/ReadinessView.js';
 import { signingBlocked, type SessionState } from './components/Review.js';
 import { SignOffView } from './components/SignOffView.js';
@@ -24,10 +22,8 @@ import { Storyboard } from './components/Storyboard.js';
 import type { StoryTab } from './components/StoryView.js';
 import { TechSpecView } from './components/TechSpecView.js';
 import { UseCaseView } from './components/UseCaseView.js';
-import { boxAt, diagramAt, parentPath } from './model/diagram.js';
 import type { Place } from './model/links.js';
-import { DEFAULT_BIG_VIEW, depthOf, depthState, fromHash, toHash, type Loc, type Tab } from './model/nav.js';
-import { stepCount, stepView } from './model/playback.js';
+import { boxOfHash, DEFAULT_BIG_VIEW, depthOf, depthState, fromHash, toHash, type Loc, type StoryTabId, type Tab } from './model/nav.js';
 import { approveReason, storiesOf } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
@@ -41,7 +37,6 @@ const TABS = [
   { id: 'usecases', label: 'Use cases' },
   { id: 'readiness', label: 'Readiness' },
   { id: 'signoff', label: 'Sign off' },
-  { id: 'flow', label: 'Flow' },
 ] as const satisfies readonly { id: Tab; label: string }[];
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; view: ReviewEpicView };
@@ -67,10 +62,8 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const [busy, setBusy] = useState<'approve' | 'signoff' | undefined>();
   const [approveOutcome, setApproveOutcome] = useState<PostOutcome<ApproveOk> | undefined>();
   const [signOffOutcome, setSignOffOutcome] = useState<PostOutcome<SignOffOk> | undefined>();
-  const [diagramPath, setDiagramPath] = useState('');
-  const [selected, setSelected] = useState<string | undefined>();
-  const [scenarioId, setScenarioId] = useState<string | undefined>();
-  const [step, setStep] = useState(0);
+  // The box open in the drawer over the page (T38).
+  const [box, setBox] = useState<string | undefined>();
   const [cardId, setCardId] = useState<Id | undefined>();
   const [storyId, setStoryId] = useState<Id | undefined>();
   // The stories view shows the storyboard page of the open scenario (design page 3), else its story.
@@ -104,7 +97,6 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   }, [api]);
 
   const view = state.kind === 'ready' ? state.view : undefined;
-  const flow = view?.flow;
   const slug = view?.slug;
   useEffect(() => {
     if (slug !== undefined) setSeen((old) => (old.slug === slug ? old : { slug, state: loadSeen(browserStorage(), slug) }));
@@ -144,8 +136,9 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     [firstCard],
   );
   const openStory = useCallback(
-    (id: Id) => {
-      pickStory(id, 'what');
+    (id: Id, onTab: StoryTab = 'what') => {
+      pickStory(id, onTab);
+      setBox(undefined);
       setTab('stories');
     },
     [pickStory],
@@ -159,65 +152,22 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     },
     [queue],
   );
-  const active = view?.scenarios.find((s) => s.scenario.id === scenarioId);
-  const current = useMemo(() => (active ? stepView(flow, active.scenario, step) : undefined), [active, flow, step]);
-
-  // Playback opens the diagram that holds the current leaf box (R21) and selects it.
-  const showStep = useCallback(
-    (scenario: Scenario, index: number) => {
-      const n = Math.max(0, Math.min(index, stepCount(scenario) - 1));
-      setStep(n);
-      // Stepping through playback counts as seeing the step.
-      const playing = view?.scenarios.find((s) => s.scenario === scenario);
-      if (playing) markStep(playing, n);
-      const sv = stepView(flow, scenario, n);
-      if (!sv) return;
-      if (diagramAt(flow, sv.diagramPath)) setDiagramPath(sv.diagramPath);
-      setSelected(sv.path);
-    },
-    [flow, view, markStep],
-  );
-  const goToStep = useCallback((index: number) => active && showStep(active.scenario, index), [active, showStep]);
-  const pick = useCallback(
-    (id: string | undefined) => {
-      setScenarioId(id);
-      const picked = view?.scenarios.find((s) => s.scenario.id === id);
-      if (picked) showStep(picked.scenario, 0);
-    },
-    [view, showStep],
-  );
-
-  useEffect(() => {
-    if (!active || tab !== 'flow') return;
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select')) return;
-      if (e.key === 'ArrowRight') goToStep(step + 1);
-      if (e.key === 'ArrowLeft') goToStep(step - 1);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [active, goToStep, step, tab]);
-
-  // A box link in the big picture, story, use case or readiness view opens the box in the flow view.
-  const openBox = useCallback(
-    (path: string) => {
-      const parent = parentPath(path);
-      setDiagramPath(diagramAt(flow, parent) ? parent : '');
-      setSelected(path);
-      setTab('flow');
-    },
-    [flow],
-  );
+  // A box link anywhere opens the box in the drawer over the page that is open (T38).
+  const openBox = useCallback((path: string) => setBox(path), []);
 
   // An id link on the PRD or Tech spec page opens the place where the id lives (T15).
   const go = useCallback(
     (place: Place) => {
+      if (place.view === 'box') {
+        openBox(place.box);
+        return;
+      }
+      setBox(undefined);
       if (place.view === 'story') openStory(place.story);
       else if (place.view === 'storyboard') {
         pickCard(place.scenario);
         setTab('stories');
-      } else if (place.view === 'flow') openBox(place.box);
-      else if (place.view === 'readiness') {
+      } else if (place.view === 'readiness') {
         setReadinessRow(place.requirement);
         setTab('readiness');
       } else if (place.view === 'prd' || place.view === 'techspec') {
@@ -241,8 +191,6 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
         return { tab, view: bigView };
       case 'readiness':
         return { tab, requirement: readinessRow };
-      case 'flow':
-        return { tab, diagram: diagramPath };
       case 'stories':
         if (list || storyShown === undefined) return { tab, list: true };
         if (board && card && (storyId === undefined || card.scenario.story === storyId)) return { tab, story: card.scenario.story ?? storyShown, card: card.scenario.id };
@@ -250,13 +198,13 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       default:
         return { tab };
     }
-  }, [tab, docFocus, bigView, readinessRow, diagramPath, list, storyShown, board, card, storyId, storyTab]);
-  const applyLoc = (l: Loc) => {
+  }, [tab, docFocus, bigView, readinessRow, list, storyShown, board, card, storyId, storyTab]);
+  const applyLoc = (l: Loc, drawer: string | undefined) => {
+    setBox(drawer);
     setTab(l.tab);
     if (l.tab === 'prd' || l.tab === 'techspec') setDocFocus(l.focus);
     else if (l.tab === 'bigpicture') setBigView(l.view ?? DEFAULT_BIG_VIEW);
     else if (l.tab === 'readiness') setReadinessRow(l.requirement);
-    else if (l.tab === 'flow') setDiagramPath(l.diagram ?? '');
     else if (l.tab === 'stories') {
       if ('list' in l) {
         setList(true);
@@ -280,16 +228,16 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   // The place in the URL when the page opened.
   useEffect(() => {
     const at = fromHash(window.location.hash);
-    if (at) applyRef.current(at);
+    if (at) applyRef.current(at, boxOfHash(window.location.hash));
     const onPop = (e: PopStateEvent) => {
       setDepth(depthOf(e.state));
       const to = fromHash(window.location.hash);
-      if (to) applyRef.current(to);
+      if (to) applyRef.current(to, boxOfHash(window.location.hash));
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-  const here = view ? toHash(loc) : undefined;
+  const here = view ? toHash(loc, box) : undefined;
   const synced = useRef(false);
   useEffect(() => {
     if (here === undefined) return;
@@ -390,6 +338,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
                   setStoryTab('what');
                   setList(false);
                 }
+                setBox(undefined);
                 setTab(t.id);
               }}
             >
@@ -476,7 +425,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       )}
       {view && tab === 'usecases' && (
         <main className="page-wrap">
-          <UseCaseView simulation={view.simulation} flow={flow} prd={view.prd} entities={view.entities} onOpenBox={openBox} />
+          <UseCaseView simulation={view.simulation} flow={view.flow} prd={view.prd} entities={view.entities} onOpenBox={openBox} />
         </main>
       )}
       {view && tab === 'readiness' && (
@@ -489,34 +438,15 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           <SignOffView view={view} session={session} busy={busy !== undefined} outcome={signOffOutcome} onSignOff={(ids) => void signOff(ids)} />
         </main>
       )}
-      {view && tab === 'flow' && (
-        <main className="workspace">
-          <aside className="left">
-            <ApproveBar session={session} selected={picked} disabled={actionsOff} busy={busy === 'approve'} outcome={approveOutcome} onApprove={(ids) => void approve(ids)} />
-            <Playback scenarios={view.scenarios} scenarioId={scenarioId} step={step} onPick={pick} onStep={goToStep} approve={approveControls} />
-          </aside>
-          <ReactFlowProvider>
-            <FlowView
-              flow={flow}
-              prd={view.prd}
-              diagramPath={diagramPath}
-              current={current?.path}
-              selected={selected}
-              onOpen={setDiagramPath}
-              onSelect={setSelected}
-            />
-          </ReactFlowProvider>
-          <aside className="right detail-pane" data-testid="detail-pane">
-            {current && active && (
-              <>
-                <h2>Playback</h2>
-                <StepDetail view={current} total={stepCount(active.scenario)} />
-              </>
-            )}
-            <h2>Box contract</h2>
-            <BoxContract box={selected ? boxAt(flow, selected) : undefined} path={selected} />
-          </aside>
-        </main>
+      {view && box !== undefined && (
+        <BoxDrawer
+          view={view}
+          path={box}
+          onOpenBox={openBox}
+          onClose={() => setBox(undefined)}
+          onGo={go}
+          onOpenStory={(id: Id, onTab: StoryTabId) => openStory(id, onTab)}
+        />
       )}
     </div>
   );

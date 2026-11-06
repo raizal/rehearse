@@ -199,7 +199,7 @@ export function bigPicture(flow: Flow | undefined, prd: Prd | undefined): BigPic
  * main processes behind it, so `simulate → design-errors? → review` is one arrow simulate → review.
  * An arrow is a loop back when its target can reach its source and comes first in flow order.
  * Only a direct loop back is drawn; one that goes through a decision (a "no" branch) is left to
- * the flow view, so the map stays readable.
+ * the box drawer, so the map stays readable.
  */
 export function mainEdges(diagram: { boxes?: AnyBox[]; edges?: Diagram['edges'] } | undefined, processes: FeatureProcess[]): MainEdge[] {
   const main = new Map(processes.map((p) => [p.id, p]));

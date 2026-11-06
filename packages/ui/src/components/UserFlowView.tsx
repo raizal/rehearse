@@ -61,7 +61,7 @@ export function BoxList({ rows, onOpenBox }: { rows: { path: string; title: stri
     <ul className="gd-box-list">
       {rows.map((r) => (
         <li key={r.path}>
-          <button type="button" className="box-link" data-testid={`box-link-${r.path}`} aria-label={`Open box ${r.title} (${r.path}) in the flow view`} onClick={() => onOpenBox(r.path)}>
+          <button type="button" className="box-link" data-testid={`box-link-${r.path}`} aria-label={`Open box ${r.title} (${r.path}) in the box drawer`} onClick={() => onOpenBox(r.path)}>
             {r.title}
           </button>{' '}
           <span className="small muted">

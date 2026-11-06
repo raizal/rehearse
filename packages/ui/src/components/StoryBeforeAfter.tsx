@@ -163,7 +163,7 @@ function StoryChanges({ sc, onOpenBox }: { sc: StoryCompare; onOpenBox: (path: s
               <td>
                 <span className="small muted">{r.area} </span>
                 {r.path && r.status !== 'removed' ? (
-                  <button type="button" className="box-link" aria-label={`Open box ${r.item} (${r.path}) in the flow view`} onClick={() => onOpenBox(r.path!)}>
+                  <button type="button" className="box-link" aria-label={`Open box ${r.item} (${r.path}) in the box drawer`} onClick={() => onOpenBox(r.path!)}>
                     {r.item}
                   </button>
                 ) : (
@@ -201,7 +201,7 @@ function Impact({ sc, onOpenBox }: { sc: StoryCompare; onOpenBox: (path: string)
           <ul className="chip-row" data-testid="story-ba-touches">
             {impact.boxes.map((b) => (
               <li key={b.path}>
-                <button type="button" className="box-link" aria-label={`Open box ${b.title} (${b.path}) in the flow view; ${b.status}`} onClick={() => onOpenBox(b.path)}>
+                <button type="button" className="box-link" aria-label={`Open box ${b.title} (${b.path}) in the box drawer; ${b.status}`} onClick={() => onOpenBox(b.path)}>
                   {b.path}
                 </button>{' '}
                 <span className="small muted">({b.status})</span>

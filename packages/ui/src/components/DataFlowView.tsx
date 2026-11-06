@@ -46,7 +46,7 @@ export function DataFlowView({ view, onOpenBox }: BigViewProps) {
                 {df.onlyWriters.map((w) => (
                   <li key={w.entity}>
                     Only{' '}
-                    <button type="button" className="box-link" aria-label={`Open process ${w.process.number} ${w.process.title} (${w.process.path}) in the flow view`} onClick={() => onOpenBox(w.process.path)}>
+                    <button type="button" className="box-link" aria-label={`Open process ${w.process.number} ${w.process.title} (${w.process.path}) in the box drawer`} onClick={() => onOpenBox(w.process.path)}>
                       {w.process.number} {w.process.title}
                     </button>{' '}
                     writes {w.store} {w.entity}.

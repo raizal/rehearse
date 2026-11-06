@@ -1,8 +1,23 @@
 // The approve bar above the scenario list: who signs, "approve the selected ones", and the last result (S6-A1, D41).
 
 import type { Id } from '@rehearse/core';
-import type { ApproveOk, PostOutcome } from '../contract.js';
+import type { ScenarioView } from '../api.js';
+import type { ApprovalView, ApproveOk, PostOutcome } from '../contract.js';
 import { OutcomeMessage, SignerInfo, type SessionState } from './Review.js';
+
+/** Approve controls on the storyboard (S6-A1). */
+export interface ApproveControls {
+  /** Why the scenario can be approved (draft, stale, bad signature), or undefined. */
+  reasonFor: (sv: ScenarioView) => string | undefined;
+  approvals?: Record<Id, ApprovalView>;
+  selected: ReadonlySet<Id>;
+  onToggle: (id: Id) => void;
+  onApprove: (ids: Id[]) => void;
+  /** Signing is off, or a request is running. */
+  disabled: boolean;
+  /** Every step of the scenario was seen on the storyboard. Approve is off until then (S6-A1). */
+  isSeen?: (sv: ScenarioView) => boolean;
+}
 
 export interface ApproveBarProps {
   session: SessionState;
