@@ -299,7 +299,7 @@ async function readMap(query: URLSearchParams, graph: GraphService): Promise<[nu
   const map = await graph.map({
     level: level as MapLevel,
     ...(level !== 'packages' ? { target } : {}),
-    hideTests: query.get('tests') === 'hide',
+    hideTests: query.get('tests') === 'hide' ? true : query.get('tests') === 'auto' ? 'auto' : false,
     hideOutside: query.get('outside') === 'hide',
     ...(epic !== null ? { epic } : {}),
   });

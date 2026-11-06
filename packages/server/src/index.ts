@@ -23,7 +23,7 @@ export {
 } from './graph-route.js';
 /** The graph types the panel reads (S9), so the UI needs no dependency on @rehearse/graph. */
 export type {
-  AnswerEdge, AnswerNode, AstOutline, AstOutlineNode, CodeMap, EdgeKind, MapBox, MapEdge, MapLevel, MapNode, MapNodeKind, MapPlace, MapTotals, NodeKind, QueryAnswer, Trust,
+  AnswerEdge, AnswerNode, AstOutline, AstOutlineNode, CodeMap, EdgeKind, MapBox, MapEdge, MapLevel, MapMember, MapNode, MapNodeKind, MapPlace, MapTotals, NodeKind, QueryAnswer, Trust,
 } from '@rehearse/graph';
 export { createSession, newToken, sessionInfo, tokenMatches, type ServerSession, type SessionInfo } from './session.js';
 export { buildTrustedEpicView, type ApprovalView, type SignOffView, type TrustedEpicView } from './trust-view.js';

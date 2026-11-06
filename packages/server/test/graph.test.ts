@@ -209,9 +209,16 @@ describe('T40 the code map: GET /api/graph?verb=map|find|path|status', () => {
     const charge = map.nodes.find((n: { name: string; outside: boolean }) => n.name === 'charge' && !n.outside);
     expect(charge.boxes).toEqual([expect.objectContaining({ path: 'checkout/pay' })]);
     const orders = await (await get(`verb=map&level=file&target=${encodeURIComponent('src/orders.ts')}`)).json();
-    expect(orders.nodes.some((n: { kind: string }) => n.kind === 'test')).toBe(true);
+    // The tests elsewhere are one node per test file, the tests in it listed.
+    const isTests = (n: { test: boolean; members?: { kind: string }[] }) => n.test && (n.members ?? []).some((m) => m.kind === 'test');
+    expect(orders.nodes.some(isTests)).toBe(true);
     const hidden = await (await get(`verb=map&level=file&target=${encodeURIComponent('src/orders.ts')}&tests=hide`)).json();
-    expect(hidden.nodes.some((n: { kind: string }) => n.kind === 'test')).toBe(false);
+    expect(hidden.nodes.some(isTests)).toBe(false);
+    // tests=auto at the package level: the test files are left out and counted.
+    const pkg = map.unit.key;
+    const auto = await (await get(`verb=map&level=package&target=${encodeURIComponent(pkg)}&tests=auto`)).json();
+    expect(auto.nodes.some((n: { test: boolean; outside: boolean }) => n.test && !n.outside)).toBe(false);
+    expect(auto.hiddenTests).toBeGreaterThan(0);
   });
 
   it('map: a bad level, no target or a bad epic is 400; an unknown package is 404', async () => {

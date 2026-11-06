@@ -105,17 +105,46 @@ describe('T40 code map: package and file', () => {
     expect(m.edges.find((e) => e.from === 'packages/a/test/index.test.ts')).toMatchObject({ to: 'packages/a/src/index.ts', count: 1 });
   });
 
-  it('a file: its functions and their calls; callers and callees elsewhere are outside nodes', () => {
+  it('a file: its functions and their calls; the code elsewhere is one node per other file or outside package, its calls counted', () => {
     const m = index().level({ level: 'file', target: 'packages/a/src/index.ts' });
-    expect(m).toMatchObject({ ok: true, unit: { key: '@m/a' } });
+    expect(m).toMatchObject({ ok: true, unit: { key: '@m/a' }, hiddenTests: 0 });
     const own = m.nodes.filter((n) => !n.outside).map((n) => n.name).sort();
     expect(own).toEqual(['helper', 'run']);
-    const out = m.nodes.filter((n) => n.outside).map((n) => n.name).sort();
-    expect(out).toEqual(['get', 'main', 'pay', 'runs']);
-    expect(m.edges).toContainEqual({ from: helper.id, to: pay.id, count: 1, exact: 0, trust: 'name-match', kinds: ['calls'] });
+    const out = Object.fromEntries(m.nodes.filter((n) => n.outside).map((n) => [n.id, n]));
+    expect(Object.keys(out).sort()).toEqual(['group:outside:lodash', 'group:packages/a/test/fixtures/app/main.ts', 'group:packages/a/test/index.test.ts', 'group:packages/b/src/index.ts']);
+    // pay is called twice (by run and helper): one node for its file, the calls counted, the members listed.
+    expect(out['group:packages/b/src/index.ts']).toMatchObject({ kind: 'file', name: 'index.ts', file: 'packages/b/src/index.ts', unit: '@m/b', calls: 2, members: [{ id: pay.id, name: 'pay', kind: 'function', to: 2, from: 0 }] });
+    expect(out['group:outside:lodash']).toMatchObject({ kind: 'outside', name: 'lodash', calls: 1, members: [{ name: 'get', to: 1, from: 0 }] });
+    expect(out['group:packages/a/test/index.test.ts']).toMatchObject({ test: true, members: [{ name: 'runs', to: 0, from: 1 }] });
+    expect(m.edges).toContainEqual({ from: helper.id, to: 'group:packages/b/src/index.ts', count: 1, exact: 0, trust: 'name-match', kinds: ['calls'] });
+    expect(m.edges).toContainEqual({ from: run.id, to: 'group:packages/b/src/index.ts', count: 1, exact: 1, trust: 'exact', kinds: ['calls'] });
     expect(m.nodes.find((n) => n.name === 'run')!.boxes.map((b) => b.path)).toEqual(['ops/run']);
     const noTests = index().level({ level: 'file', target: 'packages/a/src/index.ts', hideTests: true, hideOutside: true });
-    expect(noTests.nodes.map((n) => n.name).sort()).toEqual(['helper', 'pay', 'run']);
+    expect(noTests.nodes.map((n) => n.name).sort()).toEqual(['helper', 'index.ts', 'run']);
+  });
+
+  it('many callers in one other file are one node; the edges to it add up', () => {
+    const callers = Array.from({ length: 9 }, (_, i) => ts('@m/b', 'packages/b/src/index.ts', `c${i}`));
+    const m = new MapIndex([aFile, run, bFile, ...callers], callers.map((c) => edge(c, run))).level({ level: 'file', target: 'packages/a/src/index.ts' });
+    expect(m.nodes.filter((n) => n.outside)).toHaveLength(1);
+    expect(m.nodes.find((n) => n.outside)).toMatchObject({ name: 'index.ts', calls: 9 });
+    expect(m.nodes.find((n) => n.outside)!.members).toHaveLength(9);
+    expect(m.edges).toEqual([{ from: 'group:packages/b/src/index.ts', to: run.id, count: 9, exact: 9, trust: 'exact', kinds: ['calls'] }]);
+  });
+
+  it('tests hidden say how many; auto hides them unless the level is all tests', () => {
+    const ix = index();
+    expect(ix.level({ level: 'package', target: '@m/a' }).hiddenTests).toBe(0);
+    const auto = ix.level({ level: 'package', target: '@m/a', hideTests: 'auto' });
+    // The test file and the fixture below test/ are left out.
+    expect(auto.hiddenTests).toBe(2);
+    expect(auto.nodes.filter((n) => !n.outside).map((n) => n.id)).toEqual(['packages/a/src/index.ts']);
+    expect(ix.level({ level: 'packages', hideTests: true }).hiddenTests).toBe(2);
+    expect(ix.level({ level: 'file', target: 'packages/a/src/index.ts', hideTests: true }).hiddenTests).toBe(0);
+    // A test file holds only tests: auto shows them.
+    const testFile = ix.level({ level: 'file', target: 'packages/a/test/index.test.ts', hideTests: 'auto' });
+    expect(testFile).toMatchObject({ hiddenTests: 0 });
+    expect(testFile.nodes.filter((n) => !n.outside).map((n) => n.name)).toEqual(['runs']);
   });
 
   it('an unknown package or file, or an outside package, is not found', () => {

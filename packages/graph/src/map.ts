@@ -5,7 +5,8 @@
 //   package   the files of one package, the edges among them, and a stub node for each other
 //             package its files use or are used by.
 //   file      the classes, functions, methods, routes and tests of one file and their calls; the
-//             callers and callees in other files as outside nodes.
+//             callers and callees elsewhere as one outside node per other file (per package
+//             outside the repo), with the code in it listed and its calls counted.
 // A level draws at most `limit` nodes; the rest fold into one "+N more" node. Every node says which
 // plan boxes it serves: the boxes whose `builds` edges (Flow-Box trailers, the git linker) reach the
 // code in it. Read only: it reads the store and changes nothing.
@@ -29,8 +30,8 @@ export const MAP_EDGE_KINDS: readonly EdgeKind[] = ['imports', 'calls', 'http-ca
 const FILE_EDGE_KINDS: readonly EdgeKind[] = ['calls', 'http-calls', 'references', 'extends', 'implements'];
 
 const CODE_KINDS: readonly NodeKind[] = ['file', 'module', 'class', 'function', 'method', 'route', 'test'];
-/** The most outside nodes (outside packages, stubs, code in other files) one level draws; the rest fold. */
-export const OUTSIDE_LIMIT: Record<MapLevel, number> = { packages: 12, package: 40, file: 40 };
+/** The most outside nodes (outside packages, stubs, other files) one level draws; the rest fold. The UI groups them. */
+export const OUTSIDE_LIMIT: Record<MapLevel, number> = { packages: 60, package: 40, file: 40 };
 const TRUST_ORDER: readonly Trust[] = ['exact', 'name-match', 'unresolved'];
 
 /** A test file of vitest or pytest, or a file below a test folder (fixtures too). */
@@ -68,6 +69,21 @@ export interface MapNode {
   boxes: MapBox[];
   /** A "+N more" node: how many nodes it folds. */
   more?: number;
+  /** An other file (or outside package) at the file level: the code in it the file calls or is called by. */
+  members?: MapMember[];
+  /** The calls between the file and an other file node, both ways. */
+  calls?: number;
+}
+
+/** Code in an other file, linked to the shown file. `to`: calls from the file to it; `from`: calls from it to the file. */
+export interface MapMember {
+  id: string;
+  name: string;
+  kind: NodeKind;
+  file?: string;
+  range?: string;
+  to: number;
+  from: number;
 }
 
 /** The edges between two map nodes, counted. `trust` is the best one among them. */
@@ -93,7 +109,8 @@ export interface MapQuery {
   level: MapLevel;
   /** The package key (package level) or the file path (file level). */
   target?: string;
-  hideTests?: boolean;
+  /** `auto`: hide the tests unless nothing else is left. */
+  hideTests?: boolean | 'auto';
   /** Leave out the target-only nodes: outside packages and outside code. */
   hideOutside?: boolean;
   /** Only the nodes that serve a box of this EPIC folder. */
@@ -115,6 +132,8 @@ export interface CodeMap {
   totals: MapTotals;
   /** The EPICs whose boxes some code serves, for the filter. */
   epics: string[];
+  /** How many tests the filter left out: test files (packages and package level), tests (file level). */
+  hiddenTests: number;
   notes: string[];
 }
 
@@ -225,20 +244,39 @@ export class MapIndex {
 
   /** One level of the map. */
   level(q: MapQuery): CodeMap {
+    if (q.hideTests !== 'auto') return this.levelOf(q, q.hideTests === true);
+    // Tests hidden, unless the level is all tests (a package of tests only, a test file).
+    const hidden = this.levelOf(q, true);
+    return hidden.ok && hidden.hiddenTests > 0 && !hidden.nodes.some((n) => !n.outside) ? this.levelOf(q, false) : hidden;
+  }
+
+  private levelOf(q: MapQuery, hideTests: boolean): CodeMap {
     const limit = Math.max(10, q.limit ?? MAP_LIMIT);
     const base = { level: q.level, totals: this.totals, epics: this.epics };
-    const keep = (c: Code) => !(q.hideTests && c.test) && !(q.hideOutside && c.node.targetOnly);
-    if (q.level === 'packages') return { ...base, ok: true, name: 'the repo', ...this.packagesLevel(q, keep, limit), notes: [] };
+    const keep = (c: Code) => !(hideTests && c.test) && !(q.hideOutside && c.node.targetOnly);
+    // The tests the filter leaves out: test files at the packages and package levels, tests at the file level.
+    const hiddenOf = (codes: Iterable<Code>) => {
+      if (!hideTests) return 0;
+      const hidden = new Set<string>();
+      for (const c of codes) if (c.test && !c.node.targetOnly && (q.level !== 'file' || c.node.kind === 'test')) hidden.add(q.level === 'file' ? c.node.id : c.node.file!);
+      return hidden.size;
+    };
+    const missing = (target: string): CodeMap => ({ ...base, ok: false, target, name: target, nodes: [], edges: [], hiddenTests: 0, notes: ['not found'] });
+    if (q.level === 'packages') {
+      const inner = [...this.code.values()].filter((c) => !this.units.get(c.unit)!.outside);
+      return { ...base, ok: true, name: 'the repo', ...this.packagesLevel(q, keep, limit), hiddenTests: hiddenOf(inner), notes: [] };
+    }
     const target = q.target ?? '';
     if (q.level === 'package') {
       const unit = this.units.get(target);
-      if (!unit || unit.outside) return { ...base, ok: false, target, name: target, nodes: [], edges: [], notes: ['not found'] };
-      return { ...base, ok: true, target, name: unit.name, unit: { key: unit.key, name: unit.name }, ...this.packageLevel(unit, q, keep, limit), notes: [] };
+      if (!unit || unit.outside) return missing(target);
+      const hiddenTests = hiddenOf(unit.ids.map((id) => this.code.get(id)!));
+      return { ...base, ok: true, target, name: unit.name, unit: { key: unit.key, name: unit.name }, ...this.packageLevel(unit, q, keep, limit), hiddenTests, notes: [] };
     }
     const inFile = [...this.code.values()].filter((c) => c.node.file === target && !c.node.targetOnly);
-    if (inFile.length === 0) return { ...base, ok: false, target, name: target, nodes: [], edges: [], notes: ['not found'] };
+    if (inFile.length === 0) return missing(target);
     const unit = this.units.get(inFile[0]!.unit)!;
-    return { ...base, ok: true, target, name: target, unit: { key: unit.key, name: unit.name }, ...this.fileLevel(inFile, q, keep, limit), notes: [] };
+    return { ...base, ok: true, target, name: target, unit: { key: unit.key, name: unit.name }, ...this.fileLevel(inFile, q, keep, limit), hiddenTests: hiddenOf(inFile), notes: [] };
   }
 
   private packagesLevel(q: MapQuery, keep: (c: Code) => boolean, limit: number): Pick<CodeMap, 'nodes' | 'edges'> {
@@ -285,34 +323,75 @@ export class MapIndex {
   private fileLevel(inFile: Code[], q: MapQuery, keep: (c: Code) => boolean, limit: number): Pick<CodeMap, 'nodes' | 'edges'> {
     const own = inFile.filter(keep).map((c) => codeNode(c, this.boxes, false)).filter((n) => serves(n, q.epic));
     const shown = new Set(own.map((n) => n.id));
-    const edges = this.aggregate((c) => (keep(c) ? c.node.id : undefined), FILE_EDGE_KINDS).filter((e) => shown.has(e.from) || shown.has(e.to));
+    const calls = this.aggregate((c) => (keep(c) ? c.node.id : undefined), FILE_EDGE_KINDS).filter((e) => shown.has(e.from) || shown.has(e.to));
     // The file node itself only when its top level calls something.
-    const nodes = own.filter((n) => n.kind !== 'file' || edges.some((e) => e.from === n.id || e.to === n.id)).map((n) => (n.kind === 'file' ? { ...n, name: '(top level)' } : n));
-    const others = [...new Set(edges.flatMap((e) => [e.from, e.to]).filter((id) => !shown.has(id)))].map((id) => codeNode(this.code.get(id)!, this.boxes, true));
-    return fold(nodes, others, edges, limit, 'code', OUTSIDE_LIMIT.file);
+    const nodes = own.filter((n) => n.kind !== 'file' || calls.some((e) => e.from === n.id || e.to === n.id)).map((n) => (n.kind === 'file' ? { ...n, name: '(top level)' } : n));
+    // The code elsewhere: one node per other file, or per package outside the repo, listing the code in it.
+    const groupOf = (c: Code) => `group:${c.node.targetOnly || c.node.file === undefined ? c.unit : c.node.file}`;
+    const groups = new Map<string, { codes: Code[]; members: Map<string, MapMember>; calls: number }>();
+    for (const e of calls) {
+      for (const [id, side] of [[e.to, 'to'], [e.from, 'from']] as const) {
+        if (shown.has(id)) continue;
+        const c = this.code.get(id)!;
+        const key = groupOf(c);
+        let g = groups.get(key);
+        if (!g) groups.set(key, (g = { codes: [], members: new Map(), calls: 0 }));
+        let m = g.members.get(id);
+        if (!m) {
+          g.codes.push(c);
+          const n = c.node;
+          g.members.set(id, (m = { id, name: n.route ?? n.name, kind: n.kind, ...(n.file !== undefined ? { file: n.file } : {}), ...(n.range !== undefined ? { range: n.range } : {}), to: 0, from: 0 }));
+        }
+        m[side] += e.count;
+        g.calls += e.count;
+      }
+    }
+    const others = [...groups].map(([id, g]): MapNode => {
+      const c = g.codes[0]!;
+      const away = c.node.targetOnly || c.node.file === undefined;
+      const unit = this.units.get(c.unit)!;
+      return {
+        id, kind: away ? 'outside' : 'file', name: away ? unit.name : posix.basename(c.node.file!), rank: 0, outside: true,
+        test: g.codes.every((x) => x.test), unit: c.unit, ...(away ? {} : { file: c.node.file! }),
+        boxes: [], calls: g.calls,
+        members: [...g.members.values()].sort((a, b) => b.to + b.from - (a.to + a.from) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
+      };
+    });
+    const at = (id: string) => (shown.has(id) ? id : groupOf(this.code.get(id)!));
+    return fold(nodes, others, merge(calls.map((e) => ({ ...e, from: at(e.from), to: at(e.to) }))), limit, 'code', OUTSIDE_LIMIT.file);
   }
 
   /** The map edges between two groups, counted; `group` says which group a code node is in, or undefined to leave it out. */
   private aggregate(group: (c: Code) => string | undefined, kinds: readonly EdgeKind[] = MAP_EDGE_KINDS): MapEdge[] {
-    const out = new Map<string, MapEdge>();
+    const one: MapEdge[] = [];
     for (const e of this.edges) {
       if (!kinds.includes(e.kind)) continue;
       const from = group(this.code.get(e.from)!);
       const to = group(this.code.get(e.to)!);
-      if (from === undefined || to === undefined || from === to) continue;
-      const key = `${from}\u0000${to}`;
-      const m = out.get(key);
-      if (!m) {
-        out.set(key, { from, to, count: 1, exact: e.trust === 'exact' ? 1 : 0, trust: e.trust, kinds: [e.kind] });
-        continue;
-      }
-      m.count++;
-      if (e.trust === 'exact') m.exact++;
-      if (TRUST_ORDER.indexOf(e.trust) < TRUST_ORDER.indexOf(m.trust)) m.trust = e.trust;
-      if (!m.kinds.includes(e.kind)) m.kinds.push(e.kind);
+      if (from === undefined || to === undefined) continue;
+      one.push({ from, to, count: 1, exact: e.trust === 'exact' ? 1 : 0, trust: e.trust, kinds: [e.kind] });
     }
-    return [...out.values()].map((e) => ({ ...e, kinds: [...e.kinds].sort() })).sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : a.to > b.to ? 1 : 0));
+    return merge(one);
   }
+}
+
+/** The edges with the same two ends as one edge: counts added, the best trust, the kinds together. Self edges go. */
+function merge(edges: MapEdge[]): MapEdge[] {
+  const out = new Map<string, MapEdge>();
+  for (const e of edges) {
+    if (e.from === e.to) continue;
+    const key = `${e.from}\u0000${e.to}`;
+    const m = out.get(key);
+    if (!m) {
+      out.set(key, { ...e, kinds: [...e.kinds] });
+      continue;
+    }
+    m.count += e.count;
+    m.exact += e.exact;
+    if (TRUST_ORDER.indexOf(e.trust) < TRUST_ORDER.indexOf(m.trust)) m.trust = e.trust;
+    for (const k of e.kinds) if (!m.kinds.includes(k)) m.kinds.push(k);
+  }
+  return [...out.values()].map((e) => ({ ...e, kinds: [...e.kinds].sort() })).sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : a.to > b.to ? 1 : 0));
 }
 
 /** `scip-typescript npm <package> <version> …`: the package of a symbol ID, `.` for none. */
