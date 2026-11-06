@@ -92,3 +92,4 @@ export {
 } from './birdview.js';
 export { buildPlaylist, parsePlaylist, parseSpec, playlistJson, stepBox, storiesWithTests, type Playlist, type PlaylistBuild, type PlaylistTest, type SpecTest } from './playlist.js';
 export { parseCorrectionLog, parseDecisions, type Correction, type CorrectionNote, type Decision } from './record-docs.js';
+export { MAX_PREVIEW_STORIES, MAX_SIGNOFF_COMMITS, signOffPreview, type SignOffPreview, type SinceSignOff, type StorySignOffPreview } from './signoff-preview.js';
