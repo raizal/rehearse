@@ -16,7 +16,7 @@ import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
-import { createGraphService, repoRoot, type GraphService } from './graph-route.js';
+import { graphServiceFor, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { createStoryThreads, processRunner, StoryThreadError, type Runner, type StoryThreadService } from './story-thread.js';
 import { buildTrustedEpicView } from './trust-view.js';
@@ -108,7 +108,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const bbProject = opts.bbProject ?? (process.env.REHEARSE_BB_PROJECT || process.env.BB_PROJECT_ID || undefined);
   const threads = createStoryThreads({ epicDir: opts.epicDir, run: opts.run ?? processRunner(), ...(bbProject ? { bbProject } : {}) });
   const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
-  const graph = opts.graph ?? createGraphService({ root: repoRoot(opts.epicDir) });
+  const graph = opts.graph ?? graphServiceFor(opts.epicDir);
   return (req, res) => {
     let path: string;
     let query: URLSearchParams;
@@ -421,7 +421,7 @@ function send(res: ServerResponse, status: number, type: string, body: string | 
 
 /** Start the server on 127.0.0.1. There is no option for another host (R20). */
 export function startServer(opts: ServeOptions): Promise<RunningServer> {
-  const graph = opts.graph ?? createGraphService({ root: repoRoot(opts.epicDir) });
+  const graph = opts.graph ?? graphServiceFor(opts.epicDir);
   const server = createServer(createHandler({ ...opts, graph }));
   return new Promise((resolve, reject) => {
     server.once('error', reject);

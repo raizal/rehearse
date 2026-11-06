@@ -8,11 +8,22 @@
 // two write transactions. The watcher and the clock are injectable, so tests use fakes.
 
 import { existsSync, watch as fsWatch } from 'node:fs';
-import { dirname, join, sep } from 'node:path';
-import { near, openGraph, outlineNode, show, updateGraph, type AstOutline, type Graph, type GraphOptions, type IndexRun, type QueryAnswer } from '@rehearse/graph';
+import { dirname, join, relative, sep } from 'node:path';
+import { near, openGraph, outlineNode, show, updateGraph, type AstOutline, type Graph, type GraphNode, type GraphOptions, type IndexRun, type NodeKind, type QueryAnswer } from '@rehearse/graph';
 
-/** What the panel gets: the answer, and the AST outline of the shown code node (S9-A1). */
-export type PanelAnswer = QueryAnswer & { outline?: AstOutline };
+/** The kind and place of a node at the other end of an edge of a show answer. */
+export interface EdgeEnd {
+  kind: NodeKind;
+  file?: string;
+  range?: string;
+}
+
+/**
+ * What the panel gets: the answer; for show, the kind and place of each node at the other end of
+ * its edges (which built nodes are functions, which are tests), and the AST outline of the shown
+ * code node (S9-A1).
+ */
+export type PanelAnswer = QueryAnswer & { ends?: Record<string, EdgeEnd>; outline?: AstOutline };
 
 export interface PanelQuery {
   verb: 'show' | 'near';
@@ -38,6 +49,8 @@ export interface Clock {
 export interface GraphServiceOptions {
   /** The repo root: the git top level of the EPIC folder. */
   root: string;
+  /** The served EPIC folder, relative to `root`: `box <path>` picks this EPIC's box first. */
+  epic?: string;
   /** Resolvers, linkers and the ranker of the graph. */
   graph?: GraphOptions;
   /** Default: `fs.watch` with `recursive`. `false`: no watcher. */
@@ -154,10 +167,13 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
         if (closed) throw new Error('the graph service is closed');
         const g = open();
         await g.update();
-        const id = targetId(g, q.target);
-        const answer: PanelAnswer = q.verb === 'show' ? show(g.store, g.root, id) : near(g.store, id, q.depth ?? 1);
+        const id = targetId(g, q.target, opts.epic);
+        if (q.verb === 'near') return near(g.store, id, q.depth ?? 1);
+        const answer: PanelAnswer = show(g.store, g.root, id);
         const shown = answer.nodes[0];
-        if (q.verb === 'show' && shown?.code !== undefined) {
+        if (!shown) return answer;
+        answer.ends = edgeEnds(g, answer, shown.id);
+        if (shown.code !== undefined) {
           const outline = await outlineNode(g.root, shown);
           if (outline) answer.outline = outline;
         }
@@ -176,9 +192,35 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
   };
 }
 
-/** `box <path>` is the box node's ID or, when no node has that ID or name, the box node named `<path>`. */
-function targetId(g: Graph, target: string): string {
+/** The graph service of a served EPIC folder: its repo, with that EPIC's boxes first. */
+export function graphServiceFor(epicDir: string, opts: Omit<GraphServiceOptions, 'root' | 'epic'> = {}): GraphService {
+  const root = repoRoot(epicDir);
+  return createGraphService({ ...opts, root, epic: relative(root, epicDir) });
+}
+
+/**
+ * `box <path>` is the node of that ID or, when no node has that ID or name, a box node named
+ * `<path>`: the served EPIC's record box first, then another record box, then the box a Flow-Box
+ * trailer made (T30's record and git linkers). Two EPICs can have a box of the same path.
+ */
+function targetId(g: Graph, target: string, epic: string | undefined): string {
   const box = /^box (.+)$/.exec(target)?.[1];
   if (box === undefined || g.store.node(target) || g.store.nodesWhere('name = ?', target).length > 0) return target;
-  return g.store.nodesWhere('kind = ? AND name = ?', 'box', box)[0]?.id ?? target;
+  const boxes = g.store.nodesWhere('kind = ? AND name = ?', 'box', box).sort((a, b) => boxRank(a, epic) - boxRank(b, epic) || (a.id < b.id ? -1 : 1));
+  return boxes[0]?.id ?? target;
+}
+
+const boxRank = (n: GraphNode, epic: string | undefined): number =>
+  epic !== undefined && n.file !== undefined && (n.file + '/').startsWith(epic.split(sep).join('/') + '/') ? 0 : n.language === 'record' ? 1 : 2;
+
+function edgeEnds(g: Graph, answer: QueryAnswer, shown: string): Record<string, EdgeEnd> {
+  const ends: Record<string, EdgeEnd> = {};
+  for (const e of answer.edges) {
+    for (const id of [e.from, e.to]) {
+      if (id === shown || id in ends) continue;
+      const n = g.store.node(id);
+      if (n) ends[id] = { kind: n.kind, ...(n.file !== undefined ? { file: n.file } : {}), ...(n.range !== undefined ? { range: n.range } : {}) };
+    }
+  }
+  return ends;
 }

@@ -108,6 +108,7 @@ describe('S9 serve-query: GET /api/graph', () => {
     expect(body).toMatchObject({ verb: 'show', ok: true, exitCode: 0 });
     expect(body.nodes[0]).toMatchObject({ kind: 'box', name: 'checkout/pay' });
     expect(body.edges).toEqual([expect.objectContaining({ kind: 'builds', toName: 'charge', trust: 'exact' })]);
+    expect(body.ends[body.edges[0].to]).toEqual({ kind: 'function', file: 'src/pay.ts', range: '10-30' });
   });
 
   it('S9-A1 show charge gives its code, its call edges and its AST outline', async () => {
@@ -134,6 +135,25 @@ describe('S9 serve-query: GET /api/graph', () => {
     const body = await (await get(`verb=show&target=${encodeURIComponent('box checkout/pay')}`)).json();
     expect(body.nodes[0].id).toBe('record box 2026-11-05-code-graph checkout/pay');
     expect(body.edges[0]).toMatchObject({ kind: 'builds', toName: 'charge' });
+  });
+
+  it('S9-A1 two EPICs with a box of the same path: "box <path>" is the served EPIC\'s box', async () => {
+    const recordBox = (epic: string): GraphNode => ({ ...boxNode('checkout/pay', `rehearse record ${epic} . box:checkout/pay`), file: `docs/epics/${epic}/flow.yaml` });
+    const twoEpics: Linker = {
+      name: 'two-epics',
+      source: 'record',
+      async link() {
+        return { nodes: [recordBox('2026-01-01-a'), recordBox('2026-02-02-b'), { ...boxNode('checkout/pay', 'rehearse git . . box:checkout/pay'), language: 'git' }], edges: [] };
+      },
+    };
+    const root = shopCopy();
+    for (const epic of ['2026-01-01-a', '2026-02-02-b', undefined]) {
+      service = createGraphService({ root, graph: { linkers: [twoEpics] }, watch: false, ...(epic ? { epic: join('docs', 'epics', epic) } : {}) });
+      const a = await service.answer({ verb: 'show', target: 'box checkout/pay' });
+      expect(a.nodes[0]!.id).toBe(`rehearse record ${epic ?? '2026-01-01-a'} . box:checkout/pay`);
+      await service.close();
+    }
+    service = undefined;
   });
 
   it('S9-A2 show "box checkout/refund" has no builds edge; an unknown box is 404 "not found"', async () => {
