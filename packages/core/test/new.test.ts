@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileS
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createEpic, EPIC_FILES, isEpicSlug, loadEpic, validateEpic } from '../src/index.js';
+import { createEpic, EPIC_FILES, GRAPH_DB_IGNORE, isEpicSlug, loadEpic, validateEpic } from '../src/index.js';
 
 function tempRoot(): string {
   return mkdtempSync(join(tmpdir(), 'rehearse-new-'));
@@ -68,6 +68,19 @@ describe('story S1: create an EPIC record with one command', () => {
     expect(res.ok).toBe(true);
     expect(readdirSync(join(root, 'docs', 'epics')).sort()).toEqual(['2026-01-01-other', '2026-11-05-demo']);
     expect(readFileSync(join(root, 'docs', 'epics', '2026-01-01-other', 'prd.yaml'), 'utf8')).toBe('x: 1\n');
+  });
+
+  it('code-graph S5-A2 (G29): adds .rehearse/graph.db* to .gitignore once, and keeps the lines there', () => {
+    const root = tempRoot();
+    writeFileSync(join(root, '.gitignore'), 'node_modules/\n.rehearse/story-threads.json');
+    expect(createEpic(root, '2026-11-05-demo', 'Demo').ok).toBe(true);
+    expect(GRAPH_DB_IGNORE).toBe('.rehearse/graph.db*');
+    expect(readFileSync(join(root, '.gitignore'), 'utf8')).toBe('node_modules/\n.rehearse/story-threads.json\n.rehearse/graph.db*\n');
+    expect(createEpic(root, '2026-11-06-more', 'More').ok).toBe(true);
+    expect(readFileSync(join(root, '.gitignore'), 'utf8')).toBe('node_modules/\n.rehearse/story-threads.json\n.rehearse/graph.db*\n');
+    const bare = tempRoot();
+    expect(createEpic(bare, '2026-11-05-demo', 'Demo').ok).toBe(true);
+    expect(readFileSync(join(bare, '.gitignore'), 'utf8')).toBe('.rehearse/graph.db*\n');
   });
 
   it('S1-A2 S1-exists: fails with epic-exists, names the folder, and changes no file', () => {
