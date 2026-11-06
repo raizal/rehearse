@@ -56,6 +56,9 @@ export interface FileHash {
   hash: string;
   language: CodeLanguage;
   indexedAt: string;
+  /** The file's mtime and size when it was read: a file with both unchanged is not read again (G5). */
+  mtimeMs: number;
+  size: number;
 }
 
 export type IndexMode = 'cold' | 'update' | 'none';
