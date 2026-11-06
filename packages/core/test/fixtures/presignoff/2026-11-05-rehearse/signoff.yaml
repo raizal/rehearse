@@ -1,0 +1,24 @@
+# Gate sign-off events. Immutable: append only. (R14, D17)
+# Normally only the rehearse UI writes this file. This first entry is a
+# bootstrap: the tool does not exist yet, so the builder signed off in chat
+# and the agent wrote the entry. The real gate runs on this EPIC again when v1 works.
+# Hash = sha256 of canonical JSON of the story, its requirements and its
+# scenarios (without status and approval).
+
+signOffs:
+  - by: raizal.pregnanta@systemearth.com
+    threadId: thr_zpd73mnmgy
+    at: '2026-11-05T06:49:06Z'
+    kind: bootstrap
+    gateChecks: prototype flowcheck + simcheck (structure, step edges, branch and error-exit coverage, acceptance coverage). Contract shapes (R4) and lifecycles (R6) not checked yet.
+    storyHashes:
+      S1: 'sha256:b5ec15afca6601dace4436993ba0cc36a8da6e88e5a3cce2c68f19674418ab9b'
+      S2: 'sha256:66934ba849438c15d3d583ec6f386a7eef2830613e74e305a3a81427a5c5759f'
+      S3: 'sha256:be73a78a50509573d6fd75ee5580bf1e2563a20c95c3d5745edee4798ce93170'
+      S4: 'sha256:992df04960ee68a0d735d0a7314f9fd4215c7bfe512abfe166970f26a8dd8642'
+      S5: 'sha256:8c1f9be8ee377af2d4d2289cc58333e52e7b648bca9ecf95ca6b4fb09ec56731'
+      S6: 'sha256:65e429ece1cdb17c83c8685daeb04d8a29edfbfcb1001deab06a3c91bb5d2941'
+      S7: 'sha256:f84bc2ae1358babbb5981e5f57719bf5c4b1d6bc0d40a3567f517e83ccd9ae9b'
+      S8: 'sha256:577e1200dc6f65b2b8e1580171feda8371d482386fc707c7f0b5a1c5d1ef11d5'
+      S9: 'sha256:77e587faad1ca2620bc8943b9676de7fa2e118cdb64854fd846878cfbe2cb322'
+      S10: 'sha256:9ca881495355c6d16db24d9972114eca2c54c5167ebdecdcbdc79e24c7533569'

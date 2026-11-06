@@ -1,6 +1,7 @@
 // Fixture EPICs for tests: the small `shop` EPIC, changed per test, written to a temp folder.
 
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,34 @@ export const SHOP = fileURLToPath(new URL('./fixtures/shop', import.meta.url));
 export const REAL_EPIC = fileURLToPath(new URL('../../../docs/epics/2026-11-05-rehearse', import.meta.url));
 /** The first EPIC frozen at its bootstrap sign-off. The live record changes; this copy does not. */
 export const BOOTSTRAP_EPIC = fileURLToPath(new URL('./fixtures/bootstrap/2026-11-05-rehearse', import.meta.url));
+/**
+ * The first EPIC frozen just before the owner's signed approvals and sign-off (7f46920): rule-1
+ * sign-offs, stale stories, approvals without a signature. It is never clean, whatever the owner signs.
+ */
+export const PRESIGNOFF_EPIC = fileURLToPath(new URL('./fixtures/presignoff/2026-11-05-rehearse', import.meta.url));
+
+/**
+ * `.rehearse/allowed_signers` of this checkout, the key list the gate checks the live EPIC with.
+ * It is untracked: the owner's checkout has it, a clean worktree does not (undefined).
+ */
+export function liveAllowedSigners(): string | undefined {
+  const file = join(REAL_EPIC, '..', '..', '..', '.rehearse', 'allowed_signers');
+  return existsSync(file) ? file : undefined;
+}
+
+/** Hash of every file under `dir` (names and bytes), to show that a command wrote nothing. */
+export function hashDir(dir: string): string {
+  const h = createHash('sha256');
+  const walk = (d: string): void => {
+    for (const name of readdirSync(d).sort()) {
+      const p = join(d, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else h.update(`${p}\n`).update(readFileSync(p));
+    }
+  };
+  walk(dir);
+  return h.digest('hex');
+}
 
 /** The parsed YAML files of a fixture, keyed by path relative to the EPIC folder. */
 export type Docs = Record<string, any>;

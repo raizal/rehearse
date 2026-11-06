@@ -1,0 +1,26 @@
+story: S7
+scenarios:
+  - id: S7-matrix
+    title: A buyer box writes Order.status
+    status: approved
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-05T16:26:29Z'
+      hash: 'sha256:9e318eff5800814c119835a6a433e09f8545a848f32249fba49f009db1d5a205'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAG4+DsfuuaiqYkROG6SRY3C0UVBtt9VNhwMUoWode/0ueb8z56vgWNlrEkR
+        l3QTIiz0B71RCDIAejj9N7T+GFBw==
+        -----END SSH SIGNATURE-----
+    steps:
+      - name: simulate/permissions
+        example: { id: perm-buyer, given: { boxes: { checkout: { lane: buyer, writes: [ Order.status ] } } }, then: { matrix: { buyer: { Order: [ write ] } } } }
+      - { name: simulate/report }
+      - { name: design-errors, branch: "no" }
+      - { name: review/swimlanes }
+      - { name: review/playback }
+      - name: review/matrix
+        example: { id: matrix-cell, given: { matrix: { buyer: { Order: [ write ] } } }, then: { actor: buyer, useCase: checkout, tag: "writes Order.status", link: checkout } }
+    expect: { criterion: S7-A1, state: { actor: buyer, useCase: checkout, tag: "writes Order.status", linkedBox: checkout } }
