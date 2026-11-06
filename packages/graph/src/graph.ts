@@ -5,6 +5,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Linker, Ranker, Resolver } from './extend.js';
 import { find, near, path, show } from './query.js';
+import { pageRank } from './rank/pagerank.js';
 import { Store } from './store.js';
 import { updateGraph } from './update.js';
 import type { GraphQuery, IndexRun, IndexTrigger, QueryAnswer } from './types.js';
@@ -16,6 +17,7 @@ export interface GraphOptions {
   trigger?: IndexTrigger;
   resolvers?: Resolver[];
   linkers?: Linker[];
+  /** Default: PageRank (G14). */
   ranker?: Ranker;
 }
 
@@ -37,7 +39,7 @@ export interface Graph {
 export function openGraph(root: string, opts: GraphOptions = {}): Graph {
   mkdirSync(join(root, '.rehearse'), { recursive: true });
   const store = new Store(join(root, GRAPH_DB));
-  const update = (rebuild = false) => updateGraph(root, store, { ...opts, rebuild });
+  const update = (rebuild = false) => updateGraph(root, store, { ranker: pageRank(), ...opts, rebuild });
   const graph: Graph = {
     root,
     store,
