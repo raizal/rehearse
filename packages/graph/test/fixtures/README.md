@@ -9,3 +9,7 @@ Tests copy a fixture into a temporary folder and index the copy, so these files 
   `handlers[name](id)` of S6-A2 and the fetch of `/api/orders/${id}` of S7.
 - `monorepo/` is the scope fixture of S6-A1: `packages/a/tsconfig.json`, `packages/b/tsconfig.build.json`
   and a call to `lodash.get()`. The tests add `node_modules/` at run time (the repo ignores node_modules).
+- `context/` is the fixture of S4 and of the G21 measure: a TypeScript shop where getOrderById
+  (`src/orders.ts`), its callee loadRow (`src/db.ts`), its caller loadOrder and its test have 1,988 tokens
+  (characters ÷ 4), and getOrder (distance 2) brings the linked code to about 9,000 characters.
+  `src/pay.ts` and `src/report.ts` are not linked to getOrderById.

@@ -123,7 +123,7 @@ function codeOf(root: string, node: GraphNode): string | undefined {
   }
 }
 
-function named(store: Store, edges: GraphEdge[]): AnswerEdge[] {
+export function named(store: Store, edges: GraphEdge[]): AnswerEdge[] {
   const names = new Map<string, string>();
   const nameOf = (id: string) => {
     let n = names.get(id);
@@ -133,7 +133,7 @@ function named(store: Store, edges: GraphEdge[]): AnswerEdge[] {
   return edges.map((e) => ({ ...e, fromName: nameOf(e.from), toName: nameOf(e.to) }));
 }
 
-function sortEdges(edges: GraphEdge[]): GraphEdge[] {
+export function sortEdges(edges: GraphEdge[]): GraphEdge[] {
   return [...edges].sort((a, b) => (edgeKey(a) < edgeKey(b) ? -1 : edgeKey(a) > edgeKey(b) ? 1 : 0));
 }
 
@@ -149,6 +149,6 @@ function answer(verb: Verb, nodes: AnswerNode[], edges: AnswerEdge[], notes: str
   return { verb, ok: true, exitCode: 0, nodes, edges, notes };
 }
 
-function notFound(verb: Verb): QueryAnswer {
+export function notFound(verb: Verb): QueryAnswer {
   return { verb, ok: false, exitCode: 1, nodes: [], edges: [], notes: ['not found'] };
 }

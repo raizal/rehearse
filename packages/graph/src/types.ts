@@ -1,6 +1,8 @@
 // The graph entities of the code-graph EPIC (entities.yaml): GraphNode, GraphEdge, FileHash,
 // IndexRun, GraphQuery, QueryAnswer. The store keeps them in .rehearse/graph.db (G3).
 
+import type { ContextBundle } from './extend.js';
+
 export const NODE_KINDS = [
   'file', 'module', 'class', 'function', 'method', 'route', 'test',
   'requirement', 'story', 'box', 'scenario', 'commit',
@@ -116,5 +118,7 @@ export interface QueryAnswer {
   exitCode: number;
   nodes: AnswerNode[];
   edges: AnswerEdge[];
+  /** The `context` verb only (G6). */
+  bundle?: ContextBundle;
   notes: string[];
 }
