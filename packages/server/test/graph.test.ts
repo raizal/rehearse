@@ -179,13 +179,82 @@ describe('S9 serve-query: GET /api/graph', () => {
     expect(f.watching()).toBe(0);
   });
 
-  it('S9 bad queries are 400: a verb other than show or near, no target', async () => {
+  it('S9 bad queries are 400: an unknown verb, no target', async () => {
     const { get } = await serve(shopCopy());
+    expect((await get('verb=context&target=charge')).status).toBe(400);
     expect((await get('verb=path&target=charge')).status).toBe(400);
-    expect((await get('verb=find&target=charge')).status).toBe(400);
+    expect((await get('verb=find')).status).toBe(400);
     expect((await get('verb=show')).status).toBe(400);
     expect((await get('verb=show&target=charge', { 'x-rehearse-token': 'x' })).status).toBe(403);
     expect((await fetch(new URL('api/graph?verb=show&target=charge', running!.url), { method: 'POST' })).status).toBe(405);
+  });
+});
+
+describe('T40 the code map: GET /api/graph?verb=map|find|path|status', () => {
+  it('map level packages gives the totals, the packages and the boxes the code serves', async () => {
+    const { get } = await serve(shopCopy());
+    const res = await get('verb=map&level=packages');
+    expect(res.status).toBe(200);
+    const map = await res.json();
+    expect(map).toMatchObject({ ok: true, level: 'packages', name: 'the repo' });
+    expect(map.totals.files).toBeGreaterThan(3);
+    expect(map.totals.functions).toBeGreaterThan(3);
+    const all = map.nodes.flatMap((n: { boxes: { path: string }[] }) => n.boxes.map((b) => b.path));
+    expect(all).toContain('checkout/pay');
+  });
+
+  it('map level file gives the functions of a file, charge serving box checkout/pay; tests=hide leaves the tests out', async () => {
+    const { get } = await serve(shopCopy());
+    const map = await (await get(`verb=map&level=file&target=${encodeURIComponent('src/pay.ts')}`)).json();
+    const charge = map.nodes.find((n: { name: string; outside: boolean }) => n.name === 'charge' && !n.outside);
+    expect(charge.boxes).toEqual([expect.objectContaining({ path: 'checkout/pay' })]);
+    const orders = await (await get(`verb=map&level=file&target=${encodeURIComponent('src/orders.ts')}`)).json();
+    expect(orders.nodes.some((n: { kind: string }) => n.kind === 'test')).toBe(true);
+    const hidden = await (await get(`verb=map&level=file&target=${encodeURIComponent('src/orders.ts')}&tests=hide`)).json();
+    expect(hidden.nodes.some((n: { kind: string }) => n.kind === 'test')).toBe(false);
+  });
+
+  it('map: a bad level, no target or a bad epic is 400; an unknown package is 404', async () => {
+    const { get } = await serve(shopCopy());
+    expect((await get('verb=map')).status).toBe(400);
+    expect((await get('verb=map&level=everything')).status).toBe(400);
+    expect((await get('verb=map&level=file')).status).toBe(400);
+    expect((await get('verb=map&level=packages&epic=..%2Fx')).status).toBe(400);
+    const missing = await get('verb=map&level=package&target=nope');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ ok: false, notes: ['not found'] });
+  });
+
+  it('find gives each hit its place on the map; path gives the chain of calls', async () => {
+    const { get } = await serve(shopCopy());
+    const found = await (await get('verb=find&target=charge')).json();
+    const hit = found.nodes.find((n: { name: string }) => n.name === 'charge');
+    expect(found.places[hit.id]).toMatchObject({ file: 'src/pay.ts' });
+    const chain = await (await get('verb=path&target=handle&to=loadRow')).json();
+    expect(chain.ok).toBe(true);
+    expect(chain.nodes[0].name).toBe('handle');
+    expect(chain.nodes.at(-1).name).toBe('loadRow');
+    expect((await get('verb=path&target=loadRow&to=handle')).status).toBe(200);
+    expect((await get('verb=path&target=nope&to=handle')).status).toBe(404);
+  });
+
+  it('status answers at once: not indexed before the first query, indexed after', async () => {
+    const { get } = await serve(shopCopy());
+    expect(await (await get('verb=status')).json()).toMatchObject({ ok: true, indexed: false, busy: false });
+    await get('verb=map&level=packages');
+    expect(await (await get('verb=status')).json()).toMatchObject({ ok: true, indexed: true, busy: false, lastRun: { mode: 'cold' } });
+  });
+
+  it('every new verb gets 403 without the token or from another Origin, and never opens the graph', async () => {
+    const { s, f, get } = await serve(shopCopy());
+    for (const q of ['verb=map&level=packages', 'verb=find&target=charge', 'verb=path&target=handle&to=loadRow', 'verb=status']) {
+      for (const headers of [{} as Record<string, string>, { 'x-rehearse-token': s.token, origin: 'http://evil.example' }]) {
+        const res = await get(q, headers);
+        expect(res.status).toBe(403);
+        expect(Object.keys(await res.json()).sort()).toEqual(['error', 'ok']);
+      }
+    }
+    expect(f.watching()).toBe(0);
   });
 });
 

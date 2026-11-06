@@ -1,6 +1,7 @@
 // The code graph in `rehearse serve` (EPIC 2026-11-05-code-graph, S9). Box `serve-query`: the one
 // graph route `GET /api/graph?verb=show|near&target=…` answers from @rehearse/graph on the repo of
-// the EPIC (G8, G20); http.ts checks the session token and the Origin first. Box `watch`: while serve
+// the EPIC (G8, G20), and the Code map tab (T40) asks it for find, path and one level of the map;
+// http.ts checks the session token and the Origin first. Box `watch`: while serve
 // runs, a file watcher brings the graph up to date on save, as an update with trigger `watch` (G5).
 //
 // The graph opens on the first request, and the watcher starts then: a serve that never shows code
@@ -9,7 +10,10 @@
 
 import { existsSync, watch as fsWatch } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
-import { near, openGraph, outlineNode, show, updateGraph, type AstOutline, type Graph, type GraphNode, type GraphOptions, type IndexRun, type NodeKind, type QueryAnswer } from '@rehearse/graph';
+import {
+  find, MapIndex, near, openGraph, outlineNode, path, show, updateGraph,
+  type AstOutline, type CodeMap, type Graph, type GraphNode, type GraphOptions, type IndexRun, type MapPlace, type MapQuery, type NodeKind, type QueryAnswer,
+} from '@rehearse/graph';
 
 /** The kind and place of a node at the other end of an edge of a show answer. */
 export interface EdgeEnd {
@@ -31,6 +35,19 @@ export interface PanelQuery {
   target: string;
   /** For near; default 1. */
   depth?: number;
+}
+
+/** A find answer with the place of each hit on the code map (T40): its package and file. */
+export type FindAnswer = QueryAnswer & { places: Record<string, MapPlace> };
+
+/** Whether the graph is there yet, without waiting for it (T40): the map says "indexing" from it. */
+export interface GraphStatus {
+  /** The store holds an index. */
+  indexed: boolean;
+  /** A graph call or a watcher update is running or waiting. */
+  busy: boolean;
+  /** The last index run, if any. */
+  lastRun?: IndexRun;
 }
 
 export interface FileWatcher {
@@ -70,6 +87,14 @@ export interface WatchUpdate {
 export interface GraphService {
   /** Update the graph (a query run), then answer. */
   answer(q: PanelQuery): Promise<PanelAnswer>;
+  /** Update, then one level of the code map (T40). */
+  map(q: MapQuery): Promise<CodeMap>;
+  /** Update, then find by words, with each hit's place on the map. */
+  find(words: string, limit?: number): Promise<FindAnswer>;
+  /** Update, then the shortest chain of edges from one node to another. */
+  path(from: string, to: string): Promise<QueryAnswer>;
+  /** Is the repo indexed, and is a graph call running? Answers at once: it neither waits nor updates. */
+  status(): GraphStatus;
   /** Resolves when every pending graph call and watcher update is done. */
   idle(): Promise<void>;
   /** The last update the watcher made. */
@@ -128,12 +153,25 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
   let closed = false;
   let last: WatchUpdate | undefined;
   const pending = new Set<string>();
+  // The map's view of the store, made again after an index run that wrote (T40).
+  let mapIndex: MapIndex | undefined;
+  let busy = 0;
 
   /** Run `fn` after every earlier graph call. */
   const serial = <T>(fn: () => Promise<T>): Promise<T> => {
-    const out = chain.then(fn);
+    busy++;
+    const out = chain.then(fn).finally(() => void busy--);
     chain = out.catch(() => undefined);
     return out;
+  };
+
+  /** Open the graph, bring it up to date, and say whether the update wrote. */
+  const fresh = async (): Promise<Graph> => {
+    if (closed) throw new Error('the graph service is closed');
+    const g = open();
+    const run = await g.update();
+    if (run.status === 'written') mapIndex = undefined;
+    return g;
   };
 
   const open = (): Graph => {
@@ -156,6 +194,7 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
       void serial(async () => {
         if (closed || !graph) return;
         const run = await updateGraph(graph.root, graph.store, { ...opts.graph, trigger: 'watch' });
+        if (run.status === 'written') mapIndex = undefined;
         last = { changed, run };
       });
     }, debounce);
@@ -164,9 +203,7 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
   return {
     answer: (q) =>
       serial(async () => {
-        if (closed) throw new Error('the graph service is closed');
-        const g = open();
-        await g.update();
+        const g = await fresh();
         const id = targetId(g, q.target, opts.epic);
         if (q.verb === 'near') return near(g.store, id, q.depth ?? 1);
         const answer: PanelAnswer = show(g.store, g.root, id);
@@ -179,6 +216,35 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
         }
         return answer;
       }),
+    map: (q) =>
+      serial(async () => {
+        const g = await fresh();
+        mapIndex ??= MapIndex.fromStore(g.store);
+        return mapIndex.level(q);
+      }),
+    find: (words, limit) =>
+      serial(async () => {
+        const g = await fresh();
+        mapIndex ??= MapIndex.fromStore(g.store);
+        const answer = find(g.store, words, limit);
+        const places: Record<string, MapPlace> = {};
+        for (const n of answer.nodes) {
+          const p = mapIndex.place(n.id);
+          if (p) places[n.id] = p;
+        }
+        return { ...answer, places };
+      }),
+    path: (from, to) =>
+      serial(async () => {
+        const g = await fresh();
+        return path(g.store, from, to);
+      }),
+    status: () => {
+      if (closed) return { indexed: false, busy: false };
+      const g = open();
+      const run = g.store.lastRun();
+      return { indexed: g.store.indexed(), busy: busy > 0, ...(run ? { lastRun: run } : {}) };
+    },
     idle: () => serial(async () => undefined),
     lastWatch: () => last,
     async close() {

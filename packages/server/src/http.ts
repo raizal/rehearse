@@ -5,8 +5,8 @@
 // the session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
 // key are the server process's, never the request's. The code reads (`/api/code-index`,
 // `/api/box-code`) and the story-thread reads run git or bb; the Birdview routes read the e2e player and forward an allowlist
-// of its actions, on 127.0.0.1 only. The code graph route (`/api/graph`, G20) answers show and near
-// from @rehearse/graph, and a file watcher keeps the graph fresh (graph-route.ts). All of them need
+// of its actions, on 127.0.0.1 only. The code graph route (`/api/graph`, G20) answers show, near, find,
+// path and the code map's levels (T40) from @rehearse/graph, and a file watcher keeps the graph fresh (graph-route.ts). All of them need
 // the same token and Origin check. The sign-off preview (`GET /api/sign-off/preview`, T39) reads
 // git history too, with the same check.
 
@@ -15,6 +15,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
+import { MAP_LEVELS, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { graphServiceFor, type GraphService } from './graph-route.js';
@@ -255,17 +256,54 @@ async function readCode(path: string, query: URLSearchParams, epicDir: string, g
   return result.ok ? [200, result] : [result.status, { ok: false, error: result.error }];
 }
 
-/** `GET /api/graph?verb=show|near&target=…[&depth=n]`: 200 with the answer, 404 when the target is not found. */
+/**
+ * `GET /api/graph?verb=…`: 200 with the answer, 404 when the target is not found, 400 for a bad query.
+ *   show|near&target=…[&depth=n]      a node and its edges; the nodes around it (S9)
+ *   find&target=<words>               the hits, each with its place on the code map (T40)
+ *   path&target=<from>&to=<to>        the shortest chain of edges (T40)
+ *   map&level=packages|package|file[&target=…][&tests=hide][&outside=hide][&epic=<folder>]
+ *                                     one level of the code map (T40)
+ *   status                            indexed? busy? Answers at once, no update (T40)
+ */
 async function readGraph(query: URLSearchParams, graph: GraphService): Promise<[number, unknown]> {
   const verb = query.get('verb');
-  if (verb !== 'show' && verb !== 'near') return [400, { ok: false, error: 'verb must be show or near' }];
+  if (verb === 'status') return [200, { ok: true, ...graph.status() }];
+  if (verb === 'map') return readMap(query, graph);
+  if (verb !== 'show' && verb !== 'near' && verb !== 'find' && verb !== 'path') return [400, { ok: false, error: 'verb must be show, near, find, path, map or status' }];
   const target = query.get('target') ?? '';
   if (target.trim() === '' || target.length > MAX_TARGET) return [400, { ok: false, error: `target is required, at most ${MAX_TARGET} characters` }];
+  if (verb === 'find') return [200, await graph.find(target)];
+  if (verb === 'path') {
+    const to = query.get('to') ?? '';
+    if (to.trim() === '' || to.length > MAX_TARGET) return [400, { ok: false, error: `to is required, at most ${MAX_TARGET} characters` }];
+    const answer = await graph.path(target, to);
+    return [answer.ok || answer.notes.includes('no path') ? 200 : 404, answer];
+  }
   const depthText = query.get('depth');
   const depth = depthText === null ? 1 : Number(depthText);
   if (verb === 'near' && !(Number.isInteger(depth) && depth >= 1 && depth <= 3)) return [400, { ok: false, error: 'depth must be 1, 2 or 3' }];
   const answer = await graph.answer({ verb, target, depth });
   return [answer.ok ? 200 : 404, answer];
+}
+
+const EPIC_FOLDER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+/** `verb=map`: one level of the code map (T40). */
+async function readMap(query: URLSearchParams, graph: GraphService): Promise<[number, unknown]> {
+  const level = query.get('level') ?? '';
+  if (!(MAP_LEVELS as readonly string[]).includes(level)) return [400, { ok: false, error: `level must be ${MAP_LEVELS.join(', ')}` }];
+  const target = query.get('target') ?? '';
+  if (level !== 'packages' && (target.trim() === '' || target.length > MAX_TARGET)) return [400, { ok: false, error: `target is required for level ${level}, at most ${MAX_TARGET} characters` }];
+  const epic = query.get('epic');
+  if (epic !== null && !EPIC_FOLDER.test(epic)) return [400, { ok: false, error: 'epic must be an EPIC folder name' }];
+  const map = await graph.map({
+    level: level as MapLevel,
+    ...(level !== 'packages' ? { target } : {}),
+    hideTests: query.get('tests') === 'hide',
+    hideOutside: query.get('outside') === 'hide',
+    ...(epic !== null ? { epic } : {}),
+  });
+  return [map.ok ? 200 : 404, map];
 }
 
 /** The story thread panel (T12): read, link, start, send and open. Each needs the token and a same-origin Origin. */
