@@ -321,6 +321,44 @@ button.crumb:hover { color: var(--accent); text-decoration: underline; }
 .code-threads { font-size: var(--fs-md); }
 .code-threads ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-1); }
 .code-threads .thread-link { font-family: var(--mono); color: var(--agent); }
+/* Code graph below a leaf box (S9, boxes drill-code and code-view): code, AST outline, call graph, read only. */
+.code-graph { display: flex; flex-direction: column; gap: var(--s-3); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+.code-graph h5 { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; font-size: var(--fs-lg); font-weight: var(--fw-bold); }
+.code-graph h6 { margin: 0 0 var(--s-2); font-size: var(--fs-xs); font-weight: var(--fw-bold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.code-graph-ro { font-size: var(--fs-2xs); }
+.code-graph-picks { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.code-graph-pick { min-height: 28px; padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); }
+.code-graph-pick.is-open { background: var(--builder-tint); border-color: var(--accent); font-weight: var(--fw-bold); }
+.code-graph-kind { font-family: var(--font); font-size: var(--fs-2xs); color: var(--muted); }
+.code-graph-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; grid-template-areas: 'code ast' 'calls calls'; gap: var(--s-4); align-items: start; }
+.code-graph-pane { min-width: 0; border: 1px solid var(--line); border-radius: var(--r-md); }
+.code-graph-pane.is-code { grid-area: code; overflow: hidden; }
+.code-graph-pane.is-ast { grid-area: ast; padding: var(--s-3); }
+.code-graph-pane.is-calls { grid-area: calls; padding: var(--s-3); }
+.code-graph-src { margin: 0; padding: var(--s-2) 0; max-height: 420px; overflow: auto; background: var(--bg); font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.6; }
+.code-graph-src:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.code-graph-line { display: block; white-space: pre; }
+.code-graph-line .ln { display: inline-block; min-width: 40px; padding-right: var(--s-3); text-align: right; color: var(--faint); user-select: none; }
+.trust-mark { padding: 1px var(--s-2); border-radius: var(--r-pill); background: var(--subtle); font-size: var(--fs-2xs); font-weight: var(--fw-semibold); color: var(--muted); }
+.trust-mark.is-exact { background: var(--ok-tint); color: var(--ok); }
+.trust-mark.is-name-match { background: var(--ci-tint); color: var(--ci); }
+.code-diff-head .trust-mark { margin-left: auto; }
+.ast-outline { list-style: none; margin: 0; padding: 0; max-height: 380px; overflow: auto; font-size: var(--fs-xs); }
+.ast-outline li { display: flex; flex-wrap: wrap; column-gap: var(--s-2); align-items: baseline; padding: 1px 0; }
+.ast-type { color: var(--agent-ink); font-family: var(--mono); }
+.ast-name { min-width: 0; overflow-wrap: break-word; font-weight: var(--fw-bold); color: var(--ink); }
+.ast-lines { margin-left: auto; white-space: nowrap; color: var(--faint); font-family: var(--mono); }
+.call-graph { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--s-4); align-items: center; }
+.call-graph-me { display: flex; gap: var(--s-2); align-items: center; }
+.call-arrow { font-size: var(--fs-xl); color: var(--muted); }
+.call-node { display: inline-block; padding: 2px var(--s-2); border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--card); font-family: var(--mono); font-size: var(--fs-sm); }
+.call-node.is-me { padding: var(--s-2) var(--s-3); border: 2px solid var(--builder); border-radius: var(--r-box); background: var(--builder-tint); font-weight: var(--fw-bold); }
+.call-list { display: flex; flex-direction: column; gap: var(--s-1); }
+.call-list + .call-list, .call-graph + .call-list { margin-top: var(--s-3); }
+.call-list-title { font-size: var(--fs-xs); font-weight: var(--fw-bold); color: var(--muted); }
+.call-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.call-list li { display: flex; gap: var(--s-2); align-items: center; }
+.call-list li .trust-mark { flex: none; }
 
 /* ---------------------------------------------------------------- Tests tab (page 14) */
 .story-tests-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-bottom: var(--s-4); }

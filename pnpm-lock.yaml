@@ -93,6 +93,9 @@ importers:
       '@rehearse/core':
         specifier: workspace:*
         version: link:../core
+      '@rehearse/graph':
+        specifier: workspace:*
+        version: link:../graph
 
   packages/ui:
     dependencies:
