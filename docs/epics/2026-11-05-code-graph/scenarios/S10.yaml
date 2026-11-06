@@ -2,7 +2,7 @@ story: S10
 scenarios:
   - id: S10-cold-bench
     title: CI measures a cold index of 1,000 files
-    status: draft
+    status: approved
     steps:
       - { name: bench-start }
       - name: bench
@@ -10,10 +10,21 @@ scenarios:
       - { name: bench-ok, branch: "yes" }
       - { name: bench-pass }
     expect: { criterion: S10-A1, state: { coldMsBelow: 30000, exitCode: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:27:11Z'
+      hash: 'sha256:0f629e245ea6452a7cae794db23462379125cf0dc74cba267af470532487ad2e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAKosIKr1x7MkRzM4cm+m42ZfDucmW7HvdjNXmL9Fy2B4z4sp08PKG+BWrvz
+        W5ChHO4cXhD2L6LW81OO3Q6964CQ==
+        -----END SSH SIGNATURE-----
 
   - id: S10-warm-bench
     title: CI measures an update of one file and the queries
-    status: draft
+    status: approved
     steps:
       - { name: bench-start }
       - name: bench
@@ -21,10 +32,21 @@ scenarios:
       - { name: bench-ok, branch: "yes" }
       - { name: bench-pass }
     expect: { criterion: S10-A2, state: { updateMsBelow: 300, queryMsBelow: 100, exitCode: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:25:06Z'
+      hash: 'sha256:8ada293a0a739107e661d9ad42d908004482847e249e6f9538c428636ef3c8fe'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAwgR9yCYK9sWU0Lj9mKxL+EW+Is3/g186/YM3N5/XCnsufzNM/b1kbERgsQ
+        3P4SaxnjqhM1EUm10+iVm3qQshBg==
+        -----END SSH SIGNATURE-----
 
   - id: S10-too-slow
     title: CI fails the build when the cold index is too slow
-    status: draft
+    status: approved
     steps:
       - { name: bench-start }
       - name: bench
@@ -32,3 +54,14 @@ scenarios:
       - { name: bench-ok, branch: "no" }
       - { name: bench-fail }
     expect: { state: { buildFailed: true, coldMs: 41000 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:25:16Z'
+      hash: 'sha256:280e773088341bda477439f6e3a4799c9a5acc3976494bef14d4134daa3c1fc1'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAEzIbgx8t3tj0xZDf/AMsUXi5OJDdgGyiWi2FMulN7cKwKwDkb2CzEx08n4
+        armHE0PzKj7Vvp1wzxV5v188inBQ==
+        -----END SSH SIGNATURE-----

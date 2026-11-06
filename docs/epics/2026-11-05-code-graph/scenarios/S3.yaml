@@ -2,7 +2,7 @@ story: S3
 scenarios:
   - id: S3-path
     title: Agent follows a request from the route to the database code
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - name: run-query/target
@@ -13,11 +13,22 @@ scenarios:
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }
-    expect: { criterion: S3-A1, state: { edges: ["getOrder -> loadOrder", "loadOrder -> getOrderById"], eachEdgeHas: [trust] } }
+    expect: { criterion: S3-A1, state: { edges: [ "getOrder -> loadOrder", "loadOrder -> getOrderById" ], eachEdgeHas: [ trust ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:27:26Z'
+      hash: 'sha256:b7c901e5abc324d73273d96c3fc6fb8d8301bbea0f8a7087961fd823dd30982d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAh8bzkOOSR/EkySLfeNu3grjvJP8GSD8undlRoQmSgbSwAdlpMqUDPUNDRk
+        kbtm4Xz2CW/A/8++bVzxSKxCT2CA==
+        -----END SSH SIGNATURE-----
 
   - id: S3-no-path
     title: Agent asks for a path between two nodes that do not connect
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - name: run-query/target
@@ -27,7 +38,18 @@ scenarios:
         branch: no-path
         example: { id: path-none, given: { node: getOrderById, to: charge }, then: { exit: no-path } }
       - name: run-query/answer
-        example: { id: answer-no-path, given: { }, then: { answer: { ok: false, edges: [], notes: ["no path"], exitCode: 1 } } }
+        example: { id: answer-no-path, given: {}, then: { answer: { ok: false, edges: [], notes: [ "no path" ], exitCode: 1 } } }
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S3-A2, state: { exitCode: 1, message: "no path", edges: 0, filesChanged: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:23:32Z'
+      hash: 'sha256:40d4477ffe00774ae5b4654e4ee51ead3df03fef94495eddd33f557a2edfe2f2'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAgTcgE5Xa3S5BRr1cUKHxLh18rrQ8xjFvyyUvO+9+EhH6L125ZyaTcZOsbh
+        VjaKfeC3ds1mwcC/bOaTz5tGvNCg==
+        -----END SSH SIGNATURE-----

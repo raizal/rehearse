@@ -2,10 +2,10 @@ story: S6
 scenarios:
   - id: S6-scope
     title: The index reads the tsconfig files and keeps node_modules out
-    status: draft
+    status: approved
     steps:
       - name: update-graph/scope
-        example: { id: scope-monorepo, given: { tsconfigs: [packages/a/tsconfig.json, packages/b/tsconfig.build.json], dirs: [node_modules] }, then: { tsconfigs: [packages/a/tsconfig.json, packages/b/tsconfig.build.json], files: [packages/a/src/index.ts, packages/b/src/index.ts] } }
+        example: { id: scope-monorepo, given: { tsconfigs: [ packages/a/tsconfig.json, packages/b/tsconfig.build.json ], dirs: [ node_modules ] }, then: { tsconfigs: [ packages/a/tsconfig.json, packages/b/tsconfig.build.json ], files: [ packages/a/src/index.ts, packages/b/src/index.ts ] } }
       - { name: update-graph/hash-files }
       - { name: update-graph/mode, branch: cold }
       - name: update-graph/bulk-index
@@ -15,50 +15,94 @@ scenarios:
       - { name: update-graph/write }
       - { name: update-graph/fresh }
     expect: { criterion: S6-A1, state: { indexedTsconfigs: 2, nodeModulesFilesIndexed: 0, lodashGet: target-only } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:27Z'
+      hash: 'sha256:50031d8ec01700b201f85e2b040cdea02863139dd12ecbaa23bb2488ca1c5f6d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAbDYuV+sZsJSFWHL2uHBbQyCWAkCf70zDgOHeWS+80sM0yYJDWOtA1V58qX
+        2SEsdkCkRtSfCJp/Mxg6KXefCIDg==
+        -----END SSH SIGNATURE-----
 
   - id: S6-trust-ts
     title: A resolved call is exact and a computed call is name-match
-    status: draft
+    status: approved
     steps:
       - { name: update-graph/scope }
       - { name: update-graph/hash-files }
       - { name: update-graph/mode, branch: cold }
       - name: update-graph/bulk-index
-        example: { id: bulk-trust, given: { calls: ["loadRow(id)", "handlers[name](id)"] }, then: { edges: [ { to: loadRow, kind: calls, trust: exact, source: ts-morph }, { to: handle, kind: calls, trust: name-match, source: tree-sitter } ] } }
+        example: { id: bulk-trust, given: { calls: [ "loadRow(id)", "handlers[name](id)" ] }, then: { edges: [ { to: loadRow, kind: calls, trust: exact, source: ts-morph }, { to: handle, kind: calls, trust: name-match, source: tree-sitter } ] } }
       - { name: update-graph/link }
       - { name: update-graph/rank }
       - { name: update-graph/write }
       - { name: update-graph/fresh }
     expect: { criterion: S6-A2, state: { firstEdge: exact, secondEdge: name-match } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:24:16Z'
+      hash: 'sha256:139a91416272b865ae2cb42e43d805467422982d528fcc3dfa67cdf3af737a27'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAQnVdBKwLFkSVzxrFQaV5PHu+DlwrZmIlgQtVBPhGOW1oMXpUlqRNCKTEno
+        cj3VlVcxD2gr699aiYCPzT1klqBw==
+        -----END SSH SIGNATURE-----
 
   - id: S6-python-venv
     title: Python calls into the venv are exact on a host with no Python
-    status: draft
+    status: approved
     steps:
       - name: update-graph/scope
-        example: { id: scope-venv, given: { dirs: [.venv], hostPython: none }, then: { venv: .venv } }
+        example: { id: scope-venv, given: { dirs: [ .venv ], hostPython: none }, then: { venv: .venv } }
       - { name: update-graph/hash-files }
       - { name: update-graph/mode, branch: cold }
       - name: update-graph/bulk-index
-        example: { id: bulk-python, given: { calls: ["load_row(id)", "requests.get(url)"] }, then: { edges: [ { to: load_row, trust: exact }, { to: "requests.get", trust: exact } ], run: { resolvers: [tree-sitter, scip-python, basedpyright] } } }
+        example: { id: bulk-python, given: { calls: [ "load_row(id)", "requests.get(url)" ] }, then: { edges: [ { to: load_row, trust: exact }, { to: "requests.get", trust: exact } ], run: { resolvers: [ tree-sitter, scip-python, basedpyright ] } } }
       - { name: update-graph/link }
       - { name: update-graph/rank }
       - { name: update-graph/write }
       - { name: update-graph/fresh }
     expect: { criterion: S6-A3, state: { repoCalls: exact, requestsCalls: exact, resolvers: "scip-python and basedpyright from npm" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:24:40Z'
+      hash: 'sha256:10ad7416c55bcff5517ac41f17c638ece47f21f0aa0e8ce92151175334dbf90f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAVS5UarChA1/taU4oKxnj1xRJQyobs+lKbJzknFz0Peyg2iB0PUCz3kNAuh
+        uCoraFfXxH+EsAEld3D2xenAWIBg==
+        -----END SSH SIGNATURE-----
 
   - id: S6-bulk-resolvers
     title: A cold index uses the bulk resolvers and no LSP request for each call site
-    status: draft
+    status: approved
     steps:
       - { name: update-graph/scope }
       - name: update-graph/hash-files
         example: { id: hash-no-db-2, given: { graphDb: missing }, then: { mode: cold } }
       - { name: update-graph/mode, branch: cold }
       - name: update-graph/bulk-index
-        example: { id: bulk-resolvers, given: { }, then: { run: { mode: cold, resolvers: [tree-sitter, ts-morph, scip-python] }, lspRequestsPerCallSite: 0 } }
+        example: { id: bulk-resolvers, given: {}, then: { run: { mode: cold, resolvers: [ tree-sitter, ts-morph, scip-python ] }, lspRequestsPerCallSite: 0 } }
       - { name: update-graph/link }
       - { name: update-graph/rank }
       - { name: update-graph/write }
       - { name: update-graph/fresh }
-    expect: { criterion: S6-A4, state: { IndexRun.resolvers: [tree-sitter, ts-morph, scip-python], lspRequestsPerCallSite: 0 } }
+    expect: { criterion: S6-A4, state: { IndexRun.resolvers: [ tree-sitter, ts-morph, scip-python ], lspRequestsPerCallSite: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:32Z'
+      hash: 'sha256:6dd1d55d85061fd8e33540d9660822221bb859d1006b8c309ba9b477c79424cd'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABABZXreMo3gteBQU+kvE7UPoCAEwlnPS4fcouAA3RlIeptoMJrSr5rh6K3Is
+        KuY4WhlPyw5vHqSWavqB29ZHmeDw==
+        -----END SSH SIGNATURE-----

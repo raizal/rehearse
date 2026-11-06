@@ -2,7 +2,7 @@ story: S2
 scenarios:
   - id: S2-show
     title: Agent shows one function with its edges and trust marks
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - name: run-query/target
@@ -13,11 +13,22 @@ scenarios:
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }
-    expect: { criterion: S2-A1, state: { code: true, file: src/orders.ts, scipId: true, eachEdgeHas: [kind, trust] } }
+    expect: { criterion: S2-A1, state: { code: true, file: src/orders.ts, scipId: true, eachEdgeHas: [ kind, trust ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:25:58Z'
+      hash: 'sha256:b5385d6a7a0ee89ac2418e31ee1075f3a687ec158033b44aaf271c5374498b74'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABArjlL10u2avNE284GgVHtDNd6oucfK9FHCGAq+jltM6aeay2KHXUKdmSRev
+        HRLT/m9HYJ6AvSARx1RzVAgDcbCA==
+        -----END SSH SIGNATURE-----
 
   - id: S2-near
     title: Agent lists the caller, callee, test and box of a function
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - { name: run-query/target }
@@ -27,25 +38,47 @@ scenarios:
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }
-    expect: { criterion: S2-A2, state: { linked: [loadOrder, loadRow, orders.test.ts, orders/get], eachEdgeHas: [kind, trust] } }
+    expect: { criterion: S2-A2, state: { linked: [ loadOrder, loadRow, orders.test.ts, orders/get ], eachEdgeHas: [ kind, trust ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:23:19Z'
+      hash: 'sha256:bf0c90480809ede8e1ce2537ceda5f70d0251128da183ff6f4533793b384d446'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA3F+d1WLwduRBgXDU5dsQEwrO6DJxwa0fRgs0L2kbSvy6bbYasQJorWkjD5
+        lcL48R5DZt59VuyjlE5cTNehIZCg==
+        -----END SSH SIGNATURE-----
 
   - id: S2-not-found
     title: Agent asks for a node that does not exist
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - name: run-query/target
         branch: not-found
         example: { id: target-missing, given: { query: { verb: show, target: noSuchThing } }, then: { exit: not-found } }
       - name: run-query/answer
-        example: { id: answer-not-found, given: { }, then: { answer: { ok: false, notes: ["not found"], exitCode: 1 } } }
+        example: { id: answer-not-found, given: {}, then: { answer: { ok: false, notes: [ "not found" ], exitCode: 1 } } }
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S2-A3, state: { exitCode: 1, message: "not found", filesChanged: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:25:44Z'
+      hash: 'sha256:7725df15b55e0490d68a9cbcfd2883fdac692e65a096d291abd5164e539ba30d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAY8Di9TAvzaxtBpqRBpC0lridH1OEewGL6HC33qM/tUgQkK6wIWyXow/46c
+        2nkcZ9EQpXPgHswMNW7304kMKmCQ==
+        -----END SSH SIGNATURE-----
 
   - id: S2-near-depth
     title: Agent asks for the nodes two edges away with --depth 2
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - { name: run-query/target }
@@ -55,4 +88,15 @@ scenarios:
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }
-    expect: { criterion: S2-A4, state: { linked: [loadOrder, getOrder], eachEdgeHas: [kind, trust] } }
+    expect: { criterion: S2-A4, state: { linked: [ loadOrder, getOrder ], eachEdgeHas: [ kind, trust ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:25:51Z'
+      hash: 'sha256:f39065a257a790bcb21ba137fd65dc07e96d7bba58de5589713687d5ef1e257a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAcDdPhc3B9WYCk8NjwdX6xbvHdfcSEAXC/KI2NNxsmMXNJZTX/SDl61gZQ+
+        DdpQjxtzlcN2o3960eX5pXGtgjBQ==
+        -----END SSH SIGNATURE-----

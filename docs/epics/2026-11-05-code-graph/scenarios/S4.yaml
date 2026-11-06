@@ -2,7 +2,7 @@ story: S4
 scenarios:
   - id: S4-context-budget
     title: Agent gets the code around a function in a token budget
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: ask
@@ -16,26 +16,37 @@ scenarios:
       - { name: run-query/target }
       - { name: run-query/verb, branch: context }
       - name: run-query/context
-        example: { id: context-budget, given: { node: getOrderById, linkedChars: 9000, budget: 2000 }, then: { bundle: { tokens: 1990, items: [getOrderById, loadRow, loadOrder, orders.test.ts] } } }
+        example: { id: context-budget, given: { node: getOrderById, linkedChars: 9000, budget: 2000 }, then: { bundle: { tokens: 1990, items: [ getOrderById, loadRow, loadOrder, orders.test.ts ] } } }
         # items: target first, then graph distance 1 (by PageRank), then distance 2
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S4-A1, state: { bundleTokensAtMost: 2000, firstItem: getOrderById, order: "graph distance, then PageRank" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:14Z'
+      hash: 'sha256:51bd4924f6fbae6218d86e1439ddf5864e429d32604734074b4b5f185fc2504a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAc1IpN42Q1NK6P0EGCLvLxtFVhyPLMg+QCs+mbFJXlSeYipbtE1cDrZPTJG
+        V1mRviYyQZbxLPbKza5DQiTIL/Cw==
+        -----END SSH SIGNATURE-----
 
   - id: S4-no-venv
     title: Agent asks about a Python repo that has no virtual environment
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: ask }
       - name: update-graph/scope
-        example: { id: scope-no-venv, given: { repo: "api/ only, no .venv, no uv, no poetry, no pyright venv" }, then: { files: [api/orders.py], tsconfigs: [], venv: null } }
+        example: { id: scope-no-venv, given: { repo: "api/ only, no .venv, no uv, no poetry, no pyright venv" }, then: { files: [ api/orders.py ], tsconfigs: [], venv: null } }
       - name: update-graph/hash-files
         example: { id: hash-cold, given: { graphDb: missing }, then: { mode: cold } }
       - { name: update-graph/mode, branch: cold }
       - name: update-graph/bulk-index
-        example: { id: bulk-no-venv, given: { venv: null }, then: { edges: [ { to: get_order_by_id, trust: exact }, { to: "fastapi.APIRouter", trust: unresolved } ], run: { resolvers: [tree-sitter, scip-python] } } }
+        example: { id: bulk-no-venv, given: { venv: null }, then: { edges: [ { to: get_order_by_id, trust: exact }, { to: "fastapi.APIRouter", trust: unresolved } ], run: { resolvers: [ tree-sitter, scip-python ] } } }
       - { name: update-graph/link }
       - { name: update-graph/rank }
       - name: update-graph/write
@@ -45,16 +56,27 @@ scenarios:
       - { name: run-query/target }
       - { name: run-query/verb, branch: context }
       - name: run-query/context
-        example: { id: context-no-venv, given: { node: get_order_by_id }, then: { bundle: { notes: ["no venv found"] } } }
+        example: { id: context-no-venv, given: { node: get_order_by_id }, then: { bundle: { notes: [ "no venv found" ] } } }
       - name: run-query/answer
-        example: { id: answer-no-venv, given: { }, then: { answer: { ok: true, exitCode: 0, notes: ["no venv found"] } } }
+        example: { id: answer-no-venv, given: {}, then: { answer: { ok: true, exitCode: 0, notes: [ "no venv found" ] } } }
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S4-A2, state: { exitCode: 0, note: "no venv found", repoEdges: exact, thirdPartyEdges: unresolved } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:23:45Z'
+      hash: 'sha256:13c77e84bf7054e1cddf28bb56d59ae57c28bda44641e94209fcb623b98b066e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAcjZoCMGuJOd2hb/n9ByLLornY8VZOSJzNBnqoaN5miK3B2ZH2hRk+7ggYR
+        XOF3UeZcmmySMxvNBdRBrfUs8PBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S4-deterministic
     title: Agent asks the same question two times and gets the same bytes
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - { name: run-query/target }
@@ -65,3 +87,14 @@ scenarios:
       - { name: asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S4-A3, state: { answersByteIdentical: true, llmCalls: 0, embeddings: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:20Z'
+      hash: 'sha256:87ed2735485ba5447665b950eb91ea509a64f6d5acd4e1e3d0c86a093e8142e2'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAkemQdUW11ObG5KtDzJ5IB9bXdZbRKme6H477KdtxQN4aNKy/Nkv7KFnjxd
+        HX5wv4BFRkjWgUy6ajMkrJTxGRCg==
+        -----END SSH SIGNATURE-----

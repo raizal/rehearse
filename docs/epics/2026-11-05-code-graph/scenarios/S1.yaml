@@ -2,14 +2,14 @@ story: S1
 scenarios:
   - id: S1-find-ts
     title: Agent finds a TypeScript function by words
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: ask
         example: { id: ask-find, given: { verb: find, target: "order by id", json: true }, then: { query: { verb: find, target: "order by id", json: true, from: cli } } }
       - { name: update-graph/scope }
       - name: update-graph/hash-files
-        example: { id: hash-none, given: { files: [src/orders.ts, api/orders.py] }, then: { mode: none, changed: [], removed: [] } }
+        example: { id: hash-none, given: { files: [ src/orders.ts, api/orders.py ] }, then: { mode: none, changed: [], removed: [] } }
       - { name: update-graph/mode, branch: none }
       - name: update-graph/unchanged
         example: { id: run-unchanged, given: { run: { status: running } }, then: { run: { status: unchanged } } }
@@ -21,14 +21,25 @@ scenarios:
       - name: run-query/find
         example: { id: find-ts, given: { query: { verb: find, target: "order by id" } }, then: { nodes: [ { name: getOrderById, kind: function, file: src/orders.ts } ] } }
       - name: run-query/answer
-        example: { id: answer-find, given: { nodes: [ getOrderById ] }, then: { answer: { verb: find, ok: true, exitCode: 0, fields: [id, kind, file, range, score] } } }
+        example: { id: answer-find, given: { nodes: [ getOrderById ] }, then: { answer: { verb: find, ok: true, exitCode: 0, fields: [ id, kind, file, range, score ] } } }
       - { name: asker, branch: cli }
       - { name: got-it }
-    expect: { criterion: S1-A1, state: { firstHit: getOrderById, hitFields: [id, kind, file, range, score], IndexRun.status: unchanged } }
+    expect: { criterion: S1-A1, state: { firstHit: getOrderById, hitFields: [ id, kind, file, range, score ], IndexRun.status: unchanged } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:25:29Z'
+      hash: 'sha256:d7a75b34fcb653b6d6de0e893aa9a000183feb175a98d4795f3d74f0e2a919e4'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAz/chd9CIOh3oHGqEmDM+p9WfDgJCEfzjx38xOUdJPsaiWp01QhkGy7DNAy
+        Gqchpt63Ie6TQ9v+FIgQt+6bBlCw==
+        -----END SSH SIGNATURE-----
 
   - id: S1-find-both
     title: Agent finds the TypeScript and the Python function with the same words
-    status: draft
+    status: approved
     steps:
       - { name: asked, branch: "yes" }
       - { name: run-query/target }
@@ -38,4 +49,15 @@ scenarios:
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }
-    expect: { criterion: S1-A2, state: { hits: [getOrderById, get_order_by_id], embeddings: none } }
+    expect: { criterion: S1-A2, state: { hits: [ getOrderById, get_order_by_id ], embeddings: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:23:10Z'
+      hash: 'sha256:f508c614ad1325026a1de1cdbf04595dd4a663d40bfdb0700ab03280a4664f2d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAgz2cFUUcanJuBT7bpKvlEBV1Z1siltXgL4Il73DHE1DIdO3MaWQONHBc36
+        7LTtnn3pA+p1m4sOY1F75c/lSuAg==
+        -----END SSH SIGNATURE-----

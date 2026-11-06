@@ -2,7 +2,7 @@ story: S9
 scenarios:
   - id: S9-drill-down
     title: Builder opens a leaf box and sees the code that builds it
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - name: drill-code
@@ -18,17 +18,28 @@ scenarios:
       - { name: run-query/target }
       - { name: run-query/verb, branch: show }
       - name: run-query/show
-        example: { id: show-box, given: { node: "box checkout/pay" }, then: { nodes: [charge], edges: [ { kind: builds, to: charge, trust: exact } ] } }
+        example: { id: show-box, given: { node: "box checkout/pay" }, then: { nodes: [ charge ], edges: [ { kind: builds, to: charge, trust: exact } ] } }
       - { name: run-query/answer }
       - { name: asker, branch: panel }
       - name: code-view
-        example: { id: view-charge, given: { answer: "charge" }, then: { view: [code, ast, call-graph], editable: false } }
+        example: { id: view-charge, given: { answer: "charge" }, then: { view: [ code, ast, call-graph ], editable: false } }
       - { name: seen }
-    expect: { criterion: S9-A1, state: { panelShows: [code, ast, call-graph], readOnly: true } }
+    expect: { criterion: S9-A1, state: { panelShows: [ code, ast, call-graph ], readOnly: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:52Z'
+      hash: 'sha256:471576adc9f0799f702105076e89cd2cbf718214d6ec926670eb20e05070d973'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAhTwtjMPsBobKobRo3CnMhVMfF2/FcWTmJTpDEjsiJEb63vYT5ObQ1VehXv
+        w8HDDsg+tw0PyI2VX65GBgOCeWCw==
+        -----END SSH SIGNATURE-----
 
   - id: S9-no-code-yet
     title: Builder opens a leaf box that no commit builds
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - { name: drill-code }
@@ -46,23 +57,34 @@ scenarios:
       - { name: run-query/answer }
       - { name: asker, branch: panel }
       - name: code-view
-        example: { id: view-empty, given: { answer: "no builds edges" }, then: { view: ["This box has no code yet."] } }
+        example: { id: view-empty, given: { answer: "no builds edges" }, then: { view: [ "This box has no code yet." ] } }
       - { name: seen }
     expect: { criterion: S9-A2, state: { panelMessage: "This box has no code yet." } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:25:02Z'
+      hash: 'sha256:c9afd2a338f4f0fd7121cd591b8690beea039d4059f1ddd45d678c6accd0141c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAEEiMQPzFESn0w3ufis2NMQrGzY9PmV90Y86KLIbzzesvRAaUJ4zJKFg3B7
+        JXq695yYx9uEA166R/F05qC2W8DA==
+        -----END SSH SIGNATURE-----
 
   - id: S9-watch-save
     title: Builder saves a file and the watcher updates the graph
-    status: draft
+    status: approved
     steps:
       - { name: file-saved }
       - name: watch
-        example: { id: watch-pay, given: { path: src/pay.ts }, then: { changed: [src/pay.ts] } }
+        example: { id: watch-pay, given: { path: src/pay.ts }, then: { changed: [ src/pay.ts ] } }
       - { name: update-graph/scope }
       - name: update-graph/hash-files
-        example: { id: hash-pay, given: { changedOnDisk: [src/pay.ts] }, then: { mode: update, changed: [src/pay.ts] } }
+        example: { id: hash-pay, given: { changedOnDisk: [ src/pay.ts ] }, then: { mode: update, changed: [ src/pay.ts ] } }
       - { name: update-graph/mode, branch: update }
       - name: update-graph/warm-update
-        example: { id: warm-pay, given: { changed: [src/pay.ts] }, then: { run: { mode: update, trigger: watch, changedFiles: 1 } } }
+        example: { id: warm-pay, given: { changed: [ src/pay.ts ] }, then: { run: { mode: update, trigger: watch, changedFiles: 1 } } }
       - { name: update-graph/link }
       - { name: update-graph/rank }
       - { name: update-graph/write }
@@ -70,10 +92,21 @@ scenarios:
       - { name: asked, branch: "no" }
       - { name: graph-updated }
     expect: { criterion: S9-A3, state: { IndexRun.mode: update, IndexRun.trigger: watch, panelShowsSavedCode: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:59Z'
+      hash: 'sha256:b48b807c606cab6d5e2422fb5312cf7f9add6207f501b25c377e1016a6f5a0d7'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAqQUWSSh/pW/YpifJ/33eljbGAyKDknpMgTbzfuUhRT0m8gQL4CY1ljNjo8
+        hkfEKXtaPnqR5I68CH6d3QPqHjAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S9-no-token
     title: A request with no session token gets 403
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - { name: drill-code }
@@ -82,3 +115,14 @@ scenarios:
         example: { id: serve-forbidden, given: { token: null }, then: { exit: forbidden, status: 403, body: "no graph data" } }
       - { name: refused }
     expect: { criterion: S9-A4, state: { status: 403, graphDataSent: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:27:04Z'
+      hash: 'sha256:dbd7bee10859fcd3d2a1015e21e77eb94a0e362e702712707d7a0092c5a08a62'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAWdIuI53H2/6IE2HsaKiRHy+N0znow0M9sCmqVQ1Js3ghhxpFDEQ1Ut8wMJ
+        kUT51uDeu5kOtwLLqx+AoaRw4ADw==
+        -----END SSH SIGNATURE-----
