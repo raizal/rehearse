@@ -3,16 +3,19 @@
 // right the story (WHAT, HOW, OUTPUT) and its scenarios as cards, each with its status, a
 // "select to approve" box and "Open storyboard". The other tabs of the story (Before / after,
 // Code, Tests) put the story header card on top, with no queue; Code and Tests have the story
-// thread rail. The storyboard of one scenario (page 3) is a page of its own: one card per step,
-// left to right, the expected end state and Approve. Approve is on only after every step card
-// was seen (scrolled into view, focused or stepped through). What was seen lives in the browser
-// only and is never sent.
+// thread rail. The storyboard of one scenario (page 3) is a page of its own: the path as a
+// flowchart in role lanes (StoryFlowChart), the detail of the picked step beside it, playback
+// (step through, Play), the expected end state and Approve. A step counts as seen when the panel
+// shows its detail; Approve is on only after every step was seen. What was seen lives in the
+// browser only and is never sent.
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent } from 'react';
+import { layoutStoryFlow, notTaken, storyFlow, type StoryFlow } from '../model/storyflow.js';
+import { StoryFlowChart } from './StoryFlowChart.js';
 import type { Id } from '@rehearse/core';
 import type { ScenarioView } from '../api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView } from '../contract.js';
-import { laneColor, roleName } from '../model/diagram.js';
+import { boxAt, laneColor, roleName } from '../model/diagram.js';
 import { stepCount, stepView } from '../model/playback.js';
 import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.js';
 import { contextLabel } from '../model/storythread.js';
@@ -50,11 +53,10 @@ export interface StoryboardProps {
   onSelectMany: (ids: Id[]) => void;
   busy: boolean;
   outcome?: PostOutcome<ApproveOk>;
-  onOpenFlow: (id: Id) => void;
   /** The story to show; default: the story of the open scenario. */
   storyId?: Id;
   onPickStory?: (id: Id) => void;
-  /** Open a box in the flow view. */
+  /** Open a box (the box drawer). */
   onOpenBox?: (path: string) => void;
   /** Show the storyboard page of the open scenario (design page 3) instead of its story. */
   board?: boolean;
@@ -96,7 +98,7 @@ export function Storyboard(props: StoryboardProps) {
             seen={seen}
             onSeen={props.onSeen}
             approve={props.approve}
-            onOpenFlow={props.onOpenFlow}
+            onOpenBox={props.onOpenBox}
             session={props.session}
             outcome={props.outcome}
             onBack={props.onBack}
@@ -356,7 +358,8 @@ interface StoryCardProps {
   seen: SeenState;
   onSeen: (sv: ScenarioView, index: number) => void;
   approve: ApproveControls;
-  onOpenFlow: (id: Id) => void;
+  /** Open a box (its path) where the review shows boxes. */
+  onOpenBox?: (path: string) => void;
   session?: SessionState;
   outcome?: PostOutcome<ApproveOk>;
   onBack?: () => void;
@@ -365,58 +368,118 @@ interface StoryCardProps {
   back?: BackControl;
 }
 
-export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session, outcome, onBack, onBigPicture, onStories, back }: StoryCardProps) {
+/** How long Play shows each step before it moves on. */
+export const PLAY_MS = 1800;
+
+/** Scroll the storyboard page (not the chart) so `el` is in view. */
+function reveal(el: HTMLElement) {
+  const page = el.closest<HTMLElement>('.board-wrap');
+  if (!page) return;
+  const a = el.getBoundingClientRect();
+  const b = page.getBoundingClientRect();
+  if (a.top < b.top + 8) page.scrollTop -= b.top + 8 - a.top;
+  else if (a.bottom > b.bottom - 8) page.scrollTop += a.bottom - b.bottom + 8;
+}
+
+export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session, outcome, onBack, onBigPicture, onStories, back }: StoryCardProps) {
   const { scenario } = sv;
   const { flow, prd } = view;
   const id = scenario.id;
   const total = stepCount(scenario);
-  const seenSet = seenSteps(seen, sv);
+  const seenSet = useMemo(() => seenSteps(seen, sv), [seen, sv]);
   const allSeen = isAllSeen(seen, sv);
   const { story, criterion } = criterionFor(prd, scenario);
   const maps = useMemo(() => pathMap(flow, scenario), [flow, scenario]);
+  const sf = useMemo(() => storyFlow(flow, prd, scenario), [flow, prd, scenario]);
+  const layout = useMemo(() => layoutStoryFlow(sf), [sf]);
   const state = approvalState(sv, approve.approvals);
   const reason = approve.reasonFor(sv);
-  const [cur, setCur] = useState(-1);
-  const panels = useRef<(HTMLLIElement | null)[]>([]);
+  const critId = scenario.expect?.criterion;
+  // The step shown in the detail panel: the first one when the page opens.
+  const [cur, setCur] = useState(total > 0 ? 0 : -1);
+  const [playing, setPlaying] = useState(false);
+  const nodes = useRef(new Map<number, HTMLButtonElement>());
   const markRef = useRef((i: number) => onSeen(sv, i));
   markRef.current = (i: number) => onSeen(sv, i);
-  const critId = scenario.expect?.criterion;
 
-  // A step card counts as seen when at least half of it, or half of the viewport, shows it.
+  // A step counts as seen when the panel shows its detail (example, contract, branches): the
+  // chart node alone shows only the title. Marked again when a new seen state comes without it
+  // (the tab's stored state loads after the page opened).
+  const curSeen = cur >= 0 && seenSet.has(cur);
   useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          const half = Math.min(e.boundingClientRect.height, e.rootBounds?.height ?? Infinity) / 2;
-          const halfW = Math.min(e.boundingClientRect.width, e.rootBounds?.width ?? Infinity) / 2;
-          if (e.isIntersecting && e.intersectionRect.height >= half && e.intersectionRect.width >= halfW) markRef.current(Number((e.target as HTMLElement).dataset.step));
-        }
-      },
-      { threshold: [0, 0.25, 0.5, 0.75, 1] },
-    );
-    for (const p of panels.current) if (p) io.observe(p);
-    return () => io.disconnect();
-  }, [total]);
+    if (cur >= 0 && !curSeen) markRef.current(cur);
+  }, [cur, curSeen, seen]);
 
-  const goTo = (i: number) => {
-    const el = panels.current[i];
-    if (!el) return;
-    el.focus();
-    el.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-  };
-  const onPanelKey = (i: number) => (e: KeyboardEvent<HTMLLIElement>) => {
-    if (e.target !== e.currentTarget) return;
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && i + 1 < total) {
+  const goTo = useCallback(
+    (i: number, focus = false) => {
+      if (i < 0 || i >= total) return;
+      setCur(i);
+      const el = nodes.current.get(i);
+      if (focus && el) {
+        el.focus({ preventScroll: true });
+        reveal(el);
+      }
+    },
+    [total],
+  );
+  const pick = useCallback(
+    (i: number) => {
+      setPlaying(false);
+      goTo(i);
+    },
+    [goTo],
+  );
+  const onNodeKey = useCallback(
+    (i: number, e: KeyboardEvent<HTMLButtonElement>) => {
+      const to = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: total - 1 }[e.key];
+      if (to === undefined) return;
       e.preventDefault();
-      goTo(i + 1);
+      setPlaying(false);
+      goTo(to, true);
+    },
+    [goTo, total],
+  );
+  const refFn = useCallback((i: number, el: HTMLButtonElement | null) => {
+    if (el) nodes.current.set(i, el);
+    else nodes.current.delete(i);
+  }, []);
+  const stepBy = useCallback(
+    (d: number) => {
+      setPlaying(false);
+      setCur((c) => Math.max(0, Math.min(total - 1, c + d)));
+    },
+    [total],
+  );
+
+  // Left and right arrows step anywhere on the page, as playback did in the flow view, but not
+  // in a form field. A step node handles its own arrows (and up, down, Home, End).
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+      if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+      stepBy(e.key === 'ArrowRight' ? 1 : -1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stepBy]);
+
+  // Play: one step every PLAY_MS, to the end of the path.
+  useEffect(() => {
+    if (!playing) return;
+    if (cur >= total - 1) {
+      setPlaying(false);
+      return;
     }
-    if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && i > 0) {
-      e.preventDefault();
-      goTo(i - 1);
-    }
+    const t = setTimeout(() => setCur((c) => Math.min(c + 1, total - 1)), PLAY_MS);
+    return () => clearTimeout(t);
+  }, [playing, cur, total]);
+  const togglePlay = () => {
+    if (playing) return setPlaying(false);
+    if (cur >= total - 1) setCur(0);
+    setPlaying(true);
   };
-  const nextStep = cur + 1 < total ? cur + 1 : 0;
+  const unseen = Array.from({ length: total }, (_, k) => (cur + 1 + k) % total).find((i) => !seenSet.has(i));
+  const laneOf = (role: string) => sf.lanes.find((l) => l.role === role);
 
   return (
     <article className="story-card" data-testid="story-card" aria-labelledby="card-title" style={{ ['--role' as string]: laneColor(flow, story?.role) }}>
@@ -448,32 +511,57 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session
             )}
           </p>
         </div>
-        <button type="button" className="action" data-testid="card-open-flow" aria-label={`Open ${id} in the flow view, in playback`} onClick={() => onOpenFlow(id)}>
-          Open in flow
-        </button>
       </header>
 
-      {total === 0 && <p className="warn">The scenario has no steps.</p>}
-      <ol className="card-steps" aria-label={`Steps of ${id}`}>
-        {Array.from({ length: total }, (_, i) => (
-          <StepPanel
-            key={i}
-            view={view}
-            sv={sv}
-            index={i}
-            seen={seenSet.has(i)}
-            current={i === cur}
-            refFn={(el) => {
-              panels.current[i] = el;
-            }}
-            onFocus={() => {
-              setCur(i);
-              markRef.current(i);
-            }}
-            onKeyDown={onPanelKey(i)}
-          />
-        ))}
-      </ol>
+      {total === 0 ? (
+        <p className="warn">The scenario has no steps.</p>
+      ) : (
+        <div className="sf-board">
+          <div className="sf-main">
+            <StoryFlowChart
+              sf={sf}
+              layout={layout}
+              current={cur}
+              seen={seenSet}
+              label={`Flowchart of ${id}: ${total} step${total === 1 ? '' : 's'} down the lanes ${sf.lanes.map((l) => l.label).join(', ')}. Pick a step to see it; the arrow keys move along the path.`}
+              onPick={pick}
+              onKey={onNodeKey}
+              refFn={refFn}
+            />
+            <ol className="sr-only" data-testid="card-steps-text" aria-label={`Steps of ${id}`}>
+              {sf.steps.map((s) => {
+                const others = notTaken(sf, s.index);
+                return (
+                  <li key={s.id} data-testid={`card-steps-text-${s.index + 1}`}>
+                    Step {s.index + 1}: {s.title}, lane {laneOf(s.lane)?.label ?? s.lane}
+                    {s.decision ? ', a decision' : ''}
+                    {s.branch !== undefined ? `, branch taken: ${s.branch}` : ''}
+                    {others.length > 0 ? `; not taken: ${others.map((g) => `${g.label ?? 'other'} to ${g.title}`).join(', ')}` : ''}
+                    {seenSet.has(s.index) ? ', seen' : ''}.
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+          <aside className="sf-detail" data-testid="card-detail" aria-label="Step detail">
+            <div className="sf-controls" role="group" aria-label="Step through the path">
+              <button type="button" className="action small" data-testid="card-prev-step" aria-label="Previous step" disabled={cur <= 0} onClick={() => stepBy(-1)}>
+                ←
+              </button>
+              <span className="sf-count" data-testid="card-step-count">
+                Step {cur + 1} of {total}
+              </span>
+              <button type="button" className="action small" data-testid="card-next-step" aria-label={`Next step: ${Math.min(cur + 2, total)} of ${total}`} disabled={cur >= total - 1} onClick={() => stepBy(1)}>
+                Next step →
+              </button>
+              <button type="button" className="action small" data-testid="card-play" aria-pressed={playing} disabled={total < 2} onClick={togglePlay}>
+                {playing ? '❚❚ Pause' : '▶ Play'}
+              </button>
+            </div>
+            {cur >= 0 && <StepPanel view={view} sv={sv} sf={sf} index={cur} seen={seenSet.has(cur)} onOpenBox={onOpenBox} />}
+          </aside>
+        </div>
+      )}
 
       <div className="card-bottom">
         <section className="card-box card-result" data-testid="card-result" aria-labelledby="card-result-h">
@@ -509,9 +597,12 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session
                     Approve
                   </button>
                 )}
-                {total > 0 && (
-                  <button type="button" className="action" data-testid="card-next-step" aria-label={cur < 0 ? 'Step through: step 1' : `Next step: ${nextStep + 1} of ${total}`} onClick={() => goTo(nextStep)}>
-                    {cur < 0 ? 'Step through →' : 'Next step →'}
+                {unseen !== undefined && (
+                  <button type="button" className="action" data-testid="card-next-unseen" aria-label={`Show step ${unseen + 1}, not seen yet`} onClick={() => {
+                      setPlaying(false);
+                      goTo(unseen, true);
+                    }}>
+                    Step {unseen + 1}, not seen yet →
                   </button>
                 )}
               </div>
@@ -520,7 +611,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session
               </p>
               {reason !== undefined && !allSeen && (
                 <p className="small muted" data-testid="card-approve-why">
-                  See every step first: {seenSet.size} of {total} seen. Scroll through the steps or use “Step through”.
+                  See every step first: {seenSet.size} of {total} seen. Pick each step in the chart, or use “Next step” or “Play”.
                 </p>
               )}
             </div>
@@ -574,16 +665,16 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenFlow, session
 }
 
 /** The expected end state as `key = value` rows. */
-function EndState({ values }: { values: Record<string, unknown> | undefined }) {
+function EndState({ values, testId = 'card-result-state' }: { values: Record<string, unknown> | undefined; testId?: string }) {
   const entries = values && typeof values === 'object' ? Object.entries(values) : [];
   if (entries.length === 0)
     return (
-      <p className="muted" data-testid="card-result-state">
+      <p className="muted" data-testid={testId}>
         No end state (expect.state).
       </p>
     );
   return (
-    <ul className="end-state" data-testid="card-result-state">
+    <ul className="end-state" data-testid={testId}>
       {entries.map(([k, v]) => (
         <li key={k}>
           {k} = {show(v)}
@@ -596,50 +687,81 @@ function EndState({ values }: { values: Record<string, unknown> | undefined }) {
 interface StepPanelProps {
   view: ReviewEpicView;
   sv: ScenarioView;
+  sf: StoryFlow;
   index: number;
   seen: boolean;
-  current: boolean;
-  refFn: (el: HTMLLIElement | null) => void;
-  onFocus: () => void;
-  onKeyDown: (e: KeyboardEvent<HTMLLIElement>) => void;
+  onOpenBox?: (path: string) => void;
 }
 
-function StepPanel({ view, sv, index, seen, current, refFn, onFocus, onKeyDown }: StepPanelProps) {
+/** The detail of the current step: everything a step card showed, and the branches not taken. */
+function StepPanel({ view, sv, sf, index, seen, onOpenBox }: StepPanelProps) {
   const total = stepCount(sv.scenario);
   const step = stepView(view.flow, sv.scenario, index);
+  const node = sf.steps[index];
   const n = index + 1;
   const box = step?.box;
   const color = laneColor(view.flow, box?.lane);
   const example = step && (step.exampleId !== undefined || step.input !== undefined || step.output !== undefined || step.stateAfter !== undefined);
+  const others = notTaken(sf, index);
+  const path = step?.path ?? '';
+  const parts = path.split('/');
+  const boxLink = (p: string, text: string, testId?: string) =>
+    onOpenBox ? (
+      <button type="button" className="link" data-testid={testId} aria-label={`Open box ${text} (${p})`} onClick={() => onOpenBox(p)}>
+        {text}
+      </button>
+    ) : (
+      <span data-testid={testId}>{text}</span>
+    );
   return (
-    <li
-      ref={refFn}
-      tabIndex={0}
-      data-step={index}
-      data-testid={`card-step-${n}`}
-      className={`step-panel${current ? ' is-current' : ''}${seen ? ' is-seen' : ''}`}
-      style={{ ['--lane' as string]: color }}
-      aria-label={`Step ${n} of ${total}: ${box?.title ?? step?.path ?? ''}${seen ? ', seen' : ''}`}
-      onFocus={(e) => e.target === e.currentTarget && onFocus()}
-      onKeyDown={onKeyDown}
-    >
+    <section className={`sf-step${seen ? ' is-seen' : ''}`} data-testid={`card-detail-step-${n}`} style={{ ['--lane' as string]: color }} aria-labelledby="card-detail-title">
       <div className="step-panel-head">
         <span className="step-badge">{n}</span>
-        <span className="step-lane" data-testid={`card-step-lane-${n}`}>
+        <span className="step-lane" data-testid="card-detail-lane">
           <span className="sr-only">lane: </span>
           {roleName(view.prd, box?.lane)}
         </span>
+        {node?.decision && <span className="sf-kind">decision</span>}
         {seen && <span className="seen-chip">seen</span>}
       </div>
-      <strong className="step-title" data-testid={`card-step-title-${n}`}>
-        {stepTitle(view.flow, step?.path ?? '?')}
-      </strong>
+      <h2 className="step-title" id="card-detail-title" data-testid="card-detail-title" aria-live="polite">
+        <span className="sr-only">
+          Step {n} of {total}:{' '}
+        </span>
+        {stepTitle(view.flow, path || '?')}
+      </h2>
+      <p className="sf-path small" data-testid="card-detail-path">
+        {parts.map((id, k) => {
+          const p = parts.slice(0, k + 1).join('/');
+          const last = k === parts.length - 1;
+          return (
+            <span key={p}>
+              {k > 0 && <span aria-hidden="true"> › </span>}
+              {boxLink(p, last ? 'Open box' : (boxAt(view.flow, p)?.title ?? id), last ? 'card-detail-open-box' : undefined)}
+            </span>
+          );
+        })}{' '}
+        <code>{path}</code>
+      </p>
+      {!box && <p className="warn">No box at {path} in flow.yaml.</p>}
       {step?.branch !== undefined && (
-        <span className="step-branch" data-testid={`card-step-branch-${n}`}>
+        <span className="step-branch" data-testid="card-detail-branch">
           branch taken: {step.branch}
         </span>
       )}
-      <div className="step-example" data-testid={`card-step-example-${n}`}>
+      {others.length > 0 && (
+        <div className="sf-not-taken small" data-testid="card-detail-not-taken">
+          <span className="muted">Not taken:</span>
+          <ul>
+            {others.map((g) => (
+              <li key={g.id}>
+                <span className="sf-not-taken-label">{g.label ?? 'other branch'}</span> → {boxLink(g.path, g.title)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="step-example" data-testid="card-detail-example">
         {step && example ? (
           <>
             <div className="step-kv">
@@ -662,7 +784,7 @@ function StepPanel({ view, sv, index, seen, current, refFn, onFocus, onKeyDown }
         )}
       </div>
       {box && (
-        <dl className="step-contract" data-testid={`card-step-contract-${n}`}>
+        <dl className="step-contract" data-testid="card-detail-contract">
           <dt>in</dt>
           <dd>{fields(box.inputs)}</dd>
           <dt>out</dt>
@@ -671,7 +793,13 @@ function StepPanel({ view, sv, index, seen, current, refFn, onFocus, onKeyDown }
           <dd>{box.writes?.length ? box.writes.join(', ') : '—'}</dd>
         </dl>
       )}
-    </li>
+      {step?.expect && (
+        <div className="sf-end small" data-testid="card-detail-expect">
+          <div className="step-kv-label">THE PATH ENDS HERE · EXPECTED END STATE</div>
+          <EndState values={step.expect} testId="card-detail-expect-state" />
+        </div>
+      )}
+    </section>
   );
 }
 

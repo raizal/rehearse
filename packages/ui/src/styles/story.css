@@ -176,33 +176,90 @@ button.crumb:hover { color: var(--accent); text-decoration: underline; }
 .card-section { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
 .card-section > h3 { margin: 0; font-size: var(--fs-base); font-weight: var(--fw-bold); }
 
-/* Step cards left to right: a 4 px bar in the lane colour on top, a number circle, the lane,
-   "seen"; an arrow between cards; the current card with a 2 px accent border. */
-.card-steps { list-style: none; margin: var(--s-4) 0 0; padding: 0 0 var(--s-3); display: flex; gap: 14px; overflow-x: auto; align-items: stretch; }
-.step-panel { position: relative; flex: 0 0 188px; min-height: 320px; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4) 14px; background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--lane); border-radius: var(--r-md); font-size: var(--fs-sm); }
-.step-panel + .step-panel::before { content: ''; position: absolute; left: -12px; top: 50%; border: 4px solid transparent; border-left: 6px solid var(--muted); }
-.step-panel.is-current { border: 2px solid var(--accent); border-top-width: 4px; }
-.step-panel:focus-visible { outline: 3px solid var(--accent-ring); outline-offset: 2px; }
+/* The path as a flowchart (T37): role lanes as columns, one row per step, a decision as a
+   diamond, the branches not taken dashed to faded boxes. Beside it the picked step's detail,
+   sticky while the page scrolls; below 1100 px the detail goes under the chart. */
+.sf-board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); gap: var(--s-6); align-items: start; }
+.sf-main { min-width: 0; }
+.sf-canvas { position: relative; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); }
+.sf-canvas .react-flow__handle { opacity: 0; pointer-events: none; }
+.sf-canvas .react-flow__node { cursor: default; }
+.sf-lane { box-sizing: border-box; border-right: 1px dashed var(--line); background: color-mix(in srgb, var(--lane) 5%, transparent); }
+.sf-lane-head { display: flex; flex-direction: column; gap: 0; padding: var(--s-2) var(--s-3); border-top: 4px solid var(--lane); background: color-mix(in srgb, var(--lane) 10%, var(--card)); }
+.sf-lane-label { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-lane-kind { font-size: var(--fs-2xs); color: var(--muted); }
+.sf-lane.is-unknown .sf-lane-head { border-top-style: dashed; }
+.sf-node { position: relative; box-sizing: border-box; width: 100%; height: 100%; display: flex; align-items: center; padding: 6px 10px; border: 1px solid var(--line-strong); border-left: 5px solid var(--lane); border-radius: var(--r-md); background: var(--card); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.sf-node:hover { background: color-mix(in srgb, var(--lane) 8%, var(--card)); }
+.sf-node:focus-visible { outline: 3px solid var(--accent-ring); outline-offset: 2px; }
+.sf-node.is-current { border: 2px solid var(--accent); border-left: 5px solid var(--lane); box-shadow: 0 0 0 4px var(--accent-tint); }
+.sf-node.is-decision { justify-content: center; padding: 0 34px; border: 0; background: none; text-align: center; }
+.sf-node.is-decision:hover { background: none; }
+.sf-diamond { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.sf-diamond polygon { fill: var(--card); stroke: var(--lane); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sf-node.is-decision:hover .sf-diamond polygon { fill: color-mix(in srgb, var(--lane) 8%, var(--card)); }
+.sf-node.is-decision.is-current { box-shadow: none; }
+.sf-node.is-decision.is-current .sf-diamond polygon { stroke: var(--accent); stroke-width: 3; filter: drop-shadow(0 0 4px var(--accent-tint)); }
+.sf-node-body { position: relative; display: flex; align-items: center; gap: var(--s-2); min-width: 0; width: 100%; }
+.sf-node.is-decision .sf-node-body { flex-direction: column; gap: 2px; }
+.sf-node-top { flex: none; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.sf-node.is-decision .sf-node-top { flex-direction: row; gap: var(--s-1); }
+.sf-node-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sf-node.is-decision .sf-node-text { align-items: center; }
+.sf-badge { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border: 1.5px solid var(--lane); border-radius: 50%; background: var(--card); color: var(--lane); font-size: var(--fs-2xs); font-weight: var(--fw-bold); }
+.sf-node.is-seen .sf-badge { background: var(--lane); color: var(--card); }
+.sf-seen { font-size: var(--fs-2xs); font-weight: var(--fw-bold); color: var(--ok); }
+.sf-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-sm); font-weight: var(--fw-semibold); line-height: 1.25; }
+.sf-node.is-decision .sf-title { font-size: var(--fs-xs); }
+.sf-inside { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-2xs); color: var(--muted); }
+.sf-ghost { box-sizing: border-box; width: 100%; height: 100%; display: flex; align-items: center; padding: 4px 8px; border: 1px dashed var(--line-strong); border-left: 3px dashed var(--lane); border-radius: var(--r-md); background: var(--card); opacity: 0.55; }
+.sf-ghost.is-error { border-color: var(--warn); }
+.sf-ghost-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-xs); color: var(--muted); line-height: 1.2; }
+.sf-edge .react-flow__edge-path { stroke: var(--muted); stroke-width: 1.5; }
+.sf-edge.is-taken.is-played .react-flow__edge-path { stroke: var(--accent); stroke-width: 2; }
+.sf-edge.is-ghost .react-flow__edge-path { stroke-dasharray: 5 4; opacity: 0.55; }
+.sf-edge.is-error .react-flow__edge-path { stroke: var(--warn); }
+.sf-edge .react-flow__edge-text { font-size: 11px; font-weight: 600; fill: var(--ink); }
+.sf-edge.is-ghost .react-flow__edge-text { fill: var(--muted); }
+
+.sf-detail { position: sticky; top: 0; display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-5); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); max-height: calc(100vh - 160px); overflow: auto; }
+.sf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.sf-count { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.sf-step { display: flex; flex-direction: column; gap: var(--s-3); padding-top: var(--s-3); border-top: 4px solid var(--lane); font-size: var(--fs-sm); }
+.sf-step.is-seen .step-badge { background: var(--lane); color: var(--card); }
+.sf-kind { padding: 0 var(--s-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-2xs); color: var(--muted); }
+.sf-path { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; color: var(--muted); }
+.sf-path .link { padding: 0 var(--s-1); font-size: var(--fs-sm); }
+.sf-path code { font-size: var(--fs-2xs); }
+.sf-not-taken ul { margin: var(--s-1) 0 0; padding-left: var(--s-4); }
+.sf-not-taken .link { padding: 0 var(--s-1); font-size: var(--fs-sm); }
+.sf-not-taken-label { font-weight: var(--fw-semibold); }
+.sf-end { padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); }
+@media (max-width: 1100px) {
+  .sf-board { grid-template-columns: minmax(0, 1fr); }
+  .sf-detail { position: static; max-height: none; }
+}
+
+/* The detail of a step: number circle, lane, "seen", the title, the example, the contract. */
 .step-panel-head { display: flex; align-items: center; gap: var(--s-2); }
 .step-badge { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid var(--lane); border-radius: 50%; background: var(--card); color: var(--lane); font-size: var(--fs-sm); font-weight: var(--fw-bold); }
-.step-panel.is-seen .step-badge { background: var(--lane); color: var(--card); }
 .step-lane { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--lane); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seen-chip { margin-left: auto; padding: 0 var(--s-2); border-radius: var(--r-pill); background: var(--ok-tint); color: var(--ok); font-size: var(--fs-2xs); font-weight: var(--fw-semibold); }
-.step-title { font-size: var(--fs-base); font-weight: var(--fw-bold); line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
+.step-title { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-bold); line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
 .step-branch { align-self: flex-start; padding: 1px var(--s-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-2xs); font-weight: var(--fw-semibold); color: var(--ink); white-space: nowrap; }
 .step-example { display: flex; flex-direction: column; gap: var(--s-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .step-example > p { margin: 0; color: var(--muted); }
-/* Example values on a step card read as "key: value" lines in the body font (page 3). */
+/* Example values read as "key: value" lines in the body font (page 3). */
 .step-example .kv { display: flex; flex-direction: column; gap: 2px; margin: 0; }
 .step-example .kv-row { display: block; }
 .step-example .kv dt, .step-example .kv dd { display: inline; margin: 0; font-family: var(--font); font-size: var(--fs-sm); color: var(--ink); }
 .step-example .kv dt::after { content: ': '; }
 .step-kv-label { margin: 0 0 2px; font-size: var(--fs-2xs); font-weight: var(--fw-bold); letter-spacing: 0.04em; color: var(--muted); }
 .step-kv.is-then .step-kv-label:first-child { color: var(--ok); }
-.step-contract { display: grid; grid-template-columns: auto 1fr; gap: 1px var(--s-2); margin: auto 0 0; padding-top: var(--s-2); border-top: 1px solid var(--line); font-size: var(--fs-2xs); color: var(--muted); }
+.step-contract { display: grid; grid-template-columns: auto 1fr; gap: 1px var(--s-2); margin: 0; padding-top: var(--s-2); border-top: 1px solid var(--line); font-size: var(--fs-2xs); color: var(--muted); }
 .step-contract dd { margin: 0; overflow-wrap: anywhere; }
 
-/* The two cards under the steps: the expected end state, and Approve. */
+/* The two cards under the chart: the expected end state, and Approve. */
 .card-bottom { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-8); margin-top: var(--s-4); }
 .card-box { display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-6); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); }
 .card-box h2 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--ink); }
