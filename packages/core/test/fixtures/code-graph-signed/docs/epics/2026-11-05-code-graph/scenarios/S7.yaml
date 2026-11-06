@@ -1,0 +1,53 @@
+story: S7
+scenarios:
+  - id: S7-url-match
+    title: A fetch URL matches a FastAPI route by name
+    status: approved
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - name: update-graph/link
+        example: { id: link-url, given: { route: { method: GET, path: "/api/orders/{order_id}", handler: get_order }, fetch: { method: GET, url: "/api/orders/{id}" } }, then: { edges: [ { kind: http-calls, from: "fetch in loadOrder", to: get_order, trust: name-match } ] } }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S7-A1, state: { httpCallsEdge: "loadOrder fetch -> get_order", trust: name-match } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:39Z'
+      hash: 'sha256:d5d1be5b74ac19ef7efc43958deecaf679bc5acee8f795d3277eb8d33fdd8a8e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABANuQeW/T4LGvZtSMV/6KL06Nr3p9s8LIBst3JIP8IQmsz/rAE12qMPfi2jD
+        b8kHi2SY2l3+RlXCEQ2+1P4k1wAg==
+        -----END SSH SIGNATURE-----
+
+  - id: S7-openapi
+    title: An OpenAPI operationId makes the http-calls edge exact
+    status: approved
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - name: update-graph/link
+        example: { id: link-openapi, given: { openapi: { operationId: getOrder }, client: { operationId: getOrder } }, then: { edges: [ { kind: http-calls, to: get_order, trust: exact, source: openapi } ] } }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S7-A2, state: { httpCallsEdge: "loadOrder fetch -> get_order", trust: exact } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:24:49Z'
+      hash: 'sha256:d2e5314bd6e501cb578b3654e180f94ecf5d6e5476788732a822e98870fd2053'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAh/1teF5/wS0klbrQjkOfifFLvldrCWhpEXBJVlGfH0c5/1DNACfIMMbstO
+        HvYGLPE4rUuiRJzDzpcBHB1PzLDw==
+        -----END SSH SIGNATURE-----

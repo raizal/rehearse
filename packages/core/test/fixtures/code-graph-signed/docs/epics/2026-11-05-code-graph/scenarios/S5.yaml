@@ -1,0 +1,110 @@
+story: S5
+scenarios:
+  - id: S5-update-one-file
+    title: Agent changes one file and the next query updates only that file
+    status: approved
+    steps:
+      - { name: start }
+      - { name: ask }
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-one-changed, given: { changedOnDisk: [ src/orders.ts ] }, then: { mode: update, changed: [ src/orders.ts ], removed: [] } }
+      - { name: update-graph/mode, branch: update }
+      - name: update-graph/warm-update
+        example: { id: warm-one, given: { changed: [ src/orders.ts ] }, then: { run: { mode: update, changedFiles: 1, trigger: query } } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: show }
+      - { name: run-query/show }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S5-A1, state: { IndexRun.changedFiles: 1, IndexRun.status: written, answerHasNewCode: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:27:36Z'
+      hash: 'sha256:cbc9dcdce250191fe347403ec1decbb236b722c71f26b007164bdd5ca3246894'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAVTLBSmOAdpBiJwuxieID14YKP0xYN9u/uOhBZa/7J877PNKkQr3TiQCASa
+        9SypOUWmZWKDZpOQHz+Q3HmBpLAg==
+        -----END SSH SIGNATURE-----
+
+  - id: S5-cold-first-query
+    title: The first query in a repo makes the graph
+    status: approved
+    steps:
+      - { name: start }
+      - { name: ask }
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-no-db, given: { graphDb: missing }, then: { mode: cold } }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - name: update-graph/write
+        example: { id: write-db, given: {}, then: { files: [ .rehearse/graph.db ], gitStatus: clean } }
+        # gitStatus is clean because `rehearse new` put .rehearse/graph.db* in .gitignore (G29).
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: find }
+      - { name: run-query/find }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S5-A2, state: { graphDbExists: true, IndexRun.mode: cold, answered: true, gitStatusNewFiles: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:24:05Z'
+      hash: 'sha256:7e477a78e3e3c1f8a0729cdfdde78ec69bd9faa5481c3b16a58377aa54b36741'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA17xOXI9Hzzqf71GoKrOM3fp1xDP5/VIz5pOrnuEPFLSs74tAbojqRIjcsn
+        /ytmrYXknNXq0TOKgp/W2B6ax6Cw==
+        -----END SSH SIGNATURE-----
+
+  - id: S5-rebuild
+    title: Agent asks for a full rebuild with --rebuild
+    status: approved
+    steps:
+      - { name: start }
+      - name: ask
+        example: { id: ask-rebuild, given: { verb: find, target: "order by id", rebuild: true }, then: { query: { verb: find, target: "order by id", rebuild: true } } }
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-rebuild, given: { changedOnDisk: [], query: { rebuild: true } }, then: { mode: cold, changed: [ src/orders.ts, src/pay.ts, api/orders.py ], removed: [] } }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: find }
+      - { name: run-query/find }
+      - { name: run-query/answer }
+      - { name: asker, branch: cli }
+      - { name: got-it }
+    expect: { criterion: S5-A3, state: { IndexRun.mode: cold, IndexRun.status: written, answered: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:24:33Z'
+      hash: 'sha256:393d1c0e290db7b11cf7f6805686b14ea1629e896fa2552eae30ca62e5d8df7d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA/YCsCRoxcCwKCqBG5g/Yw/6DOWa1h1LvI4C1s536gA47r86iGFWauLBGio
+        lNb+8FBnZfm0u0FhlWpYynwhJgDw==
+        -----END SSH SIGNATURE-----

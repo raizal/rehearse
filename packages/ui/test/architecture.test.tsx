@@ -55,7 +55,8 @@ describe('T16 2 architecture view (page 8)', () => {
     expect(screen.getByTestId('arch-zone-repo').textContent).toMatch(/\w/);
     expect(screen.getByTestId('arch-part-cli')).toHaveTextContent('serve');
     expect(screen.getByTestId('arch-part-builder')).toBeInTheDocument();
-    expect(screen.getAllByTestId(/^arch-link-/).length).toBe(17);
+    expect(screen.getByTestId('arch-part-graph')).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^arch-link-/).length).toBe(20);
     expect(screen.getAllByTestId(/^arch-link-/).some((l) => (l.querySelector('.arch-link-label')?.textContent ?? '') !== '')).toBe(true);
     expect(within(screen.getByTestId('arch-legend')).getByText(/trust zone/)).toBeInTheDocument();
     const notes = screen.getByTestId('arch-notes');

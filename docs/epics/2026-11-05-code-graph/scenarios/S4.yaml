@@ -16,8 +16,10 @@ scenarios:
       - { name: run-query/target }
       - { name: run-query/verb, branch: context }
       - name: run-query/context
-        example: { id: context-budget, given: { node: getOrderById, linkedChars: 9000, budget: 2000 }, then: { bundle: { tokens: 1990, items: [ getOrderById, loadRow, loadOrder, orders.test.ts ] } } }
-        # items: target first, then graph distance 1 (by PageRank), then distance 2
+        example: { id: context-budget, given: { node: getOrderById, linkedChars: 9000, budget: 2000 }, then: { bundle: { tokens: 1988, items: [ getOrderById, loadRow, loadOrder, "orders > reads one order by its id, with the total of its lines in cents" ] } } }
+        # items: target first, then graph distance 1 (by PageRank), then distance 2.
+        # The fourth item is the test node in src/orders.test.ts. It has both a calls edge and a
+        # tests edge to getOrderById; the calls edge is found first, so its role is caller. (C7)
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }

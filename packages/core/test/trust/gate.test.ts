@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { detectStale, gateEpic, gateRecord, loadEpic, reportToJson, signOff, type Finding } from '../../src/index.js';
-import { BOOTSTRAP_EPIC, CODE_GRAPH_EPIC, hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedApprovals } from '../helpers.js';
+import { BOOTSTRAP_EPIC, CODE_GRAPH_SIGNED_EPIC, hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedApprovals } from '../helpers.js';
 import { approvedEpic, ME, NOW, SHOP_SCENARIOS, SIGNED, signedEpic } from './helpers.js';
 import { KEY } from './keys.js';
 
@@ -155,11 +155,12 @@ describe('gate check', () => {
     }
   });
 
-  it('dogfood: the live code-graph EPIC fails only for the stories the owner has not signed off (D17); nothing is written', () => {
-    const before = hashDir(CODE_GRAPH_EPIC);
-    const { record } = loadEpic(CODE_GRAPH_EPIC);
-    const report = gateEpic(CODE_GRAPH_EPIC);
-    expect(hashDir(CODE_GRAPH_EPIC)).toBe(before);
+  // A frozen copy of the signed EPIC: T35's record corrections made the live one stale until the owner signs again.
+  it('dogfood: the signed code-graph EPIC fails only for the stories the owner has not signed off (D17); nothing is written', () => {
+    const before = hashDir(CODE_GRAPH_SIGNED_EPIC);
+    const { record } = loadEpic(CODE_GRAPH_SIGNED_EPIC);
+    const report = gateEpic(CODE_GRAPH_SIGNED_EPIC);
+    expect(hashDir(CODE_GRAPH_SIGNED_EPIC)).toBe(before);
     // Robust to the owner's signing state: one signed-off finding per story with no sign-off, and no other kind.
     const notSignedOff = detectStale(record).stories.filter((s) => s.status === 'draft').map((s) => s.id).sort();
     const signedOff = report.findings.filter((f) => f.message.endsWith('is not signed off; the owner signs it off in the UI'));

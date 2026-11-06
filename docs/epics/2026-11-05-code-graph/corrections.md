@@ -35,3 +35,46 @@ and no approval was made. That run gave 1 finding.
 `rehearse validate` gave no findings. The simulate engine ran again on an in-memory copy
 in which each draft counts as approved (29 scenarios, the 3 new ones included). No file was
 written and no approval was made. That run gave no findings, so this run adds no entry.
+
+## 2026-11-06 — the record after the build (T28–T34, applied by T35)
+
+The build threads T28–T34 proposed these corrections in their reports. The owner chose to
+apply all of them. T35 checked each one against the code on main before writing it. The
+edited scenarios and the stories they serve are stale until the builder approves and signs
+off again; no approval and no sign-off was made.
+
+- **C4** `caught-after-build` · architecture, entity `GraphNode` (T28)
+  - Status: DONE in the record (docs/system/architecture.yaml, architecture.yaml, entities.yaml)
+  - What: The as-is system had no `graph` component though packages/graph is built. `GraphNode.route` (method and full path of a route node) was built but not listed.
+  - Why: D43: docs/system/ says what is built. An http-calls edge needs a route as its target.
+  - Fix: docs/system/architecture.yaml has the `graph` component (`code: [packages/graph/src]`) and its links cli → graph, serve → graph and graph → repo. The EPIC's architecture.yaml now marks those as `changed`, not `added` (validate requires it). graph-db and graph-bench stay `added` in the EPIC. entities.yaml lists `GraphNode.route`. Checked with no change: the record already says `defines` (not "contains"), QueryAnswer already lists `bundle`, and the `exact` trust of the S2 and S3 examples is now true with the T29 resolvers.
+- **C5** `caught-after-build` · scenario `S6-python-venv`, criteria `S6-A3`, `S6-A4`, boxes `update-graph/bulk-index`, `update-graph/warm-update` (T29)
+  - Status: DONE in the record (prd.yaml R12, S6-A3, S6-A4; flow.yaml; S6.yaml)
+  - What: S6-A3's example listed basedpyright on a cold index, but S6-A4 lists `[tree-sitter, ts-morph, scip-python]`. "No LSP request per call site" read as if it held for updates too. Nothing said that an update and a cold index give the same edges apart from `source`.
+  - Why: basedpyright runs on updates only. An update sends one definition request for each reference site in the changed files and in the files that may point into them. The same edge comes from scip-python on a cold index and from basedpyright on an update.
+  - Fix: S6-python-venv's resolvers are `[tree-sitter, scip-python]`; S6-A3 and S6-A4 say the cold-only scope; R12 and warm-update name the definition requests; warm-update says that its edges equal a cold index apart from `source`.
+- **C6** `caught-after-build` · box `update-graph/link`, requirement `R11`, `R15`, scenarios `S2-near`, `S8-tests` (T30)
+  - Status: DONE in the record (prd.yaml R11, R15; brainstorm.md G13; flow.yaml; entities.yaml; S2.yaml; S8.yaml)
+  - What: A new commit or a record edit changes no source file, so the query would skip the update. D44 (a parent box includes its children's commits) is not in the graph. The S2 and S8 examples drew `tests` edges from the test file.
+  - Why: Linkers declare themselves stale and keep their state in graph.db. A `builds` edge starts at the box the Flow-Box trailer names. A `tests` edge starts at the test node.
+  - Fix: update-graph/link and hash-files say so; R11, R15 and G13 say so; S2-near and S8-tests start their `tests` edges at the test nodes (`orders > reads one order by its id`, `test_get_order_by_id`). Checked with no change: the edge kinds `http-calls`, `tests`, `builds`, `changes`, `references` and the node kinds `commit`, `box`, `requirement`, `story`, `scenario` were already in entities.yaml.
+- **C7** `caught-after-build` · requirement `R3`, decision `G6`, scenario `S4-context-budget`, entity `ContextBundle` (T31)
+  - Status: DONE in the record (prd.yaml R3; brainstorm.md G6; entities.yaml; flow.yaml; S4.yaml)
+  - What: G6 and R3 set no default budget, and did not say what the tokens count. S4-context-budget named its fourth item `orders.test.ts` with 1,990 tokens. ContextItem's `role` and `distance` were not in entities.yaml.
+  - Why: The built default is 2,000 tokens, and tokens count the code of the items, not the JSON or text around it. On the fixture the fourth item is the test node "orders > reads one order by its id, with the total of its lines in cents" in src/orders.test.ts, and the bundle has 1,988 tokens (context.test.ts).
+  - Fix: R3, G6 and ContextBundle say both; the new entity ContextItem has node, role, distance, code and tokens; S4-context-budget has the test node and 1,988 tokens. Not applied as proposed: the item's role is `caller`, not `test`. The test node has a calls edge and a tests edge to getOrderById, the calls edge is found first, and context.test.ts asserts `caller`. The scenario's comment says so.
+- **C8** `caught-after-build` · boxes `drill-code`, `serve-query`, `code-view`, requirements `R16`, `R17`, criterion `S9-A1` (T32)
+  - Status: DONE in the record (prd.yaml R16, R17, S9-A1; flow.yaml; entities.yaml)
+  - What: The record did not name the AST outline's source, the panel fields of the graph route, its 400 and 404 answers, the Flow-Box files fallback or the "Show all" button. S9-A1 said "the function the box builds", but with blame-based `builds` edges a box usually builds many.
+  - Why: The outline is `outlineNode` (at most 300 nodes). Show answers carry `ends` and `outline`. Not found is 404, a bad query 400, and a token or Origin failure 403 before any graph work.
+  - Fix: code-view, serve-query and drill-code comments, QueryAnswer's comment, R16, R17 and S9-A1 say so.
+- **C9** `caught-after-build` · entity `FileHash`, box `update-graph/hash-files`, requirement `R6` (T34)
+  - Status: DONE in the record (entities.yaml; flow.yaml; prd.yaml R6; brainstorm.md G5)
+  - What: FileHash had no mtime or size, and the record said each query hashes every file and makes every edge again.
+  - Why: FileHash has `mtimeMs` and `size` (store schema 2; an old store is rebuilt). The check skips a file whose mtime and size match; a file whose mtime is within 2 s of its last read is always read again; the hash stays the truth. Blind spot: an edit that keeps the size and leaves the old mtime is not seen until `--rebuild`. An update makes again only the reference edges that can point into what changed; files that come or go, or a workspace change, make every reference edge again.
+  - Fix: FileHash lists both fields; hash-files reads them and names the blind spot; warm-update and R6 name the reference-edge rule.
+- **C10** `caught-after-build` · requirement `R9`, decision `G11`, criterion `S10-A2`, scenario `S10-warm-bench` (T33, T34)
+  - Status: DONE in the record (brainstorm.md G11, G32; prd.yaml R9, S10-A2; flow.yaml bench; S10.yaml)
+  - What: The record did not say whether a query's time includes its freshness check, or which run the benchmark checks. The S10-warm-bench numbers (180 ms, 40 ms) were never measured. G11 did not say where the 300 ms update target holds.
+  - Why: The bench includes the freshness check in each query and checks the median of its runs. Owner decision G32: the update target holds for the graph open in one process (serve, review page) with all resolvers, and for the CLI with wave 1; a CLI process per update with the exact resolvers takes about 0.4–0.7 s (T34), and that is accepted.
+  - Fix: G11, R9 and S10-A2 say so; G32 is new. S10-warm-bench has the medians that `bench --files 1000 --seed 1 --runs 3` measured on 2026-11-06: wave1 update 249 ms, queries up to 37 ms (exact: 228 ms and 40 ms, in its comment). S10-cold-bench (21,000 ms) was not asked for and still passes its target; measured: 1,789 ms (wave1), 10,114 ms (exact).

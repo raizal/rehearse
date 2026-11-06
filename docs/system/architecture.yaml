@@ -75,6 +75,12 @@ components:
     zone: repo
     about: 'loader · validate · simulate · trust: gate, readiness, story hash, stale, signature'
     code: [packages/core/src]
+  - id: graph
+    name: '@rehearse/graph'
+    zone: repo
+    about: 'index: tree-sitter · ts-morph · scip-python · basedpyright · OpenAPI · git trailers; query: BM25 · PageRank · find · show · near · path · context'
+    code: [packages/graph/src]
+    # Landed with the code-graph EPIC (C4 of docs/epics/2026-11-05-code-graph/corrections.md).
   - id: ssh-keygen
     name: ssh-keygen
     zone: repo
@@ -121,6 +127,9 @@ links:
   - { from: core, to: repo, label: read / write YAML }
   - { from: agent, to: cli, label: runs }
   - { from: cli, to: repo, label: edits YAML drafts (never approvals) }
+  - { from: cli, to: graph, label: find · show · near · path · context }
+  - { from: serve, to: graph, label: 'queries · update on save' }
+  - { from: graph, to: repo, label: 'parse source · Flow-Box trailers · record YAML' }
   - { from: repo, to: ci-runner, label: 'PR head: record + allowed_signers' }
   - { from: pull-request, to: ci-runner }
   - { from: ci-runner, to: gate }

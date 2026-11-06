@@ -1,0 +1,444 @@
+# rehearse code graph — flow (to-be). The as-is is rehearse v1 (docs/system/). (D4, D43)
+# Status: draft.
+# Box contract (D10): inputs, outputs, reads, writes, sideEffects, errorExits,
+# stories, lane. Each error exit is an edge with kind: error.
+# Each box names the package that builds it (`package:`, C36) and may name the
+# decisions behind it (`decisions:`, C37).
+#
+# Package: the indexer and the five queries are a new package, `graph` (@rehearse/graph),
+# not a module of `core`. Why:
+# - core runs validate, simulate and the gate in CI (D26). It must stay small, with no
+#   native or WASM code and no language servers. The graph needs web-tree-sitter (WASM),
+#   ts-morph with a pinned TypeScript 6.x, scip-python and basedpyright (G15).
+# - The graph has its own store (.rehearse/graph.db, G3) and its own speed targets (G11).
+#   A separate package can have its own benchmark and its own dependency pins.
+# - The CLI and serve both use it (G8), as they both use core. The CLI verbs are in `cli`,
+#   the graph route is in `server`, and the Code view is in `ui`.
+
+version: 1
+epic: 2026-11-05-code-graph
+# Every box has these fields as inputs without declaring them. (C14)
+# One run answers at most one query: `query` is missing when the serve watcher starts the run.
+context: { repoRoot: string, query: "GraphQuery?" }
+
+lanes:
+  - { role: agent,    order: 1 }
+  - { role: builder,  order: 2 }
+  - { role: rehearse, order: 3 }   # the tool itself (system)
+  - { role: ci,       order: 4 }   # an external CI service, not rehearse (C36)
+
+root:
+  boxes:
+    # --- An agent asks the graph (G1) ---
+    - id: start
+      kind: start
+      lane: agent
+      package: cli
+      title: Agent needs code for a task
+
+    - id: ask
+      kind: input
+      lane: agent
+      package: cli
+      title: Run find, show, near, path or context
+      stories: [S1, S2, S3, S4, S5]
+      decisions: [G1, G7, G26, G29]
+      inputs:  { verb: "enum[find, show, near, path, context]", target: string, to: "string?", budget: "number?",
+                 depth: "number?", rebuild: "boolean?", json: "boolean?" }
+      outputs: { query: GraphQuery }
+      # Missing or bad arguments are a usage error (exit 2), not an error exit. (C20)
+
+    # --- The builder opens the code below a leaf box (D19, G8) ---
+    - id: open-box
+      kind: start
+      lane: builder
+      package: ui
+      title: Builder opens a leaf box in the review
+
+    - id: drill-code
+      kind: input
+      lane: builder
+      package: ui
+      title: Open the Code view of a leaf box
+      stories: [S9]
+      decisions: [G8]
+      inputs:  { box: string }
+      outputs: { query: GraphQuery }   # verb show, target the box node, from panel
+
+    - id: serve-query
+      kind: process
+      lane: rehearse
+      package: server
+      title: Check the session token and origin of the graph request
+      stories: [S9]
+      decisions: [G8, G20, D45]
+      inputs:  { query: GraphQuery, token: "string?", origin: "string?" }
+      # The one graph route: GET /api/graph?verb=show|near&target=… (G20).
+      outputs: { query: GraphQuery }
+      errorExits: [forbidden]
+
+    - id: refused
+      kind: end
+      lane: builder
+      package: ui
+      title: Panel gets 403 and no graph data
+
+    # --- serve watches files (G5) ---
+    - id: file-saved
+      kind: start
+      lane: rehearse
+      package: server
+      title: A file changes while serve runs
+
+    - id: watch
+      kind: process
+      lane: rehearse
+      package: server
+      title: Watch files and start an update
+      stories: [S9]
+      decisions: [G5]
+      inputs:  { path: string }
+      outputs: { changed: "list string" }
+
+    # --- Keep graph.db fresh: every run starts here (G5) ---
+    - id: update-graph
+      kind: process
+      lane: rehearse
+      package: graph
+      title: Bring graph.db up to date
+      stories: [S5, S6, S7, S8, S9]
+      decisions: [G3, G5]
+      inputs:  { }
+      outputs: { run: IndexRun }
+      reads:   [FileHash.*]
+      writes:  [GraphNode.*, GraphEdge.*, FileHash.*, IndexRun.*]
+      children:
+        boxes:
+          - id: scope
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Find tsconfig files, source files and the Python environment
+            stories: [S6]
+            decisions: [G12, G19]
+            inputs:  { }
+            outputs: { files: "list string", tsconfigs: "list string", venv: "string?" }
+            # Python environment: .venv, then uv or poetry, then pyright config (venvPath/venv).
+            # node_modules and the venv are not in `files` (G12).
+          - id: hash-files
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Compare file content hashes
+            stories: [S5]
+            decisions: [G5, G29]
+            inputs:  { files: "list string", tsconfigs: "list string", venv: "string?" }
+            outputs: { mode: "enum[cold, update, none]", changed: "list string", removed: "list string",
+                       tsconfigs: "list string", venv: "string?", run: IndexRun }
+            reads:   [FileHash.hash]
+            writes:  ["IndexRun.status:->running", IndexRun.mode, IndexRun.trigger, IndexRun.files,
+                      IndexRun.changedFiles, IndexRun.venv, IndexRun.startedAt]
+            # No graph.db, or an empty one, means mode cold: every file is new.
+            # query.rebuild (--rebuild) also means mode cold, whatever the hashes say (G29).
+          - id: mode
+            kind: decision
+            lane: rehearse
+            package: graph
+            title: What changed?
+            stories: [S5]
+            inputs:  { mode: "enum[cold, update, none]", changed: "list string", removed: "list string",
+                       tsconfigs: "list string", venv: "string?", run: IndexRun }
+          - id: bulk-index
+            kind: process
+            lane: rehearse
+            package: graph
+            title: "Cold index: tree-sitter, then ts-morph and scip-python in bulk"
+            stories: [S5, S6]
+            decisions: [G15, G16]
+            inputs:  { changed: "list string", tsconfigs: "list string", venv: "string?", run: IndexRun }
+            outputs: { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
+            writes:  [IndexRun.resolvers]
+            sideEffects: [runs scip-python once over the Python files (npm; the host needs no Python)]
+            # A cold index uses a bulk source, not one LSP request per call site (G15).
+          - id: warm-update
+            kind: process
+            lane: rehearse
+            package: graph
+            title: "Update changed files: tree-sitter, warm ts-morph and basedpyright"
+            stories: [S5]
+            decisions: [G5, G15]
+            inputs:  { changed: "list string", removed: "list string", venv: "string?", run: IndexRun }
+            outputs: { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
+            writes:  [IndexRun.resolvers]
+            sideEffects: [keeps a basedpyright language server and a ts-morph project warm in the process]
+          - id: link
+            kind: process
+            lane: rehearse
+            package: graph
+            title: "Add links: http-calls, tests, builds, commits, record"
+            stories: [S7, S8]
+            decisions: [G4, G13, G17, G18, G23, G25, G30]
+            inputs:  { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
+            outputs: { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
+            sideEffects: [runs git log for Flow-Box trailers and git blame on the changed lines,
+                          reads docs/epics/*/ record files, and reads an OpenAPI spec only when the repo has one (G23)]
+            # Test adapters: Vitest and pytest only, static edges, no test run (G25).
+            # Edge kinds: changes for commit → code, references for the record links (G30).
+          - id: rank
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Compute PageRank
+            stories: [S4]
+            decisions: [G14]
+            inputs:  { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
+            outputs: { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
+          - id: write
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Write graph.db in one transaction
+            stories: [S5]
+            decisions: [G3]
+            inputs:  { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
+            outputs: { run: IndexRun }
+            writes:  [GraphNode.*, GraphEdge.*, FileHash.*, "IndexRun.status:running->written", IndexRun.ms]
+          - id: unchanged
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Record that no file changed
+            stories: [S1]
+            decisions: [G5]
+            inputs:  { run: IndexRun }
+            outputs: { run: IndexRun }
+            writes:  ["IndexRun.status:running->unchanged", IndexRun.ms]
+          - id: fresh
+            kind: output
+            lane: rehearse
+            package: graph
+            title: Graph is up to date
+            stories: [S5]
+            inputs:  { run: IndexRun }
+            outputs: { run: IndexRun }
+        edges:
+          - { from: scope,       to: hash-files }
+          - { from: hash-files,  to: mode }
+          - { from: mode,        to: bulk-index,  label: cold,   kind: branch }
+          - { from: mode,        to: warm-update, label: update, kind: branch }
+          - { from: mode,        to: unchanged,   label: none,   kind: branch }
+          - { from: unchanged,   to: fresh }
+          - { from: bulk-index,  to: link }
+          - { from: warm-update, to: link }
+          - { from: link,        to: rank }
+          - { from: rank,        to: write }
+          - { from: write,       to: fresh }
+
+    - id: asked
+      kind: decision
+      lane: rehearse
+      package: graph
+      title: A query waits?
+      inputs: { run: IndexRun }
+
+    - id: graph-updated
+      kind: end
+      lane: rehearse
+      package: server
+      title: graph.db is fresh, no query waits
+
+    # --- Answer the query (G1, G2, G6) ---
+    - id: run-query
+      kind: process
+      lane: rehearse
+      package: graph
+      title: Answer the query
+      stories: [S1, S2, S3, S4, S9]
+      decisions: [G1, G8]
+      inputs:  { query: GraphQuery }
+      outputs: { answer: QueryAnswer }
+      reads:   [GraphNode.*, GraphEdge.*, IndexRun.venv]
+      children:
+        boxes:
+          - id: target
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Find the target node (find has none)
+            stories: [S2]
+            decisions: [G10, G27]
+            inputs:  { query: GraphQuery }
+            outputs: { query: GraphQuery, node: "GraphNode?", to: "GraphNode?" }
+            # not-found: exit code 1 and the note "not found" (G27).
+            reads:   [GraphNode.id, GraphNode.name]
+            errorExits: [not-found]
+          - id: verb
+            kind: decision
+            lane: rehearse
+            package: graph
+            title: Which verb?
+            inputs:  { query: GraphQuery, node: "GraphNode?", to: "GraphNode?" }
+          - id: find
+            kind: process
+            lane: rehearse
+            package: graph
+            title: BM25 search on split identifiers
+            stories: [S1]
+            decisions: [G2]
+            inputs:  { query: GraphQuery }
+            outputs: { nodes: "list GraphNode" }
+            reads:   [GraphNode.terms, GraphNode.name]
+          - id: show
+            kind: process
+            lane: rehearse
+            package: graph
+            title: "One node: code, place, ID and its edges with trust"
+            stories: [S2, S6, S9]
+            decisions: [G1, G10]
+            inputs:  { node: GraphNode }
+            outputs: { nodes: "list GraphNode", edges: "list GraphEdge" }
+            reads:   [GraphNode.*, GraphEdge.*]
+          - id: near
+            kind: process
+            lane: rehearse
+            package: graph
+            title: The nodes linked to the target, with edge kind and trust
+            stories: [S2, S7, S8]
+            decisions: [G1, G4, G26]
+            inputs:  { node: GraphNode, query: GraphQuery }   # query.depth: default 1 (G26)
+            outputs: { nodes: "list GraphNode", edges: "list GraphEdge" }
+            reads:   [GraphNode.*, GraphEdge.*]
+          - id: path
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Shortest path between two nodes
+            stories: [S3]
+            decisions: [G1, G28]
+            inputs:  { node: GraphNode, to: GraphNode }
+            outputs: { edges: "list GraphEdge" }
+            reads:   [GraphEdge.*]
+            errorExits: [no-path]
+            # no-path: exit code 1 and the note "no path" (G28).
+          - id: context
+            kind: process
+            lane: rehearse
+            package: graph
+            title: Rank by distance and PageRank, fill the token budget
+            stories: [S4]
+            decisions: [G6, G14, G19]
+            inputs:  { node: GraphNode, query: GraphQuery }
+            outputs: { bundle: ContextBundle }
+            reads:   [GraphNode.rank, GraphEdge.*, IndexRun.venv]
+          - id: answer
+            kind: output
+            lane: rehearse
+            package: graph
+            title: Give the answer as text or --json
+            stories: [S1, S2, S3, S4]
+            decisions: [G1]
+            inputs:  { nodes: "list GraphNode?", edges: "list GraphEdge?", bundle: "ContextBundle?" }
+            outputs: { answer: QueryAnswer }
+        edges:
+          - { from: target,  to: verb }
+          - { from: target,  to: answer,  label: not-found, kind: error }
+          - { from: verb,    to: find,    label: find,    kind: branch }
+          - { from: verb,    to: show,    label: show,    kind: branch }
+          - { from: verb,    to: near,    label: near,    kind: branch }
+          - { from: verb,    to: path,    label: path,    kind: branch }
+          - { from: verb,    to: context, label: context, kind: branch }
+          - { from: find,    to: answer }
+          - { from: show,    to: answer }
+          - { from: near,    to: answer }
+          - { from: path,    to: answer }
+          - { from: path,    to: answer,  label: no-path, kind: error }
+          - { from: context, to: answer }
+
+    - id: asker
+      kind: decision
+      lane: rehearse
+      package: graph
+      title: Who asked?
+      inputs: { answer: QueryAnswer }
+
+    - id: got-it
+      kind: end
+      lane: agent
+      package: cli
+      title: Agent has the answer (exit code and text or JSON)
+
+    - id: code-view
+      kind: output
+      lane: builder
+      package: ui
+      title: Code, AST and call graph below the box, read only
+      stories: [S9]
+      decisions: [G8, D19, D44]
+      inputs:  { answer: QueryAnswer }
+      outputs: { view: "list string" }
+
+    - id: seen
+      kind: end
+      lane: builder
+      package: ui
+      title: Builder has seen the code of the box
+
+    # --- CI checks the speed targets (G11) ---
+    - id: bench-start
+      kind: start
+      lane: ci
+      package: graph
+      title: A benchmark run starts
+
+    - id: bench
+      kind: external
+      lane: ci
+      package: graph
+      title: "Benchmark: cold index, one-file update, queries"
+      stories: [S10]
+      decisions: [G11, G24]
+      inputs:  { fixture: string }   # 1,000 generated files, fixed seed (G24)
+      outputs: { exitCode: number, timings: map }
+      reads:   [IndexRun.mode, IndexRun.files, IndexRun.ms]
+      writes:  []
+      sideEffects: [runs the same graph package as the CLI, on a generated repo]
+
+    - id: bench-ok
+      kind: decision
+      lane: ci
+      package: graph
+      title: Each time under its target?
+      inputs: { exitCode: number }
+
+    - id: bench-pass
+      kind: end
+      lane: ci
+      package: graph
+      title: PR may merge
+
+    - id: bench-fail
+      kind: end
+      lane: ci
+      package: graph
+      title: PR blocked, timings attached
+
+  edges:
+    - { from: start,        to: ask }
+    - { from: ask,          to: update-graph }
+    - { from: open-box,     to: drill-code }
+    - { from: drill-code,   to: serve-query }
+    - { from: serve-query,  to: update-graph }
+    - { from: serve-query,  to: refused,       label: forbidden, kind: error }
+    - { from: file-saved,   to: watch }
+    - { from: watch,        to: update-graph }
+    - { from: update-graph, to: asked }
+    - { from: asked,        to: run-query,     label: "yes", kind: branch }
+    - { from: asked,        to: graph-updated, label: "no",  kind: branch }
+    - { from: run-query,    to: asker }
+    - { from: asker,        to: got-it,        label: cli,   kind: branch }
+    - { from: asker,        to: code-view,     label: panel, kind: branch }
+    - { from: code-view,    to: seen }
+    - { from: bench-start,  to: bench }
+    - { from: bench,        to: bench-ok }
+    - { from: bench-ok,     to: bench-pass,    label: "yes", kind: branch }
+    - { from: bench-ok,     to: bench-fail,    label: "no",  kind: branch }

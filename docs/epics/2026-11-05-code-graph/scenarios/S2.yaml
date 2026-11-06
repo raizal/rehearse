@@ -34,7 +34,7 @@ scenarios:
       - { name: run-query/target }
       - { name: run-query/verb, branch: near }
       - name: run-query/near
-        example: { id: near-1, given: { node: getOrderById }, then: { edges: [ { kind: calls, from: loadOrder, trust: exact }, { kind: calls, to: loadRow, trust: exact }, { kind: tests, from: "orders.test.ts", trust: exact }, { kind: builds, from: "box orders/get", trust: exact } ] } }
+        example: { id: near-1, given: { node: getOrderById }, then: { edges: [ { kind: calls, from: loadOrder, trust: exact }, { kind: calls, to: loadRow, trust: exact }, { kind: tests, from: "orders > reads one order by its id", trust: exact }, { kind: builds, from: "box orders/get", trust: exact } ] } }
       - { name: run-query/answer }
       - { name: asker, branch: cli }
       - { name: got-it }

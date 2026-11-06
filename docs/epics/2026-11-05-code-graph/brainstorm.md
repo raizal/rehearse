@@ -24,17 +24,17 @@ Out of scope: layer 2 (LLM summaries, docs extraction, community names).
 ### Queries (layer 3)
 - **G1 Commands**: Five CLI verbs: `find`, `show`, `near`, `path`, `context`. Each verb has `--json` output.
 - **G2 Search**: BM25 through SQLite FTS5. Identifiers are split (`getOrderById` → get order by id; `snake_case` too). No embeddings.
-- **G6 Context bundle**: `context <target> --budget <tokens>` ranks nodes by graph distance from the target and by PageRank, and fills the budget. Token estimate: characters ÷ 4.
+- **G6 Context bundle**: `context <target> --budget <tokens>` ranks nodes by graph distance from the target and by PageRank, and fills the budget. Token estimate: characters ÷ 4. As built (C7): the default budget is 2,000 tokens, and the tokens are counted on the code of the items, not on the JSON or text around it.
 - **G7 Access**: CLI first. An MCP server comes later, over the same core.
 
 ### Graph (layer 1)
 - **G3 Storage**: `.rehearse/graph.db` with `node:sqlite` (FTS5 works on Node 24). It is a cache: git ignores it, and a full rebuild makes it again.
 - **G4 Nodes and edges**: Node kinds: code (file, module, class, function, method, route, test), record (requirement, story, box, scenario), commit. Code edges: defines, imports, calls, references, extends/implements, tests. Links: box → code (`builds`), commit → code. Service edges: `http-calls` (G17).
-- **G5 Freshness**: Each query first compares file content hashes and updates only the changed files. `rehearse serve` also watches files.
+- **G5 Freshness**: Each query first compares file content hashes and updates only the changed files. `rehearse serve` also watches files. As built (C9): the check skips a file whose mtime and size match the store, re-reads a file whose mtime is within 2 s of its last read, and the hash stays the truth.
 - **G10 IDs and trust**: SCIP-style symbol IDs. Each edge has a trust mark: `exact` (a resolver confirmed it), `name-match` (same name only), or `unresolved` (the target is not known, for example a third-party package with no venv).
-- **G11 Speed targets**: A cold index takes less than 30 s for each 1,000 files. A one-file update takes less than 300 ms. A query takes less than 100 ms.
+- **G11 Speed targets**: A cold index takes less than 30 s for each 1,000 files. A one-file update takes less than 300 ms. A query takes less than 100 ms. As built (C10): a query's time includes its freshness check, and the benchmark checks the median of its runs. Where the update target holds: G32.
 - **G12 Scope**: The indexer finds every `tsconfig*.json` in the repo. It does not index `node_modules` or the venv; their symbols stay as edge targets only.
-- **G13 Record links**: `builds` links (box → code) come from `Flow-Box:` commit trailers plus `git blame` on the changed lines.
+- **G13 Record links**: `builds` links (box → code) come from `Flow-Box:` commit trailers plus `git blame` on the changed lines. As built (C6): the edge starts at the box the trailer names; a parent box gets no `builds` edge from its children's commits.
 - **G14 Ranking**: PageRank now. Clusters (communities) later.
 
 ### Languages
@@ -72,6 +72,10 @@ question comment of the draft record.
 - **G29 Rebuild**: Each query verb has a `--rebuild` option. It makes a cold index before the answer. `rehearse new` adds `.rehearse/graph.db*` to `.gitignore`, not all of `.rehearse/` (`allowed_signers` is there, D41). Source: owner accepted T20's proposal, 2026-11-06.
 - **G30 Link edge kinds**: The commit → code link has the edge kind `changes`. The record links (story → requirement, box → story, scenario → box) have the edge kind `references`. Source: owner accepted T20's proposal, 2026-11-06.
 - **G31 Trust zone**: The `graph` component is in zone `repo`. This is not a trust-zone problem: the graph does no signing and no approval, and it only reads the repo and writes its cache. Source: owner accepted T20's proposal, 2026-11-06.
+
+### Owner decision after the build (T35)
+
+- **G32 Where the update target holds**: G11's 300 ms update target holds for the graph that stays open in one process (serve and the review page) with every resolver, and for the CLI with wave 1 (tree-sitter only). A CLI process for each update with the exact resolvers (ts-morph, scip-python, basedpyright) takes about 0.4–0.7 s, because it starts them from scratch. That is accepted; meeting 300 ms there would need a process that stays running. Source: owner chose to apply the build threads' record corrections (T34), 2026-11-06. (C10)
 
 ## Open
 

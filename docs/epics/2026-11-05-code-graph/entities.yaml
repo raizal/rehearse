@@ -20,6 +20,7 @@ entities:
       range: string?          # start line and end line in the file
       targetOnly: boolean     # a symbol in node_modules or the venv: an edge target only, not indexed (G12)
       rank: number            # PageRank (G14)
+      route: string?          # a route node only: method and full path, e.g. `GET /api/orders/{order_id}` (G17, C4)
 
   - id: GraphEdge
     file: '.rehearse/graph.db (table edges)'
@@ -29,6 +30,8 @@ entities:
       to: ref GraphNode
       # changes: commit → code. references: code references, and the record links
       # (story → requirement, box → story, scenario → box), with source `record`. (G30)
+      # tests: from the test node (a Vitest `it` or a pytest function), not from the test file. (C6)
+      # builds: from the box that the Flow-Box trailer names, not from its parent boxes. (C6)
       kind: enum[defines, imports, calls, references, extends, implements, tests, builds, changes, http-calls]
       trust: enum[exact, name-match, unresolved]
       # exact: a resolver (ts-morph, Pyright, OpenAPI operationId) confirmed it.
@@ -44,6 +47,9 @@ entities:
       hash: hash
       language: enum[typescript, python, record]
       indexedAt: datetime
+      mtimeMs: number         # the file's mtime when it was read (C9)
+      size: number            # the file's size in bytes when it was read (C9)
+    # Store schema version 2 added mtimeMs and size; a store of an older version is rebuilt. (C9)
 
   - id: IndexRun
     file: '.rehearse/graph.db (table runs)'
@@ -86,16 +92,29 @@ entities:
       ok: boolean
       nodes: list ref GraphNode
       edges: list ref GraphEdge
-      bundle: ref ContextBundle?
+      bundle: ref ContextBundle?   # the context verb only
       notes: list string      # e.g. "no venv found" (G19), "not found" (G27), "no path" (G28)
       exitCode: number        # 1 for "not found" and "no path" (G27, G28)
+    # The graph route of serve adds two fields for the panel to a show answer (C8):
+    # `ends` (kind, file and lines of each node at the other end of an edge) and
+    # `outline` (the AST outline of the shown node, from `outlineNode`, at most 300 nodes).
 
   - id: ContextBundle
     file: 'none (part of QueryAnswer)'
     about: The code around a target that fits a token budget. (G6)
     fields:
       target: ref GraphNode
-      budget: number
-      tokens: number          # characters ÷ 4
-      items: list ref GraphNode   # the target first, then by graph distance and PageRank
+      budget: number          # 2000 when the query has no --budget (C7)
+      tokens: number          # the sum of the items' tokens: their code only, not the JSON or text around it (C7)
+      items: list ref ContextItem   # the target first, then by graph distance and PageRank
       notes: list string
+
+  - id: ContextItem
+    file: 'none (part of ContextBundle)'
+    about: One piece of code in a context bundle. (G6, C7)
+    fields:
+      node: ref GraphNode
+      role: string            # why it is in: target, caller, callee, test, box, … (from the edge it was reached by)
+      distance: number        # edges from the target, both ways; 0 for the target
+      code: string
+      tokens: number          # characters of code ÷ 4, rounded up
