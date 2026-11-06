@@ -186,10 +186,10 @@ describe('S8 tests edges', () => {
   it('S8-A2 a Vitest test and a pytest test link to the functions they call (tests edges)', async () => {
     const graph = graphOf(shopWith());
     const ts = await graph.show('getOrderById');
-    expect(edge(ts, 'tests', 'orders > reads one order by its id', 'getOrderById')).toMatchObject({ trust: 'name-match', source: 'tree-sitter' });
+    expect(edge(ts, 'tests', 'orders > reads one order by its id', 'getOrderById')).toMatchObject({ trust: 'exact', source: 'ts-morph' });
     expect(ts.edges.find((e) => e.kind === 'tests')).toBeDefined();
     const py = await graph.show('get_order_by_id');
-    expect(edge(py, 'tests', 'test_get_order_by_id', 'get_order_by_id')).toMatchObject({ trust: 'name-match' });
+    expect(edge(py, 'tests', 'test_get_order_by_id', 'get_order_by_id')).toMatchObject({ trust: 'exact' });
     // The test files are orders.test.ts and test_orders.py.
     const files = [...ts.edges, ...py.edges].filter((e) => e.kind === 'tests').map((e) => graph.store.node(e.from)?.file);
     expect(files.sort()).toEqual(['api/test_orders.py', 'src/orders.test.ts']);
@@ -203,7 +203,7 @@ describe('S8 tests edges', () => {
     );
     const graph = graphOf(root);
     const answer = await graph.show('charges twice');
-    expect(edgesOf(answer, 'tests')).toEqual(['charges twice -> charge name-match']);
+    expect(edgesOf(answer, 'tests')).toEqual(['charges twice -> charge exact']);
   });
 
   it('S8-A2 an edit of a test file makes its tests edges again', async () => {

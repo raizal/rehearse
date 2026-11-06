@@ -57,7 +57,8 @@ describe('G24 the benchmark repo', () => {
   it('G24 every reader path runs on it: imports, calls, classes, outside packages, routes and tests in both languages', async () => {
     const root = tempDir();
     writeBenchRepo(root, { files: 100, seed: 1 });
-    const graph = openGraph(root);
+    // The tree-sitter readers only (wave1): the resolvers would turn the name-match calls exact.
+    const graph = openGraph(root, { resolvers: [] });
     open.push(graph);
     const run = await graph.update();
     expect(run).toMatchObject({ mode: 'cold', files: 100 });

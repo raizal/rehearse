@@ -126,6 +126,7 @@ describe('S4-A1 the bundle fills the budget: target first, then graph distance, 
       nodesInFile: () => [],
       nodesNamed: () => [],
       nodesOfKind: () => [],
+      bindings: () => [],
       edges: (f) => edges.filter((e) => (f.from === undefined || e.from === f.from) && (f.to === undefined || e.to === f.to) && (f.kind === undefined || e.kind === f.kind)),
     };
     const run: IndexRun = { id: 1, mode: 'cold', trigger: 'query', files: 1, changedFiles: 1, resolvers: [], startedAt: '', ms: 0, status: 'written' };

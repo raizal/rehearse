@@ -3,9 +3,12 @@
 // add it here by name; `wave1` stays: the tree-sitter readers and name-match only.
 
 import type { Resolver } from '../extend.js';
+import { defaultResolvers } from '../resolve/index.js';
 
 export const BENCH_RESOLVER_SETS: Record<string, () => Resolver[]> = {
   wave1: () => [],
+  /** ts-morph, scip-python and basedpyright (T29), the default of openGraph. */
+  exact: () => defaultResolvers(),
 };
 
 export const DEFAULT_RESOLVER_SET = 'wave1';

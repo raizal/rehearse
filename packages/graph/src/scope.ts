@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, posix, relative, sep } from 'node:path';
 import type { SymbolPackage } from './symbols.js';
 import type { CodeLanguage } from './types.js';
+import { managedVenv, type Env } from './venv.js';
 
 export interface ScopeFile {
   /** Repo path, `/`-separated. */
@@ -81,9 +82,11 @@ function walk(root: string, dir: string, venv: string | undefined, visit: (path:
   }
 }
 
-/** The Python environment: `.venv`, then the pyright config (`venvPath` + `venv`). */
-export function findVenv(root: string): string | undefined {
+/** The Python environment: `.venv`, then uv, then poetry, then the pyright config (`venvPath` + `venv`). */
+export function findVenv(root: string, env: Env = process.env): string | undefined {
   if (isDir(join(root, '.venv'))) return '.venv';
+  const managed = managedVenv(root, env);
+  if (managed !== undefined) return managed;
   const pyright = readJsonc(join(root, 'pyrightconfig.json'));
   if (isRecord(pyright) && typeof pyright.venv === 'string') {
     return posix.normalize(posix.join(typeof pyright.venvPath === 'string' ? pyright.venvPath : '.', pyright.venv));
@@ -253,7 +256,7 @@ function stripJsonComments(text: string): string {
 }
 
 /** The lines of one `[section]` of a TOML file, or undefined. */
-function tomlSection(toml: string, name: string): string | undefined {
+export function tomlSection(toml: string, name: string): string | undefined {
   const lines = toml.split(/\r?\n/);
   const start = lines.findIndex((l) => l.trim() === `[${name}]`);
   if (start === -1) return undefined;
@@ -261,12 +264,12 @@ function tomlSection(toml: string, name: string): string | undefined {
   return lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
 }
 
-function tomlString(section: string, key: string): string | undefined {
+export function tomlString(section: string, key: string): string | undefined {
   const m = new RegExp(`^\\s*${key}\\s*=\\s*["']([^"']*)["']`, 'm').exec(section);
   return m?.[1];
 }
 
-function readText(file: string): string | undefined {
+export function readText(file: string): string | undefined {
   try {
     return readFileSync(file, 'utf8');
   } catch {

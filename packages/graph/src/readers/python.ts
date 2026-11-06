@@ -76,9 +76,11 @@ function visit(node: Node, ctx: Ctx, g: FileGraph, prefixes: Map<string, string>
     case 'call': {
       const fn = node.childForFieldName('function');
       const ref = fn && splitTarget(fn);
-      if (ref) {
-        g.refs.push({ from: ctx.owner, kind: 'calls', ...ref, ...(ctx.cls ? { owner: ctx.cls } : {}), line: node.startPosition.row + 1 });
-      }
+      const owner = ctx.cls ? { owner: ctx.cls } : {};
+      const line = node.startPosition.row + 1;
+      if (ref) g.refs.push({ from: ctx.owner, kind: 'calls', ...ref, ...owner, line });
+      // A computed call `handlers[name](id)` on a top-level dict `{"a": handle}`: a name-match call to each (S6-A2).
+      else if (fn) for (const name of tableCallees(fn)) g.refs.push({ from: ctx.owner, kind: 'calls', name, ...owner, line });
       break;
     }
   }
@@ -191,4 +193,29 @@ function splitTarget(node: Node): { name: string; receiver?: string } | undefine
     return { name: attr.text, receiver };
   }
   return undefined;
+}
+
+const tables = new WeakMap<object, Map<string, string[]>>();
+
+/** The function names in a top-level dict that `t[k]` calls. */
+function tableCallees(fn: Node): string[] {
+  const obj = fn.type === 'subscript' ? fn.childForFieldName('value') : undefined;
+  if (obj?.type !== 'identifier') return [];
+  let byName = tables.get(fn.tree);
+  if (!byName) {
+    byName = new Map();
+    for (const stmt of fn.tree.rootNode.namedChildren) {
+      const a = stmt.type === 'expression_statement' ? stmt.namedChildren[0] : undefined;
+      const left = a?.type === 'assignment' ? a.childForFieldName('left') : undefined;
+      const right = a?.childForFieldName('right');
+      if (left?.type !== 'identifier' || right?.type !== 'dictionary') continue;
+      const names = right.namedChildren
+        .map((p) => (p.type === 'pair' ? p.childForFieldName('value') : undefined))
+        .filter((v): v is Node => v?.type === 'identifier')
+        .map((v) => v.text);
+      if (names.length > 0) byName.set(left.text, names);
+    }
+    tables.set(fn.tree, byName);
+  }
+  return byName.get(obj.text) ?? [];
 }

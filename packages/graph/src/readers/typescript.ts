@@ -191,11 +191,49 @@ function testOrSuite(call: Node, ctx: Ctx, g: FileGraph): boolean {
 }
 
 function callRef(fn: Node, ctx: Ctx, g: FileGraph, at: Node): void {
+  const line = at.startPosition.row + 1;
+  const owner = ctx.cls ? { owner: ctx.cls } : {};
   const ref = splitTarget(fn);
-  if (!ref) return; // a computed call such as handlers[name](id): a resolver's job (S6-A2)
-  g.refs.push({
-    from: ctx.owner, kind: 'calls', ...ref, ...(ctx.cls ? { owner: ctx.cls } : {}), line: at.startPosition.row + 1,
-  });
+  if (ref) {
+    g.refs.push({ from: ctx.owner, kind: 'calls', ...ref, ...owner, line });
+    return;
+  }
+  // A computed call `handlers[name](id)` on a top-level object `{ handle }`: a call by name to each
+  // function in it. No resolver can confirm it, so its edges stay name-match (S6-A2).
+  for (const name of tableCallees(fn)) g.refs.push({ from: ctx.owner, kind: 'calls', name, ...owner, line });
+}
+
+const tables = new WeakMap<object, Map<string, string[]>>();
+
+/** The names in a top-level object literal that `t[k]` or `t[k]!` calls. */
+function tableCallees(fn: Node): string[] {
+  const sub = fn.type === 'non_null_expression' ? fn.namedChildren[0] : fn;
+  const obj = sub?.type === 'subscript_expression' ? sub.childForFieldName('object') : undefined;
+  if (obj?.type !== 'identifier') return [];
+  let byName = tables.get(fn.tree);
+  if (!byName) tables.set(fn.tree, (byName = topLevelTables(fn.tree.rootNode)));
+  return byName.get(obj.text) ?? [];
+}
+
+function topLevelTables(root: Node): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const stmt of root.namedChildren) {
+    const decl = stmt.type === 'export_statement' ? stmt.namedChildren.find((c) => c.type === 'lexical_declaration') : stmt;
+    if (decl?.type !== 'lexical_declaration') continue;
+    for (const d of decl.namedChildren.filter((c) => c.type === 'variable_declarator')) {
+      let value = d.childForFieldName('value');
+      while (value && (value.type === 'as_expression' || value.type === 'satisfies_expression')) value = value.namedChildren[0] ?? null;
+      const name = d.childForFieldName('name');
+      if (value?.type !== 'object' || name?.type !== 'identifier') continue;
+      const names = value.namedChildren.flatMap((p) => {
+        if (p.type === 'shorthand_property_identifier') return [p.text];
+        const v = p.type === 'pair' ? p.childForFieldName('value') : undefined;
+        return v?.type === 'identifier' ? [v.text] : [];
+      });
+      if (names.length > 0) out.set(name.text, names);
+    }
+  }
+  return out;
 }
 
 /** `b` → { name: b }; `a.b` → { receiver: a, name: b }; `a.b.c` → { receiver: a.b, name: c }; `this.b`. */

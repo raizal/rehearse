@@ -9,7 +9,7 @@
 //   Ranker         PageRank over the graph (G14); its numbers go in GraphNode.rank.
 //   ContextBuilder the `context` verb: the code to read for a target within a token budget (G6, S4).
 
-import type { RefSite } from './readers/reader.js';
+import type { Binding, RefSite } from './readers/reader.js';
 import type { Scope } from './scope.js';
 import type { StoredRef } from './store.js';
 import type { EdgeKind, EdgeSource, GraphEdge, GraphNode, IndexMode, IndexRun, NodeKind, Trust } from './types.js';
@@ -21,6 +21,8 @@ export interface GraphView {
   nodesNamed(name: string): GraphNode[];
   nodesOfKind(kind: NodeKind): GraphNode[];
   edges(filter: { from?: string; to?: string; kind?: EdgeKind }): GraphEdge[];
+  /** The import bindings of one file (empty for a file that is not indexed). */
+  bindings(path: string): Binding[];
 }
 
 export interface ResolveInput {
@@ -48,6 +50,8 @@ export interface Resolver {
   /** The edge source of its answers, and the name in IndexRun.resolvers. */
   name: EdgeSource;
   language: 'typescript' | 'python';
+  /** The modes it runs in; every mode when missing. A bulk resolver runs on `cold` only (S6-A4). */
+  modes?: Array<Exclude<IndexMode, 'none'>>;
   resolve(input: ResolveInput): Promise<Resolution[]>;
   close?(): Promise<void>;
 }

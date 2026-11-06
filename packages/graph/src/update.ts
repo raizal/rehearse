@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type { GraphView, Linker, LinkState, Ranker, Resolver } from './extend.js';
-import { loadGrammars, type ReaderAdapter } from './readers/reader.js';
+import { loadGrammars, type Binding, type ReaderAdapter } from './readers/reader.js';
 import { pythonReader } from './readers/python.js';
 import { typescriptReader } from './readers/typescript.js';
 import { nameMatch } from './resolve.js';
@@ -83,8 +83,12 @@ export async function updateGraph(root: string, store: Store, opts: UpdateOption
     const view = storeView(store);
     const used = ['tree-sitter'];
     for (const resolver of opts.resolvers ?? []) {
+      if (resolver.modes && !resolver.modes.includes(mode)) continue;
+      // An update runs a resolver only when a file of its language changed or is gone.
+      if (!cold && ![...changedPaths, ...removed].some((p) => languageOf(p) === resolver.language)) continue;
       const langFiles = new Set(store.files().filter((f) => f.language === resolver.language).map((f) => f.path));
       const refs = store.refs('resolved_to IS NULL').filter((r) => langFiles.has(r.file));
+      if (langFiles.size === 0) continue;
       const answers = await resolver.resolve({ root, mode, scope, changed: changedPaths, removed, refs, graph: view });
       for (const a of answers) {
         if (a.target.targetOnly) store.putNodes([a.target], 'target');
@@ -171,9 +175,16 @@ function workspaces(root: string, scope: Scope): Map<string, string> {
   return out;
 }
 
+function languageOf(path: string): CodeLanguage {
+  return path.endsWith('.py') ? 'python' : 'typescript';
+}
+
 /** The graph as the store holds it now, for resolvers and linkers. */
 export function storeView(store: Store): GraphView {
+  // The bindings are read once: they change only when the readers run, before the view is made.
+  let bindings: Map<string, Binding[]> | undefined;
   return {
+    bindings: (path) => (bindings ??= new Map(store.files().map((f) => [f.path, f.bindings]))).get(path) ?? [],
     node: (id) => store.node(id),
     nodesInFile: (path) => store.nodesWhere('file = ?', path),
     nodesNamed: (name) => store.nodesWhere('name = ?', name),
