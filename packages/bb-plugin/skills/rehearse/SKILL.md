@@ -11,7 +11,8 @@ the serve URL show the same UI (R12, D31).
 ## Commands
 
 ```
-bb rehearse [open] [<slug>]                    open the panel (for an EPIC under docs/epics/)
+bb rehearse [open]                             open the panel on the EPIC picker
+bb rehearse [open] <slug>                      open the panel on one EPIC under docs/epics/
 bb rehearse validate <epic-dir-or-slug> [--json]
 bb rehearse simulate <epic-dir-or-slug> [--drafts] [--json]
 bb rehearse gate check <epic-dir-or-slug> [--json]
@@ -31,7 +32,11 @@ bb rehearse new <slug> --title "<title>"
 ## Panel
 
 - Route: `/plugins/<pluginId>/rehearse/<projectId>/<slug>`. Without a slug the
-  panel lists `docs/epics/*` of the project's repo.
+  panel lists `docs/epics/*` of the project's repo (the EPIC picker). The picker
+  shows even when the repo has a single EPIC: it does not open it by itself.
+- With an EPIC open, a bar above the review page shows its slug in a menu of
+  every EPIC. Picking another EPIC switches the panel to it (the old EPIC's
+  serve lease is released); "All EPICs…" goes back to the picker.
 - The plugin's host worker runs `rehearse serve <slug> --port <free port>` on the
   machine that has the repo, as the user, outside agent sandboxes. So serve can
   reach the user's ssh-agent. When no agent is found, the panel says so.
