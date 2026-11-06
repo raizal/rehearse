@@ -1,0 +1,24 @@
+# Gate sign-off events. Immutable: append only. (R14, D17)
+
+signOffs:
+  - by: raizal.pregnanta@systemearth.com
+    at: '2026-11-06T05:39:32Z'
+    hashRule: 2
+    storyHashes:
+      S1: 'sha256:a842aec678e70afd6a2cf7b84aeca3d6af95d19cf143eee9ffa7a40ce51c204d'
+      S2: 'sha256:d9d8bec6006dabb4a1a75160599b5f289365ac77e27334faf7be866d9ba47079'
+      S3: 'sha256:3119b8eb6ebfde32b72091076bb878aac4f19e825bb136c36b7955caa52f3ad8'
+      S4: 'sha256:45b3ee0c3f170cdfc38704559d7e51e4f4ce62857e70d08a2af8c0fa4b849ce1'
+      S5: 'sha256:a1309efcb5f03114ab61095558d652805d18f09cc87b06db236eafe58d823744'
+      S6: 'sha256:5bee8824856068031ac48cae6f51207a000a4084b31fd81b1f41210ebddebe9b'
+      S7: 'sha256:5ca918019277861c9585fae1298e1b77ca7b1ffdc32a4be3d35b8fc7b6fcfbec'
+      S8: 'sha256:6431eef59d72ff5d0fac9272cea350a2fd480edae0392189baaa912f0ee093a0'
+      S9: 'sha256:99af8c26d9caf56530662f7a7faf3f5f2e899663072a99591becca61d5675f0e'
+      S10: 'sha256:df31e828b7a42c24b4a39e62b7cd9405afe3d3e44a15b54c2218f697a99737ec'
+    sig: |
+      -----BEGIN SSH SIGNATURE-----
+      U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+      j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+      MjU1MTkAAABAF2OoA7cY73NdwjPLZ5eqpCif8jRBmpmTvqKHfUBOjOe6ho0hs1KaipSW81
+      rkvFX9IvzYkRbdRjGQmoR+rmPvCg==
+      -----END SSH SIGNATURE-----
