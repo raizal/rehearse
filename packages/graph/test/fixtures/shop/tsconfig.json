@@ -1,0 +1,5 @@
+{
+  // The shop fixture: everything under src/.
+  "compilerOptions": { "strict": true, "outDir": "dist" },
+  "include": ["src"],
+}

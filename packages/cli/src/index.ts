@@ -9,6 +9,7 @@ import { runGate } from './commands/gate.js';
 import { runNew } from './commands/new.js';
 import { runPlaylists } from './commands/playlists.js';
 import { runServe } from './commands/serve.js';
+import { isGraphVerb, runGraph } from './commands/graph.js';
 
 export interface Io {
   cwd: string;
@@ -33,6 +34,15 @@ Commands:
   playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir>]
                                          Write one Birdview playlist per story from the e2e tests named after scenarios.
 
+Code graph (each verb first updates .rehearse/graph.db at the git top-level; --rebuild makes it again):
+  find <words> [--json] [--rebuild]      Find code by words (BM25; camelCase and snake_case are split).
+  show <target> [--json] [--rebuild]     One node: its code, file, ID, and its edges with their trust marks.
+  near <target> [--depth n] [--json] [--rebuild]
+                                         The nodes up to n edges away, both ways (default 1).
+  path <from> <to> [--json] [--rebuild]  The shortest chain of edges from one node to the other.
+  A target is a node ID, a name, a route ("GET /api/orders/{order_id}") or a file path.
+  Exit 1 with "not found" (no such target) or "no path".
+
 Exit codes: 0 OK, 1 findings, 2 usage error, 3 internal error.
 `;
 
@@ -49,6 +59,13 @@ export function resolveEpicDir(arg: string, cwd: string): string | undefined {
 
 function isDir(p: string): boolean {
   return existsSync(p) && statSync(p).isDirectory();
+}
+
+/** The entry of bin/rehearse.js: the code graph verbs are async, the other commands run in `run`. */
+export async function main(argv: string[], io: Io): Promise<number> {
+  const [command, ...rest] = argv;
+  if (isGraphVerb(command)) return runGraph(command, rest, io);
+  return run(argv, io);
 }
 
 export function run(argv: string[], io: Io): number {

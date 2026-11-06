@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@rehearse/core": "workspace:*",
+    "@rehearse/graph": "workspace:*",
     "@rehearse/server": "workspace:*",
     "@rehearse/ui": "workspace:*"
   }

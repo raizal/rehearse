@@ -1,0 +1,22 @@
+{
+  "name": "@rehearse/graph",
+  "version": "0.1.0",
+  "description": "rehearse code graph: index TypeScript and Python into .rehearse/graph.db and answer find, show, near and path. No LLM (R18).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "tree-sitter-python": "0.25.0",
+    "tree-sitter-typescript": "0.23.2",
+    "web-tree-sitter": "0.27.1"
+  }
+}

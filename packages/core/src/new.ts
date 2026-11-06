@@ -1,9 +1,10 @@
 // Box `new-epic`: create docs/epics/<slug>/ with the smallest valid record (R1, S1).
 // Error exits `epic-exists` and `bad-slug` end in box `rejected`: no file changes (S1-A2).
+// On success it also adds `.rehearse/graph.db*` to the repo's .gitignore (code-graph G29).
 // All checks run first. The files are then written to a staging folder next to the
 // target and renamed into place, so a failed write leaves no half-made EPIC.
 
-import { existsSync, mkdirSync, mkdtempSync, renameSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { stringify } from 'yaml';
 import { RECORD_FILES, type EntityModel, type Flow, type Prd } from './types.js';
@@ -69,7 +70,20 @@ export function createEpic(root: string, slug: string, title: string): NewEpicRe
     }
     throw e;
   }
+  ignoreGraphDb(resolve(root));
   return { ok: true, epicDir };
+}
+
+/** The code graph's store (code-graph EPIC, G29); not all of `.rehearse/`, which has `allowed_signers` (D41). */
+export const GRAPH_DB_IGNORE = '.rehearse/graph.db*';
+
+/** Add `.rehearse/graph.db*` to `<root>/.gitignore`, once. */
+export function ignoreGraphDb(root: string): void {
+  const file = join(root, '.gitignore');
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  if (text.split(/\r?\n/).some((line) => line.trim() === GRAPH_DB_IGNORE)) return;
+  const sep = text === '' || text.endsWith('\n') ? '' : '\n';
+  writeFileSync(file, `${text}${sep}${GRAPH_DB_IGNORE}\n`);
 }
 
 /**
