@@ -123,5 +123,5 @@ describe('simulate --drafts (T22)', () => {
       expect(JSON.stringify(gateEpic(dir, simulateRecord))).toBe(JSON.stringify(gate));
       expect(hashDir(dir)).toBe(before);
     }
-  });
+  }, 30_000); // gates four EPICs twice each; slow when every package tests at once
 });

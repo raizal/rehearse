@@ -309,11 +309,6 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     disabled: actionsOff,
     isSeen,
   };
-  // Until T37 rebuilds the storyboard, its "Open in flow" opens the box of the scenario's first step.
-  const openInFlow = (id: Id) => {
-    const first = view?.scenarios.find((sv) => sv.scenario.id === id)?.scenario.steps?.[0]?.name;
-    if (typeof first === 'string') openBox(first);
-  };
 
   const report = view?.report;
   return (
@@ -426,7 +421,6 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           onSelectMany={(ids) => setPicked((old) => new Set([...old, ...ids]))}
           busy={busy === 'approve'}
           outcome={approveOutcome}
-          onOpenFlow={openInFlow}
         />
       )}
       {view && tab === 'usecases' && (
