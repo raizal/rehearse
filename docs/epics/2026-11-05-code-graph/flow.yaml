@@ -67,6 +67,9 @@ root:
       # A box with no builds edge yet falls back to the functions in the files of its Flow-Box
       # commits (not its test files). A long list of functions shows the first ones and a
       # "Show all" button. A box usually builds many functions; the builder picks one. (C8)
+      # The call graph is a node graph from verb near (depth 1, or 2 on request): exact edges
+      # solid, name-match dashed, unresolved faded; more than 12 neighbours on a side fold into
+      # "+N more". Clicking a node moves the code and AST panes to it. (C11)
 
     - id: serve-query
       kind: process

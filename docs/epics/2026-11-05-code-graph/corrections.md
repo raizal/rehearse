@@ -78,3 +78,10 @@ off again; no approval and no sign-off was made.
   - What: The record did not say whether a query's time includes its freshness check, or which run the benchmark checks. The S10-warm-bench numbers (180 ms, 40 ms) were never measured. G11 did not say where the 300 ms update target holds.
   - Why: The bench includes the freshness check in each query and checks the median of its runs. Owner decision G32: the update target holds for the graph open in one process (serve, review page) with all resolvers, and for the CLI with wave 1; a CLI process per update with the exact resolvers takes about 0.4–0.7 s (T34), and that is accepted.
   - Fix: G11, R9 and S10-A2 say so; G32 is new. S10-warm-bench has the medians that `bench --files 1000 --seed 1 --runs 3` measured on 2026-11-06: wave1 update 249 ms, queries up to 37 ms (exact: 228 ms and 40 ms, in its comment). S10-cold-bench (21,000 ms) was not asked for and still passes its target; measured: 1,789 ms (wave1), 10,114 ms (exact).
+
+- **C11** `caught-after-build` · criterion `S9-A1`, box `drill-code`, decisions `D19`, `G20` (T36)
+  - Status: DONE in the record (prd.yaml S9-A1; flow.yaml drill-code)
+  - What: S9-A1 said only "its call graph". The build first showed it as three lists; the owner asked for a real node graph.
+  - Why: A list hides how the code connects. The UI already draws graphs with React Flow and elk.
+  - Fix: S9-A1 names what the graph shows (callers, callees, tests and HTTP calls, with edge trust). drill-code says the graph comes from verb `near` (show gives the code and AST), at depth 1 or 2, with the trust styles, the fold at 12 per side, and recentering on click.
+
