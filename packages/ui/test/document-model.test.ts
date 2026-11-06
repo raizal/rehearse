@@ -33,11 +33,11 @@ function allPaths(d: Diagram | undefined, prefix = ''): string[] {
 }
 
 describe('T15 feature 2: links', () => {
-  it('T15 2 each kind opens its place: requirement → Readiness row, story → Story view, box → Flow, scenario → Storyboard, entity and decision → Tech spec', () => {
+  it('T15 2 each kind opens its place: requirement → Readiness row, story → Story view, box → box drawer, scenario → Storyboard, entity and decision → Tech spec', () => {
     expect(placeOf({ kind: 'requirement', id: 'R1' })).toEqual({ view: 'readiness', requirement: 'R1' });
     expect(placeOf({ kind: 'story', id: 'S1' })).toEqual({ view: 'story', story: 'S1' });
     expect(placeOf({ kind: 'story', id: 'S1-A1' })).toEqual({ view: 'story', story: 'S1' });
-    expect(placeOf({ kind: 'box', id: 'ship/pack' })).toEqual({ view: 'flow', box: 'ship/pack' });
+    expect(placeOf({ kind: 'box', id: 'ship/pack' })).toEqual({ view: 'box', box: 'ship/pack' });
     expect(placeOf({ kind: 'scenario', id: 'S1-buy' })).toEqual({ view: 'storyboard', scenario: 'S1-buy' });
     expect(placeOf({ kind: 'entity', id: 'Order' })).toEqual({ view: 'techspec', focus: 'entity:Order' });
     expect(placeOf({ kind: 'decision', id: 'D1' })).toEqual({ view: 'techspec', focus: 'decision:D1' });
@@ -46,7 +46,7 @@ describe('T15 feature 2: links', () => {
 
   it('T15 2 every link has a name for screen readers that says what the id is and where it goes', () => {
     expect(linkName({ kind: 'requirement', id: 'R13' })).toBe('Requirement R13: open its Readiness row');
-    expect(linkName({ kind: 'box', id: 'approve' })).toBe('Box approve: open it in Flow');
+    expect(linkName({ kind: 'box', id: 'approve' })).toBe('Box approve: open its box drawer');
     expect(linkName({ kind: 'story', id: 'S6-A1' })).toBe('Acceptance criterion S6-A1: open story S6 in the Story view');
     expect(linkName({ kind: 'decision', id: 'C27' })).toBe('Correction C27: open it in the corrections');
   });
@@ -115,10 +115,10 @@ describe('T15 feature 3: proof and trace (shop)', () => {
     expect(openPlaces(view, { kind: 'requirement', id: 'R1' }).map((p) => `${p.label}: ${p.detail}`)).toEqual([
       'Story view: S1 · WHAT · HOW · OUTPUT',
       'Storyboard: S1-buy · one card per step',
-      'Flow: box cart in the Builder lane',
+      'Box: box cart in the Builder lane',
       'Readiness: row R1: requirement → story → box → scenario',
     ]);
-    expect(openPlaces(view, { kind: 'box', id: 'pay' }).map((p) => p.label)).toEqual(['Big picture', 'Story view', 'Storyboard', 'Use cases', 'Flow', 'Tech spec']);
+    expect(openPlaces(view, { kind: 'box', id: 'pay' }).map((p) => p.label)).toEqual(['Big picture', 'Story view', 'Storyboard', 'Use cases', 'Box', 'Tech spec']);
     expect(openPlaces(view, { kind: 'box', id: 'pay' }).at(-1)!.place).toEqual({ view: 'techspec', focus: 'box:pay' });
     expect(openPlaces(view, { kind: 'scenario', id: 'S1-buy' }).map((p) => p.label)).toEqual(['Storyboard', 'Story view']);
   });

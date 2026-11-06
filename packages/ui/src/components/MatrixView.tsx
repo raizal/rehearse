@@ -1,5 +1,5 @@
 // Box `review/matrix` (S7-A1): roles × entities, the actions in each cell, and a link
-// from each action to the boxes that give it. A link opens the box in the flow view.
+// from each action to the boxes that give it. A link opens the box in the box drawer.
 
 import type { EntityModel, Flow, PermissionBoxes, PermissionMatrix, Prd } from '@rehearse/core';
 import { matrixAxes } from '../model/review.js';
@@ -31,7 +31,7 @@ export function MatrixView({ simulation, flow, prd, entities, onOpenBox }: Matri
       <h2>Permission matrix</h2>
       <p className="muted">
         What each role can do to each entity, from the reads and writes of the boxes in its lane. A transition is also a write.
-        Click a box to open it in the flow view.
+        Click a box to open it in the box drawer.
       </p>
       {roles.length === 0 ? (
         <p className="muted" data-testid="matrix-empty">No box reads or writes an entity.</p>

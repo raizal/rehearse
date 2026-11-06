@@ -1,6 +1,6 @@
 // Every id on the PRD and Tech spec pages is a link to the place in rehearse where it lives
 // (T15 feature 2). One colour per kind: requirement → Readiness row, story → Story view,
-// box → Flow (and its contract in Tech spec), scenario → Storyboard, entity → Tech spec entity,
+// box → the box drawer (and its contract in Tech spec), scenario → Storyboard, entity → Tech spec entity,
 // decision (and correction) → decision log.
 
 import type { Id } from '@rehearse/core';
@@ -26,7 +26,8 @@ export type Place =
   | { view: 'storyboard'; scenario: Id }
   | { view: 'usecases' }
   | { view: 'readiness'; requirement?: Id }
-  | { view: 'flow'; box: string };
+  /** The box drawer over the page that is open (T38). */
+  | { view: 'box'; box: string };
 
 export const LINK_KINDS: readonly LinkKind[] = ['requirement', 'story', 'box', 'scenario', 'entity', 'decision'];
 
@@ -34,7 +35,7 @@ export const LINK_KINDS: readonly LinkKind[] = ['requirement', 'story', 'box', '
 export const LINK_GOES: Record<LinkKind, string> = {
   requirement: 'Readiness row',
   story: 'Story view',
-  box: 'Flow / Tech spec contract',
+  box: 'Box drawer / Tech spec contract',
   scenario: 'Storyboard',
   entity: 'Tech spec entity',
   decision: 'Decision log',
@@ -65,7 +66,7 @@ export function placeOf(ref: LinkRef): Place {
     case 'story':
       return { view: 'story', story: storyOfId(ref.id) };
     case 'box':
-      return { view: 'flow', box: ref.id };
+      return { view: 'box', box: ref.id };
     case 'scenario':
       return { view: 'storyboard', scenario: ref.id };
     case 'entity':
@@ -82,7 +83,7 @@ export function linkName(ref: LinkRef): string {
   const where: Record<LinkKind, string> = {
     requirement: 'open its Readiness row',
     story: 'open the Story view',
-    box: 'open it in Flow',
+    box: 'open its box drawer',
     scenario: 'open its Storyboard card',
     entity: 'open it in Tech spec',
     decision: 'open it in the decision log',

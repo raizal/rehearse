@@ -193,7 +193,7 @@ function UseCaseDiagramView({ simulation, flow, prd, onOpenBox }: UseCaseViewPro
               </li>
             ))}
           </ul>
-          <p className="muted">Click a use case to open its box in the flow view.</p>
+          <p className="muted">Click a use case to open its box in the box drawer.</p>
         </aside>
       </div>
       {d.useCases.length === 0 && <p className="muted" data-testid="usecase-empty">No box writes data or makes a transition.</p>}

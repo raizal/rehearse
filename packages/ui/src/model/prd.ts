@@ -171,7 +171,7 @@ export function openPlaces(view: ReviewEpicView, ref: LinkRef): OpenPlace[] {
   };
   const boxPlace = (path: string) => {
     const box = boxAt(view.flow, path);
-    out.push({ label: 'Flow', detail: `box ${path} in the ${roleName(view.prd, box?.lane)} lane`, place: { view: 'flow', box: path } });
+    out.push({ label: 'Box', detail: `box ${path} in the ${roleName(view.prd, box?.lane)} lane`, place: { view: 'box', box: path } });
   };
   switch (ref.kind) {
     case 'requirement': {

@@ -44,7 +44,7 @@ describe('T18 feature 2: open rows and chips', () => {
     expect(placeKind({ view: 'readiness', requirement: 'R1' })).toBe('requirement');
     expect(placeKind({ view: 'story', story: 'S1' })).toBe('story');
     expect(placeKind({ view: 'storyboard', scenario: 'S1-buy' })).toBe('scenario');
-    expect(placeKind({ view: 'flow', box: 'pay' })).toBe('box');
+    expect(placeKind({ view: 'box', box: 'pay' })).toBe('box');
     expect(placeKind({ view: 'techspec', focus: 'entity:Order' })).toBe('entity');
     expect(placeKind({ view: 'techspec', focus: 'decision:D1' })).toBe('decision');
     expect(placeKind({ view: 'techspec', focus: 'correction:C1' })).toBe('decision');

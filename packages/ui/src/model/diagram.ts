@@ -10,7 +10,7 @@ export interface LaneInfo {
   kind?: RoleKind;
   /** True for a lane that a box names but flow.yaml does not list (validate reports it). */
   unknown?: boolean;
-  /** Lane colour, the same in the flow view and the storyboard. */
+  /** Lane colour, the same in every box diagram and the storyboard. */
   color: string;
 }
 

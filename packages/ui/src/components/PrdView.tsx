@@ -139,7 +139,7 @@ function Epic({ view, doc, known, onGo }: { view: ReviewEpicView; doc: PrdDoc; k
                 {r.name} · {r.kind}
               </span>
             ))}
-            <span className="muted doc-roles-note">→ lane in Flow, actor in Use cases</span>
+            <span className="muted doc-roles-note">→ lane in the Big picture and the box drawer, actor in Use cases</span>
           </dd>
         </div>
       </dl>

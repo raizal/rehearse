@@ -42,7 +42,7 @@ export interface DNode {
   title: string;
   /** Small text over the title: a number, a lane, a kind. */
   tag?: string;
-  /** The box path this node opens in the flow view. */
+  /** The box path this node opens in the box drawer. */
   path?: string;
   /** Folded steps: one row per box, each one opens its box. */
   rows?: FoldRow[];

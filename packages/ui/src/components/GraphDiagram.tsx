@@ -1,6 +1,6 @@
 // Draws a laid-out diagram graph (model/graph.ts) as SVG: the shapes of the user flow, data flow
-// and system flowchart. Every node with a box path is a button that opens the box in the flow
-// view; a folded step has one button per box. Layout comes from the model; this only draws.
+// and system flowchart. Every node with a box path is a button that opens the box in the box
+// drawer; a folded step has one button per box. Layout comes from the model; this only draws.
 
 import { useEffect, useState } from 'react';
 import { edgeLabelText, titleLines, type DEdge, type DGraph, type DNode, type GraphLayout, type Rect } from '../model/graph.js';
@@ -166,7 +166,7 @@ function FoldView({ node, r, testid, onOpenBox }: { node: DNode; r: Rect; testid
           key={row.path}
           className="gd-row"
           data-testid={`${testid}-row-${row.path}`}
-          {...svgButton(`Open box ${row.title} (${row.path}, ${row.lane}) in the flow view`, () => onOpenBox(row.path))}
+          {...svgButton(`Open box ${row.title} (${row.path}, ${row.lane}) in the box drawer`, () => onOpenBox(row.path))}
         >
           <rect x={r.x + 4} y={r.y + 24 + i * 18} width={r.w - 8} height={17} rx={3} className="gd-row-bg" />
           <text x={r.x + 10} y={r.y + 36 + i * 18} className="gd-row-text">
@@ -205,7 +205,7 @@ export function GraphDiagram({ prefix, label, graph, layout, onOpenBox }: GraphD
           <g key={g.id} className={`gd-group gd-${g.kind}`} data-testid={`${prefix}-group-${g.id}`}>
             <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={8} />
             {open ? (
-              <text x={r.x + 10} y={r.y + 19} className="gd-group-title gd-link" {...svgButton(`Open box ${g.title} (${open}) in the flow view`, () => onOpenBox(open))} data-testid={`${prefix}-node-${open}`}>
+              <text x={r.x + 10} y={r.y + 19} className="gd-group-title gd-link" {...svgButton(`Open box ${g.title} (${open}) in the box drawer`, () => onOpenBox(open))} data-testid={`${prefix}-node-${open}`}>
                 {g.title} ▸
               </text>
             ) : (
@@ -246,7 +246,7 @@ export function GraphDiagram({ prefix, label, graph, layout, onOpenBox }: GraphD
             className={`gd-node shape-${n.shape}${open ? ' gd-link' : ''}`}
             data-testid={testid}
             data-shape={n.shape}
-            {...(open ? svgButton(`Open box ${words} (${open}) in the flow view`, () => onOpenBox(open)) : {})}
+            {...(open ? svgButton(`Open box ${words} (${open}) in the box drawer`, () => onOpenBox(open)) : {})}
           >
             <title>{words}</title>
             <Shape node={n} r={r} />
