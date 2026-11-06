@@ -6,7 +6,7 @@ import { createContext } from 'react';
 import type { CodeMap, FindAnswer, GraphStatus, MapLevel, QueryAnswer } from '@rehearse/server';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient } from './session-client.js';
 
-export type { CodeMap, FindAnswer, GraphStatus, MapBox, MapEdge, MapLevel, MapNode, MapPlace, MapTotals } from '@rehearse/server';
+export type { CodeMap, FindAnswer, GraphStatus, MapBox, MapEdge, MapLevel, MapMember, MapNode, MapPlace, MapTotals } from '@rehearse/server';
 
 /** ok: the answer. notFound: no such package, file or node (404). error: anything else. */
 export type MapOutcome<T> = { ok: true; value: T } | { ok: false; notFound: boolean; error: string };
@@ -15,7 +15,8 @@ export interface MapRequest {
   level: MapLevel;
   /** The package (level package) or the file (level file). */
   target?: string;
-  hideTests?: boolean;
+  /** `auto`: hide the tests unless the level has nothing else. */
+  hideTests?: boolean | 'auto';
   hideOutside?: boolean;
   /** Only nodes serving a box of this EPIC. */
   epic?: string;
@@ -33,7 +34,7 @@ export interface CodeMapApi {
 export function mapParams(q: MapRequest): URLSearchParams {
   const p = new URLSearchParams({ verb: 'map', level: q.level });
   if (q.target !== undefined) p.set('target', q.target);
-  if (q.hideTests) p.set('tests', 'hide');
+  if (q.hideTests) p.set('tests', q.hideTests === 'auto' ? 'auto' : 'hide');
   if (q.hideOutside) p.set('outside', 'hide');
   if (q.epic) p.set('epic', q.epic);
   return p;

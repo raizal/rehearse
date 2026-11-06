@@ -1,37 +1,67 @@
 // The Code map tab (T40): the whole repo as a map, one level at a time. The packages (bigger box:
-// more of the code depends on it), then one package's files with stubs to the packages they use,
-// then one file's code with its outside callers and callees faded at the edge. A click goes one
-// level in or selects a node; the side panel says what the node is, who calls it, what it calls,
-// which tests cover it and which plan boxes it serves. Search with `find`, and a path from A to B.
-// Read only. The level and the selected node are in the URL (#/code/…).
+// more of the code depends on it), then one package's files grouped by folder with stubs to the
+// packages they use, then one file's code with the other files it calls or is called by, one node
+// per file. A click goes one level in or selects a node; the side panel says what the node is, who
+// calls it, what it calls, which tests cover it and which plan boxes it serves. Search with `find`,
+// and a path from A to B. Edges are faint until a node is hovered or selected: then its own edges
+// show, with their counts. The view opens at a zoom where the names can be read. Read only. The
+// level and the selected node are in the URL (#/code/…).
 
-import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeProps, type NodeTypes } from '@xyflow/react';
-import { CodeMapApiContext, type CodeMap as CodeMapAnswer, type FindAnswer, type GraphStatus, type MapBox, type MapNode, type MapOutcome } from '../codemap-api.js';
+import { CodeMapApiContext, type CodeMap as CodeMapAnswer, type FindAnswer, type GraphStatus, type MapBox, type MapMember, type MapNode, type MapOutcome } from '../codemap-api.js';
 import { GraphApiContext, type GraphOutcome } from '../graph-api.js';
 import { callGraph, nodePlace, type CallLink } from '../model/codegraph.js';
-import { fileLoc, layoutCodeMap, mapClick, mapKindWord, mapNodeSize, mapNodeTitle, maxRank, placeLoc, plainWords, upLoc } from '../model/codemap.js';
-import type { GraphLayout } from '../model/graph.js';
+import {
+  callsWord, fileLoc, focusNode, layoutCodeMap, mapClick, mapKindWord, mapNodeLabel, mapNodeTitle, mapView, mapViewport, OUTSIDE_GROUP, placeLoc, plainWords, shortTestName, upLoc,
+  type MapLayout, type MapView, type Viewport,
+} from '../model/codemap.js';
 import type { CodeLoc } from '../model/nav.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 import type { AnswerNode, QueryAnswer } from '@rehearse/server';
 
 interface MapData extends Record<string, unknown> {
   node: MapNode;
+  label: string;
   selected: boolean;
   clickable: boolean;
 }
 
+interface FrameData extends Record<string, unknown> {
+  title: string;
+  kind: 'folder' | 'outside';
+  onClose?: () => void;
+}
+
 type MapFlowNode = Node<MapData, 'map'>;
+type FrameFlowNode = Node<FrameData, 'frame'>;
+
+/** A folder of the package, or the opened outside packages (with a button to fold them again). */
+function FrameView({ data }: NodeProps<FrameFlowNode>) {
+  return (
+    <div className={`cm-frame is-${data.kind}`} data-testid={`code-map-frame-${data.title}`}>
+      <span className="cm-frame-title">
+        {data.title}
+        {data.onClose && (
+          <button type="button" className="link small nopan nodrag" data-testid="code-map-outside-close" onClick={data.onClose}>
+            fold
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
 
 function MapNodeView({ data }: NodeProps<MapFlowNode>) {
-  const { node, selected, clickable } = data;
+  const { node, label, selected, clickable } = data;
+  const calls = callsWord(node);
   const cls = [
     'cg-node',
     'cm-node',
     `kind-${node.kind}`,
     node.outside && 'is-outside',
     node.kind === 'more' && 'is-more',
+    node.id === OUTSIDE_GROUP && 'is-group',
     node.test && 'is-test',
     selected && 'is-center',
   ]
@@ -41,7 +71,10 @@ function MapNodeView({ data }: NodeProps<MapFlowNode>) {
   const body = (
     <>
       {node.kind !== 'more' && <span className="cg-kind">{mapKindWord(node)}</span>}
-      <span className="cg-name">{node.name}</span>
+      <span className="cg-name">
+        {label}
+        {calls && <span className="cm-calls"> · {calls}</span>}
+      </span>
       {node.boxes.length > 0 && (
         <span className="cm-badge" data-testid={`code-map-badge-${node.id}`} title={`Serves ${node.boxes.map((b) => b.path).join(', ')}`}>
           ▣ {node.boxes.length}
@@ -67,34 +100,52 @@ function MapNodeView({ data }: NodeProps<MapFlowNode>) {
   );
 }
 
-const nodeTypes: NodeTypes = { map: MapNodeView };
+const nodeTypes: NodeTypes = { map: MapNodeView, frame: FrameView };
 
-/** React Flow nodes and edges of a laid-out map level. Edges carry their best trust; thicker for more edges. */
-export function mapElements(map: CodeMapAnswer, layout: GraphLayout, selected: string | undefined): { nodes: MapFlowNode[]; edges: Edge[] } {
-  const top = maxRank(map);
-  const outside = new Set(map.nodes.filter((n) => n.outside).map((n) => n.id));
-  const nodes: MapFlowNode[] = map.nodes.flatMap((n) => {
+/**
+ * React Flow nodes and edges of a laid-out map level. Every edge is faint and thin; the edges of
+ * the hovered node (else the selected one) are lit, with their counts. At the packages and package
+ * levels an edge is grey and thicker for more code edges; at the file level, where an edge is one
+ * call, it keeps its trust style (exact solid, name-match dashed, unresolved dotted).
+ */
+export function mapElements(
+  view: MapView,
+  layout: MapLayout,
+  selected: string | undefined,
+  hover?: string,
+  onCloseOutside?: () => void,
+): { nodes: (MapFlowNode | FrameFlowNode)[]; edges: Edge[] } {
+  const frames: FrameFlowNode[] = layout.frames.map((f) => ({
+    id: f.id, type: 'frame' as const, position: { x: f.rect.x, y: f.rect.y }, width: f.rect.w, height: f.rect.h, zIndex: -1,
+    draggable: false, selectable: false, focusable: false,
+    data: { title: f.title, kind: f.kind, ...(f.kind === 'outside' && onCloseOutside ? { onClose: onCloseOutside } : {}) },
+  }));
+  const nodes: MapFlowNode[] = view.nodes.flatMap((n) => {
     const r = layout.nodes[n.id];
     if (!r) return [];
-    const { w, h } = mapNodeSize(n, top);
-    const data: MapData = { node: n, selected: n.id === selected, clickable: mapClick(map, n) !== undefined };
-    return [{ id: n.id, type: 'map' as const, position: { x: r.x, y: r.y }, width: w, height: h, draggable: false, selectable: false, focusable: false, data }];
+    const data: MapData = { node: n, label: mapNodeLabel(view.level, n), selected: n.id === selected, clickable: mapClick(view, n) !== undefined };
+    return [{ id: n.id, type: 'map' as const, position: { x: r.x, y: r.y }, width: r.w, height: r.h, draggable: false, selectable: false, focusable: false, data }];
   });
-  const edges: Edge[] = map.edges.map((e, i) => ({
-    id: `e${i}`,
-    source: e.from,
-    target: e.to,
-    // Edges to the outside are faded, so the edges inside the level stand out.
-    className: `cg-edge cm-edge trust-${e.trust}${outside.has(e.from) || outside.has(e.to) ? ' is-outside' : ''}`,
-    focusable: false,
-    selectable: false,
-    style: { strokeWidth: Math.min(6, 1 + Math.log2(e.count)) },
-    // The count of the code edges between two packages; finer levels have too many edges for labels.
-    ...(e.count > 1 && map.level === 'packages' ? { label: String(e.count) } : {}),
-    data: { trust: e.trust, count: e.count, kinds: e.kinds },
-    markerEnd: { type: MarkerType.ArrowClosed },
-  }));
-  return { nodes, edges };
+  const focus = hover ?? selected;
+  const counted = view.level !== 'file';
+  const edges: Edge[] = view.edges.map((e, i) => {
+    const lit = focus !== undefined && (e.from === focus || e.to === focus);
+    const thick = counted ? Math.log2(e.count) : 0;
+    return {
+      id: `e${i}`,
+      source: e.from,
+      target: e.to,
+      className: ['cg-edge', 'cm-edge', counted ? 'is-counted' : `trust-${e.trust}`, lit ? 'is-lit' : 'is-faint'].join(' '),
+      focusable: false,
+      selectable: false,
+      zIndex: lit ? 1 : 0,
+      style: { strokeWidth: lit ? Math.min(7, 1.75 + thick) : Math.min(2.5, 0.75 + thick / 3) },
+      // The arrow keeps one size whatever the stroke (React Flow scales markers by the stroke by default).
+      ...(lit ? { label: String(e.count), markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, markerUnits: 'userSpaceOnUse' } } : {}),
+      data: { trust: e.trust, count: e.count, kinds: e.kinds },
+    };
+  });
+  return { nodes: [...frames, ...nodes], edges };
 }
 
 export interface CodeMapProps {
@@ -106,20 +157,29 @@ export interface CodeMapProps {
 }
 
 interface Filters {
-  hideTests: boolean;
+  /** Unset: the tests are hidden at the package level (unless it has only tests), shown elsewhere. */
+  hideTests?: boolean;
   hideOutside: boolean;
   epic?: string;
 }
 
-const levelKey = (loc: CodeLoc, f: Filters) => JSON.stringify([loc.level ?? null, f.hideTests, f.hideOutside, f.epic ?? null]);
+const testsAsked = (loc: CodeLoc, f: Filters): boolean | 'auto' => f.hideTests ?? (loc.level?.kind === 'package' ? 'auto' : false);
+const levelKey = (loc: CodeLoc, f: Filters) => JSON.stringify([loc.level ?? null, testsAsked(loc, f), f.hideOutside, f.epic ?? null]);
+/** The size of the canvas before it is measured (and in tests, where nothing has a size). */
+const SCREEN = { w: 1000, h: 600 };
 
 export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
   const api = useContext(CodeMapApiContext);
-  const [filters, setFilters] = useState<Filters>({ hideTests: false, hideOutside: false });
+  const [filters, setFilters] = useState<Filters>({ hideOutside: false });
   const key = levelKey(loc, filters);
   const [outcome, setOutcome] = useState<{ key: string; outcome: MapOutcome<CodeMapAnswer> } | undefined>();
   const [status, setStatus] = useState<GraphStatus | undefined>();
-  const [laid, setLaid] = useState<{ map: CodeMapAnswer; layout: GraphLayout } | undefined>();
+  const [laid, setLaid] = useState<{ view: MapView; layout: MapLayout } | undefined>();
+  // The level (key) whose outside group is open: another level opens with it folded.
+  const [outsideAt, setOutsideAt] = useState<string | undefined>();
+  const outsideOpen = outsideAt === key;
+  const [hover, setHover] = useState<string | undefined>();
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let live = true;
@@ -132,7 +192,7 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
     let live = true;
     const level = loc.level;
     void api
-      .map({ level: level ? level.kind : 'packages', ...(level ? { target: level.target } : {}), hideTests: filters.hideTests, hideOutside: filters.hideOutside, ...(filters.epic ? { epic: filters.epic } : {}) })
+      .map({ level: level ? level.kind : 'packages', ...(level ? { target: level.target } : {}), hideTests: testsAsked(loc, filters), hideOutside: filters.hideOutside, ...(filters.epic ? { epic: filters.epic } : {}) })
       .then((o) => {
         if (!live) return;
         setOutcome({ key, outcome: o });
@@ -147,29 +207,45 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
 
   const current = outcome?.key === key ? outcome.outcome : undefined;
   const map = current?.ok ? current.value : undefined;
+  const view = useMemo(() => (map ? mapView(map, outsideOpen) : undefined), [map, outsideOpen]);
   useEffect(() => {
-    if (!map) return;
+    if (!view) return;
     let live = true;
-    layoutCodeMap(map).then(
-      (layout) => live && setLaid({ map, layout }),
-      () => live && setLaid({ map, layout: { width: 0, height: 0, nodes: {}, groups: {}, edges: [] } }),
+    layoutCodeMap(view).then(
+      (layout) => live && setLaid({ view, layout }),
+      () => live && setLaid({ view, layout: { width: 0, height: 0, nodes: {}, groups: {}, edges: [], frames: [] } }),
     );
     return () => {
       live = false;
     };
-  }, [map]);
-  const elements = useMemo(() => (laid && laid.map === map ? mapElements(laid.map, laid.layout, loc.node) : undefined), [laid, map, loc.node]);
-  const selectedNode = map?.nodes.find((n) => n.id === loc.node);
+  }, [view]);
+  useEffect(() => setHover(undefined), [key]);
+  const ready = laid && laid.view === view ? laid : undefined;
+  const elements = useMemo(() => (ready ? mapElements(ready.view, ready.layout, loc.node, hover, () => setOutsideAt(undefined)) : undefined), [ready, loc.node, hover]);
+  // The first view of a level: readable names, on the selected node or the biggest one, for the
+  // canvas as measured. Kept while the level stays (opening the outside group does not move it).
+  const [opened, setOpened] = useState<{ key: string; viewport: Viewport } | undefined>();
+  useLayoutEffect(() => {
+    if (!ready || opened?.key === key) return;
+    const el = canvasRef.current;
+    const screen = el && el.clientWidth > 0 && el.clientHeight > 0 ? { w: el.clientWidth, h: el.clientHeight } : SCREEN;
+    setOpened({ key, viewport: mapViewport(ready.layout, ready.layout.nodes[focusNode(ready.view, loc.node) ?? ''], screen) });
+  }, [ready, opened, key, loc.node]);
+  const viewport = opened?.key === key ? opened.viewport : undefined;
+  const selectedNode = view?.nodes.find((n) => n.id === loc.node);
 
   const onNodeClick = (n: MapNode) => {
     if (!map) return;
     const click = mapClick(map, n);
     if (!click) return;
-    if ('go' in click) onLoc(click.go);
+    if ('toggle' in click) setOutsideAt(key);
+    else if ('go' in click) onLoc(click.go);
     else onLoc({ ...loc, node: click.select });
   };
   const levelName = map?.name ?? loc.level?.target ?? 'the repo';
-  const filtered = filters.hideTests || filters.hideOutside || filters.epic !== undefined;
+  const hiddenTests = map?.hiddenTests ?? 0;
+  const testsHidden = map ? hiddenTests > 0 : testsAsked(loc, filters) === true;
+  const filtered = testsHidden || filters.hideOutside || filters.epic !== undefined;
   // The EPICs of the boxes: from the last map that answered, so the select keeps its choices.
   const [epics, setEpics] = useState<string[]>([]);
   useEffect(() => {
@@ -193,8 +269,8 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
         </nav>
         <Search onLoc={onLoc} />
         <div className="cm-filters" role="group" aria-label="Filters" data-testid="code-map-filters">
-          <Chip on={filters.hideTests} testId="code-map-hide-tests" onClick={() => setFilters((f) => ({ ...f, hideTests: !f.hideTests }))}>
-            Hide tests
+          <Chip on={testsHidden} testId="code-map-hide-tests" onClick={() => setFilters((f) => ({ ...f, hideTests: !testsHidden }))}>
+            {testsHidden && hiddenTests > 0 ? `Show ${hiddenTests} ${map?.level === 'file' ? 'test' : 'test file'}${hiddenTests === 1 ? '' : 's'}` : testsHidden ? 'Show tests' : 'Hide tests'}
           </Chip>
           <Chip on={filters.hideOutside} testId="code-map-hide-outside" onClick={() => setFilters((f) => ({ ...f, hideOutside: !f.hideOutside }))}>
             Hide outside packages
@@ -218,9 +294,16 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
             </select>
           </label>
           <ul className="cg-legend" aria-hidden="true">
-            <li><span className="cg-swatch is-exact" /> exact</li>
-            <li><span className="cg-swatch is-name-match" /> name match</li>
-            <li><span className="cg-swatch is-unresolved" /> unresolved</li>
+            {map?.level === 'file' ? (
+              <>
+                <li><span className="cg-swatch is-exact" /> exact</li>
+                <li><span className="cg-swatch is-name-match" /> name match</li>
+                <li><span className="cg-swatch is-unresolved" /> unresolved</li>
+              </>
+            ) : (
+              <li><span className="cg-swatch is-counted" /> thicker = more calls and imports</li>
+            )}
+            <li className="muted">hover a box to see its edges</li>
             <li><span className="cg-dot kind-test" /> test</li>
             <li><span className="cg-dot is-outside" /> outside</li>
             <li><span className="cm-badge">▣</span> serves a plan box</li>
@@ -257,7 +340,7 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
             filtered ? (
               <div className="muted" data-testid="code-map-empty-filtered">
                 <p>Nothing here matches the filters.</p>
-                <button type="button" className="action small" data-testid="code-map-clear-filters" onClick={() => setFilters({ hideTests: false, hideOutside: false })}>
+                <button type="button" className="action small" data-testid="code-map-clear-filters" onClick={() => setFilters({ hideOutside: false })}>
                   Clear the filters
                 </button>
               </div>
@@ -269,8 +352,17 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
               </p>
             )
           ) : (
-            <div className="cm-canvas" data-testid="code-map-canvas" data-level={map?.level} role="group" aria-label={`Code map of ${levelName}`}>
-              {elements && (
+            <div
+              ref={canvasRef}
+              className="cm-canvas"
+              data-testid="code-map-canvas"
+              data-level={map?.level}
+              data-zoom={viewport ? viewport.zoom.toFixed(2) : undefined}
+              data-focus={hover ?? loc.node}
+              role="group"
+              aria-label={`Code map of ${levelName}`}
+            >
+              {elements && viewport && (
                 <ReactFlow
                   key={key}
                   nodes={elements.nodes}
@@ -281,12 +373,13 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
                   nodesFocusable={false}
                   edgesFocusable={false}
                   elementsSelectable={false}
-                  fitView
-                  fitViewOptions={{ padding: 0.08, maxZoom: 1.2 }}
+                  defaultViewport={viewport}
                   minZoom={0.1}
                   maxZoom={2.5}
                   proOptions={{ hideAttribution: true }}
-                  onNodeClick={(_, n) => onNodeClick((n as MapFlowNode).data.node)}
+                  onNodeClick={(_, n) => n.type === 'map' && onNodeClick((n as MapFlowNode).data.node)}
+                  onNodeMouseEnter={(_, n) => n.type === 'map' && setHover(n.id)}
+                  onNodeMouseLeave={() => setHover(undefined)}
                 >
                   <Background gap={24} size={1} />
                   <Controls showInteractive={false} />
@@ -303,7 +396,11 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
           )}
         </div>
         {loc.node !== undefined && (
-          <SidePanel key={loc.node} id={loc.node} mapNode={selectedNode} epic={epic} onOpenBox={onOpenBox} onLoc={onLoc} onClose={() => onLoc({ ...loc, node: undefined })} />
+          selectedNode?.members ? (
+            <GroupPanel key={loc.node} node={selectedNode} file={map?.name ?? ''} onLoc={onLoc} onClose={() => onLoc({ ...loc, node: undefined })} />
+          ) : (
+            <SidePanel key={loc.node} id={loc.node} mapNode={selectedNode} epic={epic} onOpenBox={onOpenBox} onLoc={onLoc} onClose={() => onLoc({ ...loc, node: undefined })} />
+          )
         )}
       </div>
     </section>
@@ -471,7 +568,69 @@ function NodeLink({ node, onLoc, testId }: { node: { id: string; name: string; f
   );
 }
 
+/** A test: its short title (the whole describe chain on hover) and its test file. */
+function TestLink({ node, onLoc }: { node: { id: string; name: string; file?: string }; onLoc: (l: CodeLoc) => void }) {
+  const to = fileLoc(node);
+  const short = shortTestName(node.name);
+  return (
+    <span className="cm-test">
+      {to ? (
+        <button type="button" className="link cm-test-name" title={node.name} onClick={() => onLoc(to)}>
+          {short}
+        </button>
+      ) : (
+        <span className="cm-test-name" title={node.name}>
+          {short}
+        </span>
+      )}
+      {node.file && <span className="muted small cm-test-file"> {node.file.split('/').pop()}</span>}
+    </span>
+  );
+}
+
 const TOP = 6;
+
+/** An other file (or outside package) at the file level: the code in it this file calls, and the code in it that calls this file. */
+function GroupPanel({ node, file, onLoc, onClose }: { node: MapNode; file: string; onLoc: (l: CodeLoc) => void; onClose: () => void }) {
+  const members = node.members ?? [];
+  const base = file.split('/').pop();
+  const list = (title: string, testId: string, rows: MapMember[], count: (m: MapMember) => number) => (
+    <section data-testid={testId}>
+      <h4>
+        {title} <span className="muted">({rows.length})</span>
+      </h4>
+      {rows.length === 0 ? (
+        <p className="muted small">None.</p>
+      ) : (
+        <ul className="drawer-list">
+          {rows.map((m) => (
+            <li key={m.id}>
+              {m.kind === 'test' ? <TestLink node={m} onLoc={onLoc} /> : <NodeLink node={m} onLoc={onLoc} />}
+              {count(m) > 1 && <span className="muted small"> × {count(m)}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+  return (
+    <aside className="cm-panel" aria-label={`About ${node.name}`} data-testid="code-map-panel">
+      <div className="cm-panel-head">
+        <h3 data-testid="code-map-panel-name">{node.name}</h3>
+        <button type="button" className="drawer-close" aria-label="Close" data-testid="code-map-panel-close" onClick={onClose}>
+          ×
+        </button>
+        <p className="muted small" data-testid="code-map-panel-place">
+          {mapKindWord(node)} · {node.file ?? 'outside the repo'} · {callsWord(node)} with {base}
+        </p>
+      </div>
+      <div className="drawer-body cm-panel-body">
+        {list(`What ${base} uses in it`, 'code-map-panel-members-to', members.filter((m) => m.to > 0), (m) => m.to)}
+        {list(`What in it uses ${base}`, 'code-map-panel-members-from', members.filter((m) => m.from > 0), (m) => m.from)}
+      </div>
+    </aside>
+  );
+}
 
 /** The selected node: what it is, where it is, who calls it, what it calls, its tests, its HTTP calls and its boxes. */
 function SidePanel({ id, mapNode, epic, onOpenBox, onLoc, onClose }: { id: string; mapNode: MapNode | undefined; epic: string | undefined; onOpenBox: (path: string) => void; onLoc: (l: CodeLoc) => void; onClose: () => void }) {
@@ -515,7 +674,7 @@ function SidePanel({ id, mapNode, epic, onOpenBox, onLoc, onClose }: { id: strin
           <div className="drawer-body cm-panel-body">
             <Links title="Called by" testId="code-map-panel-callers" links={lists.callers.filter((l) => l.kind !== 'http-calls')} nodeOf={nodeOf} onLoc={onLoc} empty="Nothing in the repo calls it." />
             <Links title="Calls" testId="code-map-panel-callees" links={lists.callees.filter((l) => l.kind !== 'http-calls')} nodeOf={nodeOf} onLoc={onLoc} empty="It calls nothing the graph knows." />
-            <Links title="Tests" testId="code-map-panel-tests" links={lists.tests} nodeOf={nodeOf} onLoc={onLoc} empty="No test covers it." />
+            <Links title="Tests" testId="code-map-panel-tests" links={lists.tests} nodeOf={nodeOf} onLoc={onLoc} empty="No test covers it." tests />
             {(http.length > 0 || kind === 'route') && (
               <Links title={kind === 'route' ? 'Called over HTTP by' : 'HTTP calls and routes'} testId="code-map-panel-http" links={http} nodeOf={nodeOf} onLoc={onLoc} empty="No HTTP calls." />
             )}
@@ -549,7 +708,7 @@ function SidePanel({ id, mapNode, epic, onOpenBox, onLoc, onClose }: { id: strin
   );
 }
 
-function Links({ title, links, testId, nodeOf, onLoc, empty }: { title: string; links: CallLink[]; testId: string; nodeOf: (l: CallLink) => { id: string; name: string; file?: string }; onLoc: (l: CodeLoc) => void; empty: string }) {
+function Links({ title, links, testId, nodeOf, onLoc, empty, tests = false }: { title: string; links: CallLink[]; testId: string; nodeOf: (l: CallLink) => { id: string; name: string; file?: string; kind?: string }; onLoc: (l: CodeLoc) => void; empty: string; tests?: boolean }) {
   return (
     <section data-testid={testId}>
       <h4>
@@ -561,7 +720,7 @@ function Links({ title, links, testId, nodeOf, onLoc, empty }: { title: string; 
         <ul className="drawer-list">
           {links.slice(0, TOP).map((l) => (
             <li key={l.id} className={`trust-${l.trust}`}>
-              <NodeLink node={{ ...nodeOf(l), name: l.name }} onLoc={onLoc} />
+              {tests || nodeOf(l).kind === 'test' ? <TestLink node={{ ...nodeOf(l), name: l.name }} onLoc={onLoc} /> : <NodeLink node={{ ...nodeOf(l), name: l.name }} onLoc={onLoc} />}
               {l.trust !== 'exact' && <span className="muted small"> · {l.trust}</span>}
             </li>
           ))}

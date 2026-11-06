@@ -27,14 +27,32 @@
 .cm-canvas .react-flow__handle { opacity: 0; pointer-events: none; }
 .cm-node { position: relative; }
 .cg-node.cm-node.kind-package { border-color: var(--builder-line); border-width: 2px; background: var(--builder-tint); }
-.cg-node.cm-node.kind-package .cg-name { font-family: var(--font); font-size: var(--fs-md); }
+.cg-node.cm-node .cg-name { font-size: 15px; line-height: 1.25; } /* MAP_TITLE_PX: ~11 px on screen at the smallest zoom the map opens at */
+.cg-node.cm-node.kind-package .cg-name { font-family: var(--font); }
+.cm-calls { color: var(--muted); font-weight: var(--fw-regular); }
+.cg-node.cm-node.is-group { border-style: dashed; border-width: 2px; cursor: pointer; }
 .cg-node.cm-node.kind-stub { border-style: dashed; border-color: var(--builder-line); background: var(--card); }
 .cg-node.cm-node.is-test { border-color: var(--rehearse); border-left-width: 4px; background: var(--rehearse-tint); }
-.cg-node.cm-node.is-outside { opacity: 0.75; }
+.cg-node.cm-node.is-outside { color: var(--ink-2); }
+.cg-node.cm-node.is-outside .cg-name { font-size: 15px; } /* readable like the rest; the dashed border says "outside" */
 .cg-node.cm-node.is-center { opacity: 1; }
 .cm-badge { position: absolute; top: 2px; right: 4px; padding: 0 4px; border-radius: var(--r-pill); background: var(--agent-tint); color: var(--agent-ink); font-size: var(--fs-2xs); font-weight: var(--fw-bold); line-height: 1.5; }
 .cg-legend .cm-badge { position: static; }
-.react-flow__edge.cm-edge .react-flow__edge-text { font-size: 10px; fill: var(--muted); }
+.react-flow__edge.cm-edge .react-flow__edge-text { font-size: 12px; font-weight: var(--fw-bold); fill: var(--ink-2); }
+/* Edges: faint by default; the hovered (or selected) node's edges are lit. Grey by count at the
+   packages and package levels; the trust styles only at the file level. */
+.react-flow__edge.cm-edge.is-faint .react-flow__edge-path { opacity: 0.18; }
+.react-flow__edge.cm-edge.is-lit .react-flow__edge-path { opacity: 1; }
+.react-flow__edge.cm-edge.is-counted .react-flow__edge-path { stroke: var(--muted); stroke-dasharray: none; }
+.react-flow__edge.cm-edge.is-counted.is-lit .react-flow__edge-path { stroke: var(--ink-2); }
+.cg-swatch.is-counted { border-top: 4px solid var(--muted); }
+.cm-frame { width: 100%; height: 100%; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); background: color-mix(in srgb, var(--card) 55%, transparent); pointer-events: none; }
+.cm-frame.is-outside { border-color: var(--faint); }
+.cm-frame-title { display: inline-flex; gap: var(--s-2); align-items: baseline; padding: 4px 8px; font-family: var(--mono); font-size: 13px; font-weight: var(--fw-semibold); color: var(--muted); }
+.cm-frame-title button { pointer-events: all; }
+.cm-test { display: inline-flex; align-items: baseline; gap: var(--s-2); max-width: 100%; min-width: 0; }
+.cm-test-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.cm-test-file { flex-shrink: 0; font-family: var(--mono); }
 .cm-panel { width: min(360px, 40vw); flex-shrink: 0; overflow: auto; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); box-shadow: var(--shadow-sm); }
 .cm-panel-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-1); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
 .cm-panel-head h3 { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: var(--fs-lg); }
@@ -48,5 +66,3 @@
   .cm-body { flex-direction: column; }
   .cm-panel { width: auto; }
 }
-.react-flow__edge.cm-edge.is-outside .react-flow__edge-path { opacity: 0.3; }
-.react-flow__edge.cm-edge .react-flow__edge-path { stroke-opacity: 0.75; }
