@@ -28,7 +28,10 @@ scenarios:
     steps:
       - { name: bench-start }
       - name: bench
-        example: { id: bench-warm, given: { fixture: "same repo, 1 file changed" }, then: { exitCode: 0, timings: { updateMs: 180, queryMsMax: 40 } } }
+        example: { id: bench-warm, given: { fixture: "same repo, 1 file changed" }, then: { exitCode: 0, timings: { updateMs: 249, queryMsMax: 37 } } }
+        # Measured 2026-11-06 (T35): bench --files 1000 --seed 1 --runs 3, medians. --resolvers wave1:
+        # update 249 ms (ts) and 186 ms (py), queries 34–37 ms. --resolvers exact: update 227 ms (ts)
+        # and 228 ms (py), queries 36–40 ms. A query's time includes its freshness check (C10).
       - { name: bench-ok, branch: "yes" }
       - { name: bench-pass }
     expect: { criterion: S10-A2, state: { updateMsBelow: 300, queryMsBelow: 100, exitCode: 0 } }

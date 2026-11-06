@@ -1,0 +1,53 @@
+story: S8
+scenarios:
+  - id: S8-builds
+    title: A Flow-Box trailer links a box and a commit to the code it changed
+    status: approved
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - name: update-graph/link
+        example: { id: link-trailer, given: { commit: { trailer: "Flow-Box: checkout/pay", diff: "src/pay.ts lines 10-30" }, function: { name: charge, range: "10-30" } }, then: { edges: [ { kind: builds, from: "box checkout/pay", to: charge, trust: exact, source: git }, { kind: changes, from: "commit", to: charge, trust: exact, source: git } ] } }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S8-A1, state: { buildsEdge: "checkout/pay -> charge", commitEdge: "commit -> charge" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:26:45Z'
+      hash: 'sha256:8e13db5a3cddb4c79ef684200120e56f6ada5a09d8cdd461abe345dde60fff25'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAIHWIyT2s3xo0AFMpNb7BygPWS7y//sPqWhmi8YqI132ljHTzM+ZASPBNlP
+        Hs/YZthjU+Iy/10EJpagAFUVHZAA==
+        -----END SSH SIGNATURE-----
+
+  - id: S8-tests
+    title: A Vitest test and a pytest test link to the functions they call
+    status: approved
+    steps:
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: cold }
+      - name: update-graph/bulk-index
+        example: { id: bulk-tests, given: { tests: [ "src/orders.test.ts calls getOrderById", "api/test_orders.py calls get_order_by_id" ] }, then: { edges: [ { kind: tests, from: "orders.test.ts", to: getOrderById }, { kind: tests, from: "test_orders.py", to: get_order_by_id } ] } }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+    expect: { criterion: S8-A2, state: { testsEdges: [ "orders.test.ts -> getOrderById", "test_orders.py -> get_order_by_id" ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-06T04:24:54Z'
+      hash: 'sha256:9089b91d92c4529f9af35a56399115e1e4447a57e3d85f40fe96c2339455d135'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAvHGos8xQOxyk6SSetZabi7/VipHDDZnZOs4beLzZNMd5DfZWTEDH4VR5na
+        QWJyrgaAt/IgWdylpzx+Hi/C6JBQ==
+        -----END SSH SIGNATURE-----

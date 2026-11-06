@@ -34,12 +34,12 @@ scenarios:
       - { name: update-graph/hash-files }
       - { name: update-graph/mode, branch: cold }
       - name: update-graph/bulk-index
-        example: { id: bulk-tests, given: { tests: [ "src/orders.test.ts calls getOrderById", "api/test_orders.py calls get_order_by_id" ] }, then: { edges: [ { kind: tests, from: "orders.test.ts", to: getOrderById }, { kind: tests, from: "test_orders.py", to: get_order_by_id } ] } }
+        example: { id: bulk-tests, given: { tests: [ "src/orders.test.ts calls getOrderById", "api/test_orders.py calls get_order_by_id" ] }, then: { edges: [ { kind: tests, from: "orders > reads one order by its id", to: getOrderById }, { kind: tests, from: test_get_order_by_id, to: get_order_by_id } ] } }
       - { name: update-graph/link }
       - { name: update-graph/rank }
       - { name: update-graph/write }
       - { name: update-graph/fresh }
-    expect: { criterion: S8-A2, state: { testsEdges: [ "orders.test.ts -> getOrderById", "test_orders.py -> get_order_by_id" ] } }
+    expect: { criterion: S8-A2, state: { testsEdges: [ "orders > reads one order by its id -> getOrderById", "test_get_order_by_id -> get_order_by_id" ] } }
     approval:
       by: raizal.pregnanta@systemearth.com
       at: '2026-11-06T04:24:54Z'

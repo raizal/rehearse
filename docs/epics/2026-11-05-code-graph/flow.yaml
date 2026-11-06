@@ -64,6 +64,9 @@ root:
       decisions: [G8]
       inputs:  { box: string }
       outputs: { query: GraphQuery }   # verb show, target the box node, from panel
+      # A box with no builds edge yet falls back to the functions in the files of its Flow-Box
+      # commits (not its test files). A long list of functions shows the first ones and a
+      # "Show all" button. A box usually builds many functions; the builder picks one. (C8)
 
     - id: serve-query
       kind: process
@@ -74,6 +77,9 @@ root:
       decisions: [G8, G20, D45]
       inputs:  { query: GraphQuery, token: "string?", origin: "string?" }
       # The one graph route: GET /api/graph?verb=show|near&target=… (G20).
+      # The token and the Origin are checked before any graph work: 403 (C8).
+      # A bad query (verb, target, depth) gets 400 and a target that is not found gets 404.
+      # A show answer also carries `ends` and `outline` for the panel (see QueryAnswer).
       outputs: { query: GraphQuery }
       errorExits: [forbidden]
 
@@ -135,11 +141,16 @@ root:
             inputs:  { files: "list string", tsconfigs: "list string", venv: "string?" }
             outputs: { mode: "enum[cold, update, none]", changed: "list string", removed: "list string",
                        tsconfigs: "list string", venv: "string?", run: IndexRun }
-            reads:   [FileHash.hash]
+            reads:   [FileHash.hash, FileHash.mtimeMs, FileHash.size, FileHash.indexedAt]
             writes:  ["IndexRun.status:->running", IndexRun.mode, IndexRun.trigger, IndexRun.files,
                       IndexRun.changedFiles, IndexRun.venv, IndexRun.startedAt]
             # No graph.db, or an empty one, means mode cold: every file is new.
             # query.rebuild (--rebuild) also means mode cold, whatever the hashes say (G29).
+            # A file whose mtime and size match FileHash is not read again, unless its mtime is
+            # within 2 s of indexedAt. A file read again with the same hash is not changed.
+            # Blind spot: an edit that keeps the size and leaves the old mtime is not seen
+            # (--rebuild sees it). (C9)
+            # No file changed but a linker says it is stale (a new commit, a record edit): mode update. (C6)
           - id: mode
             kind: decision
             lane: rehearse
@@ -160,6 +171,8 @@ root:
             writes:  [IndexRun.resolvers]
             sideEffects: [runs scip-python once over the Python files (npm; the host needs no Python)]
             # A cold index uses a bulk source, not one LSP request per call site (G15).
+            # Resolvers on a cold index: tree-sitter, ts-morph, scip-python. basedpyright runs on
+            # updates only. (C5)
           - id: warm-update
             kind: process
             lane: rehearse
@@ -170,7 +183,13 @@ root:
             inputs:  { changed: "list string", removed: "list string", venv: "string?", run: IndexRun }
             outputs: { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
             writes:  [IndexRun.resolvers]
-            sideEffects: [keeps a basedpyright language server and a ts-morph project warm in the process]
+            sideEffects: [keeps a basedpyright language server and a ts-morph project warm in the process,
+                          sends basedpyright one definition request for each Python reference site in the changed
+                          files and in the files that may point into them (C5)]
+            # It makes again only the reference edges that can point into what changed. Files that come
+            # or go, or a workspace package change, make every reference edge again. (C9)
+            # Its nodes and edges equal a cold index of the same files, apart from each edge's `source`:
+            # scip-python on a cold index, basedpyright on an update. (C5)
           - id: link
             kind: process
             lane: rehearse
@@ -181,7 +200,12 @@ root:
             inputs:  { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
             outputs: { nodes: "list GraphNode", edges: "list GraphEdge", run: IndexRun }
             sideEffects: [runs git log for Flow-Box trailers and git blame on the changed lines,
-                          reads docs/epics/*/ record files, and reads an OpenAPI spec only when the repo has one (G23)]
+                          reads docs/epics/*/ record files, and reads an OpenAPI spec only when the repo has one (G23),
+                          keeps each linker's state in graph.db (git HEAD, blame, record file hashes) (C6)]
+            # A linker can say it is stale: what it reads changed (a new commit, a record edit) though
+            # no source file did. Then the update runs. A linker with nothing new keeps its rows. (C6)
+            # builds edges start at the box the Flow-Box trailer names, not at its parent boxes (D44
+            # is not in the graph). tests edges start at the test node, not the test file. (C6)
             # Test adapters: Vitest and pytest only, static edges, no test run (G25).
             # Edge kinds: changes for commit → code, references for the record links (G30).
           - id: rank
@@ -330,6 +354,7 @@ root:
             inputs:  { node: GraphNode, query: GraphQuery }
             outputs: { bundle: ContextBundle }
             reads:   [GraphNode.rank, GraphEdge.*, IndexRun.venv]
+            # Budget 2000 tokens when the query has none. Tokens count the code of the items only. (C7)
           - id: answer
             kind: output
             lane: rehearse
@@ -376,6 +401,8 @@ root:
       decisions: [G8, D19, D44]
       inputs:  { answer: QueryAnswer }
       outputs: { view: "list string" }
+      # The AST outline is `outlineNode` of @rehearse/graph (at most 300 nodes); the graph route
+      # puts it in the answer as `outline`. (C8)
 
     - id: seen
       kind: end
@@ -402,6 +429,8 @@ root:
       reads:   [IndexRun.mode, IndexRun.files, IndexRun.ms]
       writes:  []
       sideEffects: [runs the same graph package as the CLI, on a generated repo]
+      # It checks the median of its runs (a shared CI runner is noisy). A query's time includes
+      # its freshness check; the check also has its own row. (C10)
 
     - id: bench-ok
       kind: decision
