@@ -1,6 +1,6 @@
 // S4: `context <target> --budget <tokens>` (G6, G14, G19). The `context` fixture is a TypeScript shop
 // where getOrderById and the code linked to it have about 9,000 characters (scenario S4-context-budget).
-// Wave 1 has no `tests` edge: the test reaches getOrderById by its call, so its role is `caller`.
+// With the T30 linkers the test also has a `tests` edge to getOrderById.
 
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -105,7 +105,7 @@ describe('S4-A1 the bundle fills the budget: target first, then graph distance, 
     const answer = await graph.context('getOrderById', { budget: 2000 });
     expect(answer.nodes.map((n) => [n.name, n.distance])).toEqual([['getOrderById', 0], ['loadRow', 1], ['loadOrder', 1], [TEST_NAME, 1]]);
     expect(answer.edges.map((e) => `${e.fromName} ${e.kind} ${e.toName}`).sort()).toEqual([
-      'getOrderById calls loadRow', 'loadOrder calls getOrderById', `${TEST_NAME} calls getOrderById`,
+      'getOrderById calls loadRow', 'loadOrder calls getOrderById', `${TEST_NAME} calls getOrderById`, `${TEST_NAME} tests getOrderById`,
     ]);
     const text = answerToText(answer);
     expect(text.split('\n')[0]).toBe('context getOrderById: 1988 of 2000 tokens, 4 items');
@@ -125,6 +125,7 @@ describe('S4-A1 the bundle fills the budget: target first, then graph distance, 
       node: (id) => nodes.get(id),
       nodesInFile: () => [],
       nodesNamed: () => [],
+      nodesOfKind: () => [],
       edges: (f) => edges.filter((e) => (f.from === undefined || e.from === f.from) && (f.to === undefined || e.to === f.to) && (f.kind === undefined || e.kind === f.kind)),
     };
     const run: IndexRun = { id: 1, mode: 'cold', trigger: 'query', files: 1, changedFiles: 1, resolvers: [], startedAt: '', ms: 0, status: 'written' };
@@ -154,7 +155,8 @@ const fakePythonResolver: Resolver = {
 
 describe('S4-A2 a Python repo with no virtual environment', () => {
   it('S4-A2 context get_order_by_id exits 0 and says "no venv found"; repo edges exact, third-party edges unresolved', async () => {
-    const { graph } = await open('shop', { resolvers: [fakePythonResolver] });
+    // No linkers: this is about resolver trust; the http-calls link to the TS client is S7's.
+    const { graph } = await open('shop', { resolvers: [fakePythonResolver], linkers: [] });
     expect(graph.lastRun()!.venv).toBeUndefined();
     const answer = await graph.context('get_order_by_id', { budget: 2000 });
     expect(answer).toMatchObject({ ok: true, exitCode: 0 });
@@ -178,7 +180,8 @@ describe('S4-A2 a Python repo with no virtual environment', () => {
   });
 
   it('S4-A2 the note comes from the run: a run with no venv notes a Python bundle, never a TypeScript one', async () => {
-    const { root, graph } = await open('shop');
+    // No linkers: with them, the TS client's http-calls edge brings the Python route into its bundle.
+    const { root, graph } = await open('shop', { linkers: [] });
     const view = storeView(graph.store);
     const node = (name: string) => graph.store.nodesWhere('name = ? AND target_only = 0', name)[0]!;
     const run = (venv?: string): IndexRun => ({

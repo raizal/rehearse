@@ -5,6 +5,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { context, DEFAULT_BUDGET } from './context/build.js';
 import type { ContextBuilder, Linker, Ranker, Resolver } from './extend.js';
+import { defaultLinkers } from './link/index.js';
 import { find, near, path, show } from './query.js';
 import { pageRank } from './rank/pagerank.js';
 import { Store } from './store.js';
@@ -17,6 +18,7 @@ export const GRAPH_DB = '.rehearse/graph.db';
 export interface GraphOptions {
   trigger?: IndexTrigger;
   resolvers?: Resolver[];
+  /** Default: defaultLinkers() (record, git, tests, http). `[]` for none. */
   linkers?: Linker[];
   /** Default: PageRank (G14). */
   ranker?: Ranker;
@@ -43,7 +45,8 @@ export interface Graph {
 export function openGraph(root: string, opts: GraphOptions = {}): Graph {
   mkdirSync(join(root, '.rehearse'), { recursive: true });
   const store = new Store(join(root, GRAPH_DB));
-  const update = (rebuild = false) => updateGraph(root, store, { ranker: pageRank(), ...opts, rebuild });
+  const linkers = opts.linkers ?? defaultLinkers();
+  const update = (rebuild = false) => updateGraph(root, store, { ranker: pageRank(), ...opts, linkers, rebuild });
   const graph: Graph = {
     root,
     store,
