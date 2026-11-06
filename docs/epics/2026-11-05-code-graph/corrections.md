@@ -85,3 +85,11 @@ off again; no approval and no sign-off was made.
   - Why: A list hides how the code connects. The UI already draws graphs with React Flow and elk.
   - Fix: S9-A1 names what the graph shows (callers, callees, tests and HTTP calls, with edge trust). drill-code says the graph comes from verb `near` (show gives the code and AST), at depth 1 or 2, with the trust styles, the fold at 12 per side, and recentering on click.
 
+
+## 2026-11-06 — the Code map tab, built in T40, added as a new story
+
+- **C12** `caught-after-build` · new story `S11`, requirement `R19`, boxes `open-map`, `code-map`, `map-level`, edges `asked → map-level` and `asker → code-map` (T40)
+  - Status: DONE in the record (prd.yaml R19, S11; flow.yaml; scenarios/S11.yaml)
+  - What: T40 built a Code map tab that the record did not have: the whole repo one level at a time (packages, one package, one file), a side panel with the boxes each node serves, find and path, filters, and the graph route's `verb=map|find|path|status`. R17 names only `verb=show|near`.
+  - Why: The drill-down shows the code below one box; nothing showed where all the code is. The owner asked that it go in the record as a new story with its own boxes, so that no signed story goes stale.
+  - Fix: New requirement R19 and story S11 (S11-A1…A8, with the readability pass: readable zoom on open, faint edges lit on hover, one outside group, folder groups, tests hidden at package level, one node per outside file with its calls). New boxes open-map, code-map and map-level, and new root edges only; no existing box, requirement, story or criterion changed, and R17 is left as signed. scenarios/S11.yaml has nine drafts (S11-A7 has two: not indexed and gone). They wait for the owner's approval and S11 for sign-off.

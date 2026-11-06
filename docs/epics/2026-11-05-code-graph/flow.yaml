@@ -454,6 +454,55 @@ root:
       package: graph
       title: PR blocked, timings attached
 
+    # --- The builder reads the whole repo as a map (S11, C12) ---
+    # New boxes only: the map reuses serve-query, update-graph and refused as they are.
+    - id: open-map
+      kind: start
+      lane: builder
+      package: ui
+      title: Builder opens the Code map tab
+
+    - id: code-map
+      kind: input
+      lane: builder
+      package: ui
+      title: Pick a level of the Code map, a node, a search or a filter
+      stories: [S11]
+      decisions: [G8]
+      inputs:  { level: "enum[packages, package, file]", target: "string?", node: "string?", find: "string?",
+                 to: "string?", hideTests: "enum[auto, hide, show]", hideOutside: boolean, epic: "string?" }
+      outputs: { query: GraphQuery }   # verb map (or find, path, status), from panel
+      # The graph route: GET /api/graph?verb=map&level=packages|package|file&target=…&tests=hide|auto
+      # &outside=hide&epic=…, and verb find, path and status. Same token and Origin check as the
+      # drill-down; a bad level, a missing target or a bad EPIC gets 400, a target not found 404.
+      # verb status answers at once; the tab shows "indexing" until the graph is built.
+      # The URL holds the level, the target and the selected node; Back and the breadcrumb go up.
+      # Readable on open: titles are 15 px and the map never opens below zoom 11/15; a level that
+      # does not fit opens centred on the selected or the biggest node, one that fits opens whole.
+      # Edges are faint and thin; hover or selection lights a node's edges with counts and an arrow.
+      # The side panel lists name, kind, file:line, callers, callees, tests (short title and file,
+      # the full name on hover), HTTP calls, routes and the boxes the node serves. A box of this
+      # EPIC opens its drawer (?box=); a badge marks a serving node on the map.
+
+    - id: map-level
+      kind: process
+      lane: rehearse
+      package: graph
+      title: Group the graph into one level of the map
+      stories: [S11]
+      decisions: [G14]
+      inputs:  { query: GraphQuery }
+      outputs: { nodes: "list GraphNode", edges: "list GraphEdge", notes: "list string" }
+      reads:   [GraphNode.*, GraphEdge.*]
+      errorExits: [not-found]
+      # Level packages: one node per workspace package, sized by summed PageRank; outside packages
+      # fold into one group "Outside packages (N)". Level package: the files in nested folder
+      # groups, stubs to the packages they use; tests hidden on tests=auto unless the package has
+      # only tests. Level file: the code of the file, and one node per other file or outside
+      # package with its call count and the members on each side. Edges are counted per pair; each
+      # level is capped at about 150 nodes. Trust (exact, name-match, unresolved) is kept on level
+      # file only. not-found: the package or file is not in the graph (404).
+
   edges:
     - { from: start,        to: ask }
     - { from: ask,          to: update-graph }
@@ -474,3 +523,9 @@ root:
     - { from: bench,        to: bench-ok }
     - { from: bench-ok,     to: bench-pass,    label: "yes", kind: branch }
     - { from: bench-ok,     to: bench-fail,    label: "no",  kind: branch }
+    - { from: open-map,     to: code-map }
+    - { from: code-map,     to: serve-query }
+    - { from: asked,        to: map-level,     label: map,   kind: branch }
+    - { from: map-level,    to: code-map }
+    - { from: map-level,    to: code-map,      label: not-found, kind: error }
+    - { from: asker,        to: code-map,      label: map,   kind: branch }
