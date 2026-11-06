@@ -2,12 +2,13 @@
 // the panel and a browser tab on `rehearse serve` are the same UI (R12, D31).
 //
 // Route: /plugins/<pluginId>/rehearse/<projectId>/<slug>. A missing part shows a picker.
+// With an EPIC open, a bar above the iframe switches EPIC or goes back to the picker.
 
 import { useEffect, useState } from 'react';
 import { definePluginApp, useBbContext, useBbNavigate, useRealtime, useRpc } from '@get-bb/plugin-sdk/app';
 import type { PluginNavPanelProps } from '@get-bb/plugin-sdk/app';
 import type { rpcContract } from './server';
-import { isLoopbackHost, parseSubPath, RENEW_EVERY_MS, subPathOf } from './src/panel';
+import { isLoopbackHost, parseSubPath, startServe, subPathForChoice, subPathOf, switcherOptions, type ServeSession } from './src/panel';
 
 const PANEL_PATH = 'rehearse';
 const OPEN_CHANNEL = 'open';
@@ -58,69 +59,81 @@ function EpicPicker({ rpc, projectId, onPick }: { rpc: Rpc; projectId: string; o
   return <Picker title="Pick an EPIC (docs/epics/*)" items={items} onPick={onPick} error={error} />;
 }
 
-interface Session {
-  leaseId: string;
-  src: string | null;
-  remoteError: string | null;
-  sshAgent: boolean;
-}
-
-/** Start or reuse the serve process, renew its lease while mounted, release it on unmount. */
-function useServe(rpc: Rpc, projectId: string, slug: string): { session: Session | null; error: string | null } {
-  const [session, setSession] = useState<Session | null>(null);
+/** Start or reuse the serve process, renew its lease while mounted, release it on unmount or slug change. */
+function useServe(rpc: Rpc, projectId: string, slug: string): { session: ServeSession | null; error: string | null } {
+  const [session, setSession] = useState<ServeSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    let closed = false;
-    let leaseId: string | null = null;
-    const local = isLoopbackHost(window.location.hostname);
-    const open = (): void => {
-      rpc.call('open', { projectId, slug, remote: !local }).then(
-        (r) => {
-          if (closed) {
-            void rpc.call('release', { leaseId: r.leaseId }).catch(() => undefined);
-            return;
-          }
-          leaseId = r.leaseId;
+    const stop = startServe(
+      { open: (input) => rpc.call('open', input), renew: (input) => rpc.call('renew', input), release: (input) => rpc.call('release', input) },
+      { projectId, slug, local: isLoopbackHost(window.location.hostname) },
+      {
+        session: (s) => {
           setError(null);
-          setSession({ leaseId: r.leaseId, src: local ? r.localUrl : r.url, remoteError: r.remoteError, sshAgent: r.sshAgent });
+          setSession(s);
         },
-        (e) => !closed && setError(message(e)),
-      );
-    };
-    open();
-    const timer = setInterval(() => {
-      if (!leaseId) return;
-      rpc.call('renew', { leaseId }).then(
-        (r) => {
-          // The process exited or the lease expired (sleep, network): start again.
-          if (!r.alive && !closed) open();
-        },
-        () => undefined,
-      );
-    }, RENEW_EVERY_MS);
+        error: setError,
+      },
+    );
     return () => {
-      closed = true;
-      clearInterval(timer);
-      if (leaseId) void rpc.call('release', { leaseId }).catch(() => undefined);
+      stop();
       setSession(null);
+      setError(null);
     };
   }, [rpc, projectId, slug]);
   return { session, error };
 }
 
-function ServeFrame({ rpc, projectId, slug }: { rpc: Rpc; projectId: string; slug: string }) {
+/** A thin bar above the iframe: the open EPIC, a menu of every EPIC, and "All EPICs…" (the picker). */
+function EpicSwitcher({ rpc, projectId, slug, onChoose }: { rpc: Rpc; projectId: string; slug: string; onChoose: (value: string) => void }) {
+  const [slugs, setSlugs] = useState<string[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    rpc.call('epics', { projectId }).then(
+      (r) => live && setSlugs(r.slugs),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [rpc, projectId]);
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 text-xs">
+      <label htmlFor="rehearse-epic" className="opacity-70">
+        EPIC
+      </label>
+      <select
+        id="rehearse-epic"
+        value={slug}
+        onChange={(e) => onChoose(e.target.value)}
+        className="min-w-0 max-w-full truncate rounded border border-black/10 bg-transparent px-1.5 py-0.5 text-xs dark:border-white/15"
+      >
+        {switcherOptions(slugs, slug).map((o) => (
+          <option key={o.value || 'all'} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function ServeFrame({ rpc, projectId, slug, onChoose }: { rpc: Rpc; projectId: string; slug: string; onChoose: (value: string) => void }) {
   const { session, error } = useServe(rpc, projectId, slug);
-  if (error) return <p className="p-6 text-sm text-red-600">rehearse serve did not start: {error}</p>;
-  if (!session) return <p className="p-6 text-sm opacity-70">Starting rehearse serve for {slug}…</p>;
-  if (!session.src) return <p className="p-6 text-sm text-red-600">{session.remoteError}</p>;
+  let body;
+  if (error) body = <p className="p-6 text-sm text-red-600">rehearse serve did not start: {error}</p>;
+  else if (!session) body = <p className="p-6 text-sm opacity-70">Starting rehearse serve for {slug}…</p>;
+  else if (!session.src) body = <p className="p-6 text-sm text-red-600">{session.remoteError}</p>;
+  else body = <iframe key={session.leaseId} title={`rehearse ${slug}`} src={session.src} className="min-h-0 w-full flex-1 border-0" />;
   return (
     <div className="flex h-full flex-col">
-      {!session.sshAgent && (
+      <EpicSwitcher rpc={rpc} projectId={projectId} slug={slug} onChoose={onChoose} />
+      {session?.src && !session.sshAgent && (
         <p className="px-3 py-1.5 text-xs text-amber-700">
           No ssh-agent found for the serve process: approvals cannot be signed (D41). Start ssh-agent with your signing key and reopen the panel.
         </p>
       )}
-      <iframe key={session.leaseId} title={`rehearse ${slug}`} src={session.src} className="min-h-0 w-full flex-1 border-0" />
+      {body}
     </div>
   );
 }
@@ -140,7 +153,7 @@ function RehearsePanel({ subPath }: PluginNavPanelProps) {
 
   if (!projectId) return <ProjectPicker rpc={rpc} onPick={(id) => go(id, null)} />;
   if (!route.slug) return <EpicPicker rpc={rpc} projectId={projectId} onPick={(slug) => go(projectId, slug)} />;
-  return <ServeFrame rpc={rpc} projectId={projectId} slug={route.slug} />;
+  return <ServeFrame rpc={rpc} projectId={projectId} slug={route.slug} onChoose={(value) => navigate.toPluginPanel(PANEL_PATH, { subPath: subPathForChoice(projectId, value) })} />;
 }
 
 /** `bb rehearse open` publishes on OPEN_CHANNEL; an open bb window then shows the panel. */
