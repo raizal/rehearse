@@ -286,3 +286,50 @@
 .ba-side.is-after > .ba-side-title { background: var(--ok-tint); }
 .ba-side > .arch-wrap { border: 0; border-radius: 0; padding: var(--s-4); }
 .ba-side > .ba-cards, .ba-side > p, .ba-side > .arch-empty { margin: var(--s-4); }
+
+/* ---------------------------------------------------------------- before / after → Flow as a flow chart (T42) */
+/* The swimlanes of the box drawer with the status look of page 11: added green, changed orange,
+   same plain, removed dashed red; new edges green, removed edges dashed red. */
+.ba-flow-chart { flex: none; min-height: 0; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.ba-side > .ba-flow-chart { border: 0; border-radius: 0; }
+.ba-flow-hint { margin: 0; }
+.ba-box { cursor: default; }
+.ba-box.opens { cursor: pointer; }
+.ba-box .box-top { align-items: center; }
+.ba-box .box-foot { justify-content: space-between; color: var(--muted); }
+.ba-box .diff-badge { min-height: 16px; }
+.box.ba-box.is-same { border-color: var(--faint); }
+.box.ba-box.is-added { background: var(--ok-tint); border-color: var(--ok); border-width: 2px; }
+.box.ba-box.is-changed { background: var(--ci-tint); border-color: var(--ci); border-width: 2px; }
+.box.ba-box.is-removed { background: var(--warn-tint); border: 2px dashed var(--warn); }
+.box.ba-box.is-removed .box-title { text-decoration: line-through; text-decoration-color: var(--warn); }
+.box.ba-box.is-lit { box-shadow: 0 0 0 3px var(--line-strong); }
+.react-flow__edge.ba-edge .react-flow__edge-path { stroke: var(--muted); stroke-width: 1.4; transition: opacity 0.15s; }
+.react-flow__edge.ba-edge .react-flow__edge-text { font-size: 12px; }
+.react-flow__edge.ba-edge.is-added .react-flow__edge-path { stroke: var(--ok); stroke-width: 2.2; }
+.react-flow__edge.ba-edge.is-changed .react-flow__edge-path { stroke: var(--ci); stroke-width: 2.2; }
+.react-flow__edge.ba-edge.is-removed .react-flow__edge-path { stroke: var(--warn); stroke-dasharray: 6 4; }
+.react-flow__edge.ba-edge.is-added .react-flow__edge-text { fill: var(--ok); font-weight: var(--fw-semibold); }
+.react-flow__edge.ba-edge.is-removed .react-flow__edge-text { fill: var(--warn); }
+.react-flow__edge.ba-edge.edge-error .react-flow__edge-path { stroke-dasharray: 5 4; }
+.react-flow__edge.ba-edge.is-faint { opacity: 0.15; }
+.react-flow__edge.ba-edge.is-lit .react-flow__edge-path { stroke-width: 2.6; }
+/* No flow as built: the Before side is a note, the After side gets the width. */
+.ba-flow-sides.is-before-none { grid-template-columns: minmax(200px, 1fr) minmax(0, 4fr); }
+/* A chart wider than its card at the smallest zoom: a fade on the right edge and a hint to drag. */
+.ba-flow-chart { position: relative; }
+.ba-flow-chart.has-more::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 72px; z-index: 4; pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--card, #fff));
+}
+.ba-flow-more {
+  position: absolute; right: 12px; bottom: 10px; z-index: 5; margin: 0; pointer-events: none;
+  padding: 2px 10px; border-radius: 999px; background: var(--ink, #111); color: #fff; font-size: 12px; font-weight: 600;
+}
+.ba-flow-all-new { margin: 0; color: var(--ok, #15803d); }
+.ba-flow-tools { display: flex; justify-content: flex-end; gap: 4px; padding: 6px 8px; }
+.ba-flow-tool {
+  min-width: 28px; height: 26px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--card); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+}
+.ba-flow-tool:hover { background: var(--bg); }

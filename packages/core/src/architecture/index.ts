@@ -3,6 +3,7 @@ export { decisionIds, loadSystem, parseDecisionIds, systemDirFor, systemFile } f
 export {
   applyArchitectureChange,
   compareEntities,
+  compareFlowEdges,
   compareFlows,
   compareSystem,
   countDiffs,

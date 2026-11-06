@@ -10,6 +10,7 @@ import { parse, stringify } from 'yaml';
 import {
   applyArchitectureChange,
   compareEntities,
+  compareFlowEdges,
   compareFlows,
   compareSystem,
   countDiffs,
@@ -307,7 +308,64 @@ describe('T16 1 as-is + change → to-be (pure)', () => {
     const c = compareSystem(loadSystem(REAL_SYSTEM).system, loadEpic(REAL_EPIC).record);
     expect(c.hasChange).toBe(false);
     expect(c.boxes).toEqual([]);
+    expect(c.flowEdges).toEqual([]);
     expect(c.architecture.parts.every((p) => p.status === 'same')).toBe(true);
+  });
+});
+
+describe('T42 1 flow edges of the before / after', () => {
+  const box = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: id, kind: 'process', lane: 'agent', ...extra });
+  const flow = (boxes: unknown[], edges: unknown[]): Flow => ({ version: 1, epic: 'x', lanes: [{ role: 'agent', order: 1 }], root: { boxes, edges } }) as unknown as Flow;
+  const line = (e: { status: string; diagram: string; from: string; to: string; after?: { label?: string }; before?: { label?: string } }) =>
+    `${e.status} ${e.diagram ? `[${e.diagram}] ` : ''}${e.from}->${e.to}${(e.after ?? e.before)?.label ? ` ${(e.after ?? e.before)!.label}` : ''}`;
+
+  it('T42 1 same, added and removed by diagram, ends and label; an as-is edge the EPIC does not draw stays', () => {
+    const asIs = flow([box('a'), box('b'), box('c'), box('d')], [{ from: 'a', to: 'b' }, { from: 'b', to: 'c' }, { from: 'c', to: 'd' }]);
+    const epic = flow([box('a'), box('b'), box('c'), box('n')], [{ from: 'a', to: 'b' }, { from: 'a', to: 'n' }, { from: 'n', to: 'c' }]);
+    expect(compareFlowEdges(asIs, epic).map(line)).toEqual(['same a->b', 'added a->n', 'added n->c', 'removed b->c', 'same c->d']);
+  });
+
+  it('T42 1 a new label or kind on the same ends is a change, said in words; two branches of one check stay apart', () => {
+    const asIs = flow([box('q', { kind: 'decision' }), box('y'), box('z')], [{ from: 'q', to: 'y', label: 'yes', kind: 'branch' }, { from: 'q', to: 'z', label: 'no', kind: 'branch' }, { from: 'y', to: 'z' }]);
+    const epic = flow([box('q', { kind: 'decision' }), box('y'), box('z')], [{ from: 'q', to: 'y', label: 'ok', kind: 'branch' }, { from: 'q', to: 'z', label: 'no', kind: 'branch' }, { from: 'y', to: 'z', label: 'late', kind: 'error' }, { from: 'y', to: 'z' }]);
+    const edges = compareFlowEdges(asIs, epic);
+    expect(edges.map(line)).toEqual(['changed q->y ok', 'same q->z no', 'added y->z late', 'same y->z']);
+    expect(edges[0]!.what).toBe('label: yes → ok');
+    expect(edges[0]!.before).toEqual({ from: 'q', to: 'y', label: 'yes', kind: 'branch' });
+  });
+
+  it('T42 1 nested edges carry the path of their box; an edge to a removed box goes with it', () => {
+    const kids = (edges: unknown[], extra: unknown[] = []) => ({ boxes: [box('s1'), box('s2'), ...extra], edges });
+    const asIs = flow([box('p', { children: kids([{ from: 's1', to: 's2' }], [box('s3')]) }), box('old')], [{ from: 'p', to: 'old' }]);
+    const epic = flow([box('p', { children: kids([{ from: 's1', to: 's2', label: 'ids' }, { from: 's2', to: 's4' }], [box('s4')]) })], []);
+    const edges = compareFlowEdges(asIs, epic, [{ path: 'old', change: 'removed', why: ['G9'], stories: ['S2'] }]);
+    expect(edges.map(line)).toEqual(['removed p->old', 'changed [p] p/s1->p/s2 ids', 'added [p] p/s2->p/s4']);
+    expect(edges[0]).toMatchObject({ what: 'goes with old', why: ['G9'], stories: ['S2'] });
+    expect(edges[0]!.after).toBeUndefined();
+  });
+
+  it('T42 1 with no as-is flow every edge of the EPIC is added; with no EPIC flow every as-is edge stays', () => {
+    const f = flow([box('a'), box('b')], [{ from: 'a', to: 'b', label: 'go' }]);
+    expect(compareFlowEdges(undefined, f).map(line)).toEqual(['added a->b go']);
+    expect(compareFlowEdges(f, undefined).map(line)).toEqual(['same a->b go']);
+    expect(compareFlowEdges(undefined, undefined)).toEqual([]);
+  });
+
+  it('T42 1 compareSystem: the code-graph fixture keeps, adds and redraws edges', () => {
+    const { record } = loadEpic(join(CODE_GRAPH_REPO, 'docs/epics/2026-11-05-code-graph'));
+    const c = compareSystem(record.system, record);
+    expect(c.flowEdges.map(line)).toEqual([
+      'added start->ask-context',
+      'added ask-context->check-freshness target, budget',
+      'added check-freshness->rank-nodes',
+      'added rank-nodes->fill-budget',
+      'added fill-budget->draft-record contextBundle',
+      'same draft-record->validate epicDir',
+      'added validate->done',
+      'removed start->draft-record',
+      'same validate->sign-off',
+      'same sign-off->done',
+    ]);
   });
 });
 
