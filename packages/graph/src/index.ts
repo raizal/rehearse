@@ -5,6 +5,8 @@ export { openGraph, GRAPH_DB, type Graph, type GraphOptions } from './graph.js';
 export { answerToJson, answerToText } from './format.js';
 export { updateGraph, storeView, type UpdateOptions } from './update.js';
 export { find, show, near, path, findTarget, type Target } from './query.js';
+export { context, contextBuilder, DEFAULT_BUDGET, NO_VENV } from './context/build.js';
+export { pageRank, type PageRankOptions } from './rank/pagerank.js';
 export { Store, SCHEMA_VERSION, type StoredRef, type StoredFile } from './store.js';
 export { findScope, findVenv, globRegex, packageFinder, type Scope, type ScopeFile } from './scope.js';
 export { splitWords } from './terms.js';

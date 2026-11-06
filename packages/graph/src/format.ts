@@ -20,6 +20,10 @@ export function answerToText(answer: QueryAnswer): string {
     for (const n of answer.nodes) lines.push(`${n.distance ?? 0}  ${nodeLine(n)}`);
     if (answer.edges.length > 0) lines.push('');
     for (const e of answer.edges) lines.push(edgeLine(e));
+  } else if (answer.verb === 'context' && answer.bundle) {
+    const b = answer.bundle;
+    lines.push(`context ${b.target.name}: ${b.tokens} of ${b.budget} tokens, ${b.items.length} items`);
+    for (const i of b.items) lines.push('', `== ${i.distance} ${i.role}: ${nodeLine(i.node)}`, i.code);
   } else {
     for (const e of answer.edges) lines.push(edgeLine(e));
   }

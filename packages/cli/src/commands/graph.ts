@@ -1,4 +1,4 @@
-// `rehearse find | show | near | path`: the code graph verbs (code-graph EPIC, box `run-query`).
+// `rehearse find | show | near | path | context`: the code graph verbs (code-graph EPIC, box `run-query`).
 // Each one first brings .rehearse/graph.db at the git top-level up to date (box `update-graph`).
 // Exit 1 with "not found" or "no path"; neither changes a file (G27, G28).
 
@@ -6,7 +6,7 @@ import { answerToJson, answerToText, openGraph, type QueryAnswer } from '@rehear
 import { EXIT, USAGE, type Io } from '../index.js';
 import { repoRoot } from './new.js';
 
-export const GRAPH_VERBS = ['find', 'show', 'near', 'path'] as const;
+export const GRAPH_VERBS = ['find', 'show', 'near', 'path', 'context'] as const;
 export type GraphVerb = (typeof GRAPH_VERBS)[number];
 
 export function isGraphVerb(command: string | undefined): command is GraphVerb {
@@ -18,12 +18,14 @@ const SHAPE: Record<GraphVerb, string> = {
   show: '<target> [--json] [--rebuild]',
   near: '<target> [--depth n] [--json] [--rebuild]',
   path: '<from> <to> [--json] [--rebuild]',
+  context: '<target> [--budget tokens] [--json] [--rebuild]',
 };
 
 export async function runGraph(verb: GraphVerb, args: string[], io: Io): Promise<number> {
   let json = false;
   let rebuild = false;
   let depth: number | undefined;
+  let budget: number | undefined;
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
@@ -33,6 +35,10 @@ export async function runGraph(verb: GraphVerb, args: string[], io: Io): Promise
       const value = a === '--depth' ? args[++i] : a.slice('--depth='.length);
       if (value === undefined || !/^\d+$/.test(value) || Number(value) < 1) return usage(io, verb, '--depth needs a whole number of 1 or more');
       depth = Number(value);
+    } else if (verb === 'context' && (a === '--budget' || a.startsWith('--budget='))) {
+      const value = a === '--budget' ? args[++i] : a.slice('--budget='.length);
+      if (value === undefined || !/^\d+$/.test(value) || Number(value) < 1) return usage(io, verb, '--budget needs a whole number of tokens, 1 or more');
+      budget = Number(value);
     } else if (a.startsWith('-')) return usage(io, verb, `unknown option ${a}`);
     else positional.push(a);
   }
@@ -45,6 +51,7 @@ export async function runGraph(verb: GraphVerb, args: string[], io: Io): Promise
     if (verb === 'find') answer = await graph.find(positional.join(' '), { rebuild });
     else if (verb === 'show') answer = await graph.show(positional[0]!, { rebuild });
     else if (verb === 'near') answer = await graph.near(positional[0]!, { rebuild, ...(depth !== undefined ? { depth } : {}) });
+    else if (verb === 'context') answer = await graph.context(positional[0]!, { rebuild, ...(budget !== undefined ? { budget } : {}) });
     else answer = await graph.path(positional[0]!, positional[1]!, { rebuild });
   } catch (e) {
     io.stderr(`rehearse ${verb}: internal error: ${e instanceof Error ? e.message : String(e)}\n`);

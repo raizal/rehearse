@@ -1,6 +1,6 @@
 // The extension points that wave 2 fills in. Wave 1 only defines them: the update step calls every
-// Resolver, Linker and the Ranker it is given, and wave 1 gives none. The `context` verb (G6, S4) is
-// a ContextBuilder; wave 1 has no `context` verb.
+// Resolver, Linker and the Ranker it is given. openGraph gives PageRank (src/rank/) by default, and the
+// `context` verb (G6, S4) is a ContextBuilder (src/context/).
 //
 //   Resolver       ts-morph (TypeScript) and scip-python / basedpyright (Python) confirm a reference
 //                  site: the edge gets trust `exact` and the resolver's source (G10, G11, G19).
@@ -84,6 +84,8 @@ export interface ContextItem {
   node: GraphNode;
   /** Why it is in the bundle: the target, a caller, a callee, a test, a type. */
   role: string;
+  /** Edges from the target, both ways; 0 for the target. */
+  distance: number;
   code: string;
   tokens: number;
 }

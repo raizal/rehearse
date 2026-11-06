@@ -3,8 +3,10 @@
 
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Linker, Ranker, Resolver } from './extend.js';
+import { context, DEFAULT_BUDGET } from './context/build.js';
+import type { ContextBuilder, Linker, Ranker, Resolver } from './extend.js';
 import { find, near, path, show } from './query.js';
+import { pageRank } from './rank/pagerank.js';
 import { Store } from './store.js';
 import { updateGraph } from './update.js';
 import type { GraphQuery, IndexRun, IndexTrigger, QueryAnswer } from './types.js';
@@ -16,7 +18,10 @@ export interface GraphOptions {
   trigger?: IndexTrigger;
   resolvers?: Resolver[];
   linkers?: Linker[];
+  /** Default: PageRank (G14). */
   ranker?: Ranker;
+  /** The `context` verb; default: the code around the target by distance and PageRank (G6). */
+  contextBuilder?: ContextBuilder;
 }
 
 export interface Graph {
@@ -30,6 +35,7 @@ export interface Graph {
   show(target: string, opts?: { rebuild?: boolean }): Promise<QueryAnswer>;
   near(target: string, opts?: { rebuild?: boolean; depth?: number }): Promise<QueryAnswer>;
   path(from: string, to: string, opts?: { rebuild?: boolean }): Promise<QueryAnswer>;
+  context(target: string, opts?: { rebuild?: boolean; budget?: number }): Promise<QueryAnswer>;
   lastRun(): IndexRun | undefined;
   close(): void;
 }
@@ -37,13 +43,12 @@ export interface Graph {
 export function openGraph(root: string, opts: GraphOptions = {}): Graph {
   mkdirSync(join(root, '.rehearse'), { recursive: true });
   const store = new Store(join(root, GRAPH_DB));
-  const update = (rebuild = false) => updateGraph(root, store, { ...opts, rebuild });
+  const update = (rebuild = false) => updateGraph(root, store, { ranker: pageRank(), ...opts, rebuild });
   const graph: Graph = {
     root,
     store,
     update,
     async query(q) {
-      if (q.verb === 'context') throw new Error('the context verb is wave 2 (ContextBuilder)');
       await update(q.rebuild === true);
       switch (q.verb) {
         case 'find':
@@ -54,12 +59,15 @@ export function openGraph(root: string, opts: GraphOptions = {}): Graph {
           return near(store, q.target, q.depth ?? 1);
         case 'path':
           return path(store, q.target, q.to ?? '');
+        case 'context':
+          return context(store, root, q.target, q.budget ?? DEFAULT_BUDGET, opts.contextBuilder);
       }
     },
     find: async (words, o = {}) => (await update(o.rebuild === true), find(store, words, o.limit)),
     show: (target, o = {}) => graph.query({ verb: 'show', target, ...o }),
     near: (target, o = {}) => graph.query({ verb: 'near', target, ...o }),
     path: (from, to, o = {}) => graph.query({ verb: 'path', target: from, to, ...o }),
+    context: (target, o = {}) => graph.query({ verb: 'context', target, ...o }),
     lastRun: () => store.lastRun(),
     close: () => store.close(),
   };
