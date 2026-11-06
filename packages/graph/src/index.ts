@@ -1,7 +1,8 @@
 // @rehearse/graph: the code graph of a repo (EPIC docs/epics/2026-11-05-code-graph/), wave 1.
 // A package of its own, not a module of @rehearse/core.
 
-export { openGraph, GRAPH_DB, type Graph, type GraphOptions } from './graph.js';
+export { openGraph, GRAPH_DB, NO_VENV, withVenvNote, type Graph, type GraphOptions } from './graph.js';
+export { defaultResolvers, tsMorphResolver, scipPythonResolver, basedpyrightResolver, resolveFromScip, readScip, lspStats, type ScipIndex } from './resolve/index.js';
 export { answerToJson, answerToText } from './format.js';
 export { updateGraph, storeView, type UpdateOptions } from './update.js';
 export { find, show, near, path, findTarget, type Target } from './query.js';

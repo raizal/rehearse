@@ -5,15 +5,28 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Linker, Ranker, Resolver } from './extend.js';
 import { find, near, path, show } from './query.js';
+import { defaultResolvers } from './resolve/index.js';
 import { Store } from './store.js';
 import { updateGraph } from './update.js';
 import type { GraphQuery, IndexRun, IndexTrigger, QueryAnswer } from './types.js';
+
+/** The note of an answer about Python code when the last run found no Python environment (G19, S4-A2). */
+export const NO_VENV = 'no venv found';
+
+/** The answer with NO_VENV added when it holds Python code and the run had no venv. */
+export function withVenvNote(answer: QueryAnswer, run: IndexRun | undefined): QueryAnswer {
+  if (!run || run.venv !== undefined || answer.notes.includes(NO_VENV)) return answer;
+  const python = answer.nodes.some((n) => n.language === 'python')
+    || answer.edges.some((e) => e.from.startsWith('scip-python ') || e.to.startsWith('scip-python '));
+  return python ? { ...answer, notes: [...answer.notes, NO_VENV] } : answer;
+}
 
 /** The store path below the repo root. `rehearse new` puts `.rehearse/graph.db*` in .gitignore (G29). */
 export const GRAPH_DB = '.rehearse/graph.db';
 
 export interface GraphOptions {
   trigger?: IndexTrigger;
+  /** The resolvers; ts-morph, scip-python and basedpyright when missing (G10). */
   resolvers?: Resolver[];
   linkers?: Linker[];
   ranker?: Ranker;
@@ -37,7 +50,8 @@ export interface Graph {
 export function openGraph(root: string, opts: GraphOptions = {}): Graph {
   mkdirSync(join(root, '.rehearse'), { recursive: true });
   const store = new Store(join(root, GRAPH_DB));
-  const update = (rebuild = false) => updateGraph(root, store, { ...opts, rebuild });
+  const resolvers = opts.resolvers ?? defaultResolvers();
+  const update = (rebuild = false) => updateGraph(root, store, { ...opts, resolvers, rebuild });
   const graph: Graph = {
     root,
     store,
@@ -45,23 +59,32 @@ export function openGraph(root: string, opts: GraphOptions = {}): Graph {
     async query(q) {
       if (q.verb === 'context') throw new Error('the context verb is wave 2 (ContextBuilder)');
       await update(q.rebuild === true);
-      switch (q.verb) {
-        case 'find':
-          return find(store, q.target);
-        case 'show':
-          return show(store, root, q.target);
-        case 'near':
-          return near(store, q.target, q.depth ?? 1);
-        case 'path':
-          return path(store, q.target, q.to ?? '');
-      }
+      return withVenvNote(answer(q), store.lastRun());
     },
-    find: async (words, o = {}) => (await update(o.rebuild === true), find(store, words, o.limit)),
+    find: async (words, o = {}) => (await update(o.rebuild === true), withVenvNote(find(store, words, o.limit), store.lastRun())),
     show: (target, o = {}) => graph.query({ verb: 'show', target, ...o }),
     near: (target, o = {}) => graph.query({ verb: 'near', target, ...o }),
     path: (from, to, o = {}) => graph.query({ verb: 'path', target: from, to, ...o }),
     lastRun: () => store.lastRun(),
-    close: () => store.close(),
+    close: () => {
+      // A resolver keeps a server warm (basedpyright); stopping it does not wait.
+      for (const r of resolvers) void r.close?.();
+      store.close();
+    },
+  };
+  const answer = (q: Parameters<Graph['query']>[0]): QueryAnswer => {
+    switch (q.verb) {
+      case 'find':
+        return find(store, q.target);
+      case 'show':
+        return show(store, root, q.target);
+      case 'near':
+        return near(store, q.target, q.depth ?? 1);
+      case 'path':
+        return path(store, q.target, q.to ?? '');
+      case 'context':
+        throw new Error('the context verb is wave 2 (ContextBuilder)');
+    }
   };
   return graph;
 }

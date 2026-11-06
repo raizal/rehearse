@@ -61,7 +61,7 @@ describe('code graph verbs', () => {
     const text = await cli(['show', 'getOrderById'], repo);
     expect(text.code).toBe(0);
     expect(text.out).toContain('const row = loadRow(id);');
-    expect(text.out).toContain('getOrderById -calls-> loadRow  (name-match, tree-sitter)');
+    expect(text.out).toContain('getOrderById -calls-> loadRow  (exact, ts-morph)');
     const json = JSON.parse((await cli(['show', 'getOrderById', '--json'], repo)).out);
     expect(json.nodes[0].id).toBe('scip-typescript npm app 1.0 src/orders.ts/getOrderById().');
   });
@@ -86,7 +86,7 @@ describe('code graph verbs', () => {
     const res = await cli(['path', 'getOrder', 'getOrderById'], repo);
     expect(res).toEqual({
       code: 0,
-      out: 'getOrder -calls-> loadOrder  (name-match, tree-sitter)\nloadOrder -calls-> getOrderById  (name-match, tree-sitter)\n',
+      out: 'getOrder -calls-> loadOrder  (exact, ts-morph)\nloadOrder -calls-> getOrderById  (exact, ts-morph)\n',
       err: '',
     });
   });

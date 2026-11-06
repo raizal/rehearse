@@ -15,8 +15,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "2.16.0",
+    "@sourcegraph/scip-python": "0.6.8",
+    "basedpyright": "1.40.2",
     "tree-sitter-python": "0.25.0",
     "tree-sitter-typescript": "0.23.2",
+    "ts-morph": "28.0.0",
     "web-tree-sitter": "0.27.1"
   }
 }

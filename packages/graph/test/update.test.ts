@@ -53,7 +53,7 @@ describe('S5 freshness', () => {
     const graph = graphOf(root);
     const answer = await graph.find('order by id');
     expect(existsSync(join(root, GRAPH_DB))).toBe(true);
-    expect(graph.lastRun()).toMatchObject({ mode: 'cold', status: 'written', changedFiles: SOURCES.length, resolvers: ['tree-sitter'] });
+    expect(graph.lastRun()).toMatchObject({ mode: 'cold', status: 'written', changedFiles: SOURCES.length, resolvers: ['tree-sitter', 'ts-morph', 'scip-python'] });
     expect(answer.nodes[0]?.name).toBe('getOrderById');
   });
 
@@ -79,6 +79,8 @@ describe('S5 freshness', () => {
     expect(graph.store.runs().map((r) => r.mode)).toEqual(['cold', 'none', 'cold']);
   });
 
+  // An update confirms Python sites with basedpyright, a cold index with scip-python: the same edges and
+  // trust, another source. So the edges are compared without their source.
   it('S5 an update gives the same graph as a cold index of the same files', async () => {
     const root = copyFixture('shop');
     const graph = graphOf(root);
@@ -89,7 +91,7 @@ describe('S5 freshness', () => {
     await graph.update();
     writeFileSync(file, text);
     await graph.update();
-    const dump = () => JSON.stringify([graph.store.allNodes(), graph.store.edgesWhere('1')]);
+    const dump = () => JSON.stringify([graph.store.allNodes(), graph.store.edgesWhere('1').map(({ source: _, ...e }) => e)]);
     const updated = dump();
     await graph.update(true);
     expect(dump()).toBe(updated);
