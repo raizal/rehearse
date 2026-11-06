@@ -1,4 +1,5 @@
-// Trust core: story hash rule 2, stale detection, gate check, approval and sign-off writers, readiness.
+// Trust core: story hash rule 2, stale detection, gate check, approval and sign-off writers, readiness,
+// and the sign-off preview (T39).
 
 export * from './types.js';
 export { boxContent, servingBoxes, storyContentV2, storyHash, storyHashV2 } from './story-hash.js';
@@ -54,3 +55,17 @@ export {
   type SignedGateReport,
   type SignOffSig,
 } from './evidence.js';
+export {
+  diffStoryContent,
+  previewContent,
+  previewCounts,
+  wordDiff,
+  type ChangePart,
+  type ContentChange,
+  type PreviewBox,
+  type PreviewBoxRelation,
+  type PreviewCounts,
+  type PreviewScenario,
+  type StoryPreviewContent,
+  type WordPart,
+} from './signoff-preview.js';

@@ -7,7 +7,8 @@
 // `/api/box-code`) and the story-thread reads run git or bb; the Birdview routes read the e2e player and forward an allowlist
 // of its actions, on 127.0.0.1 only. The code graph route (`/api/graph`, G20) answers show and near
 // from @rehearse/graph, and a file watcher keeps the graph fresh (graph-route.ts). All of them need
-// the same token and Origin check.
+// the same token and Origin check. The sign-off preview (`GET /api/sign-off/preview`, T39) reads
+// git history too, with the same check.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -18,6 +19,7 @@ import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { graphServiceFor, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
+import { MAX_PREVIEW_STORIES, signOffPreview } from './signoff-preview.js';
 import { createStoryThreads, processRunner, StoryThreadError, type Runner, type StoryThreadService } from './story-thread.js';
 import { buildTrustedEpicView } from './trust-view.js';
 
@@ -84,6 +86,7 @@ const ROUTES: Record<string, string> = {
   '/api/epic': 'GET, HEAD',
   '/api/approve': 'POST',
   '/api/sign-off': 'POST',
+  '/api/sign-off/preview': 'GET',
   '/api/code-index': 'GET',
   '/api/box-code': 'GET',
   '/api/graph': 'GET',
@@ -198,6 +201,24 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
           (e: unknown) => sendJson(res, 502, { ok: false, error: `the player did not answer: ${e instanceof Error ? e.message : String(e)}` }),
         );
       });
+      return;
+    }
+    if (path === '/api/sign-off/preview') {
+      // Reads the record and git history: the token and the Origin first (T39).
+      const refused = checkRequest(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { ok: false, error: refused.error });
+        return;
+      }
+      const ids = (query.get('stories') ?? '').split(',').filter((id) => id !== '');
+      if (ids.length === 0 || ids.length > MAX_PREVIEW_STORIES || !ids.every((id) => STORY_ID.test(id))) {
+        sendJson(res, 400, { ok: false, error: `query must be ?stories=<story id>,… (1 to ${MAX_PREVIEW_STORIES} ids)` });
+        return;
+      }
+      void signOffPreview(git, opts.epicDir, ids).then(
+        (preview) => sendJson(res, 200, preview),
+        (e: unknown) => sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }),
+      );
       return;
     }
     if (path === '/api/approve' || path === '/api/sign-off') {
