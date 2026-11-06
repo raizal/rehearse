@@ -3,11 +3,11 @@
 // so a box stands in the same place on each. A click on a box of the EPIC opens the box drawer.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Background, BaseEdge, Controls, getSmoothStepPath, Handle, Position, ReactFlow, type EdgeProps, type EdgeTypes, type NodeProps, type NodeTypes } from '@xyflow/react';
+import { Background, BaseEdge, getSmoothStepPath, Handle, Position, ReactFlow, ReactFlowProvider, useReactFlow, type EdgeProps, type EdgeTypes, type NodeProps, type NodeTypes } from '@xyflow/react';
 import type { Flow, Prd, SystemCompare } from '@rehearse/core';
 import { statusLook, type DiffSide } from '../model/architecture.js';
 import { KIND_ICON } from '../model/boxdrawer.js';
-import { compareElements, detourPath, flowCompareChart, type CompareBoxNode, type FlowCompareChart } from '../model/flowcompare.js';
+import { chartZoom, compareElements, detourPath, flowCompareChart, type CompareBoxNode, type FlowCompareChart } from '../model/flowcompare.js';
 import { layoutDiagram, type SwimlaneLayout } from '../model/layout.js';
 import { Side, StatusBadge } from './ArchitectureView.js';
 import { LaneView } from './BoxDiagram.js';
@@ -69,9 +69,25 @@ function CompareEdgeView(p: EdgeProps) {
 
 const edgeTypes: EdgeTypes = { ba: CompareEdgeView };
 
-/** The smallest zoom: box titles stay readable; a chart wider than its card pans instead of shrinking. */
-const ZOOM = 0.8;
 const PAD = 12;
+
+/** Zoom buttons above the chart, right-aligned, so they never cover a box or a lane label. */
+function Tools({ zoom }: { zoom: number }) {
+  const rf = useReactFlow();
+  return (
+    <div className="ba-flow-tools" role="toolbar" aria-label="Zoom the chart">
+      <button type="button" className="ba-flow-tool" aria-label="Zoom out" onClick={() => void rf.zoomOut()}>
+        −
+      </button>
+      <button type="button" className="ba-flow-tool" aria-label="Zoom in" onClick={() => void rf.zoomIn()}>
+        +
+      </button>
+      <button type="button" className="ba-flow-tool" aria-label="Back to the start" onClick={() => void rf.setViewport({ x: PAD, y: PAD, zoom })}>
+        Reset
+      </button>
+    </div>
+  );
+}
 
 function Chart({ chart, layout, side, label, testId, onOpenBox }: { chart: FlowCompareChart; layout: SwimlaneLayout; side: DiffSide; label: string; testId: string; onOpenBox: (path: string) => void }) {
   const [hover, setHover] = useState<string | undefined>();
@@ -87,38 +103,53 @@ function Chart({ chart, layout, side, label, testId, onOpenBox }: { chart: FlowC
   }, []);
   const contentW = layout.lanes[0]?.width ?? 1;
   const contentH = layout.lanes.reduce((h, l) => h + l.height, 0);
-  // The whole chart when it fits at a readable zoom; else its start (left), and the reader pans.
-  const zoom = Math.min(1, Math.max(ZOOM, ((width || 1200) - 2 * PAD) / contentW));
+  const { zoom, more } = chartZoom((width || 1200) - 2 * PAD, contentW);
   const height = Math.ceil(contentH * zoom + 2 * PAD);
   return (
-    <div ref={wrap} className="canvas ba-flow-chart" data-testid={testId} role="group" aria-label={label} style={{ height }} data-hover={hover ?? ''} data-zoom={zoom.toFixed(2)}>
-      <ReactFlow
-        key={`${side} ${zoom.toFixed(3)}`}
-        defaultViewport={{ x: PAD, y: PAD, zoom }}
-        nodes={elements.nodes}
-        edges={elements.edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        edgesFocusable={false}
-        minZoom={0.2}
-        zoomOnScroll={false}
-        preventScrolling={false}
-        proOptions={{ hideAttribution: true }}
-        onNodeMouseEnter={(_, n) => n.type === 'cbox' && setHover((n as CompareBoxNode).data.item.path)}
-        onNodeMouseLeave={() => setHover(undefined)}
-        onNodeClick={(_, n) => {
-          if (n.type !== 'cbox') return;
-          const item = (n as CompareBoxNode).data.item;
-          if (item.opens) onOpenBox(item.path);
-        }}
+    <ReactFlowProvider>
+      <Tools zoom={zoom} />
+      <div
+        ref={wrap}
+        className={`canvas ba-flow-chart${more ? ' has-more' : ''}`}
+        data-testid={testId}
+        role="group"
+        aria-label={label}
+        style={{ height }}
+        data-hover={hover ?? ''}
+        data-zoom={zoom.toFixed(2)}
       >
-        <Background gap={24} size={1} />
-        <Controls showInteractive={false} orientation="horizontal" position="top-right" />
-      </ReactFlow>
-    </div>
+        <ReactFlow
+          key={`${side} ${zoom.toFixed(3)}`}
+          defaultViewport={{ x: PAD, y: PAD, zoom }}
+          nodes={elements.nodes}
+          edges={elements.edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          edgesFocusable={false}
+          minZoom={0.2}
+          zoomOnScroll={false}
+          preventScrolling={false}
+          proOptions={{ hideAttribution: true }}
+          onNodeMouseEnter={(_, n) => n.type === 'cbox' && setHover((n as CompareBoxNode).data.item.path)}
+          onNodeMouseLeave={() => setHover(undefined)}
+          onNodeClick={(_, n) => {
+            if (n.type !== 'cbox') return;
+            const item = (n as CompareBoxNode).data.item;
+            if (item.opens) onOpenBox(item.path);
+          }}
+        >
+          <Background gap={24} size={1} />
+        </ReactFlow>
+        {more && (
+          <p className="ba-flow-more" data-testid={`${testId}-more`} aria-hidden="true">
+            drag to see more →
+          </p>
+        )}
+      </div>
+    </ReactFlowProvider>
   );
 }
 
@@ -163,9 +194,16 @@ export function FlowCompare({ c, asIs, epic, prd, mode, onOpenBox }: FlowCompare
       The root of the flow, one lane per role. A box with steps opens in the box drawer; hover a box to light its edges.
     </p>
   );
+  // No flow as built: every box of the EPIC is new, and the chart says why.
+  const allNew = !chart.boxes.some((b) => b.onBefore) && (
+    <p className="small ba-flow-all-new" data-testid="ba-flow-all-new">
+      The repo has no <code>docs/system/flow.yaml</code>, so every box of this EPIC is new.
+    </p>
+  );
   if (mode === 'diff') return (
     <>
       {hint}
+      {allNew}
       {draw('diff', 'After with diff: every box and edge of the flow with its status')}
     </>
   );
@@ -173,6 +211,7 @@ export function FlowCompare({ c, asIs, epic, prd, mode, onOpenBox }: FlowCompare
   return (
     <>
       {hint}
+      {allNew}
       <div className={`ba-sides ba-flow-sides${chart.boxes.some((b) => b.onBefore) ? '' : ' is-before-none'}`}>
         <Side title="Before · as-is, docs/system/flow.yaml">{draw('before', 'Before: the flow as built')}</Side>
         <Side title="After · to-be with this EPIC" after>

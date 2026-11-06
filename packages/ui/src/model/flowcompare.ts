@@ -111,6 +111,18 @@ export interface CompareBoxData extends Record<string, unknown> {
 
 export type CompareBoxNode = Node<CompareBoxData, 'cbox'>;
 
+/** The smallest zoom: box titles still read. A chart wider than that pans. */
+export const MIN_ZOOM = 0.55;
+
+/**
+ * The zoom of a chart `contentW` wide in a card with `room` to draw: the whole width, at most 1:1,
+ * down to MIN_ZOOM. `more` when the chart is still wider: the card shows its start and says so.
+ */
+export function chartZoom(room: number, contentW: number): { zoom: number; more: boolean } {
+  const zoom = Math.min(1, Math.max(MIN_ZOOM, room / Math.max(1, contentW)));
+  return { zoom, more: contentW * zoom > room + 1 };
+}
+
 /** How far an edge leaves its box before it turns, and the radius of its corners. */
 const OUT = 14;
 const R = 6;

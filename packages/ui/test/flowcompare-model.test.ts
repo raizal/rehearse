@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { BOX_H, BOX_W, layoutDiagram } from '../src/model/layout.js';
-import { chartSide, compareElements, detourPath, edgeText, flowCompareChart, OUTSIDE_LANE } from '../src/model/flowcompare.js';
+import { chartSide, chartZoom, MIN_ZOOM, compareElements, detourPath, edgeText, flowCompareChart, OUTSIDE_LANE } from '../src/model/flowcompare.js';
 import { codeGraphEpic, realEpic } from './fixture.js';
 
 const chartOf = (view = codeGraphEpic()) => flowCompareChart(view.compare!, view.system?.flow, view.flow, view.prd);
@@ -75,6 +75,13 @@ describe('T42 2 the flow chart model', () => {
     expect(lit.every((e) => e.source === 'box:validate' || e.target === 'box:validate')).toBe(true);
     expect(edges.filter((e) => e.className?.includes('is-faint')).length).toBe(edges.length - lit.length);
     expect(nodes.find((n) => n.id === 'box:validate')?.data).toMatchObject({ lit: true });
+  });
+
+  it('T42 2 the zoom fits the whole width, never above 1:1 nor below where text reads; wider says there is more', () => {
+    expect(chartZoom(1500, 1000)).toEqual({ zoom: 1, more: false });
+    expect(chartZoom(700, 1000)).toEqual({ zoom: 0.7, more: false });
+    expect(chartZoom(400, 1000)).toEqual({ zoom: MIN_ZOOM, more: true });
+    expect(MIN_ZOOM).toBe(0.55);
   });
 
   it('T42 2 an edge shows its branch name; an error edge is marked', () => {

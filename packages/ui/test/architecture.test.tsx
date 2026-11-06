@@ -182,6 +182,10 @@ describe('T42 2 before / after → Flow is a flow chart', () => {
     expect(boxIn(after, 'draft-record')).toHaveAttribute('data-status', 'changed');
     expect(boxIn(after, 'validate')).toHaveAttribute('data-status', 'same');
     expect(boxIn(after, 'grep-code')).toBeNull();
+    // The as-is flow is there: no "every box is new" line. Zoom buttons sit above each chart.
+    expect(screen.queryByTestId('ba-flow-all-new')).toBeNull();
+    expect(screen.getAllByRole('toolbar', { name: 'Zoom the chart' })).toHaveLength(2);
+    expect(within(before).queryByRole('button')).toBeNull();
     // Cards are gone from the Flow subject.
     expect(screen.queryByTestId('ba-flow-diff-ask-context')).toBeNull();
   });
@@ -242,6 +246,7 @@ describe('T42 2 before / after → Flow is a flow chart', () => {
     render(<BeforeAfterView view={{ ...view, system, compare: compareSystem(system, view) }} />);
     await user.click(screen.getByTestId('ba-subject-flow'));
     expect(await screen.findByTestId('ba-flow-before-none')).toHaveTextContent('no docs/system/flow.yaml');
+    expect(screen.getByTestId('ba-flow-all-new')).toHaveTextContent('The repo has no docs/system/flow.yaml, so every box of this EPIC is new.');
     expect(boxIn(screen.getByTestId('ba-flow-after'), 'draft-record')).toBeInTheDocument();
   });
 });

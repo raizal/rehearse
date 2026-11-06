@@ -316,3 +316,20 @@
 .react-flow__edge.ba-edge.is-lit .react-flow__edge-path { stroke-width: 2.6; }
 /* No flow as built: the Before side is a note, the After side gets the width. */
 .ba-flow-sides.is-before-none { grid-template-columns: minmax(200px, 1fr) minmax(0, 4fr); }
+/* A chart wider than its card at the smallest zoom: a fade on the right edge and a hint to drag. */
+.ba-flow-chart { position: relative; }
+.ba-flow-chart.has-more::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 72px; z-index: 4; pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--card, #fff));
+}
+.ba-flow-more {
+  position: absolute; right: 12px; bottom: 10px; z-index: 5; margin: 0; pointer-events: none;
+  padding: 2px 10px; border-radius: 999px; background: var(--ink, #111); color: #fff; font-size: 12px; font-weight: 600;
+}
+.ba-flow-all-new { margin: 0; color: var(--ok, #15803d); }
+.ba-flow-tools { display: flex; justify-content: flex-end; gap: 4px; padding: 6px 8px; }
+.ba-flow-tool {
+  min-width: 28px; height: 26px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--card); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+}
+.ba-flow-tool:hover { background: var(--bg); }
