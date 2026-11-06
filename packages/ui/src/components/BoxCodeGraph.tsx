@@ -11,6 +11,9 @@ import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 /** Files of the Flow-Box fallback that are read at most. */
 export const MAX_FALLBACK_FILES = 8;
 
+/** Picks shown before "Show all". */
+export const MAX_PICKS = 12;
+
 type Load = { state: 'loading' } | { state: 'error'; error: string } | { state: 'done'; code: BoxCode };
 
 export function BoxCodeGraph({ box, files }: { box: string; files: readonly string[] }) {
@@ -72,11 +75,13 @@ export function BoxCodeGraph({ box, files }: { box: string; files: readonly stri
 }
 
 function Built({ nodes, picked, onPick }: { nodes: BuiltNode[]; picked: string; onPick: (id: string) => void }) {
+  const [all, setAll] = useState(false);
+  const shown = all || nodes.length <= MAX_PICKS ? nodes : nodes.slice(0, MAX_PICKS);
   return (
     <>
       {nodes.length > 1 && (
         <div className="code-graph-picks" role="group" aria-label="Code of this box" data-testid="code-graph-picks">
-          {nodes.map((n) => (
+          {shown.map((n) => (
             <button
               key={n.id}
               type="button"
@@ -89,6 +94,11 @@ function Built({ nodes, picked, onPick }: { nodes: BuiltNode[]; picked: string; 
               <span className="code-graph-kind">{n.kind}</span> {n.name}
             </button>
           ))}
+          {nodes.length > MAX_PICKS && (
+            <button type="button" className="link" data-testid="code-graph-picks-all" aria-expanded={all} onClick={() => setAll(!all)}>
+              {all ? 'Show fewer' : `Show all ${nodes.length}`}
+            </button>
+          )}
         </div>
       )}
       <NodeView key={picked} id={picked} built={nodes.find((n) => n.id === picked)} />

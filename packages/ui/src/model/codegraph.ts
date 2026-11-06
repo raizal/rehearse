@@ -35,7 +35,6 @@ const byFileLine = (a: BuiltNode, b: BuiltNode) =>
   (a.file ?? '').localeCompare(b.file ?? '') || startLine(a.range) - startLine(b.range) || a.id.localeCompare(b.id);
 const startLine = (range: string | undefined) => Number(range?.split('-')[0] ?? 0);
 const TRUST_ORDER: readonly Trust[] = ['exact', 'name-match', 'unresolved'];
-const byTrust = (a: BuiltNode, b: BuiltNode) => TRUST_ORDER.indexOf(a.trust ?? 'exact') - TRUST_ORDER.indexOf(b.trust ?? 'exact') || byFileLine(a, b);
 
 /** Test files are not the code a box builds; the fallback leaves them out. */
 export const isTestFile = (path: string): boolean => /(^|\/)(tests?|__tests__)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)test_[^/]*\.py$|_test\.py$/.test(path);
@@ -48,15 +47,30 @@ function endNode(answer: PanelAnswer, id: string, name: string): BuiltNode {
 
 const isCode = (n: BuiltNode) => CODE_KINDS.includes(n.kind) && (n.file === undefined || !isTestFile(n.file));
 
-/** The code a box builds: the code nodes at the end of the builds edges out of the box node, exact ones first. */
+/** The lower-case words of a box path or a code name: `checkout/sign-off` and `signOff` share sign, off. */
+export const nameWords = (name: string): string[] =>
+  name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w !== '');
+
+/**
+ * The code a box builds: the code nodes at the end of the builds edges out of the box node. Exact
+ * ones first, then the ones whose name shares the most words with the box path and has the fewest
+ * other words (a Flow-Box commit touches more code than the box's own function), then by file and line.
+ */
 export function builtNodes(answer: PanelAnswer | undefined): BuiltNode[] {
   const box = answer?.nodes[0];
   if (!answer || !box) return [];
+  const words = new Set(nameWords(box.name));
+  const score = (n: BuiltNode) => {
+    const own = nameWords(n.name);
+    return { shared: own.filter((w) => words.has(w)).length, extra: own.filter((w) => !words.has(w)).length };
+  };
   return answer.edges
     .filter((e) => e.kind === 'builds' && e.from === box.id)
     .map((e) => ({ ...endNode(answer, e.to, e.toName), trust: e.trust }))
     .filter(isCode)
-    .sort(byTrust);
+    .map((n) => ({ n, ...score(n) }))
+    .sort((a, b) => TRUST_ORDER.indexOf(a.n.trust!) - TRUST_ORDER.indexOf(b.n.trust!) || b.shared - a.shared || a.extra - b.extra || byFileLine(a.n, b.n))
+    .map(({ n }) => n);
 }
 
 /** The code nodes a file defines (the fallback): the ends of `defines` edges out of a file node that is not a test file. */

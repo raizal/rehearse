@@ -8,9 +8,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AnswerEdge, AnswerNode, CodeIndex } from '@rehearse/server';
 import { CodeApiContext, type CodeApi } from '../src/code-api.js';
+import { MAX_PICKS } from '../src/components/BoxCodeGraph.js';
 import { StoryView } from '../src/components/StoryView.js';
 import { GraphApiContext, httpGraphApi, type GraphApi, type GraphOutcome, type PanelAnswer } from '../src/graph-api.js';
-import { boxTarget, builtNodes, callGraph, codeLines, definedNodes, isTestFile, NO_CODE_YET, outlineRows } from '../src/model/codegraph.js';
+import { boxTarget, builtNodes, callGraph, codeLines, definedNodes, isTestFile, nameWords, NO_CODE_YET, outlineRows } from '../src/model/codegraph.js';
 import { createSessionClient, SERVER_RESTARTED, TOKEN_ERROR } from '../src/session-client.js';
 import { boxAt } from '../src/model/diagram.js';
 import { reviewEpic } from './fixture.js';
@@ -148,6 +149,20 @@ describe('S9-A1 the Code view of a leaf box shows the code it builds, its AST an
     expect(screen.getByTestId('code-graph-code')).toHaveTextContent('builds · name-match');
   });
 
+  it('S9-A1 a box that builds many nodes shows the first picks and a "Show all" button', async () => {
+    const ids = Array.from({ length: MAX_PICKS + 3 }, (_, i) => `x/f${String(i).padStart(2, '0')}().`);
+    const many = answer([BOX_NODE], [...BOX_CART.edges, ...ids.map((id) => edge('box cart', 'cart', id, id.slice(2, 5), 'builds'))], {
+      ends: { ...BOX_CART.ends, ...Object.fromEntries(ids.map((id, i) => [id, { kind: 'function' as const, file: 'src/z.ts', range: `${i + 1}-${i + 1}` }])) },
+    });
+    const user = await openBox(fakeGraph({ 'box cart': many, [CHARGE]: SHOW_CHARGE }), 'cart');
+    await screen.findByTestId('code-graph-node');
+    const picks = screen.getByTestId('code-graph-picks');
+    expect(within(picks).getAllByRole('button', { pressed: false }).length + 1).toBe(MAX_PICKS);
+    await user.click(screen.getByTestId('code-graph-picks-all'));
+    expect(screen.getByTestId('code-graph-picks-all')).toHaveTextContent('Show fewer');
+    expect(within(picks).getAllByRole('button', { pressed: false }).length + 1).toBe(MAX_PICKS + 4);
+  });
+
   it('S9-A1 with no builds edge yet, the code is found by the files of the Flow-Box commits, and says so', async () => {
     const graph = fakeGraph({ 'src/pay.ts': SHOW_FILE, [CHARGE]: SHOW_CHARGE });
     await openBox(graph, 'cart');
@@ -194,6 +209,17 @@ describe('S9 model', () => {
     const testFile = answer([node('t/', 'pay.test.ts', { kind: 'file', file: 'test/pay.test.ts', range: undefined })], [edge('t/', 'pay.test.ts', 't/x().', 'pays', 'defines')]);
     expect(definedNodes([testFile])).toEqual([]);
     expect(['src/pay.ts', 'test/pay.ts', 'src/pay.test.tsx', 'pkg/tests/x.py', 'app/test_pay.py', 'app/pay_test.py', 'src/testing.ts'].map(isTestFile)).toEqual([false, true, true, true, true, true, false]);
+  });
+
+  it('S9-A1 among exact builds edges, names that share words with the box path come first', () => {
+    const box = { ...BOX_NODE, id: 'b', name: 'checkout/sign-off' };
+    const a = answer([box], ['startServe', 'signOffPayload', 'signOff'].map((n) => edge('b', 'checkout/sign-off', `x/${n}().`, n, 'builds')), {
+      ends: { 'x/startServe().': { kind: 'function', file: 'a.ts' }, 'x/signOffPayload().': { kind: 'function', file: 'b.ts' }, 'x/signOff().': { kind: 'function', file: 'c.ts' } },
+    });
+    expect(builtNodes(a).map((n) => n.name)).toEqual(['signOff', 'signOffPayload', 'startServe']);
+    expect(nameWords('checkout/sign-off')).toEqual(['checkout', 'sign', 'off']);
+    expect(nameWords('signOffPayload')).toEqual(['sign', 'off', 'payload']);
+    expect(nameWords('load_row')).toEqual(['load', 'row']);
   });
 
   it('S9-A1 tests and files a Flow-Box commit touched are not the code the box builds', () => {
