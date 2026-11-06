@@ -5,9 +5,9 @@
 //   with `change: removed` removes one.
 // - Entities: docs/system/entities.yaml plus the EPIC's entities.yaml, matched by id.
 
-import { indexBoxes } from '../flow-index.js';
+import { indexBoxes, knownEdges } from '../flow-index.js';
 import { canonicalJson } from '../hash.js';
-import type { Box, EntityDef, EntityModel, Flow, Id } from '../types.js';
+import type { Box, Diagram, Edge, EntityDef, EntityModel, Flow, Id } from '../types.js';
 import { asArray, isObject } from '../util.js';
 import type {
   ArchitectureChange,
@@ -20,6 +20,7 @@ import type {
   DiffStatus,
   EntityDiff,
   EntityNote,
+  FlowEdgeDiff,
   LinkDiff,
   Part,
   PartDiff,
@@ -268,6 +269,76 @@ export function compareFlows(asIs: Flow | undefined, epic: Flow | undefined, not
   return out;
 }
 
+/** Every diagram of a flow by path: '' for the root, then the inside of each box that has children. */
+function diagramsOf(flow: Flow | undefined): Map<string, Diagram> {
+  const out = new Map<string, Diagram>();
+  if (isObject(flow) && isObject(flow.root)) out.set('', flow.root);
+  for (const [path, { box }] of indexBoxes(flow)) if (isObject(box.children) && asArray(box.children.boxes).length > 0) out.set(path, box.children);
+  return out;
+}
+
+interface PathEdge {
+  from: string;
+  to: string;
+  edge: Edge;
+}
+
+function pathEdges(diagram: Diagram | undefined, prefix: string): PathEdge[] {
+  if (!diagram) return [];
+  const p = (id: Id) => (prefix ? `${prefix}/${id}` : id);
+  return knownEdges(diagram).map((edge) => ({ from: p(edge.from), to: p(edge.to), edge }));
+}
+
+const edgeKindOf = (e: Edge) => e.kind ?? 'normal';
+
+/**
+ * The status of each edge of the EPIC's flow against the as-is flow, root and nested, then the
+ * as-is edges it keeps or removes. An edge is known by its diagram, its two ends and its label (the
+ * branch or exit name); an edge with the same ends and another label or kind is `changed`. As
+ * with boxes, the EPIC's flow holds only its own scope: an as-is edge stays `same` unless a box at
+ * one end is removed, or the EPIC's flow has both ends in that diagram and draws them otherwise.
+ */
+export function compareFlowEdges(asIs: Flow | undefined, epic: Flow | undefined, notes: BoxNote[] = []): FlowEdgeDiff[] {
+  const asD = diagramsOf(asIs);
+  const epD = diagramsOf(epic);
+  const removed = new Map(asArray<BoxNote>(notes).filter((n) => isObject(n) && n.change === 'removed').map((n) => [n.path, n]));
+  const out: FlowEdgeDiff[] = [];
+  const exact = (e: PathEdge) => `${e.from}\u0000${e.to}\u0000${e.edge.label ?? ''}`;
+  const ends = (e: PathEdge) => `${e.from}\u0000${e.to}`;
+  for (const path of new Set([...epD.keys(), ...asD.keys()])) {
+    const after = pathEdges(epD.get(path), path);
+    const before = pathEdges(asD.get(path), path);
+    const match = new Map<PathEdge, PathEdge>();
+    const free = new Set(before);
+    const take = (e: PathEdge, key: (x: PathEdge) => string) => {
+      const found = [...free].find((b) => key(b) === key(e));
+      if (!found) return;
+      free.delete(found);
+      match.set(e, found);
+    };
+    for (const e of after) take(e, exact);
+    for (const e of after) if (!match.has(e)) take(e, ends);
+    for (const e of after) {
+      const b = match.get(e);
+      const status: DiffStatus = !b ? 'added' : edgeKindOf(b.edge) === edgeKindOf(e.edge) && (b.edge.label ?? '') === (e.edge.label ?? '') ? 'same' : 'changed';
+      const d: FlowEdgeDiff = { diagram: path, from: e.from, to: e.to, status, after: e.edge, why: [], stories: [] };
+      if (b) d.before = b.edge;
+      if (status === 'changed') d.what = fieldChanges({ ...b!.edge, kind: edgeKindOf(b!.edge) }, { ...e.edge, kind: edgeKindOf(e.edge) }, ['label', 'kind'])!;
+      out.push(d);
+    }
+    const epicIds = new Set(asArray<Box>(epD.get(path)?.boxes).filter(isObject).map((b) => (path ? `${path}/${b.id}` : b.id)));
+    for (const b of before.filter((x) => free.has(x))) {
+      const gone = removed.get(b.from) ?? removed.get(b.to);
+      const redrawn = epicIds.has(b.from) && epicIds.has(b.to);
+      const d: FlowEdgeDiff = { diagram: path, from: b.from, to: b.to, status: gone || redrawn ? 'removed' : 'same', before: b.edge, why: [], stories: [] };
+      if (gone) Object.assign(d, { what: `goes with ${gone.path}`, why: [...asArray<Id>(gone.why)], stories: [...asArray<Id>(gone.stories)] });
+      if (!gone && !redrawn) d.after = b.edge;
+      out.push(d);
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- entities
 
 /** What changes in an entity, in words: `fields: + trust, kind: string → enum[a, b]`. */
@@ -324,6 +395,7 @@ export function compareSystem(system: Pick<SystemRecord, 'architecture' | 'flow'
     architecture: applyArchitectureChange(system?.architecture, change),
     // Without a change file the EPIC's flow is not a change to the system: there is nothing to compare.
     boxes: change ? compareFlows(system?.flow, epic.flow, asArray<BoxNote>(change.boxes)) : [],
+    flowEdges: change ? compareFlowEdges(system?.flow, epic.flow, asArray<BoxNote>(change.boxes)) : [],
     entities: change ? compareEntities(system?.entities, epic.entities, asArray<EntityNote>(change.entities)) : [],
   };
   const asIsEpic = isObject(system?.flow) && typeof system.flow.epic === 'string' ? system.flow.epic : undefined;

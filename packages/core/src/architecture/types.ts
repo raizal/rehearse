@@ -2,7 +2,7 @@
 // the EPIC folder). D4: a change is a to-be diff on top of the as-is. Proposed decision D43.
 // Both files are optional: an EPIC without them loads, validates and hashes as before.
 
-import type { Box, EntityDef, EntityModel, Finding, Flow, Id } from '../types.js';
+import type { Box, Edge, EntityDef, EntityModel, Finding, Flow, Id } from '../types.js';
 
 // ---------------------------------------------------------------- docs/system/architecture.yaml
 
@@ -201,6 +201,17 @@ export interface BoxDiff extends DiffReason {
   asIsStories: Id[];
 }
 
+/** An edge of the flow, in the root or inside a box. Known by its diagram, its two ends and its label. */
+export interface FlowEdgeDiff extends DiffReason {
+  /** Path of the diagram that holds the edge: '' for the root, else the path of its box. */
+  diagram: string;
+  /** Box paths of the two ends. */
+  from: string;
+  to: string;
+  before?: Edge;
+  after?: Edge;
+}
+
 export interface EntityDiff extends DiffReason {
   id: Id;
   before?: EntityDef;
@@ -225,5 +236,7 @@ export interface SystemCompare {
   asIsEpic?: string;
   architecture: ArchitectureCompare;
   boxes: BoxDiff[];
+  /** The edges of both flows, root and nested, each with its status. */
+  flowEdges: FlowEdgeDiff[];
   entities: EntityDiff[];
 }
