@@ -111,14 +111,16 @@ export interface CallLink {
   kind: AnswerEdge['kind'];
 }
 
-/** The call graph one edge around the shown node: callers, callees and tests, by name. */
+const CALLING: readonly AnswerEdge['kind'][] = ['calls', 'http-calls'];
+
+/** The call graph one edge around the shown node: callers, callees (calls and HTTP calls) and tests, by name. */
 export function callGraph(answer: PanelAnswer): CallGraph {
-  const me = answer.nodes[0]?.id;
-  const sort = (l: CallLink[]) => l.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  const me = (answer.nodes.find((n) => n.distance === 0) ?? answer.nodes[0])?.id;
+  const sort = (l: CallLink[]) => [...new Map(l.map((c) => [c.id, c])).values()].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const link = (e: AnswerEdge, out: boolean): CallLink => ({ id: out ? e.to : e.from, name: out ? e.toName : e.fromName, trust: e.trust, kind: e.kind });
   return {
-    callers: sort(answer.edges.filter((e) => e.kind === 'calls' && e.to === me && e.from !== me).map((e) => link(e, false))),
-    callees: sort(answer.edges.filter((e) => e.kind === 'calls' && e.from === me).map((e) => link(e, true))),
+    callers: sort(answer.edges.filter((e) => CALLING.includes(e.kind) && e.to === me && e.from !== me).map((e) => link(e, false))),
+    callees: sort(answer.edges.filter((e) => CALLING.includes(e.kind) && e.from === me && e.to !== me).map((e) => link(e, true))),
     tests: sort(answer.edges.filter((e) => e.kind === 'tests' && e.to === me).map((e) => link(e, false))),
   };
 }

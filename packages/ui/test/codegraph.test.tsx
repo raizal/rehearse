@@ -82,7 +82,8 @@ function fakeGraph(answers: Record<string, PanelAnswer | GraphOutcome>): GraphAp
   return {
     asked,
     show: async (t) => (asked.push(t), out(t)),
-    near: async (t) => (asked.push(t), out(t)),
+    // A near answer is keyed `near <depth> <target>`; without one, near gives the show answer.
+    near: async (t, d = 1) => (asked.push(`near ${d} ${t}`), answers[`near ${d} ${t}`] !== undefined ? out(`near ${d} ${t}`) : out(t)),
   };
 }
 
@@ -110,7 +111,7 @@ describe('S9-A1 the Code view of a leaf box shows the code it builds, its AST an
     const graph = fakeGraph({ 'box cart': BOX_CART, [CHARGE]: SHOW_CHARGE });
     await openBox(graph, 'cart');
     const panes = await screen.findByTestId('code-graph-node');
-    expect(graph.asked).toEqual(['box cart', CHARGE]);
+    await waitFor(() => expect(graph.asked).toEqual(['box cart', CHARGE, `near 1 ${CHARGE}`]));
     expect(screen.getByTestId('code-graph-source')).toHaveTextContent('found by builds edges');
 
     const code = within(panes).getByTestId('code-graph-code');
@@ -167,7 +168,7 @@ describe('S9-A1 the Code view of a leaf box shows the code it builds, its AST an
     const graph = fakeGraph({ 'src/pay.ts': SHOW_FILE, [CHARGE]: SHOW_CHARGE });
     await openBox(graph, 'cart');
     await screen.findByTestId('code-graph-node');
-    expect(graph.asked).toEqual(['box cart', 'src/pay.ts', CHARGE]);
+    await waitFor(() => expect(graph.asked).toEqual(['box cart', 'src/pay.ts', CHARGE, `near 1 ${CHARGE}`]));
     expect(screen.getByTestId('code-graph-source')).toHaveTextContent('found by the files of Flow-Box commits (no builds edge yet)');
     expect(screen.getByTestId('code-graph-pick-Charge')).toBeInTheDocument();
   });

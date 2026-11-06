@@ -2,10 +2,12 @@
 // function the box builds, its AST outline and its call graph, read only, from the same graph the
 // agents ask (G8). The box's code comes from its `builds` edges; a box with none yet falls back to
 // the functions in the files of its Flow-Box commits (not its test files). No builds edge and no commit: no code yet.
+// A click on a node of the call graph shows that node's code, AST and call graph; Back returns to the box's function.
 
-import { useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { GraphApiContext, type GraphOutcome, type PanelAnswer } from '../graph-api.js';
-import { boxTarget, builtNodes, callGraph, codeLines, definedNodes, isTestFile, nodePlace, NO_CODE_YET, outlineRows, type BoxCode, type BuiltNode, type CallLink } from '../model/codegraph.js';
+import { boxTarget, builtNodes, codeLines, definedNodes, isTestFile, nodePlace, NO_CODE_YET, outlineRows, type BoxCode, type BuiltNode } from '../model/codegraph.js';
+import { CallGraphView } from './CallGraphView.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 
 /** Files of the Flow-Box fallback that are read at most. */
@@ -101,12 +103,35 @@ function Built({ nodes, picked, onPick }: { nodes: BuiltNode[]; picked: string; 
           )}
         </div>
       )}
-      <NodeView key={picked} id={picked} built={nodes.find((n) => n.id === picked)} />
+      <Drill key={picked} root={picked} built={nodes.find((n) => n.id === picked)} />
     </>
   );
 }
 
-function NodeView({ id, built }: { id: string; built: BuiltNode | undefined }) {
+/** The picked node, or the node a click in its call graph moved to. */
+function Drill({ root, built }: { root: string; built: BuiltNode | undefined }) {
+  const [center, setCenter] = useState(root);
+  const [depth, setDepth] = useState(1);
+  const onCenter = useCallback((id: string) => setCenter(id), []);
+  return (
+    <>
+      {center !== root && (
+        <button type="button" className="link code-graph-back" data-testid="code-graph-back" onClick={() => setCenter(root)}>
+          ← Back to {built?.name ?? 'the box function'}
+        </button>
+      )}
+      <NodeView key={center} id={center} built={center === root ? built : undefined} depth={depth} onDepth={setDepth} onCenter={onCenter} />
+    </>
+  );
+}
+
+interface CallGraphControl {
+  depth: number;
+  onDepth: (depth: number) => void;
+  onCenter: (id: string) => void;
+}
+
+function NodeView({ id, built, ...calls }: { id: string; built: BuiltNode | undefined } & CallGraphControl) {
   const api = useContext(GraphApiContext);
   const [outcome, setOutcome] = useState<GraphOutcome | undefined>();
   useEffect(() => {
@@ -126,14 +151,13 @@ function NodeView({ id, built }: { id: string; built: BuiltNode | undefined }) {
       </p>
     );
   }
-  return <NodePanes answer={outcome.answer} trust={built?.trust} />;
+  return <NodePanes answer={outcome.answer} trust={built?.trust} {...calls} />;
 }
 
-function NodePanes({ answer, trust }: { answer: PanelAnswer; trust: BuiltNode['trust'] }) {
+function NodePanes({ answer, trust, depth, onDepth, onCenter }: { answer: PanelAnswer; trust: BuiltNode['trust'] } & CallGraphControl) {
   const node = answer.nodes[0]!;
   const lines = codeLines(node);
   const rows = outlineRows(answer.outline?.root);
-  const calls = callGraph(answer);
   return (
     <div className="code-graph-body" data-testid="code-graph-node">
       <section className="code-graph-pane is-code" aria-label={`Code of ${node.name}, read only`} data-testid="code-graph-code">
@@ -176,37 +200,8 @@ function NodePanes({ answer, trust }: { answer: PanelAnswer; trust: BuiltNode['t
         {answer.outline?.cut && <p className="muted small">The tree is cut at {answer.outline.nodes} nodes.</p>}
       </section>
       <section className="code-graph-pane is-calls" aria-label={`Call graph of ${node.name}`} data-testid="code-graph-calls">
-        <h6>Call graph</h6>
-        <div className="call-graph">
-          <CallList title="Called by" testId="call-graph-callers" links={calls.callers} />
-          <div className="call-graph-me" aria-hidden="true">
-            <span className="call-arrow">→</span>
-            <span className="call-node is-me">{node.name}</span>
-            <span className="call-arrow">→</span>
-          </div>
-          <CallList title="Calls" testId="call-graph-callees" links={calls.callees} />
-        </div>
-        {calls.tests.length > 0 && <CallList title="Tested by" testId="call-graph-tests" links={calls.tests} />}
+        <CallGraphView id={node.id} name={node.name} depth={depth} onDepth={onDepth} onCenter={onCenter} />
       </section>
-    </div>
-  );
-}
-
-function CallList({ title, links, testId }: { title: string; links: CallLink[]; testId: string }) {
-  return (
-    <div className="call-list" data-testid={testId}>
-      <span className="call-list-title">{title}</span>
-      {links.length === 0 ? (
-        <span className="muted small">none</span>
-      ) : (
-        <ul>
-          {links.map((l) => (
-            <li key={l.id} title={l.id}>
-              <span className="call-node">{l.name}</span> <span className={`trust-mark is-${l.trust}`}>{l.trust}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
