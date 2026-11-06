@@ -6,6 +6,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@rehearse/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
+      '@rehearse/graph': fileURLToPath(new URL('../graph/src/index.ts', import.meta.url)),
     },
   },
 });
