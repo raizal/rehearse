@@ -172,9 +172,10 @@ export function edgeLabelText(label: string): string {
 
 /**
  * Lay out the graph with ELK (layered). Groups become compound nodes with room for their
- * title; an edge may cross groups. Positions are absolute and start at 0, 0.
+ * title; an edge may cross groups. Positions are absolute and start at 0, 0. `options` override
+ * ELK layout options (spacing) for one diagram.
  */
-export async function layoutGraph(graph: DGraph, direction: 'RIGHT' | 'DOWN'): Promise<GraphLayout> {
+export async function layoutGraph(graph: DGraph, direction: 'RIGHT' | 'DOWN', options: Record<string, string> = {}): Promise<GraphLayout> {
   const groups = new Map(graph.groups.map((g) => [g.id, { g, elk: { id: g.id, children: [] as ElkNode[], layoutOptions: { 'elk.padding': `[top=${SIZE.groupTop},left=${SIZE.groupPad},bottom=${SIZE.groupPad},right=${SIZE.groupPad}]` } } as ElkNode }]));
   const root: ElkNode = {
     id: '__root',
@@ -191,6 +192,7 @@ export async function layoutGraph(graph: DGraph, direction: 'RIGHT' | 'DOWN'): P
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.padding': '[top=20,left=20,bottom=40,right=20]',
+      ...options,
     },
     children: [],
     edges: [],
