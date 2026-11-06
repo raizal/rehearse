@@ -4,6 +4,7 @@
 export { openGraph, GRAPH_DB, withVenvNote, type Graph, type GraphOptions } from './graph.js';
 export { defaultResolvers, tsMorphResolver, scipPythonResolver, basedpyrightResolver, resolveFromScip, readScip, lspStats, type ScipIndex } from './resolve/index.js';
 export { answerToJson, answerToText } from './format.js';
+export { outlineNode, type AstOutline, type AstOutlineNode, type OutlineOptions } from './outline.js';
 export { updateGraph, storeView, type UpdateOptions } from './update.js';
 export { find, show, near, path, findTarget, type Target } from './query.js';
 export { context, contextBuilder, DEFAULT_BUDGET, NO_VENV } from './context/build.js';

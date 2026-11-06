@@ -5,7 +5,9 @@
 // the session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
 // key are the server process's, never the request's. The code reads (`/api/code-index`,
 // `/api/box-code`) and the story-thread reads run git or bb; the Birdview routes read the e2e player and forward an allowlist
-// of its actions, on 127.0.0.1 only. All of them need the same token and Origin check.
+// of its actions, on 127.0.0.1 only. The code graph route (`/api/graph`, G20) answers show and near
+// from @rehearse/graph, and a file watcher keeps the graph fresh (graph-route.ts). All of them need
+// the same token and Origin check.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -14,6 +16,7 @@ import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
+import { graphServiceFor, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { createStoryThreads, processRunner, StoryThreadError, type Runner, type StoryThreadService } from './story-thread.js';
 import { buildTrustedEpicView } from './trust-view.js';
@@ -40,6 +43,8 @@ export interface ServeOptions {
   bbProject?: string;
   /** The Birdview e2e player. Default: port 3298 and the nearest `e2e/` test project above the EPIC folder. */
   birdview?: BirdviewSetup;
+  /** The code graph and its watcher. Default: the graph of the EPIC folder's repo, opened on the first request. */
+  graph?: GraphService;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -72,7 +77,7 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
@@ -81,6 +86,7 @@ const ROUTES: Record<string, string> = {
   '/api/sign-off': 'POST',
   '/api/code-index': 'GET',
   '/api/box-code': 'GET',
+  '/api/graph': 'GET',
   '/api/story-thread': 'GET, HEAD',
   '/api/story-thread/link': 'POST',
   '/api/story-thread/start': 'POST',
@@ -91,6 +97,8 @@ const ROUTES: Record<string, string> = {
 };
 
 const STORY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+/** Longest graph target the route takes. */
+const MAX_TARGET = 512;
 
 /** The request handler, without listening. */
 export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res: ServerResponse) => void {
@@ -100,6 +108,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const bbProject = opts.bbProject ?? (process.env.REHEARSE_BB_PROJECT || process.env.BB_PROJECT_ID || undefined);
   const threads = createStoryThreads({ epicDir: opts.epicDir, run: opts.run ?? processRunner(), ...(bbProject ? { bbProject } : {}) });
   const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
+  const graph = opts.graph ?? graphServiceFor(opts.epicDir);
   return (req, res) => {
     let path: string;
     let query: URLSearchParams;
@@ -145,6 +154,19 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       void readCode(path, query, opts.epicDir, git).then(
         ([status, body]) => sendJson(res, status, body),
         (e: unknown) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }),
+      );
+      return;
+    }
+    if (path === '/api/graph') {
+      // Box serve-query: the token and the Origin before any graph work (S9-A4).
+      const refused = checkRequest(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { ok: false, error: refused.error });
+        return;
+      }
+      void readGraph(query, graph).then(
+        ([status, body]) => sendJson(res, status, body),
+        (e: unknown) => sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }),
       );
       return;
     }
@@ -210,6 +232,19 @@ async function readCode(path: string, query: URLSearchParams, epicDir: string, g
   const opt = (name: string) => query.get(name) ?? undefined;
   const result = await boxCode(git, epicDir, boxes, { box, before: opt('before'), after: opt('after'), file: opt('file') });
   return result.ok ? [200, result] : [result.status, { ok: false, error: result.error }];
+}
+
+/** `GET /api/graph?verb=show|near&target=…[&depth=n]`: 200 with the answer, 404 when the target is not found. */
+async function readGraph(query: URLSearchParams, graph: GraphService): Promise<[number, unknown]> {
+  const verb = query.get('verb');
+  if (verb !== 'show' && verb !== 'near') return [400, { ok: false, error: 'verb must be show or near' }];
+  const target = query.get('target') ?? '';
+  if (target.trim() === '' || target.length > MAX_TARGET) return [400, { ok: false, error: `target is required, at most ${MAX_TARGET} characters` }];
+  const depthText = query.get('depth');
+  const depth = depthText === null ? 1 : Number(depthText);
+  if (verb === 'near' && !(Number.isInteger(depth) && depth >= 1 && depth <= 3)) return [400, { ok: false, error: 'depth must be 1, 2 or 3' }];
+  const answer = await graph.answer({ verb, target, depth });
+  return [answer.ok ? 200 : 404, answer];
 }
 
 /** The story thread panel (T12): read, link, start, send and open. Each needs the token and a same-origin Origin. */
@@ -386,7 +421,8 @@ function send(res: ServerResponse, status: number, type: string, body: string | 
 
 /** Start the server on 127.0.0.1. There is no option for another host (R20). */
 export function startServer(opts: ServeOptions): Promise<RunningServer> {
-  const server = createServer(createHandler(opts));
+  const graph = opts.graph ?? graphServiceFor(opts.epicDir);
+  const server = createServer(createHandler({ ...opts, graph }));
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(opts.port, LISTEN_HOST, () => {
@@ -397,7 +433,7 @@ export function startServer(opts: ServeOptions): Promise<RunningServer> {
         host: LISTEN_HOST,
         port,
         url: `http://${LISTEN_HOST}:${port}/`,
-        close: () => new Promise((done) => server.close(() => done())),
+        close: () => new Promise((done) => server.close(() => void graph.close().then(done, done))),
       });
     });
   });
