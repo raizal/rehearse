@@ -1,0 +1,186 @@
+story: S11
+# The examples use this repo itself: workspace packages @rehearse/core, graph, server, ui, cli and
+# bb-plugin; createGraphService in packages/server/src/graph-route.ts; MapIndex in packages/graph/src/map.ts.
+scenarios:
+  - id: S11-packages
+    title: Builder opens the Code map and sees the packages
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-open, given: { level: packages, hideTests: auto, hideOutside: false }, then: { query: { verb: map, target: packages, from: panel } } }
+      - name: serve-query
+        example: { id: serve-map, given: { token: "session token", origin: same }, then: { query: { verb: map, target: packages, from: panel } } }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - name: map-level
+        example: { id: level-packages, given: { query: { verb: map, target: packages } }, then: { nodes: [ "@rehearse/core", "@rehearse/graph", "@rehearse/server", "@rehearse/ui", "@rehearse/cli", "@rehearse/bb-plugin", "Outside packages (N)" ], edges: [ { from: "@rehearse/server", to: "@rehearse/graph", count: 12 } ], notes: [ "6 packages, N outside" ] } }
+      - { name: code-map }
+    expect: { criterion: S11-A1, state: { nodesPerPackage: 1, outsideGroup: "Outside packages (N)", edgesCounted: true, namesReadable: true } }
+
+  - id: S11-package
+    title: Builder opens a package and sees its files in folders
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-package, given: { level: package, target: "@rehearse/server", hideTests: auto, hideOutside: false }, then: { query: { verb: map, target: "@rehearse/server", from: panel } } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - name: map-level
+        example: { id: level-package, given: { query: { verb: map, target: "@rehearse/server" } }, then: { nodes: [ "src/ (folder)", graph-route.ts, http.ts, "@rehearse/graph (stub)" ], edges: [ { from: http.ts, to: graph-route.ts } ], notes: [ "Show 9 test files" ] } }
+      - { name: code-map }
+    expect: { criterion: S11-A2, state: { folderGroups: [ src/, test/ ], testsHidden: true, chip: "Show 9 test files", urlHoldsLevel: true } }
+
+  - id: S11-file
+    title: Builder opens a file and sees its code and the code it calls elsewhere
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-file, given: { level: file, target: packages/server/src/graph-route.ts, hideTests: auto, hideOutside: false }, then: { query: { verb: map, target: packages/server/src/graph-route.ts, from: panel } } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - name: map-level
+        example: { id: level-file, given: { query: { verb: map, target: packages/server/src/graph-route.ts } }, then: { nodes: [ createGraphService, "map.ts · 4 calls", "node:path · 3 calls" ], edges: [ { from: createGraphService, to: "map.ts · 4 calls", trust: exact } ], notes: [] } }
+      - { name: code-map }
+    expect: { criterion: S11-A3, state: { oneNodePerOtherFile: true, membersListed: true, trustStyles: true } }
+
+  - id: S11-panel-box
+    title: Builder selects a function and opens the box it serves
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-select, given: { level: file, target: packages/server/src/graph-route.ts, node: createGraphService, hideTests: auto, hideOutside: false }, then: { query: { verb: map, target: packages/server/src/graph-route.ts, from: panel } } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - name: map-level
+        example: { id: level-boxes, given: { query: { verb: map, target: packages/server/src/graph-route.ts } }, then: { nodes: [ { name: createGraphService, kind: function, boxes: [ serve-query ] } ], edges: [], notes: [] } }
+      - { name: code-map }
+    expect: { criterion: S11-A4, state: { panel: [ name, kind, place, callers, callees, tests, http, boxes ], boxOpens: "?box=serve-query", badge: true, edgesLit: true } }
+
+  - id: S11-search
+    title: Builder searches words and the map jumps to the hit
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-find, given: { level: packages, find: "map level", hideTests: auto, hideOutside: false }, then: { query: { verb: find, target: "map level", from: panel } } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: "yes" }
+      - { name: run-query/target }
+      - { name: run-query/verb, branch: find }
+      - name: run-query/find
+        example: { id: find-map, given: { query: { verb: find, target: "map level" } }, then: { nodes: [ { name: MapIndex.level, kind: method, file: packages/graph/src/map.ts } ] } }
+      - { name: run-query/answer }
+      - { name: asker, branch: map }
+      - name: code-map
+        example: { id: map-jump, given: { level: file, target: packages/graph/src/map.ts, node: MapIndex.level, hideTests: auto, hideOutside: false }, then: { query: { verb: map, target: packages/graph/src/map.ts, from: panel } } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - { name: map-level }
+      - { name: code-map }
+    expect: { criterion: S11-A5, state: { level: file, target: packages/graph/src/map.ts, selected: MapIndex.level } }
+
+  - id: S11-filters
+    title: Builder filters the map until nothing is left
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-filter, given: { level: package, target: "@rehearse/bb-plugin", hideTests: hide, hideOutside: true, epic: 2026-11-05-code-graph }, then: { query: { verb: map, target: "@rehearse/bb-plugin", from: panel } } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - name: map-level
+        example: { id: level-empty, given: { query: { verb: map, target: "@rehearse/bb-plugin" } }, then: { nodes: [], edges: [], notes: [ "nothing left with these filters" ] } }
+      - { name: code-map }
+    expect: { criterion: S11-A6, state: { nodes: 0, message: "Nothing is left with these filters.", offers: "Clear filters" } }
+
+  - id: S11-indexing
+    title: Builder opens the Code map in a repo that is not indexed yet
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-first, given: { level: packages, hideTests: auto, hideOutside: false }, then: { query: { verb: map, target: packages, from: panel }, shows: "Indexing the repo…" } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - name: update-graph/hash-files
+        example: { id: hash-no-db-map, given: { graphDb: missing }, then: { mode: cold } }
+      - { name: update-graph/mode, branch: cold }
+      - { name: update-graph/bulk-index }
+      - { name: update-graph/link }
+      - { name: update-graph/rank }
+      - { name: update-graph/write }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - { name: map-level }
+      - { name: code-map }
+    expect: { criterion: S11-A7, state: { shownFirst: "indexing", IndexRun.mode: cold, mapShown: true } }
+
+  - id: S11-gone
+    title: Builder opens a map URL of a file that is gone
+    status: draft
+    steps:
+      - { name: open-map }
+      - name: code-map
+        example: { id: map-gone, given: { level: file, target: packages/server/src/old-route.ts, hideTests: auto, hideOutside: false }, then: { query: { verb: map, target: packages/server/src/old-route.ts, from: panel } } }
+      - { name: serve-query }
+      - { name: update-graph/scope }
+      - { name: update-graph/hash-files }
+      - { name: update-graph/mode, branch: none }
+      - { name: update-graph/unchanged }
+      - { name: update-graph/fresh }
+      - { name: asked, branch: map }
+      - name: map-level
+        branch: not-found
+        example: { id: level-gone, given: { query: { verb: map, target: packages/server/src/old-route.ts } }, then: { exit: not-found, status: 404 } }
+      - { name: code-map }
+    expect: { criterion: S11-A7, state: { status: 404, message: "Not on the map" } }
+
+  - id: S11-refused
+    title: A map request without the session token gets 403
+    status: draft
+    steps:
+      - { name: open-map }
+      - { name: code-map }
+      - name: serve-query
+        branch: forbidden
+        example: { id: serve-map-forbidden, given: { token: null }, then: { exit: forbidden, status: 403, body: "no graph data" } }
+      - { name: refused }
+    expect: { criterion: S11-A8, state: { status: 403, graphDataSent: false } }
