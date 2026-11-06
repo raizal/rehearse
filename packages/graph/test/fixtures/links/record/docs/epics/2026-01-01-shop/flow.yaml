@@ -1,0 +1,22 @@
+version: 1
+epic: 2026-01-01-shop
+root:
+  boxes:
+    - id: orders
+      kind: process
+      title: Orders
+      children:
+        boxes:
+          - id: get
+            kind: process
+            title: Get one order
+            stories: [S1]
+    - id: checkout
+      kind: process
+      title: Checkout
+      children:
+        boxes:
+          - id: pay
+            kind: process
+            title: Charge the card
+            stories: [S1, S9]

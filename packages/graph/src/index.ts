@@ -12,8 +12,9 @@ export { fileSymbol, memberSymbol, externalModuleSymbol, externalMemberSymbol, t
 export { loadGrammars, type ReaderAdapter, type ReadResult, type RefSite, type Binding } from './readers/reader.js';
 export { typescriptReader } from './readers/typescript.js';
 export { pythonReader } from './readers/python.js';
+export * from './link/index.js';
 export type {
-  GraphView, Resolver, ResolveInput, Resolution, Linker, LinkInput, LinkOutput, Ranker,
+  GraphView, Resolver, ResolveInput, Resolution, Linker, LinkInput, LinkOutput, LinkState, Ranker,
   ContextBuilder, ContextBundle, ContextItem,
 } from './extend.js';
 export * from './types.js';

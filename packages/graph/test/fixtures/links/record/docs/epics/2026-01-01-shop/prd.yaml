@@ -1,0 +1,14 @@
+epic:
+  slug: 2026-01-01-shop
+  title: The shop
+
+requirements:
+  - id: R1
+    kind: functional
+    text: The shop reads one order by its id.
+
+stories:
+  - id: S1
+    role: buyer
+    want: to see my order
+    requirements: [R1]

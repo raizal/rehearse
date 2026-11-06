@@ -1,0 +1,9 @@
+story: S1
+scenarios:
+  - id: S1-get
+    title: A buyer gets one order
+    status: draft
+    steps:
+      - { name: orders/get }
+      - { name: orders/get }
+      - { name: no/such/box }
