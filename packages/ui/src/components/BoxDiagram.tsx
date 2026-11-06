@@ -60,6 +60,9 @@ function BoxView({ data }: NodeProps<BoxNode>) {
 
 const nodeTypes: NodeTypes = { lane: LaneView, box: BoxView };
 
+/** The smallest zoom the diagram opens at. */
+const ZOOM = 0.6;
+
 export interface BoxDiagramProps {
   flow: Flow | undefined;
   prd: Prd | undefined;
@@ -90,7 +93,8 @@ export function BoxDiagram({ flow, prd, diagramPath, label, onSelect }: BoxDiagr
     () => (layout && layout.path === diagramPath ? toFlowElements(diagram, layout.layout, { diagramPath }) : undefined),
     [layout, diagram, diagramPath],
   );
-  const height = Math.min(320, Math.max(160, (layout?.layout.lanes.reduce((h, l) => h + l.height, 0) ?? 160) * 0.6 + 24));
+  // Boxes stay readable: a wide diagram shows its start at ZOOM and pans, it does not shrink to fit.
+  const height = Math.min(320, Math.max(160, (layout?.layout.lanes.reduce((h, l) => h + l.height, 0) ?? 160) * ZOOM + 24));
 
   return (
     <div className="canvas box-diagram" data-testid="box-diagram" role="img" aria-label={label} style={{ height }}>
@@ -106,7 +110,7 @@ export function BoxDiagram({ flow, prd, diagramPath, label, onSelect }: BoxDiagr
           nodesFocusable={false}
           edgesFocusable={false}
           fitView
-          fitViewOptions={{ padding: 0.06 }}
+          fitViewOptions={{ padding: 0.06, minZoom: ZOOM }}
           minZoom={0.1}
           zoomOnScroll={false}
           preventScrolling={false}
@@ -116,7 +120,7 @@ export function BoxDiagram({ flow, prd, diagramPath, label, onSelect }: BoxDiagr
           }}
         >
           <Background gap={24} size={1} />
-          <Controls showInteractive={false} />
+          <Controls showInteractive={false} orientation="horizontal" position="top-right" />
         </ReactFlow>
       )}
     </div>

@@ -116,7 +116,7 @@
 .edge-label { padding: 0 var(--s-2); border-radius: var(--r-pill); background: var(--subtle); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
 .edge-label-branch { color: var(--agent); }
 .edge-label-error { color: var(--warn); }
-.box-diagram { flex: none; margin-bottom: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.box-diagram { flex: none; min-height: 0; margin-bottom: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
 
 /* ---------------------------------------------------------------- use cases (page 4) */
 .view-toggle { flex-direction: row; align-self: flex-start; display: inline-flex; gap: var(--s-1); padding: var(--s-1); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); }

@@ -14,7 +14,7 @@ import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from 
 import { BigPictureViews } from './components/BigPictureViews.js';
 import { BoxDrawer } from './components/BoxDrawer.js';
 import { PrdView } from './components/PrdView.js';
-import type { ApproveControls } from './components/Playback.js';
+import type { ApproveControls } from './components/Approve.js';
 import { ReadinessView } from './components/ReadinessView.js';
 import { signingBlocked, type SessionState } from './components/Review.js';
 import { SignOffView } from './components/SignOffView.js';

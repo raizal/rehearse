@@ -46,17 +46,8 @@
 .queue-bar { width: 100%; height: 6px; accent-color: var(--ok); }
 .select { display: flex; align-items: center; gap: var(--s-1); font-size: var(--fs-xs); color: var(--muted); }
 
-/* Scenario rows (Playback). */
-.scenario-list, .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-1); }
-.scenario { width: 100%; display: flex; flex-direction: column; gap: 2px; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); text-align: left; }
-.scenario:hover { border-color: var(--accent); }
-.scenario.is-active { border-color: var(--accent); background: var(--accent-tint); }
-.scenario-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--s-1) var(--s-2); }
-.scenario-head .badge { max-width: 100%; white-space: normal; }
+/* Scenario id on a storyboard card. */
 .scenario-id { white-space: nowrap; font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--accent); }
-.scenario-title { font-size: var(--fs-sm); color: var(--muted); }
-.scenario-item { display: flex; flex-direction: column; gap: var(--s-1); }
-.scenario-review { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; padding: 0 2px; }
 
 /* ---------------------------------------------------------------- story head (pages 2, 12–15) */
 .story-view { display: flex; flex-direction: column; gap: var(--s-6); }
@@ -300,21 +291,6 @@ button.crumb:hover { color: var(--accent); text-decoration: underline; }
 
 .signing-help { font-size: var(--fs-sm); }
 .signing-help ol { margin: var(--s-1) 0; padding-left: var(--s-5); }
-
-/* Playback steps and controls. */
-.player { margin-top: var(--s-4); padding-top: var(--s-3); border-top: 1px solid var(--line); }
-.player .action { margin: var(--s-2) 0 var(--s-1); }
-.controls { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin-bottom: var(--s-2); }
-.controls button { min-height: 28px; padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); }
-.controls button:disabled { opacity: 0.4; }
-.step-count { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
-.steps button { width: 100%; display: flex; gap: var(--s-2); align-items: baseline; padding: 3px var(--s-2); border: 0; border-radius: var(--r-xs); background: none; text-align: left; }
-.steps button:hover { background: var(--subtle); }
-.steps button.is-current { background: var(--note-tint); font-weight: var(--fw-semibold); }
-.step-n { min-width: 14px; font-size: var(--fs-xs); color: var(--muted); }
-.step-name { font-family: var(--mono); font-size: var(--fs-sm); word-break: break-all; }
-.step-detail { padding: var(--s-2) var(--s-3); border: 1px solid var(--note-line); border-radius: var(--r-md); background: var(--ci-tint); }
-.step-detail-head { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; font-size: var(--fs-sm); }
 
 /* ---------------------------------------------------------------- Code tab (page 13) */
 .story-code { display: flex; flex-direction: column; gap: var(--s-5); }
