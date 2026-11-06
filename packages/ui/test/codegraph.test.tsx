@@ -1,0 +1,251 @@
+// S9 (EPIC 2026-11-05-code-graph): the code drill-down below a leaf box in the story Code tab
+// (boxes drill-code, code-view). The graph is a fake through GraphApiContext: it answers what the
+// serve route gives once T30's builds linker runs (scenario S9 example show-box). The HTTP client is
+// tested against the mock fetch: token header, 404 and the token retry.
+
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AnswerEdge, AnswerNode, CodeIndex } from '@rehearse/server';
+import { CodeApiContext, type CodeApi } from '../src/code-api.js';
+import { StoryView } from '../src/components/StoryView.js';
+import { GraphApiContext, httpGraphApi, type GraphApi, type GraphOutcome, type PanelAnswer } from '../src/graph-api.js';
+import { boxTarget, builtNodes, callGraph, codeLines, definedNodes, isTestFile, NO_CODE_YET, outlineRows } from '../src/model/codegraph.js';
+import { createSessionClient, SERVER_RESTARTED, TOKEN_ERROR } from '../src/session-client.js';
+import { boxAt } from '../src/model/diagram.js';
+import { reviewEpic } from './fixture.js';
+
+afterEach(() => vi.unstubAllGlobals());
+
+const ref = (c: string, subject: string) => ({ sha: c.repeat(40), short: c.repeat(7), subject, date: '2026-11-05T10:00:00+07:00' });
+
+const INDEX: CodeIndex = {
+  ok: true,
+  head: ref('9', 'Head'),
+  boxes: {
+    cart: { commits: [ref('1', 'Cart (D7)')], files: ['src/pay.ts', 'test/pay.test.ts'] },
+    pay: { commits: [], files: [] },
+    'in-stock': { commits: [], files: [] },
+  },
+};
+
+const codeApi: CodeApi = {
+  index: async () => INDEX,
+  box: async () => ({ ok: false, error: 'not in this test' }),
+};
+
+const CHARGE = 'scip-typescript npm shop 1.0 src/pay.ts/charge().';
+const node = (id: string, name: string, extra: Partial<AnswerNode> = {}): AnswerNode => ({
+  id, kind: 'function', name, terms: name, language: 'typescript', targetOnly: false, rank: 0, file: 'src/pay.ts', range: '10-12', ...extra,
+});
+const edge = (from: string, fromName: string, to: string, toName: string, kind: AnswerEdge['kind'], trust: AnswerEdge['trust'] = 'exact'): AnswerEdge => ({
+  from, to, fromName, toName, kind, trust, source: 'tree-sitter',
+});
+const answer = (nodes: AnswerNode[], edges: AnswerEdge[], extra: Partial<PanelAnswer> = {}): PanelAnswer => ({ verb: 'show', ok: true, exitCode: 0, nodes, edges, notes: [], ...extra });
+
+const BOX_NODE = { ...node('box cart', 'cart', { kind: 'box', language: 'record' }), file: undefined, range: undefined };
+const BOX_CART = answer([BOX_NODE], [edge('box cart', 'cart', CHARGE, 'charge', 'builds')], { ends: { [CHARGE]: { kind: 'function', file: 'src/pay.ts', range: '10-12' } } });
+const SHOW_CHARGE = answer(
+  [node(CHARGE, 'charge', { code: 'export function charge(id: string) {\n  return round(id);\n}' })],
+  [
+    edge('box cart', 'cart', CHARGE, 'charge', 'builds'),
+    edge(CHARGE, 'charge', 'x/round().', 'round', 'calls', 'name-match'),
+    edge('x/checkout().', 'checkout', CHARGE, 'charge', 'calls'),
+    edge('x/test charge', 'charges a card', CHARGE, 'charge', 'tests'),
+  ],
+  {
+    outline: {
+      nodes: 3,
+      cut: false,
+      root: { type: 'function_declaration', name: 'charge', lines: '10-12', children: [{ type: 'formal_parameters', lines: '10-10', children: [] }, { type: 'statement_block', lines: '10-12', children: [] }] },
+    },
+  },
+);
+const SHOW_FILE = answer(
+  [node('scip-typescript npm shop 1.0 src/pay.ts/', 'pay.ts', { kind: 'file', range: undefined })],
+  [
+    edge('scip-typescript npm shop 1.0 src/pay.ts/', 'pay.ts', CHARGE, 'charge', 'defines'),
+    edge('scip-typescript npm shop 1.0 src/pay.ts/', 'pay.ts', 'scip-typescript npm shop 1.0 src/pay.ts/Charge#', 'Charge', 'defines'),
+  ],
+);
+
+const NOT_FOUND: GraphOutcome = { ok: false, notFound: true, error: 'not found' };
+
+function fakeGraph(answers: Record<string, PanelAnswer | GraphOutcome>): GraphApi & { asked: string[] } {
+  const asked: string[] = [];
+  const out = (t: string): GraphOutcome => {
+    const a = answers[t];
+    if (a === undefined) return NOT_FOUND;
+    return 'verb' in a ? { ok: true, answer: a } : a;
+  };
+  return {
+    asked,
+    show: async (t) => (asked.push(t), out(t)),
+    near: async (t) => (asked.push(t), out(t)),
+  };
+}
+
+async function openBox(graph: GraphApi, path: string) {
+  const user = userEvent.setup();
+  const view = reviewEpic();
+  boxAt(view.flow, 'in-stock')!.stories = ['S1'];
+  render(
+    <CodeApiContext.Provider value={codeApi}>
+      <GraphApiContext.Provider value={graph}>
+        <StoryView view={view} storyId="S1" onOpenBox={() => undefined}>
+          <p>cards</p>
+        </StoryView>
+      </GraphApiContext.Provider>
+    </CodeApiContext.Provider>,
+  );
+  await user.click(screen.getByTestId('story-tab-code'));
+  await waitFor(() => expect(screen.getByTestId(`code-box-${path}`)).toBeInTheDocument());
+  await user.click(screen.getByTestId(`code-box-${path}`));
+  return user;
+}
+
+describe('S9-A1 the Code view of a leaf box shows the code it builds, its AST and its call graph, read only', () => {
+  it('S9-A1 opening box cart asks the graph for "box cart" and shows charge: code, AST outline, call graph', async () => {
+    const graph = fakeGraph({ 'box cart': BOX_CART, [CHARGE]: SHOW_CHARGE });
+    await openBox(graph, 'cart');
+    const panes = await screen.findByTestId('code-graph-node');
+    expect(graph.asked).toEqual(['box cart', CHARGE]);
+    expect(screen.getByTestId('code-graph-source')).toHaveTextContent('found by builds edges');
+
+    const code = within(panes).getByTestId('code-graph-code');
+    expect(code).toHaveTextContent('src/pay.ts:10-12');
+    expect(code).toHaveTextContent('builds · exact');
+    expect(code).toHaveTextContent('export function charge(id: string) {');
+    expect(within(code).getByText('11')).toBeInTheDocument();
+
+    const ast = within(panes).getByTestId('code-graph-ast');
+    expect(within(ast).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['function_declarationcharge10-12', 'formal_parameters10-10', 'statement_block10-12']);
+
+    expect(within(panes).getByTestId('call-graph-callers')).toHaveTextContent('checkout');
+    expect(within(panes).getByTestId('call-graph-callees')).toHaveTextContent('round name-match');
+    expect(within(panes).getByTestId('call-graph-tests')).toHaveTextContent('charges a card');
+  });
+
+  it('S9-A1 the drill-down is read only: no input, no textarea, no editable element', async () => {
+    await openBox(fakeGraph({ 'box cart': BOX_CART, [CHARGE]: SHOW_CHARGE }), 'cart');
+    const panel = await screen.findByTestId('code-graph');
+    await within(panel).findByTestId('code-graph-node');
+    expect(panel.querySelectorAll('input, textarea, select, [contenteditable="true"]')).toHaveLength(0);
+    expect(within(panel).getByText('read only')).toBeInTheDocument();
+    expect(panel.querySelector('pre')).toHaveAttribute('aria-readonly', 'true');
+  });
+
+  it('S9-A1 a box that builds two nodes lets the builder pick one; the other node is asked for on click', async () => {
+    const two = answer([BOX_NODE], [...BOX_CART.edges, edge('box cart', 'cart', 'x/refund().', 'refund', 'builds', 'name-match')], {
+      ends: { ...BOX_CART.ends, 'x/refund().': { kind: 'function', file: 'src/pay.ts', range: '40-44' } },
+    });
+    const graph = fakeGraph({ 'box cart': two, [CHARGE]: SHOW_CHARGE, 'x/refund().': answer([node('x/refund().', 'refund', { code: 'function refund() {}', range: '40-40' })], []) });
+    const user = await openBox(graph, 'cart');
+    await screen.findByTestId('code-graph-node');
+    expect(screen.getByTestId('code-graph-pick-charge')).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByTestId('code-graph-pick-refund'));
+    await waitFor(() => expect(screen.getByTestId('code-graph-code')).toHaveTextContent('function refund() {}'));
+    expect(screen.getByTestId('code-graph-code')).toHaveTextContent('builds · name-match');
+  });
+
+  it('S9-A1 with no builds edge yet, the code is found by the files of the Flow-Box commits, and says so', async () => {
+    const graph = fakeGraph({ 'src/pay.ts': SHOW_FILE, [CHARGE]: SHOW_CHARGE });
+    await openBox(graph, 'cart');
+    await screen.findByTestId('code-graph-node');
+    expect(graph.asked).toEqual(['box cart', 'src/pay.ts', CHARGE]);
+    expect(screen.getByTestId('code-graph-source')).toHaveTextContent('found by the files of Flow-Box commits (no builds edge yet)');
+    expect(screen.getByTestId('code-graph-pick-Charge')).toBeInTheDocument();
+  });
+});
+
+describe('S9-A2 a leaf box with no Flow-Box commit', () => {
+  it('S9-A2 the panel says "This box has no code yet."', async () => {
+    const graph = fakeGraph({ 'box pay': answer([node('box pay', 'pay', { kind: 'box', language: 'record' })], []) });
+    await openBox(graph, 'pay');
+    expect(await screen.findByTestId('code-graph-none')).toHaveTextContent(NO_CODE_YET);
+    expect(graph.asked).toEqual(['box pay']);
+  });
+
+  it('S9-A2 a box the graph does not know has no code yet either', async () => {
+    await openBox(fakeGraph({}), 'pay');
+    expect(await screen.findByTestId('code-graph-none')).toHaveTextContent('This box has no code yet.');
+  });
+
+  it('a graph error is shown, and the server restart is the restart notice', async () => {
+    await openBox(fakeGraph({ 'box pay': { ok: false, notFound: false, error: 'boom' } }), 'pay');
+    expect(await screen.findByTestId('code-graph-error')).toHaveTextContent('Could not ask the code graph: boom');
+  });
+});
+
+describe('S9 model', () => {
+  it('builtNodes are the builds edges out of the box node; definedNodes the code a file defines', () => {
+    expect(builtNodes(BOX_CART)).toEqual([{ id: CHARGE, name: 'charge', kind: 'function', file: 'src/pay.ts', range: '10-12', trust: 'exact' }]);
+    expect(builtNodes(undefined)).toEqual([]);
+    expect(definedNodes([SHOW_FILE, undefined]).map((n) => [n.name, n.kind])).toEqual([
+      ['charge', 'function'],
+      ['Charge', 'class'],
+    ]);
+    expect(boxTarget('checkout/pay')).toBe('box checkout/pay');
+  });
+
+  it('exact builds edges come first; the fallback leaves test files out', () => {
+    const mixed = answer([BOX_NODE], [edge('box cart', 'cart', 'a/aaa().', 'aaa', 'builds', 'name-match'), ...BOX_CART.edges]);
+    expect(builtNodes(mixed).map((n) => n.name)).toEqual(['charge', 'aaa']);
+    const testFile = answer([node('t/', 'pay.test.ts', { kind: 'file', file: 'test/pay.test.ts', range: undefined })], [edge('t/', 'pay.test.ts', 't/x().', 'pays', 'defines')]);
+    expect(definedNodes([testFile])).toEqual([]);
+    expect(['src/pay.ts', 'test/pay.ts', 'src/pay.test.tsx', 'pkg/tests/x.py', 'app/test_pay.py', 'app/pay_test.py', 'src/testing.ts'].map(isTestFile)).toEqual([false, true, true, true, true, true, false]);
+  });
+
+  it('S9-A1 tests and files a Flow-Box commit touched are not the code the box builds', () => {
+    const touched = answer(
+      [BOX_NODE],
+      [...BOX_CART.edges, edge('box cart', 'cart', 't/pays().', 'pays', 'builds'), edge('box cart', 'cart', 'f/', 'pay.ts', 'builds'), edge('box cart', 'cart', 'h/helper().', 'helper', 'builds')],
+      {
+        ends: { ...BOX_CART.ends, 't/pays().': { kind: 'test', file: 'test/pay.test.ts' }, 'f/': { kind: 'file', file: 'src/pay.ts' }, 'h/helper().': { kind: 'function', file: 'test/helpers.ts', range: '1-3' } },
+      },
+    );
+    expect(builtNodes(touched).map((n) => n.name)).toEqual(['charge']);
+    const onlyTests = answer([BOX_NODE], [edge('box cart', 'cart', 't/pays().', 'pays', 'builds')], { ends: { 't/pays().': { kind: 'test', file: 'test/pay.test.ts' } } });
+    expect(builtNodes(onlyTests)).toEqual([]);
+  });
+
+  it('callGraph, outlineRows and codeLines', () => {
+    expect(callGraph(SHOW_CHARGE)).toEqual({
+      callers: [{ id: 'x/checkout().', name: 'checkout', trust: 'exact', kind: 'calls' }],
+      callees: [{ id: 'x/round().', name: 'round', trust: 'name-match', kind: 'calls' }],
+      tests: [{ id: 'x/test charge', name: 'charges a card', trust: 'exact', kind: 'tests' }],
+    });
+    expect(outlineRows(SHOW_CHARGE.outline!.root).map((r) => [r.depth, r.type])).toEqual([
+      [0, 'function_declaration'],
+      [1, 'formal_parameters'],
+      [1, 'statement_block'],
+    ]);
+    expect(codeLines(SHOW_CHARGE.nodes[0]!).map((l) => l.n)).toEqual([10, 11, 12]);
+  });
+});
+
+describe('S9 httpGraphApi: GET api/graph with the session token', () => {
+  const reply = (status: number, body: unknown) => ({ ok: status < 300, status, json: async () => body }) as Response;
+
+  it('S9-A4 sends the token header; a 404 is not found; a second token 403 is the restart notice', async () => {
+    const calls: { url: string; token: string | undefined }[] = [];
+    let graph = (url: string): Response => reply(200, url.includes('verb=near') ? answer([], [], { verb: 'near' }) : BOX_CART);
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (url === 'api/session') return reply(200, { token: 'tok-1', identity: { by: 'a@b.c' }, signing: { ok: false, reason: 'off' } });
+      calls.push({ url, token: (init?.headers as Record<string, string>)['x-rehearse-token'] });
+      return graph(url);
+    });
+    const api = httpGraphApi(createSessionClient());
+    expect(await api.show('box checkout/pay')).toEqual({ ok: true, answer: BOX_CART });
+    expect(calls[0]).toEqual({ url: 'api/graph?verb=show&target=box+checkout%2Fpay', token: 'tok-1' });
+    expect((await api.near('charge', 2)).ok).toBe(true);
+    expect(calls[1]!.url).toBe('api/graph?verb=near&target=charge&depth=2');
+
+    graph = () => reply(404, { ...answer([], []), ok: false, exitCode: 1, notes: ['not found'] });
+    expect(await api.show('nope')).toEqual(NOT_FOUND);
+    graph = () => reply(403, { ok: false, error: TOKEN_ERROR });
+    expect(await api.show('charge')).toEqual({ ok: false, notFound: false, error: SERVER_RESTARTED });
+    graph = () => reply(403, { ok: false, error: 'Origin does not match Host' });
+    expect(await api.show('charge')).toEqual({ ok: false, notFound: false, error: 'Origin does not match Host' });
+  });
+});

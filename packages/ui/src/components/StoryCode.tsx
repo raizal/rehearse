@@ -2,11 +2,13 @@
 // from git Flow-Box trailers), and the open box below: the compare bar (before and after
 // commits), the change in plain words, the files with +/− counts, the diff (unified, or split
 // side by side) and the task threads the commits name. The goal: the builder understands the change.
+// Below a leaf box: its code, AST outline and call graph from the code graph (BoxCodeGraph.tsx, S9).
 
 import { useContext, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { CodeApiContext, type BoxCodeOutcome, type BoxCodeView, type CodeIndex } from '../code-api.js';
 import { codeChipText, codeStrip, compareChoices, plainWords, splitPath, splitRows, stripBoxText, taskThreads, unifiedRows, type CodeStripBox } from '../model/code.js';
 import type { StoryDetail } from '../model/storyview.js';
+import { BoxCodeGraph } from './BoxCodeGraph.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 import type { DiffLine } from '@rehearse/server';
 
@@ -42,6 +44,9 @@ export function StoryCode({ d, index }: { d: StoryDetail; index: CodeIndex | und
   const shown = range?.box === open ? range : undefined;
   const strip = useMemo(() => codeStrip(d.how, index, shown?.view.changedBoxes), [d, index, shown]);
   const openBox = strip.find((b) => b.path === open);
+  const openHow = d.how.boxes.find((h) => h.path === open);
+  const leaf = !(openHow?.box.children?.boxes?.length);
+  const files = (open !== undefined && index?.ok ? index.boxes[open]?.files : undefined) ?? [];
   return (
     <section className="story-code" data-testid="story-code" aria-labelledby="story-code-h">
       <h3 id="story-code-h">Code</h3>
@@ -75,7 +80,7 @@ export function StoryCode({ d, index }: { d: StoryDetail; index: CodeIndex | und
           </ol>
         </>
       )}
-      {openBox && <BoxPanel key={openBox.path} b={openBox} onLoaded={(view) => setRange({ box: openBox.path, view })} />}
+      {openBox && <BoxPanel key={openBox.path} b={openBox} leaf={leaf} files={files} onLoaded={(view) => setRange({ box: openBox.path, view })} />}
     </section>
   );
 }
@@ -103,7 +108,7 @@ function StripBox({ b, open, onOpen }: { b: CodeStripBox; open: boolean; onOpen:
 
 type Query = { before?: string; after?: string; file?: string };
 
-function BoxPanel({ b, onLoaded }: { b: CodeStripBox; onLoaded: (view: BoxCodeView) => void }) {
+function BoxPanel({ b, leaf, files, onLoaded }: { b: CodeStripBox; leaf: boolean; files: readonly string[]; onLoaded: (view: BoxCodeView) => void }) {
   const api = useContext(CodeApiContext);
   const [query, setQuery] = useState<Query>({});
   const [outcome, setOutcome] = useState<BoxCodeOutcome | undefined>();
@@ -165,6 +170,7 @@ function BoxPanel({ b, onLoaded }: { b: CodeStripBox; onLoaded: (view: BoxCodeVi
           </>
         )
       )}
+      {b.canHaveCode && leaf && <BoxCodeGraph box={b.path} files={files} />}
     </section>
   );
 }
