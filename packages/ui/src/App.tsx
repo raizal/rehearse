@@ -13,6 +13,7 @@ import type { ScenarioView } from './api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView, Session, SignOffOk } from './contract.js';
 import { BigPictureViews } from './components/BigPictureViews.js';
 import { BoxDrawer } from './components/BoxDrawer.js';
+import { CodeMap } from './components/CodeMap.js';
 import { PrdView } from './components/PrdView.js';
 import type { ApproveControls } from './components/Approve.js';
 import { ReadinessView } from './components/ReadinessView.js';
@@ -23,7 +24,7 @@ import type { StoryTab } from './components/StoryView.js';
 import { TechSpecView } from './components/TechSpecView.js';
 import { UseCaseView } from './components/UseCaseView.js';
 import type { Place } from './model/links.js';
-import { boxOfHash, DEFAULT_BIG_VIEW, depthOf, depthState, fromHash, toHash, type Loc, type StoryTabId, type Tab } from './model/nav.js';
+import { boxOfHash, DEFAULT_BIG_VIEW, depthOf, depthState, fromHash, toHash, type CodeLoc, type Loc, type StoryTabId, type Tab } from './model/nav.js';
 import { approveReason, storiesOf } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
@@ -33,6 +34,7 @@ const TABS = [
   { id: 'prd', label: 'PRD' },
   { id: 'techspec', label: 'Tech spec' },
   { id: 'bigpicture', label: 'Big picture' },
+  { id: 'code', label: 'Code map' },
   { id: 'stories', label: 'Stories' },
   { id: 'usecases', label: 'Use cases' },
   { id: 'readiness', label: 'Readiness' },
@@ -74,6 +76,8 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   // Where an id link on the PRD or Tech spec page went (T15): an item on those pages, or a readiness row.
   const [docFocus, setDocFocus] = useState<string | undefined>();
   const [readinessRow, setReadinessRow] = useState<Id | undefined>();
+  // The code map's level and selected node (T40).
+  const [codeLoc, setCodeLoc] = useState<CodeLoc>({ tab: 'code' });
   // Steps seen per scenario: browser only (sessionStorage), not evidence, never sent (S6-A1).
   const [seen, setSeen] = useState<{ slug: string | undefined; state: SeenState }>({ slug: undefined, state: {} });
 
@@ -191,6 +195,8 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
         return { tab, view: bigView };
       case 'readiness':
         return { tab, requirement: readinessRow };
+      case 'code':
+        return codeLoc;
       case 'stories':
         if (list || storyShown === undefined) return { tab, list: true };
         if (board && card && (storyId === undefined || card.scenario.story === storyId)) return { tab, story: card.scenario.story ?? storyShown, card: card.scenario.id };
@@ -198,13 +204,14 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
       default:
         return { tab };
     }
-  }, [tab, docFocus, bigView, readinessRow, list, storyShown, board, card, storyId, storyTab]);
+  }, [tab, docFocus, bigView, readinessRow, codeLoc, list, storyShown, board, card, storyId, storyTab]);
   const applyLoc = (l: Loc, drawer: string | undefined) => {
     setBox(drawer);
     setTab(l.tab);
     if (l.tab === 'prd' || l.tab === 'techspec') setDocFocus(l.focus);
     else if (l.tab === 'bigpicture') setBigView(l.view ?? DEFAULT_BIG_VIEW);
     else if (l.tab === 'readiness') setReadinessRow(l.requirement);
+    else if (l.tab === 'code') setCodeLoc(l);
     else if (l.tab === 'stories') {
       if ('list' in l) {
         setList(true);
@@ -392,6 +399,11 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
             onOpenStory={openStory}
             onOpenBox={openBox}
           />
+        </main>
+      )}
+      {view && tab === 'code' && (
+        <main className="page-wrap code-map-page">
+          <CodeMap loc={codeLoc} onLoc={setCodeLoc} epic={view.slug} onOpenBox={openBox} />
         </main>
       )}
       {view && approveControls && tab === 'stories' && (

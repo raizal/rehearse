@@ -22,3 +22,4 @@ export type {
   ContextBuilder, ContextBundle, ContextItem,
 } from './extend.js';
 export * from './types.js';
+export { MapIndex, MAP_LEVELS, MAP_LIMIT, MAP_EDGE_KINDS, OUTSIDE_LIMIT, isTestPath, packageOf, type CodeMap, type MapBox, type MapEdge, type MapLevel, type MapMember, type MapNode, type MapNodeKind, type MapPlace, type MapQuery, type MapTotals } from './map.js';
