@@ -89,7 +89,8 @@ export interface DeckEvidence {
     picturesLeftOut: number;
     picturesBytes: number;
   };
-  unit: { file?: string; date?: string; tests?: number; passed?: number; failed?: number; why?: string };
+  /** `scope`: the tests of the report that this EPIC counts (T59). `note`: the report does not show the test files. */
+  unit: { file?: string; date?: string; tests?: number; passed?: number; failed?: number; scope?: string; note?: string; why?: string };
   signatures: { file: string; checked: number; valid: number };
 }
 

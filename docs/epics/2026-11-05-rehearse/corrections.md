@@ -244,6 +244,12 @@ The owner must approve them again.
   - Why: D17 makes the sign-off the owner's explicit agreement, but the owner could not see what they agreed to or what changed since the last sign-off.
   - Fix (owner's choice, "content + changes"): The confirm step says what a sign-off means and shows, per story, the content its hash covers and what changed since that story's last sign-off (read from the commit that added the sign-off; if git cannot be read it says so and never blocks). The button reads "I agree — sign off …". The story page links to the same preview. New criterion S9-A4, new draft scenario S9-preview, a note on the `sign-off` box. What a sign-off writes, the hash rules and the gate did not change.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 26 `caught-after-build` (C17–C42).
+- **C43** `caught-after-build` · S19, S23, box `read-unit-report`
+  - Status: DONE in T59
+  - What: The owner found a unit test of this EPIC in the status of the code-graph EPIC. `rehearse status docs/epics/2026-11-05-code-graph` showed the test `S4-A3` of this EPIC as a failed test of the code-graph S4.
+  - Why: The deck matched a unit test to a story by the scenario id or the criterion id in the test name, in the full report. The two EPICs have the same story ids (S1 to Sn).
+  - Fix (owner's choice, "by folder"): A test counts only for the plan of the code next to it. `pnpm test:report` already keeps the test file of each test, and the deck now reads it. `testPaths:` in `.rehearse/config.yaml` gives the code-graph EPIC the tests in `packages/graph/**`. An EPIC that is not in this list gets all tests that no listed EPIC gets. If a report does not show the test files, the ids alone decide, and the Status page, `rehearse status` and the deck tell this. No story, criterion, scenario or box changed, and no hash covers `.rehearse/config.yaml`.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 27 `caught-after-build` (C17–C43).
 
 After T19: `rehearse validate` gives no findings. `rehearse simulate` gives 13 findings: the new branches of `happy`, `signing-key` and `more-scenarios` and the criteria S4-A2, S4-A4, S4-A5, S4-A6, S6-A1, S6-A4, S6-A5 and S7-A1 have no approved scenario, and S4-drill, S6-approve and S7-matrix are stale. The builder approves S4-drill, S6-approve and the new drafts in the UI.

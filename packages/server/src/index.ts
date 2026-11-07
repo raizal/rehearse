@@ -25,7 +25,7 @@ export { buildStatus } from './status.js';
 export { readGraphBuilds, repoFileReader, GRAPH_FILE } from './graph-built.js';
 export { bbBirdviewConfig, brainstormIdea, buildDeckHtml, chromiumPrinter, deckFileName, deckSources, epicSlugOf, gatherDeckFacts, MAX_STILL_BYTES, NO_CHROMIUM, PrinterUnavailable, UncommittedError, UNIT_REPORT_FILE, type BuiltDeck, type DeckOptions, type DeckSourceOptions, type DeckSources, type DeckVideo, type Printer } from './present.js';
 export { findBirdviewData, gitSpecAt, lastScreen, lastTraceFrame, mainCheckoutProject, NO_BIRDVIEW_DATA, processFfmpeg, readRecordings, readSavedResults, recordingOf, resultsFileOf, STILL_WIDTH, type BirdviewData, type Ffmpeg, type FindDataOptions, type ReadSavedOptions, type Recording, type SavedResults, type SavedRun, type SpecAt, type Still } from './saved-results.js';
-export { parseUnitReport, readUnitReport, unitCount, UNIT_REPORT_UNREADABLE, UnitReportError, type UnitReport, type UnitTest } from './unit-report.js';
+export { globRegExp, NO_TEST_FILES, parseUnitReport, readTestPaths, readUnitReport, TEST_PATHS_FILE, unitCount, unitTestsOfEpic, UNIT_REPORT_UNREADABLE, UnitReportError, type EpicUnitTests, type TestPaths, type UnitReport, type UnitTest } from './unit-report.js';
 export { MAX_ZIP_BYTES, writeZip, type ZipEntryIn } from './zip-write.js';
 export { designView, linkPicture, FIGCRAFT_PATH, figcraftFetchCommand, MAX_DESIGN_BODY_BYTES, notFetchedPage, saveDesign, type DesignView, type LinkSource, type SaveResult } from './design-route.js';
 export { FIGCRAFT_NOT_RUNNING, linkDesign, refreshDesignPictures, type LinkResult, type RefreshItem, type RefreshResult } from './design-link.js';

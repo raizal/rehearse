@@ -8,8 +8,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readZip } from '@rehearse/core';
 import {
-  findBirdviewData, lastScreen, lastTraceFrame, parseSpec, parseUnitReport, readRecordings, readSavedResults, readUnitReport, recordingOf, resultsFileOf,
-  UNIT_REPORT_UNREADABLE, UnitReportError, unitCount, writeZip, type SpecAt,
+  findBirdviewData, globRegExp, lastScreen, lastTraceFrame, NO_TEST_FILES, parseSpec, parseUnitReport, readRecordings, readSavedResults, readTestPaths, readUnitReport,
+  recordingOf, resultsFileOf, UNIT_REPORT_UNREADABLE, UnitReportError, unitCount, unitTestsOfEpic, writeZip, type SpecAt,
 } from '../src/index.js';
 import { makeZip } from './zip.js';
 
@@ -254,6 +254,74 @@ describe('unit report', () => {
     expect(() => readUnitReport(join(dir, 'other.json'))).toThrow(/has no testResults/);
     writeFileSync(join(dir, 'ok.json'), JSON.stringify({ testResults: [] }));
     expect(readUnitReport(join(dir, 'ok.json')).tests).toEqual([]);
+  });
+});
+
+describe('the tests of an EPIC, by folder (T59)', () => {
+  // The same id S4-A3 in a test of each EPIC: each EPIC counts only its own test.
+  const report = parseUnitReport(
+    JSON.stringify({
+      testResults: [
+        { name: 'packages/server/test/a.test.ts', assertionResults: [{ fullName: 'S4-A3 the deck counts', status: 'failed' }, { fullName: 'S1-A1 other', status: 'passed' }] },
+        { name: 'packages/graph/test/b.test.ts', assertionResults: [{ fullName: 'S4-A3 the graph finds', status: 'passed' }] },
+      ],
+    }),
+    'r.json',
+  );
+  const paths = { 'code-graph': ['packages/graph/**'] };
+
+  it('keeps the test file of each test', () => {
+    expect(report.tests.map((t) => t.file)).toEqual(['packages/server/test/a.test.ts', 'packages/server/test/a.test.ts', 'packages/graph/test/b.test.ts']);
+  });
+
+  it('the same id in two EPICs: each EPIC gets only its own test', () => {
+    const graph = unitTestsOfEpic(report, 'code-graph', paths);
+    expect(graph.tests.map((t) => t.name)).toEqual(['S4-A3 the graph finds']);
+    expect(graph.scope).toBe('the tests in packages/graph/**');
+    expect(unitCount(graph, ['S4-A3'])).toEqual({ tests: 1, passed: 1, failed: 0 });
+    const first = unitTestsOfEpic(report, 'rehearse', paths);
+    expect(first.tests.map((t) => t.name)).toEqual(['S4-A3 the deck counts', 'S1-A1 other']);
+    expect(first.scope).toBe('all tests that are not in packages/graph/**');
+    expect(first.note).toBeUndefined();
+    expect(unitCount(first, ['S4-A3'])).toEqual({ tests: 1, passed: 0, failed: 1 });
+  });
+
+  it('no mapping: the EPIC gets all tests', () => {
+    expect(unitTestsOfEpic(report, 'rehearse', {}).tests).toHaveLength(3);
+    expect(unitTestsOfEpic(report, 'rehearse', {}).scope).toBe('all tests of the report');
+    expect(unitTestsOfEpic(report, 'code-graph', { 'code-graph': [] }).tests).toHaveLength(3);
+  });
+
+  it('an old report without test files: the ids alone decide, with the note', () => {
+    const old = parseUnitReport(JSON.stringify({ testResults: [{ assertionResults: [{ fullName: 'S4-A3 x', status: 'failed' }] }] }), 'r.json');
+    const graph = unitTestsOfEpic(old, 'code-graph', paths);
+    expect(graph.tests).toHaveLength(1);
+    expect(graph.note).toBe(NO_TEST_FILES);
+    expect(NO_TEST_FILES).toMatch(/does not show the test files.*pnpm test:report/);
+  });
+
+  it('globs: ** is zero or more folders, * stays in one name', () => {
+    expect(globRegExp('packages/graph/**').test('packages/graph/test/a.test.ts')).toBe(true);
+    expect(globRegExp('packages/graph/**').test('packages/graphs/a.ts')).toBe(false);
+    expect(globRegExp('packages/**/test/*.ts').test('packages/test/a.ts')).toBe(true);
+    expect(globRegExp('packages/*/a.ts').test('packages/x/y/a.ts')).toBe(false);
+    expect(globRegExp('a?.ts').test('ab.ts')).toBe(true);
+  });
+
+  it('readTestPaths: the testPaths of .rehearse/config.yaml; missing is no globs; bad is said', () => {
+    const top = mkdtempSync(join(tmpdir(), 'rehearse-paths-'));
+    expect(readTestPaths(top)).toEqual({ paths: {} });
+    mkdirSync(join(top, '.rehearse'));
+    writeFileSync(join(top, '.rehearse', 'config.yaml'), 'testPaths:\n  code-graph: [packages/graph/**]\n');
+    expect(readTestPaths(top)).toEqual({ paths: { 'code-graph': ['packages/graph/**'] } });
+    writeFileSync(join(top, '.rehearse', 'config.yaml'), 'other: 1\n');
+    expect(readTestPaths(top)).toEqual({ paths: {} });
+    writeFileSync(join(top, '.rehearse', 'config.yaml'), 'testPaths:\n  code-graph: packages/graph\n');
+    expect(readTestPaths(top).why).toMatch(/testPaths.code-graph that is not a list of globs; all EPICs get all tests/);
+    writeFileSync(join(top, '.rehearse', 'config.yaml'), 'testPaths: [a]\n');
+    expect(readTestPaths(top).why).toMatch(/not a map/);
+    writeFileSync(join(top, '.rehearse', 'config.yaml'), 'testPaths: {\n');
+    expect(readTestPaths(top).why).toMatch(/is not YAML/);
   });
 });
 
