@@ -2,7 +2,7 @@ story: S14
 scenarios:
   - id: S14-summary
     title: The thread panel shows what the build thread's branch brings that the current branch has not
-    status: draft
+    status: approved
     steps:
       - { name: watch-build }
       - { name: merge-panel }
@@ -11,10 +11,21 @@ scenarios:
       - name: merge-panel
         example: { id: summary-text, given: { storyId: S4, kind: build }, then: { text: "2 commits in the thread, not in main yet", decision: merge } }
     expect: { criterion: S14-A1, state: { commits: 2, files: 2, button: Merge into main } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:43:35Z'
+      hash: 'sha256:2e305d2894f1f26179865c31238248641987fc1898159b497fc35ecc68a40443'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAh9CWse4Q7CEQ5XURlfCnYH3tKSDCePu5dhfIHFnUiDvseZx5OVtIenAy8F
+        TfGE+zpi+JSeYjPVnEwdH7DJKfDg==
+        -----END SSH SIGNATURE-----
 
   - id: S14-merge
     title: Merge into main merges the idle thread's branch with --no-ff and the thread's title
-    status: draft
+    status: approved
     steps:
       - { name: merge-panel }
       - { name: thread-branch }
@@ -24,10 +35,21 @@ scenarios:
       - name: merge-panel
         example: { id: nothing-left, given: { storyId: S4, kind: build }, then: { text: "Nothing in the thread that main does not have." } }
     expect: { criterion: S14-A2, state: { merged: true, commitsLeft: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:43:49Z'
+      hash: 'sha256:1701c47d2f0206025e19be38ba6c4bac73530ec1431f7848d63c9ddc883180fe'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAYWtyYkhEoHkOIJ9OU5Mh1P6YvsQEZcuUHBJkIr8q94NsirCwIY8NRzqOsK
+        1asgYwDtj5UIkg+zALHDYSsYIkCQ==
+        -----END SSH SIGNATURE-----
 
   - id: S14-dirty
     title: Uncommitted changes in a file the merge touches stop the merge and change nothing
-    status: draft
+    status: approved
     steps:
       - { name: merge-panel }
       - name: merge-thread
@@ -35,10 +57,21 @@ scenarios:
         example: { id: dirty-file, given: { storyId: S4, kind: build, dirty: [ packages/ui/src/Drill.tsx ] }, then: { http: 409, error: "The checkout has uncommitted changes in files the merge touches: packages/ui/src/Drill.tsx. Commit or put them aside, then merge." } }
       - { name: merge-panel }
     expect: { criterion: S14-A3, state: { merged: false, headMoved: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:44:01Z'
+      hash: 'sha256:0287e74726071f543ef18bee8d8a4259163cbce145c97771037e5a741b6d5f83'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAu2SQXWqsdFohWNU+xJ4lKcREPMapAS/ceSw6eJi5n+00jQouFOaQLGVcyd
+        2QVbPOgWEefZ/FB8VSEqvsLmA1AA==
+        -----END SSH SIGNATURE-----
 
   - id: S14-conflict
     title: A conflicting merge is aborted, its files listed, and the thread can be asked to rebase
-    status: draft
+    status: approved
     steps:
       - { name: merge-panel }
       - name: merge-thread
@@ -47,10 +80,21 @@ scenarios:
       - name: merge-panel
         example: { id: ask-rebase, given: { storyId: S4, kind: tests, decision: ask-rebase }, then: { tell: "bb thread tell thr_tests1" } }
     expect: { criterion: S14-A3, state: { merged: false, mergeInProgress: false, told: 1 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:44:10Z'
+      hash: 'sha256:ec0d6b39b456f383d04f65ba03cb95bfb68a8cb59ab483a7c9619c31b8023528'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABANmBrCCh9Kwj4VZ0LPDV+RsDoh0ef0vFx10VcwR4Au9BXthRiaXaLPGXgsg
+        NSIBS8+9+N9XvSVmdW/Lgqv3SNBw==
+        -----END SSH SIGNATURE-----
 
   - id: S14-working
     title: A thread that is still working cannot be merged
-    status: draft
+    status: approved
     steps:
       - { name: merge-panel }
       - name: merge-thread
@@ -58,10 +102,21 @@ scenarios:
         example: { id: still-working, given: { storyId: S4, kind: build, thread: { status: working } }, then: { http: 409, error: "The thread is still working (bb says working). Merge when bb says it is idle." } }
       - { name: merge-panel }
     expect: { criterion: S14-A3, state: { merged: false, button: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:44:26Z'
+      hash: 'sha256:11779d0160204e7aa6ee65a84e40980a6f37c536f76e0d835ad893c507b133ff'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAHuM8owqpsC7xhjrYoxrEyGGtDHKCQJWOt/bO2kj0ULEPhR7kZIZLqEpEI5
+        jD+gB1FRqzewXwU5TutjORuKKbBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S14-nothing-new
     title: A branch with nothing the current branch lacks has nothing to merge
-    status: draft
+    status: approved
     steps:
       - { name: test-rows }
       - { name: merge-panel }
@@ -70,10 +125,21 @@ scenarios:
         example: { id: nothing-new, given: { storyId: S1, kind: tests, branch: bb/tests-s1, current: main }, then: { commits: [], text: "Nothing in the thread that main does not have." } }
       - { name: merge-panel }
     expect: { criterion: S14-A3, state: { merged: false, button: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:44:44Z'
+      hash: 'sha256:f52eef713789205b0ee57a481a42c68f71ccc545010a86050c6c75173a40dd53'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA9nwQfN7NGZ9OyreM1PNIN5sVZxwCmHTMz6QpjFKJHIUNl0bHa+XR7inBFx
+        UOCC3ZUhnoechrzq6jUMYbetq8BQ==
+        -----END SSH SIGNATURE-----
 
   - id: S14-play
     title: After a test merge the rows say not run and one button plays the new tests in Birdview
-    status: draft
+    status: approved
     steps:
       - { name: test-rows }
       - { name: merge-panel }
@@ -84,31 +150,75 @@ scenarios:
       - { name: story-playlist }
       - { name: play-story }
     expect: { criterion: S14-A4, state: { rows: { S1-new: not run }, played: [ S1-new ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:45:01Z'
+      hash: 'sha256:f597df59b64251523067a00fa28ed382e61030ab1b87d8af82a592786364bc3a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAwU7tYK47MB9S55Z8lKdexTFKydAGEXcd8g6AxoqqU/2c69gYMQYBQ8mUoE
+        GYAoy++ieK6JIOPUGNHJPry9D6Bw==
+        -----END SSH SIGNATURE-----
 
   - id: S14-briefs
     title: The build and test briefs say commit on the thread's branch, stop, and set up first
-    status: draft
+    status: approved
     steps:
       - { name: build-brief }
       - name: work-rules
         example: { id: commit-and-stop, given: { storyId: S4 }, then: { lines: [ "Commit on your thread's branch. Do not merge, push or rebase onto main yourself, and never turn the sandbox off.", "pnpm install --frozen-lockfile && pnpm -r build" ] } }
     expect: { criterion: S14-A5, state: { commitAndStop: true, setupFirst: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:45:10Z'
+      hash: 'sha256:289fb98ac9f87832f1971e4aeac99b3c7beafc00645dfd14e84cd26c2d6cbbdc'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAkcw2GujKo1EY5pistt7h9R5bvO9xDzZMx4nmmBoGk6RgA9peaCzI469Zyd
+        JyfQIvLz4jU7IhHVoaLA15IS8/Dg==
+        -----END SSH SIGNATURE-----
 
   - id: S14-play-wait
     title: An agent plays a test in Birdview and waits for passed or failed
-    status: draft
+    status: approved
     steps:
       - { name: draft-record }
       - name: play-wait
         example: { id: wait-passed, given: { story: S1, test: "tests/S1.spec.ts:24" }, then: { stdout: "passed tests/S1.spec.ts:24 (S1-new)", exitCode: 0 } }
       - { name: play-story }
     expect: { criterion: S14-A6, state: { exitCodes: { passed: 0, failedOrTimeout: 1, badArgument: 2 } } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:45:21Z'
+      hash: 'sha256:e5ec6cee9a2b8bef458aa9bb14496c533d11a65829901b215d84ea00fa57949c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAi2JW9OPizY8E+1zDoEVBNa5FuGjWj2V0+wnh7bS3QDriB8VsfCdIIs1Sac
+        CN6Ssln8cvgM2S3mxugkndf4oTAg==
+        -----END SSH SIGNATURE-----
 
   - id: S14-fixtures
     title: The test brief says where each expected result shows and which fixture to start from
-    status: draft
+    status: approved
     steps:
       - { name: test-brief }
       - name: work-rules
         example: { id: cli-scenario, given: { storyId: S1, scenarios: [ S1-new ] }, then: { whereShown: "files: not shown in the UI, check the files", fixture: "e2e/tests/cli.ts" } }
     expect: { criterion: S14-A7, state: { whereShown: true, fixtureNamed: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:45:28Z'
+      hash: 'sha256:c7089ebbf1c3935f1882268ad18e97ff1e3aa97db129b72263f76a4798415423'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAyfPoD4cdQcz+G21Wig8ZXwV+pSovPqbUcW+iDazry81Pa7hdzRKNSW7nn4
+        3NA54bzhgjXGJjjgSZZrS7E3A/AA==
+        -----END SSH SIGNATURE-----
