@@ -22,6 +22,7 @@ import { BirdviewError, playStory, useProject } from './birdview-play.js';
 import { graphServiceFor, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { MAX_PREVIEW_STORIES, signOffPreview } from './signoff-preview.js';
+import { bbProjectFrom } from './bb-project.js';
 import { createStoryThreads, processRunner, StoryThreadError, type Runner, type StoryThreadService } from './story-thread.js';
 import { buildTrustedEpicView } from './trust-view.js';
 
@@ -43,7 +44,7 @@ export interface ServeOptions {
   git?: GitRunner;
   /** Runs `git` and `bb` for the story thread panel. Default: the real programs. */
   run?: Runner;
-  /** bb project for new story threads. Default: REHEARSE_BB_PROJECT, else BB_PROJECT_ID. */
+  /** bb project for new story threads. Default: REHEARSE_BB_PROJECT, else BB_PROJECT_ID, else found from `bb project list` (bb-project.ts). */
   bbProject?: string;
   /** The Birdview e2e player. Default: port 3298 and the nearest `e2e/` test project above the EPIC folder. */
   birdview?: BirdviewSetup;
@@ -119,7 +120,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const session = opts.session ?? createSession(opts.epicDir);
   const verifier = opts.verifier ?? defaultVerifier(opts.epicDir);
   const git = opts.git ?? execGit;
-  const bbProject = opts.bbProject ?? (process.env.REHEARSE_BB_PROJECT || process.env.BB_PROJECT_ID || undefined);
+  const bbProject = bbProjectFrom(opts.bbProject, process.env);
   const threadModel = opts.threadModel ?? (process.env.REHEARSE_THREAD_MODEL || undefined);
   const threadReasoning = opts.threadReasoning ?? (process.env.REHEARSE_THREAD_REASONING || undefined);
   const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
@@ -286,7 +287,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       void work.then(
         (body) => sendJson(res, 200, body),
         (e) => {
-          if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message });
+          if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message, ...(e.details ? { details: e.details } : {}) });
           else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
         },
       );
@@ -421,7 +422,7 @@ async function storyThread(req: IncomingMessage, res: ServerResponse, path: stri
       sendJson(res, 200, { ok: true });
     }
   } catch (e) {
-    if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message });
+    if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message, ...(e.details ? { details: e.details } : {}) });
     else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
   }
 }

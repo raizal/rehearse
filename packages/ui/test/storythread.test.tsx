@@ -210,6 +210,35 @@ describe('T12 story thread panel', () => {
   });
 });
 
+describe('T46 a thread that cannot start says why in plain words', () => {
+  const none = () => viewOf({ threadId: null, bb: null, messages: [], link: null });
+  const NO_PROJECT = 'rehearse could not tell which bb project this repo is in. Open rehearse from the bb panel, or start serve with REHEARSE_BB_PROJECT=<id>.';
+
+  it('no bb project: the plain error shows in the story column, with no details toggle', async () => {
+    const { api } = draw(none());
+    (api.post as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => ({ kind: 'error', status: 503, message: NO_PROJECT }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Start a question thread' }));
+    const error = await screen.findByTestId('story-thread-action-error');
+    expect(error).toHaveTextContent(NO_PROJECT);
+    expect(error).not.toHaveTextContent('--project');
+    expect(within(screen.getByTestId('story-thread')).getByRole('alert')).toBe(error);
+    expect(screen.queryByTestId('story-thread-action-details')).toBeNull();
+  });
+
+  it('another spawn failure: plain words, and bb\'s own message under a "details" toggle', async () => {
+    const { api } = draw(none());
+    (api.post as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => ({ kind: 'error', status: 502, message: 'bb could not start the thread.', details: 'HTTP 500: the daemon is down' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Build with an agent' }));
+    const error = await screen.findByTestId('story-thread-action-error');
+    expect(within(error).getByText('bb could not start the thread.')).toBeInTheDocument();
+    const details = screen.getByTestId('story-thread-action-details');
+    expect(details).not.toHaveAttribute('open');
+    await userEvent.click(within(details).getByText('details'));
+    expect(details).toHaveAttribute('open');
+    expect(within(details).getByText('HTTP 500: the daemon is down')).toBeVisible();
+  });
+});
+
 describe('T44 build with an agent, the plan-changed notice, the progress block', () => {
   const none = (over: Partial<StoryThreadView> = {}) => viewOf({ threadId: null, bb: null, messages: [], link: null, ...over });
 
