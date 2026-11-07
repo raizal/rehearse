@@ -1,0 +1,9 @@
+# The rehearse settings of this repo. This file is not in an EPIC folder, thus no approval hash
+# and no sign-off hash covers it. (T59)
+#
+# testPaths: the unit tests of .rehearse/unit-report.json that each EPIC counts. A glob matches the
+# path of the test file from the repo top. An EPIC in this list counts only the tests in its globs.
+# An EPIC that is not in this list counts all tests that no listed EPIC counts.
+testPaths:
+  2026-11-05-code-graph:
+    - packages/graph/**

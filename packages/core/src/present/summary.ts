@@ -234,7 +234,7 @@ function howWeKnow(views: StoryView[], facts: DeckFacts, ev: DeckEvidence, ctx: 
 
   // Unit tests.
   const u = ev.unit;
-  if (u.file) items.push({ text: `Automated tests: ${u.passed ?? 0} of ${u.tests ?? 0} passed${u.failed ? `, ${u.failed} failed` : ''}${u.date ? ` (run ${shortDate(u.date, year)})` : ''}.`, mark: u.failed ? 'failed' : 'done' });
+  if (u.file) items.push({ text: `Automated tests: ${u.passed ?? 0} of ${u.tests ?? 0} passed${u.failed ? `, ${u.failed} failed` : ''}${u.date ? ` (run ${shortDate(u.date, year)})` : ''}.${u.note ? ` Note: ${u.note}.` : ''}`, mark: u.failed ? 'failed' : 'done' });
   else items.push({ text: `Automated tests: not counted for this deck${u.why ? ` (${u.why.replace(/; pnpm test:report makes one$/, '')})` : ''}.`, mark: 'not-yet' });
 
   // The simulation.

@@ -447,7 +447,7 @@ export function evidenceSlide(facts: DeckFacts, ev: DeckEvidence, owner: string,
     items.push({ text: `Pictures: ${plural(r.pictures, 'still')} of the last screen, taken from the recordings (${kb(r.picturesBytes)} in total)${r.picturesLeftOut > 0 ? `; ${r.picturesLeftOut} more left out to keep the deck small` : ''}.` });
 
   const u = ev.unit;
-  if (u.file) items.push({ text: `Unit tests: the report ${u.file}${u.date ? `, made ${shortDate(u.date, year)}` : ''}: ${plural(u.tests ?? 0, 'test')}, ${u.passed ?? 0} pass${u.failed ? `, ${u.failed} fail` : ''}.` });
+  if (u.file) items.push({ text: `Unit tests: the report ${u.file}${u.date ? `, made ${shortDate(u.date, year)}` : ''}${u.scope && !u.note ? `, ${u.scope}` : ''}: ${plural(u.tests ?? 0, 'test')}, ${u.passed ?? 0} pass${u.failed ? `, ${u.failed} fail` : ''}.${u.note ? ` Note: ${u.note}.` : ''}` });
   else items.push({ text: `Unit tests: not used for this deck${u.why ? ` (${u.why})` : ''}.`, mark: 'not-yet' });
 
   const sg = ev.signatures;

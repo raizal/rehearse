@@ -118,7 +118,8 @@ export function statusSources(facts: DeckFacts): StatusSources {
       : ev.e2e.source === 'saved'
         ? `Birdview's saved results${ev.e2e.file ? ` (${ev.e2e.file})` : ''}${ev.e2e.newest ? `, newest run ${day(ev.e2e.newest)}` : ''}`
         : `Birdview results not found: ${ev.e2e.why ?? 'nothing to read'}`;
-  const unit = !ev ? 'not looked up' : ev.unit.file ? `${ev.unit.file}${ev.unit.date ? `, made ${day(ev.unit.date)}` : ''}` : `no unit report: ${ev.unit.why ?? 'none given'}`;
+  const which = ev?.unit.note ? `; ${ev.unit.note}` : ev?.unit.scope ? `; ${ev.unit.scope}` : '';
+  const unit = !ev ? 'not looked up' : ev.unit.file ? `${ev.unit.file}${ev.unit.date ? `, made ${day(ev.unit.date)}` : ''}${which}` : `no unit report: ${ev.unit.why ?? 'none given'}`;
   const graph = !facts.codeGraph
     ? 'not looked up: "built" counts Flow-Box commits only'
     : facts.codeGraph.ok

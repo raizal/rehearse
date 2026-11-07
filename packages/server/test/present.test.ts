@@ -12,7 +12,7 @@ import { approvedEpic, ME } from '../../core/test/trust/helpers.js';
 import { inRepo, VERIFIER } from '../../core/test/trust/keys.js';
 import { makeZip } from './zip.js';
 import {
-  brainstormIdea, buildDeckHtml, chromiumPrinter, execGit, gatherDeckFacts, NO_BIRDVIEW_DATA, newToken, NO_CHROMIUM, PrinterUnavailable, resultsFileOf, startServer, UncommittedError,
+  brainstormIdea, buildDeckHtml, buildStatus, chromiumPrinter, execGit, gatherDeckFacts, NO_BIRDVIEW_DATA, newToken, NO_CHROMIUM, NO_TEST_FILES, PrinterUnavailable, resultsFileOf, startServer, UncommittedError,
   type Printer, type RunningServer, type ServerSession,
 } from '../src/index.js';
 
@@ -140,6 +140,28 @@ describe('gatherDeckFacts', () => {
     const bad = await gatherDeckFacts({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, unitReport: join(top, 'none.json'), now: NOW });
     expect(bad.facts.evidence?.unit?.why).toMatch(/unit report missing or unreadable/);
     expect(bad.warnings).toHaveLength(1);
+  });
+
+  it('T59: only the tests next to the code of this EPIC count; an old report without files is said', async () => {
+    const { dir, top } = committedShop();
+    const report = join(top, 'unit.json');
+    writeFileSync(report, JSON.stringify({ startTime: RAN, testResults: [
+      { name: 'packages/server/test/a.test.ts', assertionResults: [{ fullName: 'S1-buy works', status: 'passed' }] },
+      { name: 'packages/graph/test/b.test.ts', assertionResults: [{ fullName: 'S1-buy the graph', status: 'failed' }] },
+    ] }));
+    writeFileSync(join(top, '.rehearse', 'config.yaml'), 'testPaths:\n  other-epic: [packages/graph/**]\n');
+    const mine = await gatherDeckFacts({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, unitReport: report, now: NOW });
+    expect(mine.facts.stories.S1?.unit).toEqual({ tests: 1, passed: 1, failed: 0 });
+    expect(mine.facts.evidence?.unit).toMatchObject({ tests: 1, passed: 1, failed: 0, scope: 'all tests that are not in packages/graph/**' });
+    const table = await buildStatus({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, unitReport: report, now: NOW });
+    expect(table.sources.unit).toBe('unit.json, made 2026-11-06; all tests that are not in packages/graph/**');
+    writeFileSync(join(top, '.rehearse', 'config.yaml'), 'testPaths:\n  2026-11-05-shop: [packages/graph/**]\n');
+    const graphOnly = await gatherDeckFacts({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, unitReport: report, now: NOW });
+    expect(graphOnly.facts.stories.S1?.unit).toEqual({ tests: 1, passed: 0, failed: 1 });
+    writeFileSync(report, JSON.stringify({ startTime: RAN, testResults: [{ assertionResults: [{ fullName: 'S1-buy works', status: 'passed' }, { fullName: 'S1-buy the graph', status: 'failed' }] }] }));
+    const old = await buildStatus({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, unitReport: report, now: NOW });
+    expect(old.sources.unit).toBe(`unit.json, made 2026-11-06; ${NO_TEST_FILES}`);
+    expect(old.rows.find((r) => r.id === 'S1')?.unit).toMatchObject({ tests: 2 });
   });
 
   it('brainstormIdea: the Idea section up to its first list or label line', () => {

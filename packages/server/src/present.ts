@@ -51,7 +51,7 @@ import { linkPicture } from './design-route.js';
 import { findBirdviewData, gitSpecAt, lastScreen, mainCheckoutProject, NO_BIRDVIEW_DATA, processFfmpeg, readSavedResults, type BirdviewData, type Ffmpeg, type Recording, type SavedResults, type SpecAt } from './saved-results.js';
 import { readGraphBuilds, repoFileReader } from './graph-built.js';
 import { commitFiles, epicGateItems, parseBranchLog, specTests, storyProgress, withFiles, type GitCall } from './story-progress.js';
-import { readUnitReport, unitCount, UnitReportError, type UnitReport } from './unit-report.js';
+import { readTestPaths, readUnitReport, unitCount, UnitReportError, unitTestsOfEpic, type UnitTest } from './unit-report.js';
 
 /** The record has uncommitted changes and the caller asked for a committed deck only. */
 export class UncommittedError extends Error {}
@@ -245,12 +245,25 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
   const testResults = live.size > 0 || saved !== undefined;
 
   // Unit tests.
-  let unit: UnitReport | undefined;
+  // Count only the tests next to the code of this EPIC (T59).
+  let unit: { tests: UnitTest[] } | undefined;
   if (opts.unitReport) {
     try {
-      unit = readUnitReport(opts.unitReport);
-      const rel = relative(top, unit.file);
-      evidence.unit = { file: rel.startsWith('..') ? unit.file : rel, date: unit.date, tests: unit.tests.length, passed: unit.tests.filter((t) => t.status === 'passed').length, failed: unit.tests.filter((t) => t.status === 'failed').length };
+      const report = readUnitReport(opts.unitReport);
+      const testPaths = readTestPaths(top);
+      if (testPaths.why) warnings.push(testPaths.why);
+      const mine = unitTestsOfEpic(report, record.slug, testPaths.paths);
+      unit = mine;
+      const rel = relative(top, report.file);
+      evidence.unit = {
+        file: rel.startsWith('..') ? report.file : rel,
+        date: report.date,
+        tests: mine.tests.length,
+        passed: mine.tests.filter((t) => t.status === 'passed').length,
+        failed: mine.tests.filter((t) => t.status === 'failed').length,
+        scope: mine.scope,
+        ...(mine.note ? { note: mine.note } : {}),
+      };
     } catch (e) {
       const why = e instanceof UnitReportError ? e.message : String(e);
       evidence.unit = { why };
