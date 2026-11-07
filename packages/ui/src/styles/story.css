@@ -548,3 +548,13 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .story-signoff-preview { margin: var(--s-4) 0; padding: var(--s-4) var(--s-5); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); }
 .story-signoff-preview-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
 .story-signoff-preview-head h2 { margin: 0; font-size: var(--fs-lg); }
+
+/* T48 merge panel: what a thread's branch brings, and "Merge into <branch>". */
+.merge-panel { margin: 0 0 var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); font-size: var(--fs-sm); display: grid; gap: var(--s-2); }
+.story-thread .merge-panel { margin: var(--s-3) var(--s-5); }
+.merge-panel p { margin: 0; }
+.merge-panel ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.merge-panel .merge-files summary { cursor: pointer; color: var(--muted); }
+.merge-panel .merge-files ul { margin-top: var(--s-1); }
+.merge-confirm { padding: var(--s-2) var(--s-3); border: 1px solid var(--agent-line); border-radius: var(--r-md); background: var(--agent-tint); display: grid; gap: var(--s-2); justify-items: start; }
+.merge-conflict { display: grid; gap: var(--s-2); justify-items: start; }
