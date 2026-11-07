@@ -30,7 +30,7 @@ export function howToWorkLines(cmds: RepoCommands = DEFAULT_COMMANDS): string[] 
       ? `Set up first: \`${cmds.setup}\` (the install needs network: if the sandbox blocks it, say so in the thread).`
       : 'Set up first: install and build the repo as its README says (the install needs network: if the sandbox blocks it, say so in the thread).',
     'Every commit carries a `Flow-Box: <box path>` trailer for each box it builds: that is how rehearse links code to the plan. Add the `Co-Authored-By` line your own rules ask for.',
-    `Read code with \`${c} find <words>\`, \`${c} show <target>\`, \`${c} near <target>\` and \`${c} context <target>\`; check unit test coverage with \`${c} coverage <file|symbol>\`.`,
+    `Start from the section *Code you start from*; use \`${c} context <box path>\` before reading files by hand, \`${c} find|show|near\` for the rest, \`${c} coverage\` for unit test coverage.`,
     `Re-read the plan any time with \`${c} brief <epic> <story>\`; see what rehearse sees of your work with \`${c} progress <epic> <story>\`.`,
     `Run e2e tests through Birdview: \`${c} play <epic> <story> --test <file:line> --wait\` plays one, waits for it and exits 0 when it passed, 1 when it failed or timed out. Do not try to start Chromium in the sandbox.`,
     `Before you say done: \`${c} validate <epic>\`, \`${c} simulate <epic>\` and \`${c} gate check <epic>\`, the repo's tests, and one e2e test per approved scenario, named after the scenario id.`,

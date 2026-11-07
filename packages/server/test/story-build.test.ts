@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadEpic, type GateItem } from '@rehearse/core';
+import { coverageIndexOf, EMPTY_COVERAGE, Store, type CoverageIndex } from '@rehearse/graph';
 import { makeEpic } from '../../core/test/helpers.js';
 import { editYaml, signedEpic } from '../../core/test/trust/helpers.js';
 import {
@@ -84,11 +85,14 @@ const offPlayer: PlayerClient = {
 };
 
 /** An indexed graph that knows the coverage of one box. */
+/** A graph with an empty store: the briefs' code section (T49) finds no code in it. */
 function fakeGraph(): GraphService {
   const stats = { lines: 10, covered: 7, branches: 0, branchesCovered: 0, percent: 70, tests: 2, stale: false };
+  const store = new Store(':memory:');
   return {
     status: () => ({ indexed: true, busy: false }),
     coverage: async () => ({ ok: true, boxes: { cart: stats }, info: { files: [] } }),
+    withGraph: async <T>(fn: (g: { store: Store; root: string; coverage: CoverageIndex }) => T) => fn({ store, root: tmpdir(), coverage: coverageIndexOf(store, tmpdir(), EMPTY_COVERAGE) }),
     close: async () => undefined,
   } as unknown as GraphService;
 }
@@ -143,6 +147,9 @@ describe('T44 build with an agent (box start-build)', () => {
     expect(spawn.input).toContain('Build story S1 of the EPIC 2026-11-05-shop from this brief.');
     expect(spawn.input).toContain('# Build brief: story S1 of the EPIC 2026-11-05-shop');
     expect(spawn.input).toContain('## How to work in this repo');
+    // T49: the code each box starts from, here from a graph with no code yet.
+    expect(spawn.input).toContain('## Code you start from');
+    expect(spawn.input).toContain('### `pay`: no code yet');
     const link = s.links()[s.slug].S1;
     expect(link).toMatchObject({ thread: 'thr_newstory1', kind: 'build', hash: before.build.hash, at: expect.any(String) });
     expect(link.content).toBeTypeOf('object');
@@ -219,10 +226,23 @@ describe('T44 the plan changed since the thread started (box watch-build)', () =
     expect(tell.input).toContain('The plan of story S1 changed since this thread started');
     expect(tell.input).toContain('now: The buyer pays for an order by card.');
     expect(tell.input).toContain('not signed off yet');
+    expect(tell.input).not.toContain('## Code you start from');
     const after = await res.json();
     expect(after.planChanged).toBeNull();
     expect(after.link.changedAt).toEqual(expect.any(String));
     expect(s.links()[s.slug].S1.hash).toBe(view.build.hash);
+  });
+
+  it('T49 a box the change adds to the story comes with the code it starts from', async () => {
+    const dir = signedEpic();
+    const s = await serve(dir);
+    await s.post('build', { story: 'S1' });
+    editYaml(dir, 'flow.yaml', (doc) => doc.setIn(['root', 'boxes', 3, 'stories'], ['S1']));
+    expect((await s.post('send-change', { story: 'S1' })).status).toBe(200);
+    const tell = s.calls.find((c) => c.command === 'bb' && c.args[1] === 'tell')!;
+    expect(tell.input).toContain('## Code you start from');
+    expect(tell.input).toContain('### `in-stock`: no code yet');
+    expect(tell.input).not.toContain('### `pay`');
   });
 
   it('a thread linked by hand has no plan hash, so there is nothing to send', async () => {

@@ -11,13 +11,22 @@
 import { indexBoxes } from '../flow-index.js';
 import type { AcceptanceCriterion, Box, EntityDef, EpicRecord, Hash, Id, Requirement, Role, Scenario, ScenarioStep, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
+import { codeStartSection, MAX_CODE_SECTION_CHARS, type CodeStartOptions } from './code-start.js';
 import { howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
 import { diffStoryContent, type ContentChange } from './signoff-preview.js';
 import { allScenarios, detectStale, scenarioTrust, signOffRule } from './stale.js';
 import { servingBoxes, storyContentV2, storyHashV2 } from './story-hash.js';
 import { CURRENT_HASH_RULE, type SignOffWithRule } from './types.js';
 
-export interface BuildBriefOptions {
+/**
+ * The most a build brief holds: about 6.5k tokens at four characters a token. T44 set 24_000; T49
+ * raised it by 2_000 because the largest brief (code-graph S9) with the repo's `pnpm rehearse`
+ * commands was 24_034 before any code, and the code section shrinks to what is left.
+ */
+export const MAX_BRIEF_CHARS = 26_000;
+
+/** `code`, `codeUnavailable` and `cli`: the "Code you start from" section (T49), gathered by the caller. */
+export interface BuildBriefOptions extends CodeStartOptions {
   /** Make a brief of a story that is not signed or is stale; it says so on top. */
   allowUnsigned?: boolean;
   /** Decision id → text (`decisionTexts`). A cited id without text is listed by id. */
@@ -100,17 +109,12 @@ export function storyBuildBrief(record: EpicRecord, storyId: Id, opts: BuildBrie
   if (!story || !prd || !sign) return { ok: false, storyId, reason: `no story ${storyId} in prd.yaml` };
   if (!sign.buildable && !opts.allowUnsigned) return { ok: false, storyId, reason: sign.refusal ?? `story ${storyId} cannot be built yet`, sign };
   const content = storyContentV2(story, prd, record.flow, allScenarios(record));
-  const markdown = [
-    header(record, story, sign),
-    storySection(record, story),
-    scenarioSection(record, story),
-    boxSection(record, story),
-    decisionSection(record, story, opts.decisions ?? {}),
-    entitySection(record, story),
-    `## How to work in this repo\n\n${howToWorkMarkdown(opts.commands)}`,
-  ]
-    .filter((s) => s !== '')
-    .join('\n\n');
+  const before = [header(record, story, sign), storySection(record, story), scenarioSection(record, story), boxSection(record, story)];
+  const after = [decisionSection(record, story, opts.decisions ?? {}), entitySection(record, story), `## How to work in this repo\n\n${howToWorkMarkdown(opts.commands)}`];
+  // The code section gets what the rest leaves under the budget (T49).
+  const rest = [...before, ...after].filter((s) => s !== '').join('\n\n').length;
+  const room = Math.min(MAX_CODE_SECTION_CHARS, MAX_BRIEF_CHARS - rest - 4);
+  const markdown = [...before, codeStartSection(briefBoxPaths(record, story.id), opts, room), ...after].filter((s) => s !== '').join('\n\n');
   return { ok: true, storyId, markdown: `${markdown}\n`, hash: sign.currentHash, content, sign };
 }
 
@@ -206,8 +210,8 @@ function boxLine(record: EpicRecord, path: string, box: Box): string {
   return `\`${path}\` (${bits.join(', ')}): ${oneLine(str(box.title))}`;
 }
 
-/** Paths of the boxes the brief lists: the serving boxes and every box inside one. */
-function briefBoxes(record: EpicRecord, storyId: Id): string[] {
+/** Paths of the boxes the brief lists: the serving boxes and every box inside one, in flow order. */
+export function briefBoxPaths(record: EpicRecord, storyId: Id): string[] {
   const serving = servingBoxes(record.flow, storyId);
   return [...indexBoxes(record.flow).keys()].filter((p) => serving.some((s) => p === s || p.startsWith(`${s}/`)));
 }
@@ -215,7 +219,7 @@ function briefBoxes(record: EpicRecord, storyId: Id): string[] {
 function boxSection(record: EpicRecord, story: Story): string {
   const index = indexBoxes(record.flow);
   const serving = servingBoxes(record.flow, story.id);
-  const listed = new Set(briefBoxes(record, story.id));
+  const listed = new Set(briefBoxPaths(record, story.id));
   const lines = ['## Boxes', ''];
   if (serving.length === 0) return [...lines, 'No box serves this story yet.'].join('\n');
   lines.push(`The boxes that serve ${story.id}, with their contracts. Each commit that builds one names it: \`Flow-Box: <path>\`. flow.yaml keeps notes as comments next to each box; read them there.`);
@@ -259,7 +263,7 @@ function boxSection(record: EpicRecord, story: Story): string {
 function citedDecisions(record: EpicRecord, story: Story): string[] {
   const index = indexBoxes(record.flow);
   const out = new Set<string>();
-  for (const p of briefBoxes(record, story.id)) for (const d of asArray<string>(index.get(p)?.box.decisions)) out.add(d);
+  for (const p of briefBoxPaths(record, story.id)) for (const d of asArray<string>(index.get(p)?.box.decisions)) out.add(d);
   const reqs = asArray<Requirement>(record.prd?.requirements).filter((r) => isObject(r) && asArray(story.requirements).includes(r.id));
   const text = JSON.stringify([story, reqs]);
   for (const m of text.matchAll(/\b([DG][0-9]{1,3})\b/g)) out.add(m[1]!);
@@ -281,7 +285,7 @@ function decisionSection(record: EpicRecord, story: Story, texts: Record<string,
 function entitySection(record: EpicRecord, story: Story): string {
   const index = indexBoxes(record.flow);
   const used = new Set<string>();
-  for (const p of briefBoxes(record, story.id)) {
+  for (const p of briefBoxPaths(record, story.id)) {
     const box = index.get(p)!.box;
     for (const ref of [...asArray<string>(box.reads), ...asArray<string>(box.writes)]) if (typeof ref === 'string') used.add(ref.split('.')[0]!);
   }

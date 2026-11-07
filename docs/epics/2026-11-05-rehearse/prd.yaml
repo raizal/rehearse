@@ -208,6 +208,16 @@ requirements:
       up the worktree, and how to run e2e tests through Birdview (`pnpm rehearse play … --wait`),
       and name the e2e fixtures to start from. (T48)
 
+  - id: R26
+    kind: functional
+    text: >-
+      The build brief has a section "Code you start from": per box of the story, from the code
+      graph, the functions that already build it with path:line and coverage, its earlier
+      Flow-Box commits, its main callers and callees, the tests that call it, and the rehearse
+      commands to dig deeper; a box with no code gets the nearest code, marked as guesses. The
+      test brief has the code of the boxes each scenario walks and the e2e helpers. A graph that
+      is down is said in one line and the brief still builds; gathering runs no tests. (T49)
+
 stories:
   - id: S1
     role: builder
@@ -614,6 +624,57 @@ stories:
           it, or "not shown in the UI, check the files"), and which fixture to start from: the
           serve fixture for a scenario that walks a UI box, the fresh repo and CLI helper for one
           that does not
+
+  - id: S15
+    role: builder
+    want: the brief an agent gets to say which code already builds each box of the story
+    soThat: the agent starts from the right files and functions instead of searching the repo by hand
+    requirements: [R26]
+    acceptance:
+      - id: S15-A1
+        given: a story whose boxes have code in the graph
+        when: rehearse makes its build brief
+        then: >-
+          a section "Code you start from" follows the boxes, one block per box in the same order;
+          each lists up to 8 functions that build it with path:line and the coverage badge
+          ("72% · 3 tests" or "no coverage data")
+      - id: S15-A2
+        given: a box with earlier commits that carry its Flow-Box trailer
+        when: rehearse makes the build brief
+        then: the box's block lists the latest 5 of them with short sha, subject and branch
+      - id: S15-A3
+        given: a box with code
+        when: rehearse makes the build brief
+        then: >-
+          its block lists up to 5 callers and 5 callees by graph rank, the tests that call it,
+          and the commands to dig deeper as they run in this repo (`… context <box>`,
+          `… show <symbol>`, `… coverage <box>`)
+      - id: S15-A4
+        given: a box with no code in the graph
+        when: rehearse makes the build brief
+        then: >-
+          its block says "No code yet. Nearest existing code:" with the top `find` matches,
+          marked as guesses, and the command to look further
+      - id: S15-A5
+        given: the code graph cannot open
+        when: rehearse makes a build or test brief
+        then: >-
+          the section says so in one line and the brief still builds; the brief stays under its
+          size budget in every case, and gathering the facts runs no tests
+      - id: S15-A6
+        given: approved scenarios of a story
+        when: rehearse makes their test brief
+        then: per scenario, the code of the boxes it walks in short, and the existing e2e helpers
+      - id: S15-A7
+        given: the how-to-work lines of the brief and of the skill
+        when: an agent reads either
+        then: >-
+          they say to start from the section "Code you start from" and to use
+          `rehearse context <box path>` before reading files by hand; the two agree
+      - id: S15-A8
+        given: a repo with an EPIC and its code graph
+        when: an agent runs `rehearse brief <epic> <story> --json` (with or without --tests)
+        then: the JSON includes the code facts of each box, or why the graph is not available
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

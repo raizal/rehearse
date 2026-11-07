@@ -1,0 +1,106 @@
+story: S15
+scenarios:
+  - id: S15-code
+    title: Each box of the story gets its code with path:line and coverage, in the boxes' order
+    status: draft
+    steps:
+      - { name: start-build }
+      - name: gather-box-code
+        example: { id: two-boxes, given: { storyId: S11, boxes: [ start-build, build-brief ] }, then: { code: [ start-build, build-brief ], cli: node packages/cli/bin/rehearse.js } }
+      - name: code-start-section
+        example: { id: function-line, given: { box: build-brief, function: storyBuildBrief }, then: { line: "- `storyBuildBrief` packages/core/src/trust/build-brief.ts:<line> (no coverage data)" } }
+      - { name: build-brief }
+    expect: { criterion: S15-A1, state: { section: Code you start from, after: Boxes, maxFunctions: 8 } }
+
+  - id: S15-commits
+    title: A box lists its earlier Flow-Box commits with branch
+    status: draft
+    steps:
+      - { name: start-build }
+      - name: gather-box-code
+        example: { id: flow-box-commit, given: { box: pay, commit: "T1: pay by card", trailer: "Flow-Box: pay" }, then: { commits: [ { subject: "T1: pay by card", branch: main } ] } }
+      - { name: code-start-section }
+      - { name: build-brief }
+    expect: { criterion: S15-A2, state: { maxCommits: 5, newestFirst: true } }
+
+  - id: S15-neighbours
+    title: A box lists its callers, callees, the tests that call it and the commands to dig deeper
+    status: draft
+    steps:
+      - { name: start-build }
+      - { name: gather-box-code }
+      - name: code-start-section
+        example: { id: dig-deeper, given: { box: build-brief, cli: node packages/cli/bin/rehearse.js }, then: { line: "Dig deeper: `node packages/cli/bin/rehearse.js context build-brief`" } }
+      - { name: build-brief }
+    expect: { criterion: S15-A3, state: { maxCallers: 5, maxCallees: 5, testedBy: true } }
+
+  - id: S15-no-code
+    title: A box with no code gets the nearest code, marked as guesses
+    status: draft
+    steps:
+      - { name: start-build }
+      - name: gather-box-code
+        example: { id: no-code, given: { box: cart, code: none }, then: { guesses: find matches, testFiles: excluded } }
+      - name: code-start-section
+        example: { id: guesses, given: { box: cart }, then: { text: "No code yet. Nearest existing code:" } }
+      - { name: build-brief }
+    expect: { criterion: S15-A4, state: { guesses: marked } }
+
+  - id: S15-graph-down
+    title: The code graph cannot open, the section says so in one line and the brief still builds
+    status: draft
+    steps:
+      - { name: start-build }
+      - name: gather-box-code
+        branch: "graph not available"
+        example: { id: graph-down, given: { graphStore: not a database }, then: { exit: graph not available } }
+      - name: code-start-section
+        example: { id: one-line, given: { codeUnavailable: the graph store is locked }, then: { text: "The code graph is not available (the graph store is locked)" } }
+      - { name: build-brief }
+    expect: { criterion: S15-A5, state: { briefBuilt: true, testsRun: 0, underBudget: true } }
+
+  - id: S15-test-brief
+    title: The test brief has the code of the boxes each scenario walks and the e2e helpers
+    status: draft
+    steps:
+      - { name: start-test-thread }
+      - name: gather-box-code
+        example: { id: walked-boxes, given: { storyId: S1, scenarios: [ S1-buy ] }, then: { boxes: [ cart, pay ], e2eHelpers: [ openShop ] } }
+      - { name: code-start-section }
+      - { name: test-brief }
+    expect: { criterion: S15-A6, state: { perScenario: true, e2eHelpers: true } }
+
+  - id: S15-how-to-work
+    title: The how-to-work lines of the brief and the skill say to start from the code section
+    status: draft
+    steps:
+      - { name: start-build }
+      - { name: gather-box-code }
+      - { name: code-start-section }
+      - name: build-brief
+        example: { id: how-to-work, given: { storyId: S11 }, then: { line: "Start from the section *Code you start from*; use `rehearse context <box path>` before reading files by hand" } }
+    expect: { criterion: S15-A7, state: { skillAgrees: true } }
+
+  - id: S15-json
+    title: rehearse brief --json includes the code facts
+    status: draft
+    steps:
+      - { name: draft-record }
+      - name: test-brief-cli
+        example: { id: json, given: { story: S1, json: true }, then: { code: [ cart, pay ], exitCode: 0 } }
+      - { name: gather-box-code }
+      - { name: code-start-section }
+      - { name: test-brief }
+    expect: { criterion: S15-A8, state: { jsonHasCode: true } }
+
+  - id: S15-graph-down-tests
+    title: The code graph cannot open for a test brief, the brief still builds without code
+    status: draft
+    steps:
+      - { name: start-test-thread }
+      - name: gather-box-code
+        branch: "graph not available"
+        example: { id: graph-down-tests, given: { storyId: S1, scenarios: [ S1-buy ], graphStore: locked }, then: { exit: graph not available, e2eHelpers: none } }
+      - { name: code-start-section }
+      - { name: test-brief }
+    expect: { criterion: S15-A5, state: { briefBuilt: true, testsRun: 0 } }

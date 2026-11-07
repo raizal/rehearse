@@ -566,6 +566,39 @@ root:
       # run to end in Birdview and prints passed / failed (with the failed step): exit 0 / 1;
       # no result before --timeout exits 1; a bad argument exits 2.
 
+    # --- The brief hands the agent the code that already builds each box (S15, T49) ---
+    # New boxes only: start-build, build-brief, start-test-thread, test-brief and test-brief-cli
+    # stay as they are; root edges join them.
+    - id: gather-box-code
+      kind: process
+      lane: rehearse
+      package: server
+      title: Gather the code of the boxes from the code graph
+      stories: [S15]
+      inputs:  { storyId: string, scenarios: "list string?" }
+      outputs: { storyId: string, scenarios: "list string?", code: "list string", cli: string, codeUnavailable: "string?" }
+      reads:   [Box.*]
+      errorExits: ["graph not available"]
+      # The boxes: the story's for a build brief, the ones the scenarios walk for a test brief.
+      # Per box, by the same rule as the graph's box code: the functions that build it with
+      # path:line and coverage, its Flow-Box commits (newest first, with branch), callers and
+      # callees over exact calls edges by rank, the tests that call it; a box with no code gets
+      # the top `find` matches as guesses. The rehearse command as it runs in this repo. The
+      # e2e helpers of the test project. Runs no tests. Used by the build and test thread start,
+      # "Send the change" and `rehearse brief`.
+
+    - id: code-start-section
+      kind: process
+      lane: rehearse
+      package: core
+      title: Write "Code you start from"
+      stories: [S15]
+      inputs:  { storyId: string, scenarios: "list string?", code: "list string", cli: string, codeUnavailable: "string?" }
+      outputs: { storyId: string, scenarios: "list string?", section: string }
+      # One block per box in the order of the boxes section. Caps: 8 functions, 5 commits,
+      # 5 callers and callees. Shorter blocks when the brief would pass its size budget. A graph
+      # that is down is one line. The test brief gets the short form per scenario.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -638,3 +671,10 @@ root:
     - { from: work-rules,      to: merge-panel }
     - { from: draft-record,    to: play-wait }
     - { from: play-wait,       to: play-story }
+    - { from: start-build,        to: gather-box-code }
+    - { from: start-test-thread,  to: gather-box-code }
+    - { from: test-brief-cli,     to: gather-box-code }
+    - { from: gather-box-code,    to: code-start-section }
+    - { from: gather-box-code,    to: code-start-section, label: "graph not available", kind: error }
+    - { from: code-start-section, to: build-brief }
+    - { from: code-start-section, to: test-brief }

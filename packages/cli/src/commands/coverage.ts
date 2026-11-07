@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import {
   coverageIndexOf, coverageOf, loadCoverage, openGraph, type BoxOptions, type CoverageAnswer, type CoverageStats,
 } from '@rehearse/graph';
+import { coverageBadge } from '@rehearse/core';
 import { codeIndex, epicBoxPaths, execGit } from '@rehearse/server';
 import { EXIT, USAGE, type Io } from '../index.js';
 import { repoRoot } from './new.js';
@@ -70,10 +71,9 @@ async function flowBoxOptions(root: string, box: string): Promise<BoxOptions | u
   return undefined;
 }
 
-/** The badge text: `72% · 3 tests`, or `no coverage data`. */
+/** The badge text: `72% · 3 tests`, or `no coverage data` (the same text as the briefs, T49). */
 export function badgeText(s: CoverageStats): string {
-  if (s.percent === null) return 'no coverage data';
-  return `${s.percent}% · ${s.tests} ${s.tests === 1 ? 'test' : 'tests'}`;
+  return coverageBadge(s);
 }
 
 const STALE = 'coverage is older than this code; run the tests again';

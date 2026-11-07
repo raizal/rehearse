@@ -11,10 +11,12 @@ import { indexBoxes } from '../flow-index.js';
 import type { AcceptanceCriterion, Box, EpicRecord, Hash, Id, Role, Scenario, ScenarioStep, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
 import { briefSignState } from './build-brief.js';
+import { testCodeSection, type TestCodeOptions } from './code-start.js';
 import { DEFAULT_COMMANDS, howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
 import { scenarioTrust } from './stale.js';
 
-export interface TestBriefOptions {
+/** `code`, `codeUnavailable`, `cli` and `e2eHelpers`: the "Code you start from" section (T49). */
+export interface TestBriefOptions extends TestCodeOptions {
   /** The e2e test project, relative to the repo root. Default `e2e`. */
   testProject?: string;
   /** The spec file the tests go in, relative to the repo root. Default `<testProject>/tests/<story>.spec.ts`. */
@@ -124,13 +126,32 @@ export function scenarioTestBrief(record: EpicRecord, storyId: Id, scenarioIds: 
   const markdown = [
     header(record, story, ids),
     ...picked.map((m) => scenarioSection(record, story, m.s, seen, opts.fixtures ?? {})),
+    testCodeSection(picked.map((m) => ({ id: m.s.id, boxes: scenarioBoxes(m.s) })), opts),
     whereSection(testProject, specFile, ids, opts.exampleSpec),
     fixtureSection(testProject, opts.fixtures ?? {}),
     runSection(cmds.cli, record.slug, storyId, testProject),
     rulesSection(cmds.cli, record.slug, storyId, ids),
     `## How to work in this repo\n\n${howToWorkMarkdown(cmds)}`,
-  ].join('\n\n');
+  ]
+    .filter((s) => s !== '')
+    .join('\n\n');
   return { ok: true, storyId, scenarios: ids, markdown: `${markdown}\n`, hash: sign.currentHash, specFile };
+}
+
+/** The boxes a scenario walks, in step order, once each. */
+export function scenarioBoxes(s: Scenario): string[] {
+  return [...new Set(asArray<ScenarioStep>(s.steps).filter(isObject).map((st) => st.name))];
+}
+
+/** The boxes the given scenarios of a story walk, once each, start and end left out: what the test brief gathers code for. */
+export function testBriefBoxPaths(record: EpicRecord, storyId: Id, scenarioIds: Id[]): string[] {
+  const mine = storyScenarios(record, storyId);
+  const index = indexBoxes(record.flow);
+  const walked = scenarioIds.flatMap((id) => {
+    const m = mine.find((x) => x.s.id === id);
+    return m ? scenarioBoxes(m.s) : [];
+  });
+  return [...new Set(walked)].filter((b) => !['start', 'end'].includes(String(index.get(b)?.box.kind)));
 }
 
 function roleName(record: EpicRecord, id: string): string {

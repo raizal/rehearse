@@ -34,9 +34,9 @@ describe('review queue rows (design page 2)', () => {
     expect(rows[0]).toMatchObject({ storyId: 'S1', scenarios: 0, note: 'no scenarios yet' });
   });
 
-  it('the real EPIC: S1 to S14, none signed', () => {
+  it('the real EPIC: S1 to S15, none signed', () => {
     const rows = queueRows(realEpic());
-    expect(rows.map((r) => r.storyId)).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14']);
+    expect(rows.map((r) => r.storyId)).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14', 'S15']);
     for (const r of rows) expect(r.want.length).toBeLessThanOrEqual(31);
     expect(rows.every((r) => r.done === 0)).toBe(true);
   });

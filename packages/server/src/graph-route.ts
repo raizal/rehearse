@@ -125,6 +125,8 @@ export interface GraphService {
   path(from: string, to: string): Promise<QueryAnswer>;
   /** Update, then the unit test coverage of a target, or of every box (T43). */
   coverage(q: CoverageQuery): Promise<CoverageAnswer | BoxesCoverage>;
+  /** Update, then run `fn` on the graph and its coverage index: the code facts of a brief (T49). */
+  withGraph<T>(fn: (g: { store: Graph['store']; root: string; coverage: CoverageIndex }) => T): Promise<T>;
   /** Is the repo indexed, and is a graph call running? Answers at once: it neither waits nor updates. */
   status(): GraphStatus;
   /** Resolves when every pending graph call and watcher update is done. */
@@ -306,6 +308,11 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
         const box = { ...(opts.epic !== undefined ? { epic: opts.epic.split(sep).pop()! } : {}), ...(q.flowBoxFiles ? { flowBoxFiles: q.flowBoxFiles } : {}) };
         if (q.target !== undefined) return coverageOf(g.store, index, g.root, q.target, box);
         return { ok: true as const, boxes: boxesCoverage(g.store, index, q.boxes ?? [], box), info: coverageInfo(index.data, g.root) };
+      }),
+    withGraph: (fn) =>
+      serial(async () => {
+        const g = await fresh();
+        return fn({ store: g.store, root: g.root, coverage: coverage(g) });
       }),
     status: () => {
       if (closed) return { indexed: false, busy: false };

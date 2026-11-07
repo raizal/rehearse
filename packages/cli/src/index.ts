@@ -88,11 +88,12 @@ function isDir(p: string): boolean {
   return existsSync(p) && statSync(p).isDirectory();
 }
 
-/** The entry of bin/rehearse.js: the code graph verbs, progress, playlists and play are async; the other commands run in `run`. */
+/** The entry of bin/rehearse.js: the code graph verbs, coverage, brief, progress, playlists and play are async; the other commands run in `run`. */
 export async function main(argv: string[], io: Io): Promise<number> {
   const [command, ...rest] = argv;
   if (isGraphVerb(command)) return runGraph(command, rest, io);
   if (command === 'coverage') return runCoverage(rest, io);
+  if (command === 'brief') return runBrief(rest, io);
   if (command === 'progress') return runProgress(rest, io);
   if (command === 'playlists') return runPlaylists(rest, io);
   if (command === 'play') return runPlay(rest, io);
@@ -109,7 +110,6 @@ export function run(argv: string[], io: Io): number {
   if (command === 'gate') return runGate(rest, io);
   if (command === 'new') return runNew(rest, io);
   if (command === 'serve') return runServe(rest, io);
-  if (command === 'brief') return runBrief(rest, io);
   if (command !== 'validate') {
     io.stderr(`rehearse: unknown command ${command}\n\n${USAGE}`);
     return EXIT.usage;

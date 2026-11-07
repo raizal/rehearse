@@ -131,6 +131,9 @@ describe('T47 write the missing tests with an agent (box start-test-thread)', ()
     // Paths relative to the repo; the new spec goes beside the existing one, which is the style to copy.
     expect(spawn!.input).toContain('- File: `e2e/tests/S1.spec.ts`');
     expect(spawn!.input).toContain('from `e2e/tests/S2.spec.ts`');
+    // T49: the code the scenarios walk, from the graph of the EPIC's repo (no code in it yet).
+    expect(spawn!.input).toContain('## Code you start from');
+    expect(spawn!.input).toMatch(/- S1-buy:\n {2}- `cart`: no code yet/);
     expect(s.links()[s.slug].S1).toEqual({ tests: { thread: 'thr_tests1', scenarios: ['S1-buy', 'S1-empty'], hash: expect.stringMatching(/^sha256:/), at: expect.any(String) } });
     expect(await res.json()).toMatchObject({ thread: { id: 'thr_tests1', scenarios: ['S1-buy', 'S1-empty'], running: true, bb: { ok: true, statusText: 'working' } } });
   });

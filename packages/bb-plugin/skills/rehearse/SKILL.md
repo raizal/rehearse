@@ -51,7 +51,7 @@ setup line of the repo's lockfile). Work on it like this:
 - Commit on your thread's branch. Do not merge, push or rebase onto main yourself, and never turn the sandbox off. When done, say so in the thread: the owner merges from rehearse.
 - Set up first: `pnpm install --frozen-lockfile && pnpm -r build` (the install needs network: if the sandbox blocks it, say so in the thread).
 - Every commit carries a `Flow-Box: <box path>` trailer for each box it builds: that is how rehearse links code to the plan. Add the `Co-Authored-By` line your own rules ask for.
-- Read code with `rehearse find <words>`, `rehearse show <target>`, `rehearse near <target>` and `rehearse context <target>`; check unit test coverage with `rehearse coverage <file|symbol>`.
+- Start from the section *Code you start from*; use `rehearse context <box path>` before reading files by hand, `rehearse find|show|near` for the rest, `rehearse coverage` for unit test coverage.
 - Re-read the plan any time with `rehearse brief <epic> <story>`; see what rehearse sees of your work with `rehearse progress <epic> <story>`.
 - Run e2e tests through Birdview: `rehearse play <epic> <story> --test <file:line> --wait` plays one, waits for it and exits 0 when it passed, 1 when it failed or timed out. Do not try to start Chromium in the sandbox.
 - Before you say done: `rehearse validate <epic>`, `rehearse simulate <epic>` and `rehearse gate check <epic>`, the repo's tests, and one e2e test per approved scenario, named after the scenario id.

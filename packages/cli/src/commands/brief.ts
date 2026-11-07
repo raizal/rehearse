@@ -6,17 +6,21 @@
 // test brief a test thread gets, for the named scenarios or, without --scenario, every approved
 // scenario of the story that has no e2e test yet. Exit 1 when a scenario is not approved, or none
 // is missing a test.
+//
+// Both briefs carry "Code you start from" (T49): the code graph of the repo is brought up to date
+// and asked for the code of the story's boxes; when it cannot open, the brief says so in one line.
+// `--json` holds the facts under `code`. No tests run.
 
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { decisionTexts, loadEpic, repoCommands, storyBuildBrief } from '@rehearse/core';
-import { findTestProject, storyTestBrief, testsNeeded } from '@rehearse/server';
+import { dirname, join, relative, sep } from 'node:path';
+import { briefBoxPaths, decisionTexts, loadEpic, repoCommands, storyBuildBrief, testBriefBoxPaths, type EpicRecord } from '@rehearse/core';
+import { findTestProject, gatherBriefCode, openGraphAccess, repoRoot, storyTestBrief, testsNeeded, type BriefCode } from '@rehearse/server';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
 
 const OPTIONS = ['--json', '--allow-unsigned', '--tests'];
 const VALUE_OPTIONS = ['--scenario'];
 
-export function runBrief(args: string[], io: Io): number {
+export async function runBrief(args: string[], io: Io): Promise<number> {
   const usage = () => {
     io.stderr(`rehearse brief: expected <epic-dir-or-slug> <story> [--allow-unsigned] [--json], or <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]\n\n${USAGE}`);
     return EXIT.usage;
@@ -46,8 +50,11 @@ export function runBrief(args: string[], io: Io): number {
   }
   if (tests) return testBrief(dir, storyId, scenarios, json, io);
   let made;
+  let code: BriefCode;
   try {
-    made = storyBuildBrief(loadEpic(dir).record, storyId, { allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(repoTop(dir)) });
+    const { record } = loadEpic(dir);
+    code = await briefCode(dir, record, briefBoxPaths(record, storyId), findTestProject(dir));
+    made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(repoTop(dir)) });
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
@@ -57,7 +64,7 @@ export function runBrief(args: string[], io: Io): number {
     else io.stderr(`rehearse brief: ${made.reason}\n`);
     return EXIT.findings;
   }
-  if (json) io.stdout(JSON.stringify({ ok: true, storyId, hash: made.hash, sign: made.sign, markdown: made.markdown }, null, 2) + '\n');
+  if (json) io.stdout(JSON.stringify({ ok: true, storyId, hash: made.hash, sign: made.sign, code, markdown: made.markdown }, null, 2) + '\n');
   else io.stdout(made.markdown.endsWith('\n') ? made.markdown : `${made.markdown}\n`);
   return EXIT.ok;
 }
@@ -71,8 +78,9 @@ function repoTop(dir: string): string {
 }
 
 /** The test brief. Paths are relative to the folder that holds the test project (the repo top). */
-function testBrief(dir: string, storyId: string, named: string[], json: boolean, io: Io): number {
+async function testBrief(dir: string, storyId: string, named: string[], json: boolean, io: Io): Promise<number> {
   let made;
+  let code: BriefCode = {};
   try {
     const { record } = loadEpic(dir);
     const testProject = findTestProject(dir);
@@ -89,7 +97,8 @@ function testBrief(dir: string, storyId: string, named: string[], json: boolean,
         return EXIT.findings;
       }
     }
-    made = storyTestBrief(record, storyId, ids, testProject, top);
+    code = await briefCode(dir, record, testBriefBoxPaths(record, storyId, ids), testProject);
+    made = storyTestBrief(record, storyId, ids, testProject, top, code);
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
@@ -99,7 +108,20 @@ function testBrief(dir: string, storyId: string, named: string[], json: boolean,
     else io.stderr(`rehearse brief: ${made.reason}\n`);
     return EXIT.findings;
   }
-  if (json) io.stdout(JSON.stringify({ ok: true, storyId, scenarios: made.scenarios, specFile: made.specFile, hash: made.hash, markdown: made.markdown }, null, 2) + '\n');
+  if (json) io.stdout(JSON.stringify({ ok: true, storyId, scenarios: made.scenarios, specFile: made.specFile, hash: made.hash, code, markdown: made.markdown }, null, 2) + '\n');
   else io.stdout(made.markdown);
   return EXIT.ok;
+}
+
+/** The code facts of the boxes from the repo's graph, opened for this one brief and closed after. */
+function briefCode(dir: string, record: EpicRecord, boxes: string[], testProject: string | undefined): Promise<BriefCode> {
+  const root = repoRoot(dir);
+  return gatherBriefCode({
+    epicDir: dir,
+    record,
+    boxes,
+    root,
+    graph: openGraphAccess(root),
+    ...(testProject ? { testProject: relative(root, testProject).split(sep).join('/') } : {}),
+  });
 }
