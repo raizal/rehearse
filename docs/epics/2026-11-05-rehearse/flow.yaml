@@ -339,6 +339,57 @@ root:
       package: cli
       title: PR blocked, report attached
 
+    # --- Hand a signed story to a bb thread, and watch its work (S11, T44) ---
+    # New boxes only: sign-off, content-changed and review stay as they are; root edges join them.
+    - id: watch-build
+      kind: output
+      lane: builder
+      package: ui
+      title: The story's build panel - Build button, plan-changed notice and progress
+      stories: [S11]
+      inputs:  { epicDir: string }
+      outputs: { storyId: string, decision: "enum[build, send-change, ask]" }
+      reads:   [Story.*, Box.*, Scenario.*, SignOff.*]
+      errorExits: ["story not signed or stale"]
+      # Signed and not stale: "Build with an agent". Unsigned or stale: why, and "Start a question
+      # thread" (the error exit). A build link whose plan hash differs from now: "the plan changed
+      # since this thread started" and "Send the change". The progress block, above the messages:
+      # thread status and last activity; per box built or not yet, commits, branch, coverage; per
+      # approved scenario its e2e test found, passing, failing or missing ("not run yet"); gate
+      # findings and whether the sign-off holds; "N of M boxes have code · K of L scenarios tested".
+      # GET /api/story-progress[?story=] reads git, the bb thread, the playlist and the graph;
+      # without ?story= it gives the overview column of the Stories list. `rehearse progress` prints it.
+
+    - id: start-build
+      kind: input
+      lane: builder
+      package: server
+      title: Start a build thread, or send it the change
+      stories: [S11]
+      inputs:  { storyId: string }
+      outputs: { storyId: string, thread: string, hash: hash, at: datetime }
+      reads:   [Story.*, SignOff.*]
+      sideEffects: [bb thread spawn --new-environment worktree --base-branch <current>, bb thread tell]
+      # POST /api/story-thread/build (token and Origin) checks the story again: 409 when unsigned or
+      # stale. --model and --reasoning-level only when the serve options or the plugin settings set
+      # them. The link file keeps the thread, the hash and the time. POST /api/story-thread/send-change
+      # tells the thread what changed, before and now. Never an approve or sign-off.
+
+    - id: build-brief
+      kind: process
+      lane: rehearse
+      package: core
+      title: Make the build brief of a signed story
+      stories: [S11]
+      inputs:  { storyId: string }
+      outputs: { brief: string, hash: hash }
+      reads:   [Story.*, Requirement.*, AcceptanceCriterion.*, Scenario.*, Box.*, SignOff.*]
+      # Header (signed by, at, rule-2 hash, matches), story, requirements and criteria, approved
+      # scenarios (given / when / then, expect; drafts apart), serving boxes with contracts,
+      # children and edges, decisions, entities, and how to work (the same lines as the skill).
+      # Under about 6k tokens. `rehearse brief <epic> <story>` prints it; it refuses a stale or
+      # unsigned story unless --allow-unsigned.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -370,3 +421,9 @@ root:
     - { from: ci-run,         to: ci-ok }
     - { from: ci-ok,          to: ci-pass,        label: "yes", kind: branch }
     - { from: ci-ok,          to: ci-fail,        label: "no",  kind: branch }
+    - { from: sign-off,        to: watch-build }
+    - { from: content-changed, to: watch-build }
+    - { from: watch-build,     to: start-build }
+    - { from: watch-build,     to: review,      label: "story not signed or stale", kind: error }
+    - { from: start-build,     to: build-brief }
+    - { from: build-brief,     to: watch-build }

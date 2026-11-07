@@ -171,6 +171,14 @@ requirements:
       Scenario steps use box paths as names (for example checkout/pay/charge).
       (D39)
 
+  - id: R22
+    kind: functional
+    text: >-
+      A signed story can be handed to a bb thread as a build brief: the story, its
+      approved scenarios, its boxes and how to work in a rehearse repo. The thread
+      works in its own worktree, and rehearse shows its progress per box and per
+      scenario. A stale or unsigned story is not handed over. (T44)
+
 stories:
   - id: S1
     role: builder
@@ -373,6 +381,63 @@ stories:
         given: a generated record with 200 boxes and 100 scenarios
         when: CI runs validate and simulate
         then: each one finishes in less than 2 seconds
+
+  - id: S11
+    role: builder
+    want: to hand a signed story to an agent thread and watch its work in rehearse
+    soThat: the agent builds what I signed, and I see what is built and tested without asking
+    requirements: [R22]
+    acceptance:
+      - id: S11-A1
+        given: a signed story that is not stale
+        when: rehearse makes its build brief
+        then: >-
+          the brief says who signed it, when, the rule-2 hash and that it matches; it holds
+          the story, its requirements and criteria, the approved scenarios (drafts apart),
+          the serving boxes with contracts, children and edges, the decisions, the entities,
+          and how to work; it stays under about 6k tokens
+      - id: S11-A2
+        given: a story that is unsigned or stale
+        when: the builder opens its thread panel or asks for its brief
+        then: >-
+          there is no build button and no brief; rehearse says why (not signed off, or
+          changed since the sign-off on <date>) and offers "Start a question thread"
+      - id: S11-A3
+        given: a signed story and bb
+        when: the builder clicks "Build with an agent"
+        then: >-
+          a bb thread starts with the brief, in a new worktree from the current branch
+          (--model and --reasoning-level only when set), and the link keeps the hash and time
+      - id: S11-A4
+        given: a build thread of a story whose plan changed after the thread started
+        when: the builder opens the thread panel
+        then: >-
+          it says "the plan changed since this thread started", and "Send the change" tells
+          the thread what changed, before and now
+      - id: S11-A5
+        given: a story with a build thread
+        when: the builder opens the thread panel
+        then: >-
+          a progress block shows the thread status and last activity; per box built or not
+          yet, commits, branch and coverage; per approved scenario its e2e test found,
+          passing, failing or missing ("not run yet" when it did not run); gate findings and
+          whether the sign-off holds; and "N of M boxes have code · K of L scenarios tested"
+      - id: S11-A6
+        given: an EPIC with stories
+        when: the builder opens the Stories list
+        then: each story shows its boxes with code, its tested scenarios and its thread status
+      - id: S11-A7
+        given: a repo with an EPIC
+        when: an agent runs `rehearse brief <epic> <story>` or `rehearse progress <epic> <story>`
+        then: >-
+          it prints the brief or the progress as text, or as JSON with --json; a stale or
+          unsigned story gets exit code 1 and the reason
+      - id: S11-A8
+        given: the bb plugin skill
+        when: an agent reads it
+        then: >-
+          its section "Working on a story" holds the same how-to-work lines as the brief, and
+          it names `rehearse brief` and `rehearse progress`
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

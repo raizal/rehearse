@@ -287,7 +287,8 @@ describe('dogfood: simulate the rehearse record (D24)', () => {
     // A branch may wait for approval too (T19): a draft or stale scenario of the record takes it.
     const steps = loadEpic(REAL_EPIC).record.scenarioFiles.flatMap((f) => f.scenarios.flatMap((s) => s.steps ?? []));
     for (const f of report.findings) {
-      const branch = /^branch (.+) of decision (\S+) \(to \S+\): no approved scenario takes it$/.exec(f.message);
+      // An error exit too (T44): a draft scenario names it with `branch:`, as it names a decision branch.
+      const branch = /^(?:branch|error exit) (.+) of (?:decision )?(\S+) \(to \S+\): no approved scenario takes it$/.exec(f.message);
       if (branch) expect(steps.some((s) => s.name === branch[2] && s.branch === branch[1]), f.message).toBe(true);
       else expect(f.message, f.path).toMatch(/no approved scenario checks it/);
     }

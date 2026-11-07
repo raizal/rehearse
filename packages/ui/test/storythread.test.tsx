@@ -8,6 +8,7 @@ import type { ThreadMessage } from '@rehearse/server';
 import { App } from '../src/App.js';
 import type { StoryThreadView, ThreadOutcome } from '../src/api.js';
 import { StoryThread, type StoryThreadApi } from '../src/components/StoryThread.js';
+import type { StoryProgress } from '../src/api.js';
 import { POLL_COLLAPSED_MS } from '../src/model/storythread.js';
 import { mockServer } from './mock-server.js';
 import { reviewEpic } from './fixture.js';
@@ -29,6 +30,9 @@ function viewOf(over: Partial<StoryThreadView> = {}): StoryThreadView {
     bb: { ok: true, status: 'idle', statusText: 'idle', title: 'S1 · to pay for my cart' },
     messages: [msg(1, 'you', 'Context: overview\n\nWhy does pay fail?'), msg(4, 'agent', 'Because the card is declined.\nA second line that wraps.')],
     earlier: [],
+    build: { status: 'signed', buildable: true, hash: `sha256:${'a'.repeat(64)}` },
+    link: { kind: 'question', at: '2026-11-05T14:00:00.000Z' },
+    planChanged: null,
     ...over,
   };
 }
@@ -121,7 +125,7 @@ describe('T12 story thread panel', () => {
 
   it('T12 panel 5: no thread yet: Start a thread asks the server to spawn one', async () => {
     const { posts } = draw(viewOf({ threadId: null, bb: null, messages: [] }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Start a thread' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Start a question thread' }));
     expect(posts).toEqual([{ action: 'start', body: { story: 'S1' } }]);
     await waitFor(() => expect(screen.getByTestId('story-thread-status')).toHaveTextContent('working'));
   });
@@ -203,5 +207,101 @@ describe('T12 story thread panel', () => {
     expect(await screen.findByTestId('story-thread-error')).toHaveTextContent('this rehearse serve has no story thread API; update rehearse');
     await user.click(screen.getByTestId('story-tab-what'));
     expect(screen.getByTestId('story-scenarios')).toBeInTheDocument();
+  });
+});
+
+describe('T44 build with an agent, the plan-changed notice, the progress block', () => {
+  const none = (over: Partial<StoryThreadView> = {}) => viewOf({ threadId: null, bb: null, messages: [], link: null, ...over });
+
+  it('a signed story offers "Build with an agent", which posts build', async () => {
+    const { posts, api, set } = draw(none());
+    (api.post as ReturnType<typeof vi.fn>).mockImplementationOnce(async (action: string, body: Record<string, string>) => {
+      posts.push({ action, body });
+      const v = viewOf({ threadId: 'thr_build1', messages: [], link: { kind: 'build', hash: `sha256:${'b'.repeat(64)}`, at: '2026-11-05T14:02:00.000Z' } });
+      set(v);
+      return ok(v);
+    });
+    const build = await screen.findByRole('button', { name: 'Build with an agent' });
+    expect(screen.getByTestId('story-thread-none')).toHaveTextContent('new worktree on this branch');
+    expect(screen.queryByTestId('story-thread-refusal')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Start a question thread' })).toBeInTheDocument();
+    await userEvent.click(build);
+    expect(posts).toEqual([{ action: 'build', body: { story: 'S1' } }]);
+    expect(await screen.findByTestId('story-thread-link-info')).toHaveTextContent('A build thread: it started from the build brief on 2026-11-05 14:02, plan bbbbbbbbbbbb.');
+  });
+
+  it('an unsigned or stale story says why, and offers a question thread only', async () => {
+    const { posts } = draw(none({ build: { status: 'stale', buildable: false, hash: 'sha256:x', refusal: 'story S1 changed since it was signed off on 2026-11-05' } }));
+    expect(await screen.findByTestId('story-thread-refusal')).toHaveTextContent('Not ready to build: story S1 changed since it was signed off on 2026-11-05.');
+    expect(screen.queryByRole('button', { name: 'Build with an agent' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Start a question thread' }));
+    expect(posts).toEqual([{ action: 'start', body: { story: 'S1' } }]);
+  });
+
+  it('the plan changed: the notice lists the changes and "Send the change" posts send-change', async () => {
+    const changed = viewOf({ link: { kind: 'build', hash: 'sha256:old' }, planChanged: { changes: ['R1 text changed', 'S1-A1 then changed'] } });
+    const { posts, api, set } = draw(changed);
+    (api.post as ReturnType<typeof vi.fn>).mockImplementationOnce(async (action: string, body: Record<string, string>) => {
+      posts.push({ action, body });
+      const v = { ...changed, planChanged: null, link: { kind: 'build' as const, hash: 'sha256:new', changedAt: '2026-11-05T15:00:00.000Z' } };
+      set(v);
+      return ok(v);
+    });
+    const notice = await screen.findByTestId('story-thread-plan-changed');
+    expect(notice).toHaveTextContent('The plan changed since this thread started.');
+    expect(within(notice).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['R1 text changed', 'S1-A1 then changed']);
+    await userEvent.click(within(notice).getByRole('button', { name: 'Send the change' }));
+    expect(posts).toEqual([{ action: 'send-change', body: { story: 'S1' } }]);
+    await waitFor(() => expect(screen.queryByTestId('story-thread-plan-changed')).toBeNull());
+  });
+
+  it('the progress block: summary, thread, boxes with coverage, scenarios in words, gate and sign-off', async () => {
+    const progress: StoryProgress = {
+      slug: 'shop',
+      storyId: 'S1',
+      thread: { id: 'thr_story1', status: 'idle', statusText: 'idle', updatedAt: NOW - 120_000, branch: 'bb/build-s1', kind: 'build' },
+      boxes: [
+        { path: 'checkout', title: 'Checkout', built: true, commits: 3, onThreadBranch: 2, branches: ['bb/build-s1', 'main'], coverage: { lines: 10, covered: 8, branches: 0, branchesCovered: 0, percent: 80, tests: 4, stale: false } },
+        { path: 'checkout/pay', title: 'Pay', built: false, commits: 0, onThreadBranch: 0, branches: [] },
+      ],
+      scenarios: [
+        { id: 'S1-buy', title: 'Buy', state: 'failing', test: 'shop.spec.ts:3', failedStep: 'pay: card' },
+        { id: 'S1-empty', title: 'Empty', state: 'not-run', test: 'shop.spec.ts:9' },
+        { id: 'S1-late', title: 'Late', state: 'missing' },
+      ],
+      draftScenarios: ['S1-later'],
+      gate: [{ check: 'traced', message: 'S1-A2 has no scenario' }],
+      signOff: { status: 'signed', valid: true },
+      planChanged: false,
+      counts: { boxes: 2, boxesWithCode: 1, scenarios: 3, scenariosTested: 2, scenariosPassing: 0 },
+      summary: '1 of 2 boxes have code · 2 of 3 scenarios tested',
+    };
+    const fake = fakeApi(viewOf());
+    fake.api.progress = vi.fn(async () => ok(progress));
+    render(<StoryThread storyId="S1" context="" api={fake.api} storage={localStorage} now={() => NOW} />);
+    const block = await screen.findByTestId('story-progress');
+    expect(within(block).getByTestId('story-progress-summary')).toHaveTextContent('1 of 2 boxes have code · 2 of 3 scenarios tested');
+    expect(within(block).getByTestId('story-progress-thread')).toHaveTextContent('Thread idle, last activity 14:58, branch bb/build-s1');
+    expect(within(block).getByTestId('story-progress-box-checkout')).toHaveTextContent('built · 3 commits, 2 on bb/build-s1');
+    expect(within(block).getByTestId('story-progress-cov-checkout')).toHaveTextContent('80%');
+    expect(within(block).getByTestId('story-progress-box-checkout/pay')).toHaveTextContent('not yet');
+    expect(within(block).getByTestId('story-progress-scenario-S1-buy')).toHaveTextContent('failing at pay: card shop.spec.ts:3');
+    expect(within(block).getByTestId('story-progress-scenario-S1-empty')).toHaveTextContent('test found, not run yet');
+    expect(within(block).getByTestId('story-progress-scenario-S1-late')).toHaveTextContent('no e2e test yet');
+    expect(within(block).getByTestId('story-progress-drafts')).toHaveTextContent('Not approved, not counted: S1-later');
+    expect(within(block).getByTestId('story-progress-gate')).toHaveTextContent('Gate: 1 finding for this story');
+    expect(within(block).getByTestId('story-progress-signoff')).toHaveTextContent('Signed off, the sign-off holds');
+    // Above the messages.
+    expect(block.compareDocumentPosition(screen.getByTestId('story-thread-messages')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fake.api.progress).toHaveBeenCalledWith('S1');
+  });
+
+  it('no progress route (an older serve): no block and no error', async () => {
+    const fake = fakeApi(viewOf());
+    fake.api.progress = vi.fn(async () => ({ kind: 'error' as const, status: 404, message: 'this rehearse serve has no progress API; update rehearse' }));
+    render(<StoryThread storyId="S1" context="" api={fake.api} storage={localStorage} now={() => NOW} />);
+    await screen.findByTestId('story-thread-messages');
+    expect(screen.queryByTestId('story-progress')).toBeNull();
+    expect(screen.queryByTestId('story-thread-error')).toBeNull();
   });
 });

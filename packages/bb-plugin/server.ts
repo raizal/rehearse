@@ -57,6 +57,16 @@ export default async function plugin(bb: BbPluginApi) {
       label: 'rehearse command',
       default: '',
     },
+    threadModel: {
+      type: 'string',
+      label: 'model of story threads (empty: bb default)',
+      default: '',
+    },
+    threadReasoning: {
+      type: 'string',
+      label: 'reasoning level of story threads (empty: bb default)',
+      default: '',
+    },
   });
   const host = bb.hosts.experimental_client({ contract: hostContract });
 
@@ -100,10 +110,16 @@ export default async function plugin(bb: BbPluginApi) {
     },
     async open({ projectId, slug, remote }) {
       const repo = await repoOf(projectId);
-      const { rehearseCommand } = await settings.get();
+      const { rehearseCommand, threadModel, threadReasoning } = await settings.get();
       const opened = await host.call(
         'open',
-        { repoPath: repo.path, slug, command: rehearseCommand },
+        {
+          repoPath: repo.path,
+          slug,
+          command: rehearseCommand,
+          ...(threadModel ? { threadModel } : {}),
+          ...(threadReasoning ? { threadReasoning } : {}),
+        },
         { hostId: repo.hostId, timeoutMs: 30_000 },
       );
       leases.set(opened.leaseId, { hostId: repo.hostId, port: opened.port });
@@ -151,7 +167,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   bb.cli.register({
     name: 'rehearse',
-    summary: 'Open the rehearse panel, or run a read-only rehearse command (validate, simulate, gate check, new)',
+    summary: 'Open the rehearse panel, or run a read-only rehearse command (validate, simulate, gate check, new, brief, progress)',
     commands: [
       { name: 'open', summary: 'Open the rehearse panel (the same UI as rehearse serve)', usage: 'bb rehearse [open] [<slug>]' },
       { name: 'validate', summary: 'Check the record files of one EPIC', usage: 'bb rehearse validate <epic-dir-or-slug> [--json]' },

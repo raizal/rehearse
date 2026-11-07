@@ -15,7 +15,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
-import { MAP_LEVELS, type MapLevel } from '@rehearse/graph';
+import { MAP_LEVELS, type CoverageStats, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { graphServiceFor, type GraphService } from './graph-route.js';
@@ -48,6 +48,10 @@ export interface ServeOptions {
   birdview?: BirdviewSetup;
   /** The code graph and its watcher. Default: the graph of the EPIC folder's repo, opened on the first request. */
   graph?: GraphService;
+  /** `--model` of a build thread (T44). Default: REHEARSE_THREAD_MODEL; unset: bb's default. */
+  threadModel?: string;
+  /** `--reasoning-level` of a build thread (T44). Default: REHEARSE_THREAD_REASONING; unset: bb's default. */
+  threadReasoning?: string;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -80,7 +84,7 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph' | 'threadModel' | 'threadReasoning'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
@@ -94,6 +98,9 @@ const ROUTES: Record<string, string> = {
   '/api/story-thread': 'GET, HEAD',
   '/api/story-thread/link': 'POST',
   '/api/story-thread/start': 'POST',
+  '/api/story-thread/build': 'POST',
+  '/api/story-thread/send-change': 'POST',
+  '/api/story-progress': 'GET, HEAD',
   '/api/story-thread/send': 'POST',
   '/api/story-thread/open': 'POST',
   '/api/birdview': 'GET',
@@ -110,9 +117,28 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const verifier = opts.verifier ?? defaultVerifier(opts.epicDir);
   const git = opts.git ?? execGit;
   const bbProject = opts.bbProject ?? (process.env.REHEARSE_BB_PROJECT || process.env.BB_PROJECT_ID || undefined);
-  const threads = createStoryThreads({ epicDir: opts.epicDir, run: opts.run ?? processRunner(), ...(bbProject ? { bbProject } : {}) });
+  const threadModel = opts.threadModel ?? (process.env.REHEARSE_THREAD_MODEL || undefined);
+  const threadReasoning = opts.threadReasoning ?? (process.env.REHEARSE_THREAD_REASONING || undefined);
   const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
   const graph = opts.graph ?? graphServiceFor(opts.epicDir);
+  const threads = createStoryThreads({
+    epicDir: opts.epicDir,
+    run: opts.run ?? processRunner(),
+    ...(bbProject ? { bbProject } : {}),
+    ...(threadModel ? { threadModel } : {}),
+    ...(threadReasoning ? { threadReasoning } : {}),
+    ...(birdview.projectDir ? { testProject: birdview.projectDir } : {}),
+    // Coverage only from a graph that is indexed already: progress never starts an index run.
+    coverage: async () => {
+      if (!graph.status().indexed) return undefined;
+      const [, answer] = await readCoverage(new URLSearchParams(), graph, opts.epicDir, git);
+      return (answer as { ok?: boolean; boxes?: Record<string, CoverageStats> }).boxes;
+    },
+    testResults: async (storyId) => {
+      const info = await birdviewInfo(birdview, storyId);
+      return info.player.kind === 'ours' ? info.player.results : undefined;
+    },
+  });
   return (req, res) => {
     let path: string;
     let query: URLSearchParams;
@@ -241,6 +267,24 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       void storyThread(req, res, path, session, threads);
       return;
     }
+    if (path === '/api/story-progress') {
+      // Box watch-build: the token and the Origin before any git or bb call.
+      const refused = checkRequest(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { ok: false, error: refused.error });
+        return;
+      }
+      const story = query.get('story');
+      const work = story === null ? threads.progressAll().then((stories) => ({ ok: true, stories })) : threads.progress(story).then((p) => ({ ok: true, progress: p }));
+      void work.then(
+        (body) => sendJson(res, 200, body),
+        (e) => {
+          if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message });
+          else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
+        },
+      );
+      return;
+    }
     serveStatic(opts.uiDir, path, res);
   };
 }
@@ -354,6 +398,10 @@ async function storyThread(req: IncomingMessage, res: ServerResponse, path: stri
       sendJson(res, 200, await threads.link(story, text('threadId') ?? ''));
     } else if (path === '/api/story-thread/start') {
       sendJson(res, 200, await threads.start(story));
+    } else if (path === '/api/story-thread/build') {
+      sendJson(res, 200, await threads.build(story));
+    } else if (path === '/api/story-thread/send-change') {
+      sendJson(res, 200, await threads.sendChange(story));
     } else if (path === '/api/story-thread/send') {
       const message = text('text');
       if (message === undefined) {

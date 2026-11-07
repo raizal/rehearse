@@ -13,12 +13,13 @@ import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent }
 import { layoutStoryFlow, notTaken, storyFlow, type StoryFlow } from '../model/storyflow.js';
 import { StoryFlowChart } from './StoryFlowChart.js';
 import type { Id } from '@rehearse/core';
-import type { ScenarioView } from '../api.js';
+import { fetchAllProgress, type ScenarioView, type StoryProgress, type ThreadOutcome } from '../api.js';
 import type { ApproveOk, PostOutcome, ReviewEpicView } from '../contract.js';
 import { boxAt, laneColor, roleName } from '../model/diagram.js';
 import { stepCount, stepView } from '../model/playback.js';
 import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.js';
 import { contextLabel } from '../model/storythread.js';
+import { overviewText, overviewThread } from '../model/progress.js';
 import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue, type ApprovalKind } from '../model/storyboard.js';
 import { queueRows, scenarioSummary, stepTitle, storyColor } from '../model/storypage.js';
 import { ApproveBar, type ApproveControls } from './Approve.js';
@@ -69,6 +70,8 @@ export interface StoryboardProps {
   onOpenStory?: (id: Id) => void;
   /** Show the story list (one row per story) instead of a story. */
   list?: boolean;
+  /** The build progress of every story, for the list's overview column (T44). Default: the server. */
+  loadProgress?: () => Promise<ThreadOutcome<StoryProgress[]>>;
   /** The open tab of the story, when the parent keeps it. */
   storyTab?: StoryTab;
   onStoryTab?: (tab: StoryTab) => void;
@@ -143,9 +146,18 @@ export function Storyboard(props: StoryboardProps) {
 
 // ---------------------------------------------------------------- the story list (the "Stories" crumb)
 
-function StoryList({ view, onOpenStory, onPickStory, onBigPicture, back }: StoryboardProps) {
+function StoryList({ view, onOpenStory, onPickStory, onBigPicture, back, loadProgress = fetchAllProgress }: StoryboardProps) {
   const rows = useMemo(() => queueRows(view), [view]);
   const open = onOpenStory ?? onPickStory;
+  const [progress, setProgress] = useState<Map<Id, StoryProgress> | undefined>();
+  useEffect(() => {
+    let live = true;
+    // An older serve has no progress route: the list shows no overview column.
+    void loadProgress().then((r) => live && r.kind === 'ok' && setProgress(new Map(r.body.map((p) => [p.storyId, p]))));
+    return () => {
+      live = false;
+    };
+  }, [loadProgress, view]);
   return (
     <main className="storyboard is-list" data-testid="story-list">
       <div className="card-wrap">
@@ -172,23 +184,34 @@ function StoryList({ view, onOpenStory, onPickStory, onBigPicture, back }: Story
             This EPIC has no stories and no scenarios.
           </p>
         ) : (
-          <ul className="queue-rows story-list-rows" aria-label="Stories">
-            {rows.map((r) => (
-              <li key={r.storyId}>
-                <button
-                  type="button"
-                  className="queue-story"
-                  style={{ ['--role' as string]: r.color }}
-                  data-testid={`story-list-row-${r.storyId}`}
-                  aria-label={`Open story ${r.storyId}: ${r.want}; ${r.note}`}
-                  onClick={() => open?.(r.storyId)}
-                >
-                  <span className="queue-id">{r.storyId}</span>
-                  <span className="queue-want">{r.want}</span>
-                  <span className="queue-note">{r.note}</span>
-                </button>
-              </li>
-            ))}
+          <ul className={progress ? 'queue-rows story-list-rows has-progress' : 'queue-rows story-list-rows'} aria-label="Stories">
+            {rows.map((r) => {
+              const p = progress?.get(r.storyId);
+              const thread = p ? overviewThread(p) : undefined;
+              const built = p ? `; build: ${p.summary}${thread ? `, ${thread}` : ''}` : '';
+              return (
+                <li key={r.storyId}>
+                  <button
+                    type="button"
+                    className="queue-story"
+                    style={{ ['--role' as string]: r.color }}
+                    data-testid={`story-list-row-${r.storyId}`}
+                    aria-label={`Open story ${r.storyId}: ${r.want}; ${r.note}${built}`}
+                    onClick={() => open?.(r.storyId)}
+                  >
+                    <span className="queue-id">{r.storyId}</span>
+                    <span className="queue-want">{r.want}</span>
+                    <span className="queue-note">{r.note}</span>
+                    {p && (
+                      <span className="queue-build" data-testid={`story-list-progress-${r.storyId}`} title={p.summary}>
+                        <span className={p.counts.boxesWithCode === p.counts.boxes && p.counts.boxes > 0 ? 'is-done' : undefined}>{overviewText(p)}</span>
+                        {thread && <span className="queue-build-thread">{thread}</span>}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

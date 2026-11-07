@@ -8,16 +8,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.js';
 import type { ReviewEpicView } from '../src/contract.js';
 import { realEpic, reviewEpic } from './fixture.js';
-import { mockServer } from './mock-server.js';
+import { mockServer, type MockRoutes } from './mock-server.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   sessionStorage.clear();
 });
 
-async function start(view: ReviewEpicView = reviewEpic(), hash?: string) {
+async function start(view: ReviewEpicView = reviewEpic(), hash?: string, extra: Partial<MockRoutes> = {}) {
   if (hash) window.history.replaceState(null, '', hash);
-  const server = mockServer({ epic: () => view });
+  const server = mockServer({ epic: () => view, ...extra });
   const user = userEvent.setup();
   render(<App />);
   await screen.findByTestId('app');
@@ -179,5 +179,40 @@ describe('the place in the URL hash (T23)', () => {
     await start();
     await screen.findByTestId('big-picture');
     await waitFor(() => expect(window.location.hash).toBe('#/bigpicture'));
+  });
+});
+
+describe('the Stories overview column (T44)', () => {
+  const progressOf = (storyId: string, boxes: [number, number], tested: [number, number], thread: string | null) => ({
+    slug: 'shop',
+    storyId,
+    thread: thread ? { id: 'thr_x', status: 'active', statusText: thread, updatedAt: null, branch: null, kind: 'build' } : null,
+    boxes: [],
+    scenarios: [],
+    draftScenarios: [],
+    gate: [],
+    signOff: { status: 'signed', valid: true },
+    planChanged: false,
+    counts: { boxes: boxes[1], boxesWithCode: boxes[0], scenarios: tested[1], scenariosTested: tested[0], scenariosPassing: 0 },
+    summary: `${boxes[0]} of ${boxes[1]} boxes have code · ${tested[0]} of ${tested[1]} scenarios tested`,
+  });
+
+  it('shows per story the boxes with code, the scenarios tested and the thread', async () => {
+    const { server } = await start(reviewEpic(), '#/stories', {
+      progress: (story) => (story === null ? { status: 200, body: { ok: true, stories: [progressOf('S1', [1, 2], [0, 2], 'working'), progressOf('S2', [1, 1], [1, 1], null)] } } : { status: 404, body: { error: 'x' } }),
+    });
+    const cell = await screen.findByTestId('story-list-progress-S1');
+    expect(cell).toHaveTextContent('1/2 boxes · 0/2 tested');
+    expect(cell).toHaveTextContent('thread working');
+    expect(screen.getByTestId('story-list-progress-S2')).toHaveTextContent('1/1 box · 1/1 tested');
+    expect(screen.getByTestId('story-list-progress-S2')).not.toHaveTextContent('thread');
+    expect(screen.getByTestId('story-list-row-S1')).toHaveAccessibleName(/build: 1 of 2 boxes have code · 0 of 2 scenarios tested, thread working/);
+    expect(server.gets('api/story-progress')[0]!.headers['x-rehearse-token']).toBeTruthy();
+  });
+
+  it('an older serve without the progress route shows the list without the column', async () => {
+    await start(reviewEpic(), '#/stories');
+    await screen.findByTestId('story-list-row-S1');
+    expect(screen.queryByTestId('story-list-progress-S1')).toBeNull();
   });
 });

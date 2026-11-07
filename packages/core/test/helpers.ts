@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse, stringify } from 'yaml';
-import { validateEpic } from '../src/index.js';
+import { detectStale, loadEpic, validateEpic } from '../src/index.js';
 import type { Finding, Report } from '../src/index.js';
 
 export const SHOP = fileURLToPath(new URL('./fixtures/shop', import.meta.url));
@@ -30,6 +30,20 @@ export const PRESIGNOFF_EPIC = fileURLToPath(new URL('./fixtures/presignoff/2026
 export function liveAllowedSigners(): string | undefined {
   const file = join(REAL_EPIC, '..', '..', '..', '.rehearse', 'allowed_signers');
   return existsSync(file) ? file : undefined;
+}
+
+/**
+ * The new stories of an EPIC that wait for the owner: never signed off, and every scenario of
+ * theirs a draft (for example S11 of the first EPIC, added by T44). The live dogfood tests allow
+ * their gate findings and pin everything else.
+ */
+export function waitingStories(epicDir: string): string[] {
+  const { record } = loadEpic(epicDir);
+  const scenarios = record.scenarioFiles.flatMap((f) => f.scenarios);
+  return detectStale(record)
+    .stories.filter((s) => s.status === 'draft' && s.signedHash === undefined)
+    .map((s) => s.id)
+    .filter((id) => scenarios.filter((sc) => sc.story === id).every((sc) => sc.status === 'draft'));
 }
 
 /** Hash of every file under `dir` (names and bytes), to show that a command wrote nothing. */

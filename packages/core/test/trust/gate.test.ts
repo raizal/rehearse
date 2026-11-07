@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { detectStale, gateEpic, gateRecord, loadEpic, reportToJson, signOff, type Finding } from '../../src/index.js';
-import { BOOTSTRAP_EPIC, CODE_GRAPH_SIGNED_EPIC, hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedApprovals } from '../helpers.js';
+import { BOOTSTRAP_EPIC, CODE_GRAPH_SIGNED_EPIC, hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedApprovals, waitingStories } from '../helpers.js';
 import { approvedEpic, ME, NOW, SHOP_SCENARIOS, SIGNED, signedEpic } from './helpers.js';
 import { KEY } from './keys.js';
 
@@ -133,17 +133,24 @@ describe('gate check', () => {
     const report = gateEpic(REAL_EPIC);
     expect(hashDir(REAL_EPIC)).toBe(before);
     // True without the key list: nothing is stale, each story is signed under rule 2, each approval carries a signature.
+    // A new story that waits for the owner (never signed, drafts only) is the one exception, with only its own findings.
+    const waiting = waitingStories(REAL_EPIC);
     const stale = detectStale(record);
-    expect(stale).toMatchObject({ staleStories: [], staleScenarios: [], epicStatus: 'signed' });
-    expect(stale.stories.every((s) => s.status === 'signed' && s.hashRule === 2 && s.trusted)).toBe(true);
+    expect(stale).toMatchObject({ staleStories: [], staleScenarios: [], epicStatus: waiting.length > 0 ? 'draft' : 'signed' });
+    const signedStories = stale.stories.filter((s) => !waiting.includes(s.id));
+    expect(signedStories.length).toBeGreaterThan(0);
+    expect(signedStories.every((s) => s.status === 'signed' && s.hashRule === 2 && s.trusted)).toBe(true);
     expect(unsignedApprovals(REAL_EPIC)).toEqual([]);
     const approved = stale.scenarios.filter((s) => s.status === 'approved').map((s) => s.id);
     expect(approved.length).toBeGreaterThan(0);
+    const ofWaiting = report.findings.filter((f) => f.refs.length > 0 && f.refs.every((r) => waiting.some((w) => r === w || r.startsWith(`${w}-`))));
+    if (waiting.length > 0) expect(ofWaiting.length).toBeGreaterThan(0);
+    report.findings = report.findings.filter((f) => !ofWaiting.includes(f));
     const allowed = liveAllowedSigners();
     if (allowed) {
       // The owner's checkout: each signature is good and made by a key that allowed_signers lists.
       expect(report.findings).toEqual([]);
-      expect(report.ok).toBe(true);
+      expect(report.ok).toBe(waiting.length === 0);
       expect(report.signers.flatMap((s) => s.approvals).sort()).toEqual([...approved].sort());
       const listed = listedFingerprints(readFileSync(allowed, 'utf8'));
       for (const s of report.signers) expect(listed, s.by).toContain(`${s.by} ${s.fingerprint}`);

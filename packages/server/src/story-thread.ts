@@ -3,14 +3,44 @@
 // `{ "<epic slug>": { "<story id>": "thr_…" } }`. The repo ignores that file: a thread id only
 // means something to the bb install that made it.
 //
+// A build thread (T44, box `start-build`) starts from the build brief of a signed story, in a new
+// worktree on the current branch. Its link keeps the plan hash and content it started from and
+// when: `{ "thread": "thr_…", "kind": "build", "hash": "sha256:…", "at": "…", "content": {…} }`.
+// When the plan changes later, the view says so and `sendChange` tells the thread what changed
+// (box `watch-build`). The progress of the work comes from story-progress.ts.
+//
 // Every `git` and `bb` call goes through a Runner (argument arrays, no shell), so tests use a
 // fake and never the real repo or bb. Text for bb goes on stdin (`--message-file -`).
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadEpic, type Box, type Diagram, type EpicRecord, type Id } from '@rehearse/core';
+import {
+  briefSignState,
+  decisionTexts,
+  diffStoryContent,
+  loadEpic,
+  storyBuildBrief,
+  storyChangeMessage,
+  type BriefSignState,
+  type Box,
+  type Diagram,
+  type EpicRecord,
+  type Id,
+} from '@rehearse/core';
+import type { CoverageStats } from '@rehearse/graph';
 import { parseSpawn, parseTell, parseThreadLog, parseThreadShow, statusWords, THREAD_ID, type ThreadMessage } from './bb-json.js';
+import type { TestResult } from './birdview.js';
+import {
+  branchCommits,
+  branchShas,
+  epicGateItems,
+  specTests,
+  storyProgress,
+  type BranchCommit,
+  type ProgressThread,
+  type StoryProgress,
+} from './story-progress.js';
 
 export interface RunResult {
   code: number;
@@ -78,9 +108,44 @@ export function processRunner(env: NodeJS.ProcessEnv = process.env, timeoutMs = 
 /** The link file, relative to the git top-level. */
 export const STORY_THREADS_FILE = '.rehearse/story-threads.json';
 
-export type StoryThreads = Record<string, Record<string, string>>;
+/** One story's thread. A thread linked by hand has only the id (and is written as a bare string). */
+export interface StoryLink {
+  thread: string;
+  kind?: 'build' | 'question';
+  /** Story hash rule 2 of the plan the thread started from, or was last told about. */
+  hash?: string;
+  /** When the thread started (ISO). */
+  at?: string;
+  /** When the thread was last told of a change (ISO). */
+  changedAt?: string;
+  /** The plan content (`storyContentV2`) of `hash`, for the change list. */
+  content?: Record<string, unknown>;
+}
 
-/** The links in the file text. Entries that are not a story id → thread id are dropped. */
+export type StoryThreads = Record<string, Record<string, StoryLink>>;
+
+const HASH = /^sha256:[0-9a-f]{64}$/;
+
+function parseLink(v: unknown): StoryLink | undefined {
+  if (typeof v === 'string') return THREAD_ID.test(v) ? { thread: v } : undefined;
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  if (typeof o.thread !== 'string' || !THREAD_ID.test(o.thread)) return undefined;
+  const link: StoryLink = { thread: o.thread };
+  if (o.kind === 'build' || o.kind === 'question') link.kind = o.kind;
+  if (typeof o.hash === 'string' && HASH.test(o.hash)) link.hash = o.hash;
+  if (typeof o.at === 'string') link.at = o.at;
+  if (typeof o.changedAt === 'string') link.changedAt = o.changedAt;
+  if (typeof o.content === 'object' && o.content !== null && !Array.isArray(o.content)) link.content = o.content as Record<string, unknown>;
+  return link;
+}
+
+/** The file form of a link: a bare thread id when that is all it has. */
+function linkJson(link: StoryLink): string | StoryLink {
+  return Object.keys(link).length === 1 ? link.thread : link;
+}
+
+/** The links in the file text. Entries that are not a story id → thread id (or link) are dropped. */
 export function parseStoryThreads(text: string): StoryThreads {
   let json: unknown;
   try {
@@ -92,14 +157,24 @@ export function parseStoryThreads(text: string): StoryThreads {
   if (typeof json !== 'object' || json === null || Array.isArray(json)) return out;
   for (const [slug, stories] of Object.entries(json)) {
     if (typeof stories !== 'object' || stories === null || Array.isArray(stories)) continue;
-    const kept = Object.entries(stories).filter((e): e is [string, string] => typeof e[1] === 'string' && THREAD_ID.test(e[1]));
+    const kept = Object.entries(stories).flatMap(([id, v]) => {
+      const link = parseLink(v);
+      return link ? [[id, link] as const] : [];
+    });
     if (kept.length > 0) out[slug] = Object.fromEntries(kept);
   }
   return out;
 }
 
-export function withStoryThread(all: StoryThreads, slug: string, storyId: Id, threadId: string): StoryThreads {
-  return { ...all, [slug]: { ...all[slug], [storyId]: threadId } };
+export function withStoryThread(all: StoryThreads, slug: string, storyId: Id, link: StoryLink | string): StoryThreads {
+  return { ...all, [slug]: { ...all[slug], [storyId]: typeof link === 'string' ? { thread: link } : link } };
+}
+
+/** The link file text. */
+export function storyThreadsJson(all: StoryThreads): string {
+  const out: Record<string, Record<string, string | StoryLink>> = {};
+  for (const [slug, stories] of Object.entries(all)) out[slug] = Object.fromEntries(Object.entries(stories).map(([id, l]) => [id, linkJson(l)]));
+  return `${JSON.stringify(out, null, 2)}\n`;
 }
 
 // ---------------------------------------------------------------- the story brief (pure)
@@ -169,9 +244,39 @@ export function briefPrompt(brief: StoryBrief): string {
 }
 
 /** The title of a new story thread. */
-export function briefTitle(brief: StoryBrief): string {
-  const title = `${brief.storyId} · ${brief.want}`;
+export function briefTitle(brief: StoryBrief, prefix = ''): string {
+  const title = `${prefix}${brief.storyId} · ${brief.want}`;
   return title.length > 80 ? `${title.slice(0, 79)}…` : title;
+}
+
+/** The first message of a build thread: one line on top, then the build brief. */
+export function buildPrompt(slug: string, storyId: Id, markdown: string): string {
+  return [
+    `Build story ${storyId} of the EPIC ${slug} from this brief. It is the plan the owner signed off; the owner watches the work in rehearse (Flow-Box commits per box, the e2e test of each approved scenario, the gate).`,
+    'Start by saying in a few lines how you will build it, box by box. Then build.',
+    '',
+    markdown,
+  ].join('\n');
+}
+
+export interface SpawnOptions {
+  title: string;
+  bbProject?: string;
+  /** `--new-environment worktree --base-branch <ref>` */
+  baseBranch?: string;
+  model?: string;
+  reasoning?: string;
+}
+
+/** The `bb thread spawn` arguments. Model and reasoning only when set. */
+export function spawnArgs(o: SpawnOptions): string[] {
+  return [
+    'thread', 'spawn', '--json', '--prompt-file', '-', '--title', o.title,
+    ...(o.bbProject ? ['--project', o.bbProject] : []),
+    ...(o.baseBranch ? ['--new-environment', 'worktree', '--base-branch', o.baseBranch] : []),
+    ...(o.model ? ['--model', o.model] : []),
+    ...(o.reasoning ? ['--reasoning-level', o.reasoning] : []),
+  ];
 }
 
 /** A sent message: the context line on top, then the text. */
@@ -228,7 +333,18 @@ export function earlierWork(commits: FlowBoxCommit[], boxPaths: string[], exclud
 
 // ---------------------------------------------------------------- the service
 
-export type BbState = { ok: true; status: string; statusText: string; title: string | null } | { ok: false; error: string };
+export type BbState =
+  | { ok: true; status: string; statusText: string; title: string | null; updatedAt?: number | null; branch?: string | null }
+  | { ok: false; error: string };
+
+/** Whether an agent may build the story: its sign-off state. */
+export interface BuildState {
+  status: BriefSignState['status'];
+  buildable: boolean;
+  refusal?: string;
+  /** The plan hash now. */
+  hash: string;
+}
 
 /** What `GET /api/story-thread?story=` returns. */
 export interface StoryThreadView {
@@ -238,6 +354,11 @@ export interface StoryThreadView {
   bb: BbState | null;
   messages: ThreadMessage[];
   earlier: EarlierWork[];
+  build: BuildState;
+  /** How the thread was started, the plan hash and the time; null without a thread. */
+  link: { kind: 'build' | 'question' | 'linked'; hash?: string; at?: string; changedAt?: string } | null;
+  /** The plan changed since the thread started: what changed. null when it did not, or there is no plan hash. */
+  planChanged: { changes: string[] } | null;
 }
 
 export class StoryThreadError extends Error {
@@ -254,6 +375,17 @@ export interface StoryThreadOptions {
   run: Runner;
   /** bb project for `bb thread spawn --project`. */
   bbProject?: string;
+  /** `--model` and `--reasoning-level` of a build thread; left out when unset. */
+  threadModel?: string;
+  threadReasoning?: string;
+  /** The base branch of a build thread's worktree. Default: the branch checked out in the EPIC's repo. */
+  baseBranch?: string;
+  /** Unit test coverage per box path (T43), when the code graph can answer. */
+  coverage?: () => Promise<Record<string, CoverageStats> | undefined>;
+  /** The e2e test project of the EPIC. */
+  testProject?: string;
+  /** Last e2e results by `file:line` for a story, when the player can answer. */
+  testResults?: (storyId: Id) => Promise<Record<string, TestResult> | undefined>;
   now?: () => number;
 }
 
@@ -270,8 +402,16 @@ export interface StoryThreadService {
   view(storyId: string): Promise<StoryThreadView>;
   link(storyId: string, threadId: string): Promise<StoryThreadView>;
   start(storyId: string): Promise<StoryThreadView>;
+  /** Start a build thread from the build brief (signed, not stale stories only). */
+  build(storyId: string): Promise<StoryThreadView>;
+  /** Tell the thread what changed in its plan since it started. */
+  sendChange(storyId: string): Promise<StoryThreadView>;
   send(storyId: string, text: string, context?: string): Promise<StoryThreadView>;
   open(storyId: string): Promise<void>;
+  /** The progress of one story. */
+  progress(storyId: string): Promise<StoryProgress>;
+  /** The progress of every story (no e2e results: the overview stays cheap). */
+  progressAll(): Promise<StoryProgress[]>;
 }
 
 function bbFailure(r: RunResult): string {
@@ -312,18 +452,21 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     const file = join(await topLevel(), STORY_THREADS_FILE);
     return { file, all: existsSync(file) ? parseStoryThreads(readFileSync(file, 'utf8')) : {} };
   }
-  async function threadOf(brief: StoryBrief): Promise<string | null> {
+  async function linkOf(brief: StoryBrief): Promise<StoryLink | null> {
     try {
       return (await readLinks()).all[brief.slug]?.[brief.storyId] ?? null;
     } catch {
       return null;
     }
   }
-  async function saveLink(brief: StoryBrief, threadId: string): Promise<void> {
+  async function threadOf(brief: StoryBrief): Promise<string | null> {
+    return (await linkOf(brief))?.thread ?? null;
+  }
+  async function saveLink(brief: StoryBrief, link: StoryLink): Promise<void> {
     const { file, all } = await readLinks();
     mkdirSync(join(file, '..'), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
-    writeFileSync(tmp, `${JSON.stringify(withStoryThread(all, brief.slug, brief.storyId, threadId), null, 2)}\n`);
+    writeFileSync(tmp, storyThreadsJson(withStoryThread(all, brief.slug, brief.storyId, link)));
     renameSync(tmp, file);
   }
 
@@ -331,7 +474,48 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     const r = await run('bb', ['thread', 'show', threadId, '--json'], { cwd: epicDir });
     if (r.code !== 0 || r.spawnError !== undefined) return { ok: false, error: bbFailure(r) };
     const t = parseThreadShow(r.stdout);
-    return t.ok ? { ok: true, status: t.value.status, statusText: statusWords(t.value.status), title: t.value.title } : { ok: false, error: t.error };
+    if (!t.ok) return { ok: false, error: t.error };
+    return { ok: true, status: t.value.status, statusText: statusWords(t.value.status), title: t.value.title, updatedAt: t.value.updatedAt ?? null, branch: t.value.branch ?? null };
+  }
+
+  function buildState(storyId: string): { sign: BriefSignState; state: BuildState } {
+    const sign = briefSignState(record(), storyId);
+    if (!sign) throw new StoryThreadError(404, `no story ${storyId} in prd.yaml`);
+    return { sign, state: { status: sign.status, buildable: sign.buildable, ...(sign.refusal ? { refusal: sign.refusal } : {}), hash: sign.currentHash } };
+  }
+
+  /** The plan now: hash and content (`storyContentV2`), signed or not. */
+  function planNow(storyId: string): { hash: string; content: Record<string, unknown> } {
+    const b = storyBuildBrief(record(), storyId, { allowUnsigned: true });
+    if (!b.ok) throw new StoryThreadError(404, b.reason);
+    return { hash: b.hash, content: b.content };
+  }
+
+  function linkView(link: StoryLink | null): StoryThreadView['link'] {
+    if (!link) return null;
+    return {
+      kind: link.kind ?? 'linked',
+      ...(link.hash ? { hash: link.hash } : {}),
+      ...(link.at ? { at: link.at } : {}),
+      ...(link.changedAt ? { changedAt: link.changedAt } : {}),
+    };
+  }
+
+  function planChanged(storyId: string, link: StoryLink | null, hashNow: string): StoryThreadView['planChanged'] {
+    if (!link?.hash || link.hash === hashNow) return null;
+    const changes = link.content ? diffStoryContent(link.content, planNow(storyId).content).map((c) => c.text) : [];
+    return { changes };
+  }
+
+  /** The branch a build worktree starts from: the configured one, else the checked-out branch, else the commit. */
+  async function baseBranch(): Promise<string> {
+    if (opts.baseBranch) return opts.baseBranch;
+    const r = await run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: epicDir });
+    const name = r.stdout.trim();
+    if (r.code === 0 && name !== '' && name !== 'HEAD') return name;
+    const sha = await run('git', ['rev-parse', 'HEAD'], { cwd: epicDir });
+    if (sha.code === 0 && /^[0-9a-f]{40,64}$/.test(sha.stdout.trim())) return sha.stdout.trim();
+    throw new StoryThreadError(503, 'the EPIC folder is not on a git branch or commit, so a worktree cannot start from it');
   }
 
   /** New messages since the last read, page by page. */
@@ -361,11 +545,56 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
 
   async function view(storyId: string): Promise<StoryThreadView> {
     const brief = briefOf(storyId);
-    const threadId = await threadOf(brief);
+    const link = await linkOf(brief);
+    const threadId = link?.thread ?? null;
     const past = await earlier(brief, threadId);
-    if (threadId === null) return { brief, threadId, bb: null, messages: [], earlier: past };
+    const { state } = buildState(storyId);
+    const extra = { build: state, link: linkView(link), planChanged: planChanged(storyId, link, state.hash) };
+    if (threadId === null) return { brief, threadId, bb: null, messages: [], earlier: past, ...extra };
     const bb = await bbState(threadId);
-    return { brief, threadId, bb, messages: bb.ok ? await messages(threadId) : [], earlier: past };
+    return { brief, threadId, bb, messages: bb.ok ? await messages(threadId) : [], earlier: past, ...extra };
+  }
+
+  const git = async (args: string[]) => {
+    const r = await run('git', args, { cwd: epicDir });
+    return { ok: r.code === 0 && r.spawnError === undefined, stdout: r.stdout };
+  };
+
+  async function progressThread(link: StoryLink | null): Promise<ProgressThread | null> {
+    if (!link) return null;
+    const bb = await bbState(link.thread);
+    const base = { id: link.thread, kind: link.kind ?? ('linked' as const), ...(link.at ? { startedAt: link.at } : {}) };
+    if (!bb.ok) return { ...base, status: null, statusText: 'bb cannot be asked', updatedAt: null, branch: null, error: bb.error };
+    return { ...base, status: bb.status, statusText: bb.statusText, updatedAt: bb.updatedAt ?? null, branch: bb.branch ?? null };
+  }
+
+  async function progressOf(storyId: string, shared: { record: EpicRecord; gate: ReturnType<typeof epicGateItems>['gate']; commits: BranchCommit[]; coverage?: Record<string, CoverageStats> | undefined; links: StoryThreads }, results: boolean): Promise<StoryProgress> {
+    const link = shared.links[shared.record.slug]?.[storyId] ?? null;
+    const thread = await progressThread(link);
+    const threadShas = thread?.branch ? await branchShas(git, thread.branch) : undefined;
+    const testResults = results && opts.testResults ? await opts.testResults(storyId).catch(() => undefined) : undefined;
+    return storyProgress({
+      record: shared.record,
+      storyId,
+      commits: shared.commits,
+      ...(threadShas ? { threadShas } : {}),
+      thread,
+      ...(link?.hash ? { linkHash: link.hash } : {}),
+      tests: specTests(opts.testProject),
+      ...(testResults ? { results: testResults } : {}),
+      ...(shared.coverage ? { coverage: shared.coverage } : {}),
+      gate: shared.gate,
+    });
+  }
+
+  async function sharedInputs() {
+    const { record: rec, gate } = epicGateItems(epicDir);
+    const [commits, coverage, links] = await Promise.all([
+      branchCommits(git),
+      opts.coverage ? opts.coverage().catch(() => undefined) : Promise.resolve(undefined),
+      readLinks().then((l) => l.all, () => ({}) as StoryThreads),
+    ]);
+    return { record: rec, gate, commits, coverage, links };
   }
 
   async function linked(storyId: string): Promise<{ brief: StoryBrief; threadId: string }> {
@@ -380,7 +609,7 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     async link(storyId, threadId) {
       const brief = briefOf(storyId);
       if (!THREAD_ID.test(threadId)) throw new StoryThreadError(400, 'a thread id looks like thr_abc123');
-      await saveLink(brief, threadId);
+      await saveLink(brief, { thread: threadId });
       return view(storyId);
     },
     async start(storyId) {
@@ -395,11 +624,66 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
         if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, bbFailure(r));
         const spawned = parseSpawn(r.stdout);
         if (!spawned.ok) throw new StoryThreadError(502, spawned.error);
-        await saveLink(brief, spawned.value.id);
+        await saveLink(brief, { thread: spawned.value.id, kind: 'question', at: new Date(now()).toISOString() });
       } finally {
         starting.delete(key);
       }
       return view(storyId);
+    },
+    async build(storyId) {
+      const brief = briefOf(storyId);
+      const { state } = buildState(storyId);
+      if (!state.buildable) throw new StoryThreadError(409, state.refusal ?? `story ${storyId} cannot be built yet`);
+      if ((await threadOf(brief)) !== null) throw new StoryThreadError(409, `story ${storyId} has a thread already`);
+      const key = `${brief.slug}/${storyId}`;
+      if (starting.has(key)) throw new StoryThreadError(409, `a thread for ${storyId} is starting`);
+      starting.add(key);
+      try {
+        const made = storyBuildBrief(record(), storyId, { decisions: decisionTexts(epicDir) });
+        if (!made.ok) throw new StoryThreadError(409, made.reason);
+        const args = spawnArgs({
+          title: briefTitle(brief, 'Build '),
+          ...(opts.bbProject ? { bbProject: opts.bbProject } : {}),
+          baseBranch: await baseBranch(),
+          ...(opts.threadModel ? { model: opts.threadModel } : {}),
+          ...(opts.threadReasoning ? { reasoning: opts.threadReasoning } : {}),
+        });
+        const r = await run('bb', args, { cwd: epicDir, input: buildPrompt(brief.slug, storyId, made.markdown) });
+        if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, bbFailure(r));
+        const spawned = parseSpawn(r.stdout);
+        if (!spawned.ok) throw new StoryThreadError(502, spawned.error);
+        await saveLink(brief, { thread: spawned.value.id, kind: 'build', hash: made.hash, at: new Date(now()).toISOString(), content: made.content });
+      } finally {
+        starting.delete(key);
+      }
+      return view(storyId);
+    },
+    async sendChange(storyId) {
+      const brief = briefOf(storyId);
+      const link = await linkOf(brief);
+      if (!link) throw new StoryThreadError(409, `story ${storyId} has no thread`);
+      const { sign } = buildState(storyId);
+      if (!link.hash || !link.content) throw new StoryThreadError(409, 'this thread was not started from a plan, so there is no change to send');
+      if (link.hash === sign.currentHash) throw new StoryThreadError(409, 'the plan has not changed since the thread started');
+      const plan = planNow(storyId);
+      const message = storyChangeMessage(brief.slug, storyId, link.content, plan.content, sign);
+      if (message) {
+        const r = await run('bb', ['thread', 'tell', link.thread, '--message-file', '-', '--json'], { cwd: epicDir, input: message.text });
+        if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, bbFailure(r));
+        const told = parseTell(r.stdout);
+        if (!told.ok) throw new StoryThreadError(502, told.error);
+      }
+      await saveLink(brief, { ...link, hash: plan.hash, content: plan.content, changedAt: new Date(now()).toISOString() });
+      return view(storyId);
+    },
+    async progress(storyId) {
+      briefOf(storyId);
+      return progressOf(storyId, await sharedInputs(), true);
+    },
+    async progressAll() {
+      const shared = await sharedInputs();
+      const ids = (Array.isArray(shared.record.prd?.stories) ? shared.record.prd.stories : []).filter((s) => s && typeof s.id === 'string').map((s) => s.id);
+      return Promise.all(ids.map((id) => progressOf(id, shared, false)));
     },
     async send(storyId, text, context) {
       if (text.trim() === '') throw new StoryThreadError(400, 'the message is empty');
