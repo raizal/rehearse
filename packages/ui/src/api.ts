@@ -91,8 +91,8 @@ async function post<T>(client: SessionClient, url: string, body: unknown): Promi
 
 export type { StoryThreadView } from '@rehearse/server';
 
-/** A story-thread answer: the view, or an error in words. */
-export type ThreadOutcome<T> = { kind: 'ok'; body: T } | { kind: 'error'; status: number; message: string };
+/** A story-thread answer: the view, or an error in words (and the raw message behind it, T46). */
+export type ThreadOutcome<T> = { kind: 'ok'; body: T } | { kind: 'error'; status: number; message: string; details?: string };
 
 export type StoryThreadAction = 'link' | 'start' | 'build' | 'send-change' | 'send' | 'open';
 
@@ -139,5 +139,6 @@ async function threadCall<T>(client: SessionClient, url: string, body?: unknown,
   if (r.ok && r.body !== undefined) return { kind: 'ok', body: r.body as T };
   if (tokenRejected(r)) return { kind: 'error', status: r.status, message: SERVER_RESTARTED };
   const error = typeof r.body?.error === 'string' ? r.body.error : `HTTP ${r.status}`;
-  return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? missing : error };
+  const details = typeof r.body?.details === 'string' && r.body.details !== '' ? r.body.details : undefined;
+  return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? missing : error, ...(details ? { details } : {}) };
 }

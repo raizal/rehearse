@@ -3,7 +3,7 @@ import { createServer } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { findFreePort } from '../src/port.js';
 import { PortInUseError, type ServeProcess } from '../src/serve-manager.js';
-import { spawnServe, threadArgs, WATCHDOG } from '../src/spawn-serve.js';
+import { serveProcessEnv, spawnServe, threadArgs, WATCHDOG } from '../src/spawn-serve.js';
 import { fakeInvocation, listening, tempRepo, until } from './helpers.js';
 
 const running: ServeProcess[] = [];
@@ -91,6 +91,22 @@ describe('the watchdog', () => {
     watchdog.stdin.end();
     await exited;
     await until(async () => !(await listening(port)));
+  });
+});
+
+describe('spawnServe: the panel\'s bb project (T46)', () => {
+  it('gives serve the project id as REHEARSE_BB_PROJECT', async () => {
+    const repo = tempRepo('epic');
+    const port = await findFreePort();
+    const proc = await spawnServe({ repoPath: repo, slug: 'epic', projectId: 'proj_np45qbzf4r' }, port, { invocation: fakeInvocation, env: process.env });
+    running.push(proc);
+    expect(await (await fetch(proc.url)).text()).toContain('data-bb-project="proj_np45qbzf4r"');
+  });
+
+  it('sets REHEARSE_BB_PROJECT only when the panel gave a project', () => {
+    expect(serveProcessEnv({ repoPath: '/r', slug: 'e', projectId: 'proj_a' }, { PATH: '/bin', REHEARSE_BB_PROJECT: 'proj_old' })).toEqual({ PATH: '/bin', REHEARSE_BB_PROJECT: 'proj_a' });
+    const env = { PATH: '/bin' };
+    expect(serveProcessEnv({ repoPath: '/r', slug: 'e' }, env)).toBe(env);
   });
 });
 

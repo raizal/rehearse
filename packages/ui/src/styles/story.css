@@ -462,6 +462,9 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .thread-status { display: inline-flex; align-items: center; gap: var(--s-1); padding: 1px var(--s-2); border-radius: var(--r-pill); background: var(--subtle); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--muted); }
 .thread-head-actions { margin-left: auto; display: inline-flex; gap: var(--s-2); align-items: center; }
 .thread-pad { margin: 0; padding: var(--s-2) var(--s-5); }
+.thread-error p { margin: 0; }
+.thread-error details { margin-top: var(--s-1); color: var(--ink-2); }
+.thread-error pre { margin: var(--s-1) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); }
 .thread-brief { display: flex; flex-direction: column; gap: var(--s-1); padding: 0 var(--s-5) var(--s-4); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--muted); }
 .thread-brief-title { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--ink); }
 .thread-brief .chips { margin-top: var(--s-1); }

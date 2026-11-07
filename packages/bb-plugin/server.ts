@@ -117,6 +117,7 @@ export default async function plugin(bb: BbPluginApi) {
           repoPath: repo.path,
           slug,
           command: rehearseCommand,
+          projectId,
           ...(threadModel ? { threadModel } : {}),
           ...(threadReasoning ? { threadReasoning } : {}),
         },

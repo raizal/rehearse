@@ -60,6 +60,7 @@ export {
   type LogCommit,
 } from './git-parse.js';
 export { parseSpawn, parseTell, parseThreadLog, parseThreadShow, statusWords, THREAD_ID, type BbThread, type ThreadMessage } from './bb-json.js';
+export { bbProjectFrom, bbProjectResolver, findBbProject, matchProject, NO_BB_PROJECT, parseProjectList, type BbProjectEntry } from './bb-project.js';
 export {
   briefPrompt,
   buildPrompt,

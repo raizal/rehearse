@@ -29,6 +29,7 @@ import {
   type Id,
 } from '@rehearse/core';
 import type { CoverageStats } from '@rehearse/graph';
+import { bbProjectResolver, findBbProject, NO_BB_PROJECT } from './bb-project.js';
 import { parseSpawn, parseTell, parseThreadLog, parseThreadShow, statusWords, THREAD_ID, type ThreadMessage } from './bb-json.js';
 import type { TestResult } from './birdview.js';
 import {
@@ -365,6 +366,8 @@ export class StoryThreadError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** The raw message behind a plain one, for a "details" toggle. */
+    readonly details?: string,
   ) {
     super(message);
   }
@@ -373,7 +376,7 @@ export class StoryThreadError extends Error {
 export interface StoryThreadOptions {
   epicDir: string;
   run: Runner;
-  /** bb project for `bb thread spawn --project`. */
+  /** bb project for `bb thread spawn --project`. Unset: found once from `bb project list` (bb-project.ts). */
   bbProject?: string;
   /** `--model` and `--reasoning-level` of a build thread; left out when unset. */
   threadModel?: string;
@@ -433,6 +436,7 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
   const logs = new Map<string, { lastSeq: number; messages: ThreadMessage[] }>();
   let earlierCache: { at: number; commits: FlowBoxCommit[] } | undefined;
   const starting = new Set<string>();
+  const bbProject = bbProjectResolver(opts.bbProject, () => findBbProject(run, epicDir));
 
   const record = (): EpicRecord => loadEpic(epicDir).record;
   const briefOf = (storyId: string): StoryBrief => {
@@ -597,6 +601,18 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     return { record: rec, gate, commits, coverage, links };
   }
 
+  /** `bb thread spawn` into the project; the new thread's id. Failures in plain words, bb's own under details. */
+  async function spawnThread(o: Omit<SpawnOptions, 'bbProject'>, prompt: string): Promise<string> {
+    const project = await bbProject();
+    if (!project) throw new StoryThreadError(503, NO_BB_PROJECT);
+    const r = await run('bb', spawnArgs({ ...o, bbProject: project }), { cwd: epicDir, input: prompt });
+    if (r.spawnError !== undefined) throw new StoryThreadError(502, 'bb is not available here, so rehearse cannot start a thread.', bbFailure(r));
+    if (r.code !== 0) throw new StoryThreadError(502, 'bb could not start the thread.', bbFailure(r));
+    const spawned = parseSpawn(r.stdout);
+    if (!spawned.ok) throw new StoryThreadError(502, 'bb could not start the thread.', spawned.error);
+    return spawned.value.id;
+  }
+
   async function linked(storyId: string): Promise<{ brief: StoryBrief; threadId: string }> {
     const brief = briefOf(storyId);
     const threadId = await threadOf(brief);
@@ -619,12 +635,8 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       if (starting.has(key)) throw new StoryThreadError(409, `a thread for ${storyId} is starting`);
       starting.add(key);
       try {
-        const args = ['thread', 'spawn', '--json', '--prompt-file', '-', '--title', briefTitle(brief), ...(opts.bbProject ? ['--project', opts.bbProject] : [])];
-        const r = await run('bb', args, { cwd: epicDir, input: briefPrompt(brief) });
-        if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, bbFailure(r));
-        const spawned = parseSpawn(r.stdout);
-        if (!spawned.ok) throw new StoryThreadError(502, spawned.error);
-        await saveLink(brief, { thread: spawned.value.id, kind: 'question', at: new Date(now()).toISOString() });
+        const thread = await spawnThread({ title: briefTitle(brief) }, briefPrompt(brief));
+        await saveLink(brief, { thread, kind: 'question', at: new Date(now()).toISOString() });
       } finally {
         starting.delete(key);
       }
@@ -641,18 +653,16 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       try {
         const made = storyBuildBrief(record(), storyId, { decisions: decisionTexts(epicDir) });
         if (!made.ok) throw new StoryThreadError(409, made.reason);
-        const args = spawnArgs({
-          title: briefTitle(brief, 'Build '),
-          ...(opts.bbProject ? { bbProject: opts.bbProject } : {}),
-          baseBranch: await baseBranch(),
-          ...(opts.threadModel ? { model: opts.threadModel } : {}),
-          ...(opts.threadReasoning ? { reasoning: opts.threadReasoning } : {}),
-        });
-        const r = await run('bb', args, { cwd: epicDir, input: buildPrompt(brief.slug, storyId, made.markdown) });
-        if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, bbFailure(r));
-        const spawned = parseSpawn(r.stdout);
-        if (!spawned.ok) throw new StoryThreadError(502, spawned.error);
-        await saveLink(brief, { thread: spawned.value.id, kind: 'build', hash: made.hash, at: new Date(now()).toISOString(), content: made.content });
+        const thread = await spawnThread(
+          {
+            title: briefTitle(brief, 'Build '),
+            baseBranch: await baseBranch(),
+            ...(opts.threadModel ? { model: opts.threadModel } : {}),
+            ...(opts.threadReasoning ? { reasoning: opts.threadReasoning } : {}),
+          },
+          buildPrompt(brief.slug, storyId, made.markdown),
+        );
+        await saveLink(brief, { thread, kind: 'build', hash: made.hash, at: new Date(now()).toISOString(), content: made.content });
       } finally {
         starting.delete(key);
       }

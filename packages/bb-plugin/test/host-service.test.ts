@@ -79,3 +79,22 @@ describe('host service: story thread settings (T44)', () => {
     expect(targets[1]).not.toHaveProperty('threadModel');
   });
 });
+
+describe('host service: the panel\'s bb project (T46)', () => {
+  it('hands the project id of the panel to the serve start', async () => {
+    const targets: unknown[] = [];
+    const s = createHostService({
+      findAgent: () => ({ socket: null, source: 'none' }),
+      pickPort: async () => 1,
+      start: async (target, port) => {
+        targets.push(target);
+        return { pid: 1, port, url: `http://127.0.0.1:${port}/`, stop: async () => undefined, onExit: () => undefined };
+      },
+    });
+    services.push(s);
+    await s.open(tempRepo('a'), 'a', '', { projectId: 'proj_np45qbzf4r' });
+    await s.open(tempRepo('b'), 'b', '');
+    expect(targets[0]).toMatchObject({ slug: 'a', projectId: 'proj_np45qbzf4r' });
+    expect(targets[1]).not.toHaveProperty('projectId');
+  });
+});

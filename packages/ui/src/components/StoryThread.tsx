@@ -62,7 +62,7 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
   const [marks, setMarks] = useState<ReadMarks>(() => loadReadMarks(storage));
   const [toast, setToast] = useState<{ text: string } | undefined>();
   const [busy, setBusy] = useState<StoryThreadAction | undefined>();
-  const [actionError, setActionError] = useState<string | undefined>();
+  const [actionError, setActionError] = useState<{ message: string; details?: string } | undefined>();
   const [draft, setDraft] = useState('');
   const [progress, setProgress] = useState<StoryProgress | undefined>();
   const known = useRef<{ thread: string | null; seq: number } | undefined>(undefined);
@@ -171,7 +171,7 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
     const r = await api.post(action, { story: storyId, ...body });
     setBusy(undefined);
     if (r.kind === 'error') {
-      setActionError(r.message);
+      setActionError({ message: r.message, ...(r.details ? { details: r.details } : {}) });
       return false;
     }
     if (action !== 'open') accept(r.body as StoryThreadView);
@@ -280,12 +280,18 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
       )}
 
       {actionError &&
-        (isServerRestarted(actionError) ? (
+        (isServerRestarted(actionError.message) ? (
           <ServerRestarted className="warn thread-pad" testId="story-thread-action-error" />
         ) : (
-          <p className="warn thread-pad" role="alert" data-testid="story-thread-action-error">
-            {actionError}
-          </p>
+          <div className="warn thread-pad thread-error" role="alert" data-testid="story-thread-action-error">
+            <p>{actionError.message}</p>
+            {actionError.details && (
+              <details data-testid="story-thread-action-details">
+                <summary>details</summary>
+                <pre>{actionError.details}</pre>
+              </details>
+            )}
+          </div>
         ))}
 
       {view && threadId && (

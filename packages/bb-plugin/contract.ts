@@ -12,6 +12,9 @@ const command = z.string().max(4096);
 /** The `threadModel` / `threadReasoning` settings: the model and reasoning level of story threads (T44). */
 const threadSetting = z.string().max(200).regex(/^[A-Za-z0-9._:\/-]*$/).optional();
 
+/** A bb project id (T46): serve starts story threads in it. */
+const projectId = z.string().regex(/^[A-Za-z0-9_-]+$/).max(200).optional();
+
 const sshAgent = z.object({ available: z.boolean(), source: z.enum(['env', 'launchd', 'none']) }).strict();
 
 export const hostContract = defineRpcContract({
@@ -20,7 +23,7 @@ export const hostContract = defineRpcContract({
     output: z.object({ slugs: z.array(z.string()) }).strict(),
   },
   open: {
-    input: z.object({ repoPath: absPath, slug, command, threadModel: threadSetting, threadReasoning: threadSetting }).strict(),
+    input: z.object({ repoPath: absPath, slug, command, projectId, threadModel: threadSetting, threadReasoning: threadSetting }).strict(),
     output: z
       .object({ leaseId: z.string(), port: z.number().int(), url: z.string(), reused: z.boolean(), sshAgent })
       .strict(),

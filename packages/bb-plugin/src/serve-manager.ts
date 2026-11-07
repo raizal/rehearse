@@ -23,6 +23,12 @@ export interface ServeTarget {
   slug: string;
   /** The `rehearseCommand` setting used to start the process. Not part of the process identity. */
   command?: string;
+  /**
+   * The bb project the panel opened (T46); serve gets it as REHEARSE_BB_PROJECT so story threads
+   * start there. Not part of the process identity: a repo checkout belongs to one bb project, and
+   * two serve processes on one EPIC would race on its `.rehearse/story-threads.json`.
+   */
+  projectId?: string;
   /** `--thread-model` / `--thread-reasoning` of serve (T44). Not part of the process identity. */
   threadModel?: string;
   threadReasoning?: string;
