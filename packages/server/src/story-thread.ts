@@ -9,14 +9,22 @@
 // When the plan changes later, the view says so and `sendChange` tells the thread what changed
 // (box `watch-build`). The progress of the work comes from story-progress.ts.
 //
+// A test thread (T47, box `start-test-thread`) writes the missing e2e tests of a story's approved
+// scenarios from the test brief. One per story at a time; its link sits beside the story thread as
+// `tests`: `{ "S1": { "thread": "thr_…", "tests": { "thread": "thr_…", "scenarios": [...],
+// "hash": "sha256:…", "at": "…" } } }`. A story with a test thread only has no `thread` of its own;
+// older readers skip such an entry and ignore `tests`.
+//
 // Every `git` and `bb` call goes through a Runner (argument arrays, no shell), so tests use a
 // fake and never the real repo or bb. Text for bb goes on stdin (`--message-file -`).
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import {
   briefSignState,
+  scenarioStatuses,
+  scenarioTestBrief,
   decisionTexts,
   diffStoryContent,
   loadEpic,
@@ -26,6 +34,7 @@ import {
   type Box,
   type Diagram,
   type EpicRecord,
+  type TestBrief,
   type Id,
 } from '@rehearse/core';
 import type { CoverageStats } from '@rehearse/graph';
@@ -141,9 +150,34 @@ function parseLink(v: unknown): StoryLink | undefined {
   return link;
 }
 
-/** The file form of a link: a bare thread id when that is all it has. */
-function linkJson(link: StoryLink): string | StoryLink {
-  return Object.keys(link).length === 1 ? link.thread : link;
+/** A story's test thread (T47): the scenarios it writes tests for, the story hash it started from, when. */
+export interface TestLink {
+  thread: string;
+  scenarios: Id[];
+  hash?: string;
+  /** When the thread started (ISO). */
+  at?: string;
+  /** When scenarios were last sent to it (ISO). */
+  sentAt?: string;
+}
+
+export type TestThreads = Record<string, Record<string, TestLink>>;
+
+function parseTestLink(v: unknown): TestLink | undefined {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  if (typeof o.thread !== 'string' || !THREAD_ID.test(o.thread)) return undefined;
+  const link: TestLink = { thread: o.thread, scenarios: Array.isArray(o.scenarios) ? o.scenarios.filter((x): x is string => typeof x === 'string') : [] };
+  if (typeof o.hash === 'string' && HASH.test(o.hash)) link.hash = o.hash;
+  if (typeof o.at === 'string') link.at = o.at;
+  if (typeof o.sentAt === 'string') link.sentAt = o.sentAt;
+  return link;
+}
+
+/** The file form of a story entry: a bare thread id when that is all it has. */
+function linkJson(link: StoryLink | undefined, tests: TestLink | undefined): string | Record<string, unknown> {
+  if (link && !tests && Object.keys(link).length === 1) return link.thread;
+  return { ...link, ...(tests ? { tests } : {}) };
 }
 
 /** The links in the file text. Entries that are not a story id → thread id (or link) are dropped. */
@@ -167,14 +201,42 @@ export function parseStoryThreads(text: string): StoryThreads {
   return out;
 }
 
+/** The test threads in the file text (the `tests` of each story entry). */
+export function parseTestThreads(text: string): TestThreads {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return {};
+  }
+  const out: TestThreads = {};
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) return out;
+  for (const [slug, stories] of Object.entries(json)) {
+    if (typeof stories !== 'object' || stories === null || Array.isArray(stories)) continue;
+    const kept = Object.entries(stories).flatMap(([id, v]) => {
+      const link = typeof v === 'object' && v !== null ? parseTestLink((v as Record<string, unknown>).tests) : undefined;
+      return link ? [[id, link] as const] : [];
+    });
+    if (kept.length > 0) out[slug] = Object.fromEntries(kept);
+  }
+  return out;
+}
+
 export function withStoryThread(all: StoryThreads, slug: string, storyId: Id, link: StoryLink | string): StoryThreads {
   return { ...all, [slug]: { ...all[slug], [storyId]: typeof link === 'string' ? { thread: link } : link } };
 }
 
-/** The link file text. */
-export function storyThreadsJson(all: StoryThreads): string {
-  const out: Record<string, Record<string, string | StoryLink>> = {};
-  for (const [slug, stories] of Object.entries(all)) out[slug] = Object.fromEntries(Object.entries(stories).map(([id, l]) => [id, linkJson(l)]));
+export function withTestThread(all: TestThreads, slug: string, storyId: Id, link: TestLink): TestThreads {
+  return { ...all, [slug]: { ...all[slug], [storyId]: link } };
+}
+
+/** The link file text: the story threads, and beside them the test threads. */
+export function storyThreadsJson(all: StoryThreads, tests: TestThreads = {}): string {
+  const out: Record<string, Record<string, string | Record<string, unknown>>> = {};
+  for (const slug of new Set([...Object.keys(all), ...Object.keys(tests)])) {
+    const ids = new Set([...Object.keys(all[slug] ?? {}), ...Object.keys(tests[slug] ?? {})]);
+    out[slug] = Object.fromEntries([...ids].map((id) => [id, linkJson(all[slug]?.[id], tests[slug]?.[id])]));
+  }
   return `${JSON.stringify(out, null, 2)}\n`;
 }
 
@@ -258,6 +320,53 @@ export function buildPrompt(slug: string, storyId: Id, markdown: string): string
     '',
     markdown,
   ].join('\n');
+}
+
+/** A story's scenarios: the approved ones without a test in the test project, and the ones not approved. */
+export function testsNeeded(record: EpicRecord, storyId: Id, testProject: string | undefined): { missing: Id[]; notApproved: { id: Id; status: 'draft' | 'stale' }[] } {
+  const named = new Set(specTests(testProject).map((t) => t.name));
+  const all = scenarioStatuses(record, storyId);
+  return {
+    missing: all.filter((s) => s.status === 'approved' && !named.has(s.id)).map((s) => s.id),
+    notApproved: all.flatMap((s) => (s.status === 'approved' ? [] : [{ id: s.id, status: s.status }])),
+  };
+}
+
+/**
+ * The test brief of some scenarios with the paths relative to the repo top: the spec file goes
+ * beside the first existing spec of the test project (its style to copy), else in `<project>/tests/`.
+ */
+export function storyTestBrief(record: EpicRecord, storyId: Id, ids: Id[], testProject: string | undefined, top: string): TestBrief {
+  const rel = (p: string) => relative(top, p).split(sep).join('/');
+  const project = testProject ? rel(testProject) : 'e2e';
+  const example = specTests(testProject)[0];
+  const specDir = example ? dirname(`${project}/${example.file}`) : `${project}/tests`;
+  return scenarioTestBrief(record, storyId, ids, {
+    testProject: project,
+    specFile: `${specDir}/${storyId}.spec.ts`,
+    ...(example ? { exampleSpec: `${project}/${example.file}` } : {}),
+  });
+}
+
+/** The first message of a test thread: one line on top, then the test brief. */
+export function testPrompt(slug: string, storyId: Id, scenarios: Id[], markdown: string): string {
+  return [
+    `Write the e2e tests of story ${storyId} of the EPIC ${slug} for ${scenarios.join(', ')}, from this brief. The scenarios are approved by the owner; the owner watches the tests in rehearse (the story's Tests tab, Birdview).`,
+    'Write only tests. Start by saying in a few lines which spec file you will write and how each test walks its scenario. Then write and run them.',
+    '',
+    markdown,
+  ].join('\n');
+}
+
+/** The message that sends more scenarios to a running test thread: one line, then their test brief. */
+export function testSendMessage(storyId: Id, scenarios: Id[], markdown: string): string {
+  return [`Also write the e2e tests of ${scenarios.join(', ')} of story ${storyId}, from this brief. Same rules: write only tests.`, '', markdown].join('\n');
+}
+
+/** The title of a test thread: "Tests: S1 S1-buy S1-empty". */
+export function testTitle(storyId: Id, scenarios: Id[]): string {
+  const title = `Tests: ${storyId} ${scenarios.join(' ')}`;
+  return title.length > 80 ? `${title.slice(0, 79)}…` : title;
 }
 
 export interface SpawnOptions {
@@ -362,6 +471,29 @@ export interface StoryThreadView {
   planChanged: { changes: string[] } | null;
 }
 
+/** What `GET /api/story-tests/thread?story=` returns: the story's test thread and what it could take. */
+export interface TestThreadView {
+  storyId: Id;
+  /** Approved scenarios without a test now: what "Write the K missing tests" asks for. */
+  missing: Id[];
+  /** Scenarios that are not approved: the owner approves them before an agent writes their tests. */
+  notApproved: { id: Id; status: 'draft' | 'stale' }[];
+  /** null when the story has no test thread. */
+  thread: {
+    id: string;
+    scenarios: Id[];
+    at?: string;
+    sentAt?: string;
+    bb: BbState;
+    /** The thread may still work: bb does not say it is done (idle, failed or stopped), or bb cannot
+     * be asked. A second press sends to it instead of starting another. */
+    running: boolean;
+  } | null;
+}
+
+/** bb statuses (in words) of a thread that is done: only then may a new test thread start. */
+const DONE = new Set(['idle', 'failed', 'stopped']);
+
 export class StoryThreadError extends Error {
   constructor(
     readonly status: number,
@@ -415,6 +547,12 @@ export interface StoryThreadService {
   progress(storyId: string): Promise<StoryProgress>;
   /** The progress of every story (no e2e results: the overview stays cheap). */
   progressAll(): Promise<StoryProgress[]>;
+  /** The story's test thread (T47). */
+  testView(storyId: string): Promise<TestThreadView>;
+  /** Start a test thread for approved scenarios; default: every approved one without a test. */
+  startTests(storyId: string, scenarios?: string[]): Promise<TestThreadView>;
+  /** Send more scenarios to the story's test thread; default: the missing ones it does not have. */
+  sendTests(storyId: string, scenarios?: string[]): Promise<TestThreadView>;
 }
 
 function bbFailure(r: RunResult): string {
@@ -452,9 +590,10 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     if (r.code !== 0 || top === '') throw new StoryThreadError(503, `the EPIC folder is not in a git repo, so there is no ${STORY_THREADS_FILE}`);
     return top;
   }
-  async function readLinks(): Promise<{ file: string; all: StoryThreads }> {
+  async function readLinks(): Promise<{ file: string; all: StoryThreads; tests: TestThreads }> {
     const file = join(await topLevel(), STORY_THREADS_FILE);
-    return { file, all: existsSync(file) ? parseStoryThreads(readFileSync(file, 'utf8')) : {} };
+    const text = existsSync(file) ? readFileSync(file, 'utf8') : '{}';
+    return { file, all: parseStoryThreads(text), tests: parseTestThreads(text) };
   }
   async function linkOf(brief: StoryBrief): Promise<StoryLink | null> {
     try {
@@ -466,12 +605,52 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
   async function threadOf(brief: StoryBrief): Promise<string | null> {
     return (await linkOf(brief))?.thread ?? null;
   }
-  async function saveLink(brief: StoryBrief, link: StoryLink): Promise<void> {
-    const { file, all } = await readLinks();
-    mkdirSync(join(file, '..'), { recursive: true });
+  function writeLinks(file: string, text: string): void {
+    mkdirSync(dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
-    writeFileSync(tmp, storyThreadsJson(withStoryThread(all, brief.slug, brief.storyId, link)));
+    writeFileSync(tmp, text);
     renameSync(tmp, file);
+  }
+  async function saveLink(brief: StoryBrief, link: StoryLink): Promise<void> {
+    const { file, all, tests } = await readLinks();
+    writeLinks(file, storyThreadsJson(withStoryThread(all, brief.slug, brief.storyId, link), tests));
+  }
+  async function saveTestLink(brief: StoryBrief, link: TestLink): Promise<void> {
+    const { file, all, tests } = await readLinks();
+    writeLinks(file, storyThreadsJson(all, withTestThread(tests, brief.slug, brief.storyId, link)));
+  }
+  async function testLinkOf(brief: StoryBrief): Promise<TestLink | null> {
+    try {
+      return (await readLinks()).tests[brief.slug]?.[brief.storyId] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function testBrief(storyId: string, ids: Id[]): Promise<TestBrief & { ok: true }> {
+    const made = storyTestBrief(record(), storyId, ids, opts.testProject, await topLevel());
+    if (!made.ok) throw new StoryThreadError(409, made.reason);
+    return made;
+  }
+
+  async function testView(storyId: string): Promise<TestThreadView> {
+    const brief = briefOf(storyId);
+    const needed = testsNeeded(record(), storyId, opts.testProject);
+    const link = await testLinkOf(brief);
+    if (!link) return { storyId, ...needed, thread: null };
+    const bb = await bbState(link.thread);
+    return {
+      storyId,
+      ...needed,
+      thread: {
+        id: link.thread,
+        scenarios: link.scenarios,
+        ...(link.at ? { at: link.at } : {}),
+        ...(link.sentAt ? { sentAt: link.sentAt } : {}),
+        bb,
+        running: !(bb.ok && DONE.has(bb.statusText)),
+      },
+    };
   }
 
   async function bbState(threadId: string): Promise<BbState> {
@@ -710,6 +889,51 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       const { threadId } = await linked(storyId);
       const r = await run('bb', ['thread', 'open', threadId, '--json'], { cwd: epicDir });
       if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, bbFailure(r));
+    },
+    testView,
+    async startTests(storyId, scenarios) {
+      const brief = briefOf(storyId);
+      // Taken before the first await: two presses at once never both get past the check below.
+      const key = `${brief.slug}/${storyId}/tests`;
+      if (starting.has(key)) throw new StoryThreadError(409, `a test thread for ${storyId} is starting`);
+      starting.add(key);
+      try {
+        const now0 = await testView(storyId);
+        if (now0.thread?.running) {
+          throw new StoryThreadError(409, `a test thread of ${storyId} may still be working (@thread:${now0.thread.id}, ${now0.thread.bb.ok ? now0.thread.bb.statusText : 'bb did not answer'}): send these scenarios to it instead of starting another`);
+        }
+        const ids = scenarios && scenarios.length > 0 ? scenarios : now0.missing;
+        if (ids.length === 0) throw new StoryThreadError(409, `every approved scenario of ${storyId} has a test`);
+        const made = await testBrief(storyId, ids);
+        const thread = await spawnThread(
+          {
+            title: testTitle(storyId, made.scenarios),
+            baseBranch: await baseBranch(),
+            ...(opts.threadModel ? { model: opts.threadModel } : {}),
+            ...(opts.threadReasoning ? { reasoning: opts.threadReasoning } : {}),
+          },
+          testPrompt(brief.slug, storyId, made.scenarios, made.markdown),
+        );
+        await saveTestLink(brief, { thread, scenarios: made.scenarios, hash: made.hash, at: new Date(now()).toISOString() });
+      } finally {
+        starting.delete(key);
+      }
+      return testView(storyId);
+    },
+    async sendTests(storyId, scenarios) {
+      const brief = briefOf(storyId);
+      const link = await testLinkOf(brief);
+      if (!link) throw new StoryThreadError(409, `story ${storyId} has no test thread`);
+      const ids = scenarios && scenarios.length > 0 ? scenarios : testsNeeded(record(), storyId, opts.testProject).missing.filter((id) => !link.scenarios.includes(id));
+      if (ids.length === 0) throw new StoryThreadError(409, `the test thread of ${storyId} has every approved scenario without a test already`);
+      const made = await testBrief(storyId, ids);
+      const r = await run('bb', ['thread', 'tell', link.thread, '--message-file', '-', '--json'], { cwd: epicDir, input: testSendMessage(storyId, made.scenarios, made.markdown) });
+      if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, 'bb could not send to the test thread.', bbFailure(r));
+      const told = parseTell(r.stdout);
+      if (!told.ok) throw new StoryThreadError(502, 'bb could not send to the test thread.', told.error);
+      const merged = [...new Set([...link.scenarios, ...made.scenarios])];
+      await saveTestLink(brief, { ...link, scenarios: merged, sentAt: new Date(now()).toISOString() });
+      return testView(storyId);
     },
   };
 }

@@ -39,6 +39,9 @@ Commands:
   brief <epic-dir-or-slug> <story> [--allow-unsigned] [--json]
                                          The build brief of a signed story, as a thread gets it. Exit 1 when the story is
                                          not signed off or changed since (--allow-unsigned prints it, saying so on top).
+  brief <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]
+                                         The test brief of scenarios without an e2e test, as a test thread gets it
+                                         (default: all of the story's). Exit 1 on a draft or stale scenario, or none missing.
   progress <epic-dir-or-slug> <story> [--json]
                                          What rehearse sees of the work on a story: boxes with code (Flow-Box commits on
                                          every branch), e2e tests per scenario, gate findings, whether it is signed, its thread.

@@ -55,6 +55,7 @@ export function StoryView({ view, storyId, onOpenBox, onBigPicture, onStories, o
   const code = useCodeIndex();
   const tabId = useId().replace(/:/g, '');
   const scenarios = useMemo(() => view.scenarios.map((sv) => sv.scenario).filter((s) => s.story === storyId), [view, storyId]);
+  const statuses = useMemo(() => Object.fromEntries(view.scenarios.filter((sv) => sv.scenario.story === storyId).map((sv) => [sv.scenario.id, sv.status])), [view, storyId]);
   const page = isStoryPage(tab);
   // A click on WHAT, HOW or OUTPUT brings that card into view (not on the first render).
   // The picked card is outlined, so the reader sees which one the tab meant.
@@ -137,7 +138,7 @@ export function StoryView({ view, storyId, onOpenBox, onBigPicture, onStories, o
         )}
         {tab === 'before-after' && <StoryBeforeAfter view={view} storyId={storyId} onOpenBox={onOpenBox} />}
         {tab === 'code' && <StoryCode d={d} index={code} />}
-        {tab === 'tests' && <StoryTests storyId={storyId} scenarios={scenarios} />}
+        {tab === 'tests' && <StoryTests storyId={storyId} scenarios={scenarios} statuses={statuses} />}
       </div>
       {page && children}
     </article>

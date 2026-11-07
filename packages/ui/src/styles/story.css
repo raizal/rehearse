@@ -435,6 +435,11 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .story-test-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); margin-bottom: var(--s-1); }
 .story-test-head .badge { margin-left: auto; }
 .story-test-play { padding: 0 var(--s-2); }
+.story-test-agent { margin-top: var(--s-2); }
+.story-test-thread { margin-top: var(--s-1); color: var(--muted); }
+.story-test-thread.tone-working { color: var(--accent); }
+.story-test-thread.tone-failed { color: var(--warn); }
+.story-tests-agent { margin: 0 0 var(--s-2); }
 .story-tests-birdview { margin: calc(-1 * var(--s-2)) 0 var(--s-3); display: grid; gap: var(--s-1); }
 .story-tests-birdview p { margin: 0; }
 .story-tests-birdview .link-button:disabled { opacity: 0.5; cursor: default; }

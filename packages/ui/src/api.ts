@@ -4,7 +4,7 @@
 // calls go to the same server, which talks to the player on 127.0.0.1 (T13).
 
 import type { Finding, Id } from '@rehearse/core';
-import type { SignOffPreview, StoryProgress, StoryThreadView } from '@rehearse/server';
+import type { SignOffPreview, StoryProgress, StoryThreadView, TestThreadView } from '@rehearse/server';
 import type { ApproveOk, PostOutcome, ReviewEpicView, SignOffOk } from './contract.js';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
@@ -123,6 +123,20 @@ export async function fetchAllProgress(client: SessionClient = sessionClient): P
 }
 
 export type { SignOffPreview, SinceSignOff, StorySignOffPreview } from '@rehearse/server';
+
+export type { TestThreadView } from '@rehearse/server';
+
+const NO_TEST_THREADS = 'this rehearse serve cannot start test threads; update rehearse';
+
+/** `GET api/story-tests/thread?story=` (T47): the story's test thread, and the approved scenarios without a test. */
+export function fetchTestThread(story: Id, client: SessionClient = sessionClient): Promise<ThreadOutcome<TestThreadView>> {
+  return threadCall<TestThreadView>(client, `api/story-tests/thread?story=${encodeURIComponent(story)}`, undefined, NO_TEST_THREADS);
+}
+
+/** `POST api/story-tests/thread` starts a test thread; `POST api/story-tests/send` sends more scenarios to it (T47). */
+export function postTestThread(action: 'thread' | 'send', body: { story: Id; scenarios?: Id[] }, client: SessionClient = sessionClient): Promise<ThreadOutcome<TestThreadView>> {
+  return threadCall<TestThreadView>(client, `api/story-tests/${action}`, body, NO_TEST_THREADS);
+}
 
 /** `GET api/sign-off/preview?stories=` (T39): what each story's sign-off covers, and what changed since the last one. */
 export function fetchSignOffPreview(storyIds: Id[], client: SessionClient = sessionClient): Promise<ThreadOutcome<SignOffPreview>> {

@@ -33,6 +33,8 @@ export interface MockRoutes {
   graph?: (query: URLSearchParams) => Reply;
   /** `GET api/story-progress` and `?story=` (T44). */
   progress?: (storyId: string | null) => Reply;
+  /** `GET api/story-tests/thread?story=`, `POST api/story-tests/thread | send` (T47). */
+  testThread?: (method: string, path: string, body: unknown) => Reply;
 }
 
 export const SESSION: Session = {
@@ -68,6 +70,9 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     if ((url === 'api/story-progress' || url.startsWith('api/story-progress?story=')) && method === 'GET' && routes.progress) {
       const story = url.includes('?story=') ? decodeURIComponent(url.split('?story=')[1]!) : null;
       return respond(routes.progress(story));
+    }
+    if (url.startsWith('api/story-tests/') && routes.testThread) {
+      return respond(routes.testThread(method, url.split('?')[0]!.slice('api/story-tests/'.length), body ?? { story: decodeURIComponent(url.split('?story=')[1] ?? '') }));
     }
     if (url.startsWith('api/birdview/') && method === 'POST') {
       return respond(routes.birdviewCall?.(url.slice('api/birdview/'.length), body) ?? { status: 404, body: { error: 'no route' } });

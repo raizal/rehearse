@@ -18,6 +18,7 @@ bb rehearse simulate <epic-dir-or-slug> [--drafts] [--json]
 bb rehearse gate check <epic-dir-or-slug> [--json]
 bb rehearse new <slug> --title "<title>"
 bb rehearse brief <epic-dir-or-slug> <story> [--allow-unsigned] [--json]
+bb rehearse brief <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]
 bb rehearse progress <epic-dir-or-slug> <story> [--json]
 ```
 
@@ -29,7 +30,9 @@ bb rehearse progress <epic-dir-or-slug> <story> [--json]
   findings only, never evidence: the gate does not read it.
 - `brief` prints the build brief of a signed story: the story, its approved
   scenarios, boxes, decisions, entities and how to work. It refuses an unsigned
-  or stale story (exit 1) unless `--allow-unsigned`.
+  or stale story (exit 1) unless `--allow-unsigned`. With `--tests` it prints
+  the test brief of the story's approved scenarios without an e2e test (or the
+  `--scenario` ones); a draft or stale scenario is refused (exit 1).
 - `progress` prints what rehearse sees of the work on a story: per box, built
   or not yet from `Flow-Box:` commits on every branch; per approved scenario,
   whether an e2e test is found and its result; the gate findings; the sign-off.
@@ -49,6 +52,10 @@ a signed story. Work on it like this:
 - Never approve a scenario or sign off a story. No command does it; only the owner, in the rehearse UI.
 - Do not edit the record (`docs/epics/…`) without asking in the thread first: a change to a story, its scenarios or its boxes makes the owner's approvals and sign-off stale. If the plan is wrong, say so and propose the change. Something found after the build goes in `corrections.md`.
 - Report in the thread in plain words: what is done per box, what is not, and the test results.
+
+## Writing a story's e2e tests
+
+A thread started from the story Tests tab ("Write this test with an agent", or "Write the K missing tests with an agent") gets the test brief of approved scenarios that have no e2e test yet; re-read it with `rehearse brief <epic> <story> --tests [--scenario <id>]…`. Name each test exactly after its scenario id (`test('S1-buy', async ({ page }) => {`) in the spec file the brief names, one `test.step` per scenario step titled `<box path>: …`. Write only tests: do not change app code, and do not change a scenario to fit the app; if the app cannot do what a scenario says, stop and say so in the thread. More scenarios may arrive in the same thread while you work. Run each test and report per scenario: written, run, passed or failed.
 
 ## Panel
 

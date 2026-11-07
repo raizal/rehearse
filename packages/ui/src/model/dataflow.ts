@@ -8,8 +8,8 @@
 
 import type { Box, EntityModel, Flow, Prd } from '@rehearse/core';
 import { lanesFor } from './diagram.js';
-import { nodeSize, type DEdge, type DGraph, type DNode, type FoldRow } from './graph.js';
-import type { Cell } from './grid.js';
+import { nodeSize, type DEdge, type DGraph, type DNode, type FoldRow, type GraphLayout } from './graph.js';
+import { columnsFor, DIAGRAM_W, layoutGrid, type Cell } from './grid.js';
 import { mergeEdges, rootGraph } from './userflow.js';
 
 export interface DataProcess {
@@ -198,4 +198,18 @@ export function dataFlowCells(df: DataFlow, cols: number): Map<string, Cell> {
     }
   }
   return cells;
+}
+
+/**
+ * The data flow laid out as wide as the page at most: as many columns as the widest node allows,
+ * one fewer while the lanes in the gutters make it wider than `maxW` (down to three).
+ */
+export function dataFlowLayout(df: DataFlow, maxW: number = DIAGRAM_W): { layout: GraphLayout; cols: number } {
+  let cols = columnsFor(maxW, Math.max(...df.nodes.map((n) => n.w)));
+  let layout = layoutGrid(df, dataFlowCells(df, cols));
+  while (layout.width > maxW && cols > 3) {
+    cols -= 1;
+    layout = layoutGrid(df, dataFlowCells(df, cols));
+  }
+  return { layout, cols };
 }
