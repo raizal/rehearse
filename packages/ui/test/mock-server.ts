@@ -50,7 +50,7 @@ export interface MockRoutes {
   /** `POST api/figcraft/fetch` (T50). */
   figcraftFetch?: () => Reply;
   /** `GET api/present?epic=&format=` (T52): the deck, or an error body. */
-  present?: (format: 'html' | 'pdf', epic: string) => { status: number; data?: string; headers?: Record<string, string | undefined>; body?: unknown };
+  present?: (format: 'html' | 'pdf' | 'zip', epic: string) => { status: number; data?: string; headers?: Record<string, string | undefined>; body?: unknown };
 }
 
 export const SESSION: Session = {
@@ -109,7 +109,7 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     if (url === 'api/figcraft/fetch' && method === 'POST' && routes.figcraftFetch) return respond(routes.figcraftFetch());
     if (url.startsWith('api/present?') && method === 'GET' && routes.present) {
       const q = new URLSearchParams(url.slice('api/present?'.length));
-      const r = routes.present(q.get('format') === 'pdf' ? 'pdf' : 'html', q.get('epic') ?? '');
+      const r = routes.present(q.get('format') === 'pdf' ? 'pdf' : q.get('format') === 'zip' ? 'zip' : 'html', q.get('epic') ?? '');
       const headers = new Headers(Object.entries(r.headers ?? {}).filter((e): e is [string, string] => e[1] !== undefined));
       return {
         ok: r.status >= 200 && r.status < 300,

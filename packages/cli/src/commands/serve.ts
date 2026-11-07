@@ -7,7 +7,8 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-import { createSession, DEFAULT_BIRDVIEW_PORT, findTestProject, startServer, type RunningServer } from '@rehearse/server';
+import { createSession, deckSources, DEFAULT_BIRDVIEW_PORT, execGit, findTestProject, startServer, type RunningServer } from '@rehearse/server';
+import { repoTopOf } from '@rehearse/core';
 import { EXIT, resolveEpicDir, type Io } from '../index.js';
 
 export const DEFAULT_PORT = 4700;
@@ -94,6 +95,8 @@ export async function startServe(args: string[], io: Io, uiDir: string = uiDistD
       port: parsed.port,
       session,
       birdview,
+      // The deck's proof (T53): Birdview's saved results and the unit report, looked up on each deck.
+      deckSources: () => deckSources({ repoTop: repoTopOf(parsed.epicDir), git: execGit, ...(birdview.projectDir ? { testProject: birdview.projectDir } : {}) }),
       ...(parsed.threadModel ? { threadModel: parsed.threadModel } : {}),
       ...(parsed.threadReasoning ? { threadReasoning: parsed.threadReasoning } : {}),
     });

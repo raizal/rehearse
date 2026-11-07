@@ -259,6 +259,22 @@ requirements:
       words live in `presentation.yaml`, outside the signed record. The EPIC page has a Present
       button with a preview and downloads. (T52)
 
+  - id: R30
+    kind: functional
+    text: >-
+      The deck says plainly what is done and what is not, with the proof for each, and where
+      each proof comes from. Right after the title, a recap slide gives every story as done, in
+      progress or not started, with one sentence on top. One rule decides "done" everywhere in
+      the deck: the story is signed off and the sign-off is not stale, every approved scenario's
+      e2e test passed in its last run, and every box of the story has code. Every story slide
+      has a proof line for each source: the e2e results from Birdview (the live player, or the
+      results Birdview saved in its data folder), a picture of the last screen of a recording, a
+      link to the recording, unit tests from a vitest JSON report, the simulation, the built
+      parts and their commits, and the signature. `--with-recordings <dir>` copies the linked
+      videos next to the deck, and the EPIC page can download the deck with its recordings as a
+      zip. An evidence page says where each proof comes from, and a source that is missing says
+      so instead of being left out. (T53)
+
 stories:
   - id: S1
     role: builder
@@ -936,6 +952,74 @@ stories:
           the command writes the deck (default `presentations/<slug>-<date>-<sha>.html`, a folder git
           ignores), says the path, the size and the number of slides, and exits 0; refused
           inputs or uncommitted changes with `--committed-only` exit 1, a usage error exits 2
+
+  - id: S19
+    role: builder
+    want: to have the deck open with what is done and what is not, each with its proof
+    soThat: my supervisor sees where the EPIC stands and can trust it
+    requirements: [R30]
+    acceptance:
+      - id: S19-A1
+        given: an EPIC with stories that are done, in progress and not started
+        when: the builder makes its deck
+        then: >-
+          the slide right after the title is a recap: one sentence on top such as "12 of 19
+          stories are done", then every story with its name and done, in progress or not started
+      - id: S19-A2
+        given: stories at every stage
+        when: the builder makes the deck
+        then: >-
+          one rule decides the state of a story everywhere in the deck: done means signed off and
+          not stale, the e2e test of every approved scenario passed in its last run, and every box
+          of the story has code; not started means not signed off and no box of the story has
+          code; any other story is in progress
+      - id: S19-A3
+        given: a story with tests, recordings, a simulation, built parts and a signature
+        when: the builder makes the deck
+        then: >-
+          the story's slide has one short proof line for each source: e2e results, a picture of
+          the last screen, a link to the recording, unit tests, the simulation, the built parts
+          with their commits, and the signature, each saying what it shows in plain words
+      - id: S19-A4
+        given: a Birdview player that does not have this project, and results Birdview saved in its data folder
+        when: the builder makes the deck
+        then: >-
+          the deck reads the saved results and matches each one to a test by file and line, or by
+          the test's title when the line moved; a saved result that matches no test is left out,
+          and the deck says how many were left out
+      - id: S19-A5
+        given: a scenario whose e2e test left a recording
+        when: the builder makes the deck
+        then: >-
+          the scenario shows a still picture of the last screen of the recording, no wider than
+          1600 px, and a link to the recording video
+      - id: S19-A6
+        given: recordings linked from the deck
+        when: the builder runs `pnpm rehearse present <epic> --with-recordings <dir>`, or presses "HTML + recordings (zip)" on the EPIC page
+        then: >-
+          the linked videos are copied into `<deck>-media/` next to the HTML and the links point
+          there; the zip holds the HTML and that folder; a recording that cannot be found is
+          named as missing
+      - id: S19-A7
+        given: a vitest JSON report
+        when: the builder runs `pnpm rehearse present <epic> --unit-report <file.json>`
+        then: >-
+          each story slide counts the unit tests of the story's parts that passed and failed;
+          a report that is missing or cannot be read is said in plain words and the deck is still
+          made
+      - id: S19-A8
+        given: any EPIC
+        when: the builder makes the deck
+        then: >-
+          an evidence page before the glossary says where each proof comes from (Birdview's player
+          or its saved results, the recordings, the unit report, the simulation, git commits and
+          the signatures) and which of these sources were found
+      - id: S19-A9
+        given: an EPIC with no Birdview results, no recordings or no unit report
+        when: the builder makes the deck
+        then: >-
+          each missing source shows as missing on the story slides and on the evidence page, in
+          plain words, and no story is called done without the proof that the rule asks for
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

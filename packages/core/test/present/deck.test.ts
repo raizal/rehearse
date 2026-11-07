@@ -54,13 +54,13 @@ function visibleText(html: string): string {
 }
 
 describe('presentationDeck: slide order', () => {
-  it('title, why, requirements, big picture, progress, the stories, quality, risks, next, glossary', () => {
+  it('title, recap, why, requirements, big picture, progress, the stories, quality, risks, next, evidence, glossary', () => {
     const deck = presentationDeck(real, facts(real), NO_INPUTS);
     const keys = deck.slides.map((s) => s.key);
-    expect(keys.slice(0, 5)).toEqual(['title', 'why', 'requirements', 'big-picture', 'progress']);
-    expect(keys.slice(-4)).toEqual(['quality', 'risks', 'next', 'glossary']);
+    expect(keys.slice(0, 6)).toEqual(['title', 'recap', 'why', 'requirements', 'big-picture', 'progress']);
+    expect(keys.slice(-5)).toEqual(['quality', 'risks', 'next', 'evidence', 'glossary']);
     const stories = real.prd!.stories.map((s) => s.id);
-    const storyKeys = keys.slice(5, -4);
+    const storyKeys = keys.slice(6, -5);
     // Every story in record order, each with its own slide first and its checks after it.
     expect(storyKeys.filter((k) => stories.includes(k))).toEqual(stories);
     for (const k of storyKeys) expect(k).toMatch(/^S\d+(-checks(-\d+)?)?$/);
@@ -82,7 +82,7 @@ describe('presentationDeck: slide order', () => {
     const rows = progress.blocks.find((b) => b.type === 'progress');
     expect(rows?.type === 'progress' && rows.rows.length).toBe(real.prd!.stories.length);
     expect(rows?.type === 'progress' && rows.rows.every((r) => r.steps.length === PROGRESS_STEPS.length)).toBe(true);
-    expect(progress.blocks.some((b) => b.type === 'text' && /of \d+ stories finished/.test(b.text))).toBe(true);
+    expect(progress.blocks.some((b) => b.type === 'text' && /of \d+ stories done/.test(b.text))).toBe(true);
   });
 
   it('a story has "As a…", its criteria, the swimlanes and what was checked', () => {
@@ -145,7 +145,7 @@ describe('honesty', () => {
     const riskText = JSON.stringify(risks.blocks);
     expect(riskText).toMatch(/not signed off yet/);
     const title = deck.slides[0]!;
-    expect(JSON.stringify(title.blocks)).toMatch(/0 of 2 stories signed off/);
+    expect(JSON.stringify(title.blocks)).toMatch(/0 of 2 stories are done\. (\d+ (is|are) in progress\. )?\d+ (is|are) not started\./);
     // Not signed off is "not yet" in progress, never "done".
     const rows = deck.slides.find((s) => s.key === 'progress')!.blocks.find((b) => b.type === 'progress');
     expect(rows?.type === 'progress' && rows.rows.every((r) => r.steps[4]!.state !== 'done')).toBe(true);
@@ -163,10 +163,10 @@ describe('honesty', () => {
     expect(html).toMatch(/failing/);
   });
 
-  it('progress says what finished means; a story with nothing approved never reads "0 of 0"', () => {
+  it('progress says what done means; a story with nothing approved never reads "0 of 0"', () => {
     const deck = presentationDeck(real, facts(real), NO_INPUTS);
     const progress = deck.slides.find((s) => s.key === 'progress')!;
-    expect(progress.narration).toMatch(/finished \(signed off, built, and every approved scenario passing its e2e test\)/);
+    expect(progress.narration).toMatch(/done \(signed off, built, and every approved scenario passing its e2e test\)/);
     const s18 = deck.slides.find((s) => s.key === 'S18')!;
     expect(JSON.stringify(s18.blocks)).toMatch(/no approved scenario yet/);
     expect(JSON.stringify(deck.slides)).not.toMatch(/0 of 0 approved/);
@@ -242,7 +242,7 @@ describe('owner inputs (presentation.yaml)', () => {
     expect(deck.slides.some((s) => s.key === 'S1' || s.key === 'S2-checks')).toBe(false);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'big-picture')!.blocks)).toMatch(/2 stories not shown in this deck/);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'progress')!.blocks)).toMatch(/2 stories not shown/);
-    expect(JSON.stringify(deck.slides[0]!.blocks)).toMatch(new RegExp(`of ${real.prd!.stories.length} stories signed off`));
+    expect(JSON.stringify(deck.slides[0]!.blocks)).toMatch(new RegExp(`of ${real.prd!.stories.length} stories (is|are) done`));
   });
 
   it('parsePresentation: unknown slide keys and story ids are findings; good parts are kept', () => {

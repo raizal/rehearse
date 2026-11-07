@@ -9,6 +9,7 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "coverage": "pnpm -r --no-bail coverage",
+    "test:report": "node scripts/unit-report.mjs",
     "e2e": "pnpm --filter @rehearse/e2e e2e",
     "e2e:playlists": "pnpm --filter @rehearse/e2e playlists",
     "rehearse": "node packages/cli/bin/rehearse.js"

@@ -49,9 +49,15 @@ Commands:
                                          What rehearse sees of the work on a story: boxes with code (Flow-Box commits on
                                          every branch), e2e tests per scenario, gate findings, whether it is signed, its thread.
   present <epic-dir-or-slug> [--out <file.html>] [--pdf <file.pdf>] [--committed-only]
+          [--with-recordings <dir>] [--unit-report <file.json>] [--birdview-data <dir>]
                                          The EPIC as a deck for a supervisor: one self-contained HTML file (default
                                          presentations/<slug>-<date>-<sha>.html), and a PDF with --pdf (Chromium from e2e/).
-                                         Exit 1 with --committed-only on uncommitted record changes, or when no PDF.
+                                         It says what is done and what is not, with the proof: e2e results (the Birdview player,
+                                         else its saved results), unit tests (--unit-report, default .rehearse/unit-report.json
+                                         from pnpm test:report), signatures. --with-recordings writes the deck into <dir> and
+                                         copies the videos it links into <dir>/<deck>-media/.
+                                         Exit 1 with --committed-only on uncommitted record changes, when no PDF, or when the
+                                         named --unit-report cannot be read (the deck is still written).
   playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir> | --push [--birdview-port N]]
                                          Write one Birdview playlist per story from the e2e tests named after scenarios.
                                          --push writes them through the Birdview player (switching it to the test project).

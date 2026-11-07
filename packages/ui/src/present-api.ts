@@ -1,6 +1,7 @@
 // The deck calls (T52): `GET api/present?epic=<slug>` (the EPIC as one self-contained HTML file) and
-// `&format=pdf` (the same deck printed by Chromium). Both send the session token; the file name
-// comes from the server's content-disposition. No Chromium is a 503 with the server's plain words.
+// `&format=pdf` (the same deck printed by Chromium); T53 `&format=zip` (the HTML and a media folder
+// with the recordings it links). All send the session token; the file name comes from the server's
+// content-disposition. No Chromium is a 503 with the server's plain words.
 
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient } from './session-client.js';
 
@@ -14,11 +15,17 @@ export interface DeckHtml extends DeckFile<string> {
   slides: number;
 }
 
+export interface DeckZip extends DeckFile<Blob> {
+  /** Videos in the zip's media folder. */
+  videos: number;
+}
+
 export type PresentOutcome<T> = { ok: true; body: T } | { ok: false; error: string };
 
 export interface PresentApi {
   html: (slug: string) => Promise<PresentOutcome<DeckHtml>>;
   pdf: (slug: string) => Promise<PresentOutcome<DeckFile<Blob>>>;
+  zip: (slug: string) => Promise<PresentOutcome<DeckZip>>;
 }
 
 const fileName = (res: Response, fallback: string): string => /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? fallback;
@@ -49,6 +56,12 @@ export function httpPresentApi(client: SessionClient = sessionClient): PresentAp
         slides: Number(res.headers.get('x-deck-slides') ?? 0),
       })),
     pdf: (slug) => get(`api/present?epic=${encodeURIComponent(slug)}&format=pdf`, async (res) => ({ data: await res.blob(), name: fileName(res, `${slug}.pdf`) })),
+    zip: (slug) =>
+      get(`api/present?epic=${encodeURIComponent(slug)}&format=zip`, async (res) => ({
+        data: await res.blob(),
+        name: fileName(res, `${slug}.zip`),
+        videos: Number(res.headers.get('x-deck-videos') ?? 0),
+      })),
   };
 }
 
