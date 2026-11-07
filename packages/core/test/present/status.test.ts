@@ -19,7 +19,7 @@ import {
   type EpicRecord,
   type StoryFacts,
 } from '../../src/index.js';
-import { REAL_EPIC } from '../helpers.js';
+import { REAL_EPIC, withWaitingStory } from '../helpers.js';
 
 const COMMIT = { branch: 'main', sha: 'abc1234', date: '2026-11-07' };
 const real = loadEpic(REAL_EPIC).record;
@@ -35,7 +35,6 @@ function facts(over: Record<string, Partial<StoryFacts>> = {}, rest: Partial<Dec
 /** A story signed off and buildable in the real record, whatever the owner signed last. */
 const table0 = statusTable(real, facts());
 const DONE = table0.rows.find((r) => r.done.state === 'done')!.id;
-const NOT_SIGNED = table0.rows.find((r) => r.signed.state === 'no')!.id;
 
 /** DONE with its last box left unbuilt, with the box-evidence words of that box. */
 function oneLeft(): { f: DeckFacts; left: string } {
@@ -67,7 +66,10 @@ describe('statusTable', () => {
   });
 
   it('a story not signed off: not done, and you approve or sign off', () => {
-    const row = table0.rows.find((r) => r.id === NOT_SIGNED)!;
+    // A copy of the record in which a done story waits for the owner again: it stays true whatever the owner signs.
+    const waiting = withWaitingStory(real, DONE);
+    const row = statusTable(waiting, facts()).rows.find((r) => r.id === DONE)!;
+    expect(row.signed.state).toBe('no');
     expect(row.done.state).not.toBe('done');
     expect(row.done.text).toBe('not done');
     expect(row.missing.some((m) => m.who === 'you' && /^(approve \d+ scenarios?|sign off)$/.test(m.text))).toBe(true);
@@ -121,7 +123,7 @@ describe('the Status page and the deck agree', () => {
     const t = statusTable(real, f);
     const deck = JSON.stringify(presentationDeck(real, f, NO_INPUTS));
     expect(deck).toContain(`${t.counts.done} of ${t.counts.stories} parts of the plan are done`);
-    expect(deck).toContain(`${t.counts.notDone} are not done yet`);
+    expect(deck).toContain(`${t.counts.notDone} ${t.counts.notDone === 1 ? 'is' : 'are'} not done yet`);
     expect(t.rows.find((r) => r.id === DONE)!.done.state).not.toBe('done');
   });
 });
