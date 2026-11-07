@@ -1,0 +1,16 @@
+{
+  "name": "S1 · to create an EPIC record with one command",
+  "tests": [
+    {
+      "file": "tests/S1.spec.ts",
+      "line": 24,
+      "name": "S1-new",
+      "about": "Builder creates a new EPIC",
+      "steps": {
+        "start: the builder has an idea, in a repo with no EPIC named 2026-11-05-demo": "start",
+        "new-epic: rehearse new 2026-11-05-demo --title \"Demo\" creates docs/epics/2026-11-05-demo": "new-epic",
+        "draft-record: the record has its files and an empty scenarios/, validate passes, the EPIC is a draft": "draft-record"
+      }
+    }
+  ]
+}
