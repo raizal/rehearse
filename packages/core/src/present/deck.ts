@@ -12,11 +12,28 @@ import type { AcceptanceCriterion, EpicRecord, Id, Requirement, Role, Scenario, 
 import { asArray, isObject } from '../util.js';
 import type { PresentationInputs } from './inputs.js';
 import { plain, sentences } from './plain.js';
+import { DONE_WORDS, evidenceSlide, missingThings, NO_EVIDENCE, plainStep, proofRows, recapSlides, shortDate, standing, standingSentence, viewDoneState, type DoneState, type ProofContext } from './proof.js';
 import { storyFlowSvg } from './svg.js';
 
 // ---------------------------------------------------------------- facts (gathered by the server)
 
 export type TestState = 'passed' | 'failed' | 'not-run' | 'not-written';
+
+/** The last known run of one scenario's e2e test (T53). */
+export interface TestRun {
+  /** When it ran: an ISO date or date-time. */
+  at?: string;
+  /** The step that failed, as the test names it. */
+  failedStep?: string;
+  /** Birdview recorded this run. */
+  recorded?: boolean;
+  /** Relative link to the copied video, next to the deck (`--with-recordings`). */
+  video?: string;
+  /** A still of the last screen, as an asset key of deckHtml's assets. */
+  picture?: string;
+}
+
+export type SignatureState = 'valid' | 'missing' | 'invalid' | 'unknown-signer';
 
 export interface StoryFacts {
   /** Boxes of the story with a Flow-Box commit reachable from the deck's commit. */
@@ -25,6 +42,51 @@ export interface StoryFacts {
   tests: Record<Id, TestState>;
   /** The story's design picture, as an asset key of deckHtml's assets. */
   design?: { asset: string; caption: string };
+  /** The last run of each approved scenario's test, by scenario id (T53). */
+  runs?: Record<Id, TestRun>;
+  /** Flow-Box commits that name a part of the story. */
+  commits?: number;
+  /** Unit tests that name the story's scenarios or criteria, from the unit report; absent: no report. */
+  unit?: { tests: number; passed: number; failed: number };
+  /** Simulation findings of the story: problems, and paths no approved scenario walks. */
+  simulation?: { problems: number; uncovered: number };
+  /** The signature of the story's last sign-off. */
+  signature?: SignatureState;
+}
+
+/** Where each kind of proof came from (T53), for the evidence page. */
+export interface DeckEvidence {
+  e2e: {
+    /** The running Birdview player, Birdview's saved results files, or nothing. */
+    source: 'player' | 'saved' | 'none';
+    /** The results file read. */
+    file?: string;
+    /** The test project the results belong to. */
+    project?: string;
+    /** Why that project: "this checkout's own", "the main checkout's own". */
+    note?: string;
+    /** Dates of the oldest and newest run used (ISO). */
+    oldest?: string;
+    newest?: string;
+    used: number;
+    /** Saved results left out: they match no test now. */
+    dropped: number;
+    /** Older saved runs of a test, replaced by its newer run. */
+    older?: number;
+    /** Why there are none. */
+    why?: string;
+  };
+  recordings: {
+    /** Videos of the runs used. */
+    found: number;
+    /** The folder next to the deck the videos were copied to. */
+    copied?: string;
+    pictures: number;
+    picturesLeftOut: number;
+    picturesBytes: number;
+  };
+  unit: { file?: string; date?: string; tests?: number; passed?: number; failed?: number; why?: string };
+  signatures: { file: string; checked: number; valid: number };
 }
 
 export interface GateFact {
@@ -48,6 +110,8 @@ export interface DeckFacts {
   testResults: boolean;
   /** Lines covered by unit tests, in whole percent, when the code graph has it. */
   coverage?: number;
+  /** Where the proof came from (T53). Default: nothing looked up. */
+  evidence?: DeckEvidence;
 }
 
 // ---------------------------------------------------------------- the deck
@@ -69,6 +133,14 @@ export interface ProgressRow {
   id: Id;
   title: string;
   steps: ProgressStep[];
+  /** Done, in progress or not started, by the one done rule (T53). */
+  state: DoneState;
+}
+
+/** A link in the deck: relative (a copied recording), never fetched. */
+export interface Link {
+  href: string;
+  text: string;
 }
 
 export interface ListItem {
@@ -76,6 +148,23 @@ export interface ListItem {
   /** Record id, shown small in the item's corner. */
   id?: string;
   mark?: Mark;
+}
+
+/** One line of the recap: a story, done with its proof, or what it still needs. */
+export interface RecapItem {
+  id: Id;
+  text: string;
+  mark: Mark;
+  state: DoneState;
+  links?: Link[];
+}
+
+/** One source of proof of a story: "E2E tests", "Built", "Signed"… */
+export interface ProofRow {
+  label: string;
+  text: string;
+  tone?: 'good' | 'warn' | 'bad' | 'muted';
+  links?: Link[];
 }
 
 export interface CheckRow {
@@ -87,6 +176,14 @@ export interface CheckRow {
   approval: string;
   approved: boolean;
   test: TestState | 'not approved';
+  /** When the test last ran ("6 Nov") and the failed step in plain words. */
+  ran?: string;
+  failedStep?: string;
+  /** A still of the last screen (asset key) and a link to the copied video. */
+  picture?: string;
+  video?: string;
+  /** The run was recorded, but the video is not sent with the deck. */
+  kept?: boolean;
 }
 
 export interface MapColumn {
@@ -99,7 +196,7 @@ export interface MapColumn {
 
 export type Block =
   | { type: 'lead'; text: string }
-  | { type: 'text'; text: string; tone?: 'muted' | 'warn' | 'good' }
+  | { type: 'text'; text: string; tone?: 'muted' | 'warn' | 'good' | 'small' }
   | { type: 'notice'; text: string }
   | { type: 'list'; title?: string; items: ListItem[]; columns?: 1 | 2; legend?: boolean }
   | { type: 'stats'; items: { value: string; label: string; tone?: 'good' | 'warn' | 'bad' }[] }
@@ -108,7 +205,9 @@ export type Block =
   | { type: 'image'; asset: string; caption: string }
   | { type: 'flow'; svg: string; caption: string }
   | { type: 'checks'; rows: CheckRow[] }
-  | { type: 'glossary'; items: { term: string; meaning: string }[] };
+  | { type: 'glossary'; items: { term: string; meaning: string }[] }
+  | { type: 'recap'; done: RecapItem[]; notDone: RecapItem[]; compact: boolean; doneTotal: number; notDoneTotal: number }
+  | { type: 'proof'; title?: string; rows: ProofRow[] };
 
 export interface Slide {
   /** The narration key: a SLIDE_KEYS entry, a story id, or `<story id>-checks`; a continuation adds `-<n>`. */
@@ -181,7 +280,7 @@ function chunks<T>(list: T[], size: number): T[][] {
 
 // ---------------------------------------------------------------- per story
 
-interface StoryView {
+export interface StoryView {
   story: Story;
   title: string;
   role?: Role;
@@ -231,11 +330,10 @@ function storyView(record: EpicRecord, facts: DeckFacts, story: Story): StoryVie
   return { story, title: storyTitle(story), ...(role ? { role } : {}), scenarios, boxes, steps: [designed, scen, built, tested, signed], sign, tests, approved, facts: f };
 }
 
-/** A story's overall state for the map: done when signed off and every approved test passes. */
+/** A story's mark for the map, by the one done rule. */
 function overall(v: StoryView): StepState {
-  if (v.steps.every((s) => s.state === 'done')) return 'done';
-  if (v.steps.some((s) => s.state !== 'not-yet')) return 'partly';
-  return 'not-yet';
+  const state = viewDoneState(v);
+  return state === 'done' ? 'done' : state === 'in-progress' ? 'partly' : 'not-yet';
 }
 
 function criterionMark(v: StoryView, c: AcceptanceCriterion): Mark {
@@ -266,17 +364,35 @@ function statusLine(v: StoryView): string {
   return `${parts.join(' · ')}.`;
 }
 
-function checkRow(v: StoryView, x: { s: Scenario; approved: boolean }): CheckRow {
+function checkRow(v: StoryView, x: { s: Scenario; approved: boolean }, year: string): CheckRow {
   const c = isObject(x.s.expect) ? v.story.acceptance.find((a) => a.id === x.s.expect!.criterion) : undefined;
   const approval = x.approved && x.s.approval ? `Approved by ${person(x.s.approval.by)} on ${day(x.s.approval.at)}` : x.s.approval ? 'Changed since it was approved: waiting for a new approval' : 'Waiting for approval';
+  const test = x.approved ? (v.facts.tests[x.s.id] ?? 'not-written') : 'not approved';
+  const run = x.approved && (test === 'passed' || test === 'failed') ? v.facts.runs?.[x.s.id] : undefined;
+  const step = test === 'failed' ? plainStep(run?.failedStep) : '';
   return {
     id: x.s.id,
     title: cap(plain(x.s.title)),
     ...(c ? { given: plain(c.given), when: plain(c.when), then: plain(c.then) } : {}),
     approval,
     approved: x.approved,
-    test: x.approved ? (v.facts.tests[x.s.id] ?? 'not-written') : 'not approved',
+    test,
+    ...(run?.at ? { ran: shortDate(run.at, year) } : {}),
+    ...(step ? { failedStep: step } : {}),
+    ...(run?.picture ? { picture: run.picture } : {}),
+    ...(run?.video ? { video: run.video } : run?.recorded ? { kept: true } : {}),
   };
+}
+
+/** The newest still of the last screen among the story's approved runs, with its caption. */
+function newestPicture(v: StoryView, year: string): { asset: string; caption: string } | undefined {
+  const best = v.scenarios
+    .filter((x) => x.approved && v.facts.runs?.[x.s.id]?.picture)
+    .map((x) => ({ x, run: v.facts.runs![x.s.id]! }))
+    .sort((a, b) => (b.run.at ?? '').localeCompare(a.run.at ?? ''))[0];
+  if (!best) return undefined;
+  const state = v.facts.tests[best.x.s.id] === 'failed' ? 'failed' : 'passed';
+  return { asset: best.run.picture!, caption: `Last screen of the test "${cap(plain(best.x.s.title))}"${best.run.at ? `, ${shortDate(best.run.at, year)}` : ''} (${state})` };
 }
 
 // ---------------------------------------------------------------- slides
@@ -286,26 +402,33 @@ function narrate(inputs: PresentationInputs, key: string, made: string): string 
 }
 
 /** Story `S3` and its rows: the first approved scenario draws the flow, else the first one. */
-function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInputs): Slide[] {
+function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInputs, ctx: ProofContext): Slide[] {
   const id = v.story.id;
   const role = v.role?.name ?? 'user';
   const lead = `As ${/^[aeiou]/i.test(role) ? 'an' : 'a'} ${role}, I want ${plain(v.story.want).replace(/^to\s+/i, 'to ')}, so that ${plain(v.story.soThat)}.`;
   const criteria: ListItem[] = asArray<AcceptanceCriterion>(v.story.acceptance)
     .filter(isObject)
     .map((c) => ({ text: stop(cap(plain(c.then))), id: c.id, mark: criterionMark(v, c) }));
-  // With a design picture: the picture on the left, the story on the right.
-  const first: Block[] = v.facts.design ? [{ type: 'image', asset: v.facts.design.asset, caption: v.facts.design.caption }, { type: 'lead', text: lead }] : [{ type: 'lead', text: lead }];
-  first.push({ type: 'list', title: 'It is done when', items: criteria, columns: criteria.length > 5 && !v.facts.design ? 2 : 1, legend: true });
-  first.push({ type: 'text', text: statusLine(v), tone: v.steps.some((s) => s.alarm) ? 'warn' : v.steps.every((s) => s.state === 'done') ? 'good' : 'muted' });
-  const done = v.steps.filter((s) => s.state === 'done').length;
-  const made1 = `${v.title}. ${v.steps.every((s) => s.state === 'done') ? 'This story is finished: built, tested and signed off.' : `${done} of 5 steps are done; ${statusLine(v).split(' · ')[0]!.toLowerCase()}.`}`;
-  const slides: Slide[] = [{ key: id, title: v.title, narration: narrate(inputs, id, made1), ids: [id, ...asArray<string>(v.story.requirements)], ...(v.facts.design ? { layout: 'split' as const } : {}), blocks: first }];
+  // With a picture (the design, else the last screen of a test): the picture on the left, the story on the right.
+  const picture = v.facts.design ?? newestPicture(v, ctx.year);
+  const first: Block[] = picture ? [{ type: 'image', asset: picture.asset, caption: picture.caption }, { type: 'lead', text: lead }] : [{ type: 'lead', text: lead }];
+  const state = viewDoneState(v);
+  const missing = missingThings(v);
+  first.push({
+    type: 'text',
+    text: state === 'done' ? 'Done: built, every check passes, signed off.' : `${DONE_WORDS[state]}: ${missing.slice(0, 3).join('; ')}${missing.length > 3 ? `; +${missing.length - 3} more` : ''}.`,
+    tone: state === 'done' ? 'good' : v.steps.some((s) => s.alarm) ? 'warn' : 'muted',
+  });
+  first.push({ type: 'list', title: 'It is done when', items: criteria, columns: criteria.length > 5 && !picture ? 2 : 1, legend: true });
+  first.push({ type: 'proof', title: 'The proof', rows: proofRows(v, ctx) });
+  const made1 = `${v.title}. ${state === 'done' ? 'This story is done: built, every check passes, and it is signed off.' : `${DONE_WORDS[state]}: ${missing[0] ?? 'not proven yet'}; ${statusLine(v).split(' · ')[0]!.toLowerCase()}.`}`;
+  const slides: Slide[] = [{ key: id, title: v.title, narration: narrate(inputs, id, made1), ids: [id, ...asArray<string>(v.story.requirements)], ...(picture ? { layout: 'split' as const } : {}), blocks: first }];
 
   if (v.scenarios.length === 0) return slides;
   const pick = v.scenarios.find((x) => x.approved) ?? v.scenarios[0]!;
   const sf = storyFlow(record.flow, record.prd, pick.s);
   const svg = storyFlowSvg(sf, layoutStoryFlow(sf), `flow-${id}`);
-  const rows = v.scenarios.map((x) => checkRow(v, x));
+  const rows = v.scenarios.map((x) => checkRow(v, x, ctx.year));
   const t = v.tests;
   const made2 =
     `The drawing follows one scenario, "${cap(plain(pick.s.title))}", step by step, in the lane of who does each step. ` +
@@ -360,24 +483,27 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   const scenarioCount = views.reduce((n, v) => n + v.scenarios.length, 0);
   const notWritten = views.reduce((n, v) => n + v.tests['not-written'], 0);
   const notRun = views.reduce((n, v) => n + v.tests['not-run'], 0);
-  const statusParts = [`${signed} of ${plural(views.length, 'story', 'stories')} signed off`];
-  if (waiting > 0) statusParts.push(`${waiting} waiting for review`);
-  if (stale > 0) statusParts.push(`${stale} changed since sign-off`);
-  if (failing > 0) statusParts.push(`${plural(failing, 'test')} failing`);
-  const status = statusParts.join(' · ');
+  // The one done rule (T53): the title, the recap, progress, the stories, quality and what's next.
+  const stand = standing(views);
+  const status = standingSentence(stand);
+  const evidence = facts.evidence ?? NO_EVIDENCE;
+  const ctx: ProofContext = { year: facts.commit.date.slice(0, 4), owner: facts.owner ?? 'the owner', evidence };
 
   // 1. Title
   const titleBlocks: Block[] = [{ type: 'lead', text: stop(plain(epic?.goal)) }];
   if (facts.uncommitted) titleBlocks.push({ type: 'notice', text: UNCOMMITTED_NOTICE });
-  titleBlocks.push({ type: 'text', text: status, tone: failing > 0 || stale > 0 ? 'warn' : signed === views.length ? 'good' : 'muted' });
+  titleBlocks.push({ type: 'text', text: failing > 0 ? `${status} ${plural(failing, 'test')} ${failing === 1 ? 'fails' : 'fail'}.` : status, tone: failing > 0 || stale > 0 ? 'warn' : stand.done === views.length ? 'good' : 'muted' });
   titleBlocks.push({ type: 'text', text: `Presented by ${facts.owner ?? 'the owner'} · ${facts.commit.date}`, tone: 'muted' });
   slides.push({
     key: 'title',
     title,
-    narration: narrate(inputs, 'title', `This deck shows where "${title}" stands, made from its plan as of ${facts.commit.date}. ${cap(status)}.`),
+    narration: narrate(inputs, 'title', `This deck shows where "${title}" stands, made from its plan as of ${facts.commit.date}. ${status}`),
     ids: [record.slug],
     blocks: titleBlocks,
   });
+
+  // 1b. Recap: what is done, what is not, each with its proof (T53)
+  slides.push(...recapSlides(shown, views, ctx, (made) => narrate(inputs, 'recap', made), hiddenNote));
 
   // 2. Why, and what it must do
   const people = roles.filter((r) => r.kind === 'human' || r.kind === 'agent');
@@ -422,9 +548,9 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   });
 
   // 4. Progress
-  const rows: ProgressRow[] = shown.map((v) => ({ id: v.story.id, title: v.title, steps: v.steps }));
-  const finished = shown.filter((v) => overall(v) === 'done').length;
-  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} finished (signed off, built, and every approved scenario passing its e2e test). ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
+  const rows: ProgressRow[] = shown.map((v) => ({ id: v.story.id, title: v.title, steps: v.steps, state: viewDoneState(v) }));
+  const finished = shown.filter((v) => viewDoneState(v) === 'done').length;
+  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} done (signed off, built, and every approved scenario passing its e2e test). ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
   slides.push({
     key: 'progress',
     title: 'Progress, story by story',
@@ -434,18 +560,23 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   });
 
   // 5. One section per story
-  for (const v of shown) slides.push(...storySlides(record, v, inputs));
+  for (const v of shown) slides.push(...storySlides(record, v, inputs, ctx));
 
   // 6. Quality
   const boxPaths = new Set(views.flatMap((v) => servingBoxes(record.flow, v.story.id)));
   const builtTotal = views.reduce((n, v) => n + Math.min(v.facts.built, v.boxes), 0);
   const boxTotal = views.reduce((n, v) => n + v.boxes, 0);
+  const unitStories = views.filter((v) => v.facts.unit);
+  const unitTests = unitStories.reduce((n, v) => n + v.facts.unit!.tests, 0);
+  const unitFailed = unitStories.reduce((n, v) => n + v.facts.unit!.failed, 0);
   const stats: Extract<Block, { type: 'stats' }>['items'] = [
+    { value: `${stand.done} / ${views.length}`, label: 'stories done', tone: stand.done === views.length ? 'good' : 'warn' },
     { value: `${signed} / ${views.length}`, label: 'stories signed off', tone: signed === views.length ? 'good' : 'warn' },
     { value: `${approved} / ${scenarioCount}`, label: 'scenarios approved', tone: approved === scenarioCount ? 'good' : 'warn' },
     { value: `${passing} / ${approved}`, label: 'approved scenarios passing their e2e test', tone: failing > 0 ? 'bad' : passing === approved ? 'good' : 'warn' },
     { value: `${builtTotal} / ${boxTotal}`, label: `planned parts with code (${boxPaths.size} distinct)`, tone: builtTotal === boxTotal ? 'good' : 'warn' },
   ];
+  if (unitStories.length > 0) stats.push({ value: `${unitTests - unitFailed} / ${unitTests}`, label: "automated tests that name a story's scenario, passing", tone: unitFailed > 0 ? 'bad' : 'good' });
   if (facts.coverage !== undefined) stats.push({ value: `${facts.coverage}%`, label: 'of the code is run by unit tests' });
   const byCheck = new Map<string, Set<string>>();
   // A rehearsal finding that only says no approved scenario walks a path reads as a gap, not a problem.
@@ -465,11 +596,12 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   const gateText = facts.gate.ok ? 'The gate passes: the final check finds nothing open.' : `The gate does not pass yet: ${plural(facts.gate.items.length, 'open item')}.`;
   const qualityBlocks: Block[] = [{ type: 'stats', items: stats }, { type: 'text', text: gateText, tone: facts.gate.ok ? 'good' : 'warn' }];
   if (gateList.length > 0) qualityBlocks.push({ type: 'list', items: gateList });
-  if (!facts.testResults && approved > 0) qualityBlocks.push({ type: 'text', text: 'Test results were not available when this deck was made, so written tests show as "not run".', tone: 'muted' });
+  if (!facts.testResults && approved > 0)
+    qualityBlocks.push({ type: 'text', text: `Test results were not available when this deck was made${evidence.e2e.why ? ` (${evidence.e2e.why})` : ''}, so written tests show as "not run".`, tone: 'muted' });
   slides.push({
     key: 'quality',
     title: 'Quality',
-    narration: narrate(inputs, 'quality', `${gateText} ${passing} of ${approved} approved scenarios pass their e2e test${notWritten > 0 ? `, and ${notWritten} have no test yet` : ''}.`),
+    narration: narrate(inputs, 'quality', `${status} ${gateText} ${passing} of ${approved} approved scenarios pass their e2e test${notWritten > 0 ? `, and ${notWritten} have no test yet` : ''}.`),
     ids: [],
     blocks: qualityBlocks,
   });
@@ -512,7 +644,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   // 9. What's next: the owner's, else what is left per story
   const left: ListItem[] = [];
   for (const v of shown) {
-    if (overall(v) === 'done') continue;
+    if (viewDoneState(v) === 'done') continue;
     const todo: string[] = [];
     const waitingScen = v.scenarios.length - v.approved;
     if (v.scenarios.length === 0) todo.push('write its scenarios');
@@ -522,6 +654,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     if (v.tests['not-written'] > 0) todo.push(`write ${plural(v.tests['not-written'], 'e2e test')}`);
     if (v.tests.failed > 0) todo.push(`fix ${plural(v.tests.failed, 'failing test')}`);
     if (v.tests['not-run'] > 0) todo.push(`run ${plural(v.tests['not-run'], 'test')}`);
+    if (todo.length === 0) todo.push(...missingThings(v));
     if (todo.length > 0) left.push({ text: `${v.title}: ${todo.join(', ')}.`, id: v.story.id, mark: v.tests.failed > 0 ? 'failed' : 'not-yet' });
   }
   const nextItems: ListItem[] = inputs.next.length > 0 ? inputs.next.map((n) => ({ text: n })) : left.length > 10 ? [...left.slice(0, 9), { text: `And ${plural(left.length - 9, 'more story', 'more stories')}.` }] : left;
@@ -531,11 +664,14 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     narration: narrate(
       inputs,
       'next',
-      inputs.next.length > 0 ? `These are my next steps.` : left.length === 0 ? 'Nothing is left: every story shown is finished.' : `${plural(left.length, 'story', 'stories')} still ${left.length === 1 ? 'has' : 'have'} work left; this is what remains for each.`,
+      inputs.next.length > 0 ? `These are my next steps.` : left.length === 0 ? 'Nothing is left: every story shown is done.' : `${plural(left.length, 'story', 'stories')} ${left.length === 1 ? 'is' : 'are'} not done yet; this is what remains for each.`,
     ),
     ids: [],
-    blocks: nextItems.length > 0 ? [{ type: 'list', items: nextItems }] : [{ type: 'text', text: 'Every story shown is finished.', tone: 'good' }],
+    blocks: nextItems.length > 0 ? [{ type: 'list', items: nextItems }] : [{ type: 'text', text: 'Every story shown is done.', tone: 'good' }],
   });
+
+  // 9b. Where the proof comes from (T53)
+  slides.push(evidenceSlide(facts, evidence, ctx.owner, (made) => narrate(inputs, 'evidence', made)));
 
   // 10. Glossary
   slides.push({

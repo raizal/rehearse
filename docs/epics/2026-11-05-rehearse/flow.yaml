@@ -864,6 +864,109 @@ root:
       inputs:  { html: string, pdf: "string?" }
       outputs: { html: string, pdf: "string?" }
 
+    # --- The deck says what is done and what is not, with the proof (S19, T53) ---
+    # New boxes only: the S18 boxes stay as they are; root edges join them.
+    - id: download-with-recordings
+      kind: input
+      lane: builder
+      package: ui
+      title: Download the deck with its recordings
+      stories: [S19]
+      inputs:  { epic: string }
+      outputs: { epic: string, withRecordings: boolean }
+      # The Present preview's "HTML + recordings (zip)" button: one zip with the HTML and its
+      # <deck>-media/ folder.
+
+    - id: read-saved-test-results
+      kind: process
+      lane: rehearse
+      package: server
+      title: Read the e2e results Birdview knows or saved
+      stories: [S19]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, e2eResults: string }
+      errorExits: ["Birdview data not found", "result does not match a test"]
+      # The live player first; when it does not have this project, the results files Birdview
+      # saved in its data folder. Each result is matched to a test by file:line, or by the test
+      # title when the line moved; a result that matches nothing is dropped and counted.
+
+    - id: read-unit-report
+      kind: process
+      lane: rehearse
+      package: server
+      title: Read the unit tests from a vitest report
+      stories: [S19]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string, unitReport: "string?" }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, unitTests: string }
+      errorExits: ["unit report missing or unreadable"]
+      # The vitest JSON report given with `--unit-report <file.json>` (the CLI passes the path).
+      # Tests are counted per story through the files of its built parts.
+
+    - id: last-screen-picture
+      kind: process
+      lane: rehearse
+      package: server
+      title: Take a still of the last screen of each recording
+      stories: [S19]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, pictures: string }
+      # The last frame of a test's recording as a picture no wider than 1600 px, with the path of
+      # the video for the link.
+
+    - id: story-done-state
+      kind: process
+      lane: rehearse
+      package: core
+      title: Decide if each story is done, in progress or not started
+      stories: [S19]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string }
+      # Pure, one rule for the whole deck. Done: signed off and not stale, every approved
+      # scenario's e2e test passed in its last run, every box has code. Not started: not signed
+      # off and no box has code. Else in progress.
+
+    - id: build-recap
+      kind: process
+      lane: rehearse
+      package: core
+      title: Build the recap slide after the title
+      stories: [S19]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string, recap: string }
+      # One sentence on top ("12 of 19 stories are done"), then every story and its state.
+
+    - id: proof-lines
+      kind: process
+      lane: rehearse
+      package: core
+      title: Write a proof line per source on every story slide
+      stories: [S19]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, proofLines: string }
+      # e2e results, last screen picture, recording link, unit tests, simulation, built parts and
+      # commits, signature. A missing source says it is missing.
+
+    - id: evidence-page
+      kind: process
+      lane: rehearse
+      package: core
+      title: Say where each proof comes from
+      stories: [S19]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, evidence: string }
+      # A page before the glossary: each source, where it was read from, and whether it was found.
+
+    - id: copy-recordings
+      kind: process
+      lane: rehearse
+      package: cli
+      title: Copy the linked recordings next to the deck
+      stories: [S19]
+      inputs:  { html: string, withRecordings: "string?" }
+      outputs: { html: string, media: string, copied: number }
+      # `--with-recordings <dir>` copies each linked video into <deck>-media/ next to the HTML
+      # and points the links there. A video that cannot be found is named as missing.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -995,3 +1098,19 @@ root:
     - { from: print-deck-pdf,    to: deck-file }
     - { from: print-deck-pdf,    to: deck-file,      label: "Chromium not available",  kind: error }
     - { from: deck-file,         to: present-view }
+    - { from: present-view,             to: download-with-recordings }
+    - { from: download-with-recordings, to: gather-deck-facts }
+    - { from: gather-deck-facts,        to: read-saved-test-results }
+    - { from: read-saved-test-results,  to: read-unit-report }
+    - { from: read-saved-test-results,  to: read-unit-report,    label: "Birdview data not found",          kind: error }
+    - { from: read-saved-test-results,  to: read-unit-report,    label: "result does not match a test",     kind: error }
+    - { from: read-unit-report,         to: last-screen-picture }
+    - { from: read-unit-report,         to: last-screen-picture, label: "unit report missing or unreadable", kind: error }
+    - { from: last-screen-picture,      to: story-done-state }
+    - { from: story-done-state,         to: build-recap }
+    - { from: build-recap,              to: proof-lines }
+    - { from: proof-lines,              to: evidence-page }
+    - { from: evidence-page,            to: build-deck }
+    - { from: render-deck-html,         to: copy-recordings }
+    - { from: copy-recordings,          to: deck-file }
+    - { from: deck-file,                to: download-with-recordings }

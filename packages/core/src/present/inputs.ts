@@ -12,7 +12,7 @@ import { parseYaml } from '../yaml.js';
 export const PRESENTATION_FILE = 'presentation.yaml';
 
 /** The slide keys `narration` may name; a story's own slides are `<story id>` and `<story id>-checks`. */
-export const SLIDE_KEYS = ['title', 'why', 'requirements', 'big-picture', 'progress', 'quality', 'risks', 'asks', 'next', 'glossary'] as const;
+export const SLIDE_KEYS = ['title', 'recap', 'why', 'requirements', 'big-picture', 'progress', 'quality', 'risks', 'asks', 'next', 'evidence', 'glossary'] as const;
 export type SlideKey = (typeof SLIDE_KEYS)[number];
 
 export interface PresentationInputs {

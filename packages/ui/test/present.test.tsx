@@ -1,6 +1,6 @@
 // T52: the Present button of the EPIC page. It asks the server for the deck (token sent), shows it
 // in a sandboxed frame focused for the arrow keys, and downloads the HTML and the PDF; no Chromium
-// shows the server's plain words.
+// shows the server's plain words. T53: the third download, the HTML and its recordings as one zip.
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -71,9 +71,43 @@ describe('T52 Present', () => {
     await user.click(screen.getByTestId('present'));
     await screen.findByTestId('present-frame');
     await user.click(screen.getByTestId('present-download-pdf'));
-    expect((await screen.findByTestId('present-pdf-error')).textContent).toBe(NO_CHROMIUM);
+    expect((await screen.findByTestId('present-file-error')).textContent).toBe(NO_CHROMIUM);
     await user.click(screen.getByTestId('present-download-html'));
     expect(saved).toHaveLength(1);
+  });
+
+  it('HTML + recordings (zip): fetches the zip, saves it, and says how many recordings it holds', async () => {
+    const { server, user, saved } = await setup((format) =>
+      format === 'zip'
+        ? { status: 200, data: 'PK', headers: { 'content-type': 'application/zip', 'content-disposition': 'attachment; filename="shop.zip"', 'x-deck-videos': '2' } }
+        : { status: 200, data: DECK, headers: { 'x-deck-slides': '3' } },
+    );
+    await user.click(screen.getByTestId('present'));
+    await screen.findByTestId('present-frame');
+    expect(screen.getByTestId('present-download-zip').textContent).toBe('HTML + recordings (zip)');
+    await user.click(screen.getByTestId('present-download-zip'));
+    await waitFor(() => expect(saved).toEqual([{ name: 'shop.zip', type: 'blob:deck' }]));
+    expect(screen.getByTestId('present-zip-note').textContent).toMatch(/^shop\.zip: the deck and 2 recordings\. Unzip it/);
+    expect(server.calls.some((c) => /^api\/present\?epic=.+&format=zip$/.test(c.url) && c.headers['x-rehearse-token'] === 'tok-123')).toBe(true);
+  });
+
+  it('a zip without recordings says it holds the deck only; a failed zip shows the error', async () => {
+    let fail = false;
+    const { user } = await setup((format) =>
+      format !== 'zip'
+        ? { status: 200, data: DECK, headers: { 'x-deck-slides': '3' } }
+        : fail
+          ? { status: 500, body: { ok: false, error: 'the recordings are too big for one zip (over 4 GB)' } }
+          : { status: 200, data: 'PK', headers: { 'content-disposition': 'attachment; filename="shop.zip"', 'x-deck-videos': '0' } },
+    );
+    await user.click(screen.getByTestId('present'));
+    await screen.findByTestId('present-frame');
+    await user.click(screen.getByTestId('present-download-zip'));
+    expect((await screen.findByTestId('present-zip-note')).textContent).toContain('no recording of these tests, so the zip holds the deck only');
+    fail = true;
+    await user.click(screen.getByTestId('present-download-zip'));
+    expect((await screen.findByTestId('present-file-error')).textContent).toMatch(/too big/);
+    expect(screen.queryByTestId('present-zip-note')).toBeNull();
   });
 
   it('a deck that cannot be made says why; Close and Escape close the preview', async () => {

@@ -1,14 +1,21 @@
 // `rehearse present` and `GET /api/present` (T52). Box gather-deck-facts: the facts of an EPIC as of
 // HEAD (branch, short sha, commit date; Flow-Box commits reachable from HEAD; the e2e tests and,
 // when Birdview has them, their results; the stories' design pictures, shrunk to ≤1600 px; the
-// gate), refused with --committed-only when the EPIC folder has uncommitted changes. Box
+// gate), refused with --committed-only when the EPIC folder has uncommitted changes. T53 adds the
+// proof: Birdview's saved results when the player does not have our project (saved-results.ts),
+// the still of each recorded run's last screen, the videos to copy next to the deck, the unit
+// report's counts, the simulation and the signature per story, and where each came from. Box
 // print-deck-pdf: Playwright's Chromium from the repo's e2e package prints the HTML; when it cannot
 // launch, PrinterUnavailable says so and the HTML's own print still works. Read-only.
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { extname, join, relative } from 'node:path';
 import {
+  allScenarios,
+  defaultVerifier,
   deckHtml,
   downscalePng,
   findingStories,
@@ -19,21 +26,30 @@ import {
   readFigcraftThumbnail,
   readPresentation,
   repoTopOf,
+  servingBoxes,
+  signOffPayload,
   simulateRecord,
   storyEffectiveDesign,
   type Deck,
   type DeckAssets,
+  type DeckEvidence,
   type DeckFacts,
   type EpicRecord,
   type Finding,
   type Id,
+  type SignatureState,
+  type SignedSignOff,
   type StoryFacts,
+  type TestRun,
   type TestState,
   type Verifier,
 } from '@rehearse/core';
 import type { TestResult } from './birdview.js';
+import type { GitRunner } from './box-code.js';
 import { linkPicture } from './design-route.js';
+import { findBirdviewData, gitSpecAt, lastScreen, mainCheckoutProject, NO_BIRDVIEW_DATA, processFfmpeg, readSavedResults, type BirdviewData, type Ffmpeg, type Recording, type SavedResults, type SpecAt } from './saved-results.js';
 import { epicGateItems, parseBranchLog, specTests, storyProgress, type GitCall } from './story-progress.js';
+import { readUnitReport, unitCount, UnitReportError, type UnitReport } from './unit-report.js';
 
 /** The record has uncommitted changes and the caller asked for a committed deck only. */
 export class UncommittedError extends Error {}
@@ -63,7 +79,30 @@ export interface DeckOptions {
   committedOnly?: boolean;
   /** Today, for a deck with uncommitted changes. */
   now?: () => Date;
+  /** Birdview's data folder, read when the player has no results of our project (T53); null: not found. */
+  birdviewData?: BirdviewData | null;
+  /** The main checkout's copy of the test project, when this is a linked worktree. */
+  mainTestProject?: string;
+  /** A spec file as it was when a saved result ran (git), to match moved lines by title. */
+  specAt?: SpecAt;
+  /** A vitest JSON report: unit tests per story. */
+  unitReport?: string;
+  /** Link the videos of the runs from `<folder>/` next to the deck; the caller copies `videos` there. */
+  media?: { folder?: string };
+  /** For the video's last frame when a run has no trace. */
+  ffmpeg?: Ffmpeg;
+  /** Most bytes of last-screen stills in one deck. */
+  maxStillBytes?: number;
 }
+
+/** A video to copy next to the deck: from `src` to `<media folder>/<name>`. */
+export interface DeckVideo {
+  src: string;
+  name: string;
+}
+
+/** Default cap of the stills in one deck. */
+export const MAX_STILL_BYTES = 3 * 1024 * 1024;
 
 export interface BuiltDeck {
   deck: Deck;
@@ -72,7 +111,32 @@ export interface BuiltDeck {
   facts: DeckFacts;
   /** Shape findings of presentation.yaml: the deck is built without the bad parts. */
   inputFindings: Finding[];
+  /** The videos the deck links, to copy into `mediaFolder` next to it. */
+  videos: DeckVideo[];
+  mediaFolder?: string;
+  /** Sources that were asked for and could not be read: said, and the deck is made anyway. */
+  warnings: string[];
 }
+
+/** What the simulation says about a story: problems, and paths only drafts (or nothing) walk. */
+const UNCOVERED = /no approved scenario|only by drafts|not covered|covered only/;
+
+/** The signature of each story's latest sign-off; checked and valid count stories, not sign-offs. */
+function signatures(record: EpicRecord, verifier: Verifier): { byStory: Map<Id, SignatureState>; checked: number; valid: number } {
+  const byStory = new Map<Id, SignatureState>();
+  const list = Array.isArray(record.signoff?.signOffs) ? (record.signoff.signOffs as SignedSignOff[]) : [];
+  for (const s of list) {
+    if (!s || typeof s !== 'object') continue;
+    const check = verifier.verify(signOffPayload(record.slug, s), s.sig, String(s.by ?? ''));
+    for (const id of s.storyHashes && typeof s.storyHashes === 'object' ? Object.keys(s.storyHashes) : []) byStory.set(id, check.status);
+  }
+  return { byStory, checked: byStory.size, valid: [...byStory.values()].filter((v) => v === 'valid').length };
+}
+
+/** A path under the home folder as ~/…, so the deck does not show the user's home path. */
+const tilde = (p: string) => (p.startsWith(`${homedir()}/`) ? `~${p.slice(homedir().length)}` : p);
+
+const iso = (ms: number | undefined) => (ms === undefined ? undefined : new Date(ms).toISOString());
 
 const MAX_COMMITS = 5000;
 
@@ -98,7 +162,7 @@ export function brainstormIdea(markdown: string): string | undefined {
 const STATE: Record<string, TestState> = { passing: 'passed', failing: 'failed', 'not-run': 'not-run', missing: 'not-written' };
 
 /** The facts of a deck, its pictures, and the record they were read from. */
-export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: EpicRecord; facts: DeckFacts; assets: DeckAssets }> {
+export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: EpicRecord; facts: DeckFacts; assets: DeckAssets; videos: DeckVideo[]; mediaFolder?: string; warnings: string[] }> {
   const { epicDir, git } = opts;
   const top = opts.repoTop ?? repoTopOf(epicDir);
   const status = await git(['status', '--porcelain', '--', '.']);
@@ -124,13 +188,126 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
   const designState = readDesignState(top, record);
   const assets: DeckAssets = {};
   const stories: Record<Id, StoryFacts> = {};
-  let testResults = false;
+  const warnings: string[] = [];
+  const videos: DeckVideo[] = [];
+  const commitInfo = { branch, sha, date: uncommitted ? today : (commitDate ?? today) };
+  const mediaFolder = opts.media ? (opts.media.folder ?? `${deckFileName(record.slug, { commit: commitInfo } as DeckFacts)}-media`) : undefined;
+
+  // E2E results: the player when it has our project, else Birdview's saved files.
+  const evidence: DeckEvidence = {
+    e2e: { source: 'none', used: 0, dropped: 0 },
+    recordings: { found: 0, pictures: 0, picturesLeftOut: 0, picturesBytes: 0, ...(mediaFolder ? { copied: mediaFolder } : {}) },
+    unit: {},
+    signatures: { file: '.rehearse/allowed_signers', checked: 0, valid: 0 },
+  };
+  const live = new Map<Id, Record<string, TestResult>>();
+  for (const story of Array.isArray(record.prd?.stories) ? record.prd.stories : []) {
+    if (!story || typeof story.id !== 'string' || !opts.testResults) continue;
+    const r = await opts.testResults(story.id).catch(() => undefined);
+    if (r) live.set(story.id, r);
+  }
+  let saved: SavedResults | undefined;
+  if (live.size === 0 && opts.testProject && opts.birdviewData) {
+    saved = await readSavedResults({ data: opts.birdviewData, testProject: opts.testProject, tests, ...(opts.mainTestProject ? { mainProject: opts.mainTestProject } : {}), ...(opts.specAt ? { specAt: opts.specAt } : {}) }).catch(() => undefined);
+    if (!saved) evidence.e2e.why = `Birdview has no saved results of the test project ${opts.testProject}`;
+  } else if (live.size === 0) {
+    evidence.e2e.why = !opts.testProject ? 'no e2e test project was found' : opts.birdviewData === null ? `${NO_BIRDVIEW_DATA}, and the player does not have this project` : 'the Birdview player does not have this project';
+    if (opts.birdviewData === null) warnings.push(`${NO_BIRDVIEW_DATA}: the deck shows written tests as "not run"`);
+  }
+  const savedResults: Record<string, TestResult> | undefined = saved ? Object.fromEntries(Object.entries(saved.runs).map(([k, r]) => [k, r.result])) : undefined;
+  if (saved) {
+    evidence.e2e = {
+      source: 'saved',
+      file: tilde(saved.file),
+      project: tilde(saved.project),
+      note: saved.note,
+      used: 0,
+      dropped: saved.dropped,
+      ...(saved.older > 0 ? { older: saved.older } : {}),
+      ...(saved.oldest !== undefined ? { oldest: iso(saved.oldest)! } : {}),
+      ...(saved.newest !== undefined ? { newest: iso(saved.newest)! } : {}),
+    };
+    if (saved.dropped > 0) warnings.push(`${saved.dropped} saved Birdview result${saved.dropped === 1 ? '' : 's'} left out: result does not match a test`);
+  } else if (live.size > 0) evidence.e2e = { source: 'player', ...(opts.testProject ? { project: tilde(opts.testProject) } : {}), used: 0, dropped: 0 };
+  const testResults = live.size > 0 || saved !== undefined;
+
+  // Unit tests.
+  let unit: UnitReport | undefined;
+  if (opts.unitReport) {
+    try {
+      unit = readUnitReport(opts.unitReport);
+      const rel = relative(top, unit.file);
+      evidence.unit = { file: rel.startsWith('..') ? unit.file : rel, date: unit.date, tests: unit.tests.length, passed: unit.tests.filter((t) => t.status === 'passed').length, failed: unit.tests.filter((t) => t.status === 'failed').length };
+    } catch (e) {
+      const why = e instanceof UnitReportError ? e.message : String(e);
+      evidence.unit = { why };
+      warnings.push(why);
+    }
+  } else evidence.unit = { why: 'no unit report was given; pnpm test:report makes one' };
+
+  // Signatures of the sign-offs.
+  const sigs = signatures(record, opts.verifier ?? defaultVerifier(epicDir));
+  evidence.signatures = { file: '.rehearse/allowed_signers', checked: sigs.checked, valid: sigs.valid };
+
+  // The simulation per story, from the gate's sim-clean items.
+  const sim = new Map<Id, { problems: number; uncovered: number }>();
+  for (const g of gate) {
+    if (g.check !== 'sim-clean') continue;
+    for (const id of g.stories) {
+      const v = sim.get(id) ?? { problems: 0, uncovered: 0 };
+      if (UNCOVERED.test(g.finding.message)) v.uncovered++;
+      else v.problems++;
+      sim.set(id, v);
+    }
+  }
+
+  const stillCap = opts.maxStillBytes ?? MAX_STILL_BYTES;
+  const scenarios = allScenarios(record);
+  let used = 0;
+  const usedAt: number[] = [];
   for (const story of Array.isArray(record.prd?.stories) ? record.prd.stories : []) {
     if (!story || typeof story.id !== 'string') continue;
-    const results = opts.testResults ? await opts.testResults(story.id).catch(() => undefined) : undefined;
-    if (results) testResults = true;
+    const results = live.get(story.id) ?? savedResults;
     const p = storyProgress({ record, storyId: story.id, commits, thread: null, tests, ...(results ? { results } : {}), gate: [] });
     const facts: StoryFacts = { built: p.counts.boxesWithCode, tests: Object.fromEntries(p.scenarios.map((s) => [s.id, STATE[s.state]!])) };
+    // The runs: when, the failing step, and the recording (a still, and a video to copy).
+    const runs: Record<Id, TestRun> = {};
+    for (const s of p.scenarios) {
+      const result = s.test ? results?.[s.test] : undefined;
+      if (!s.test || !result?.last) continue;
+      used++;
+      if (result.at !== undefined) usedAt.push(result.at);
+      const run: TestRun = { ...(result.at !== undefined ? { at: iso(result.at)! } : {}), ...(result.last === 'failed' && result.failedStep ? { failedStep: result.failedStep } : {}) };
+      const rec: Recording | undefined = saved?.runs[s.test]?.recording;
+      if (rec) {
+        run.recorded = true;
+        evidence.recordings.found++;
+        if (mediaFolder && rec.video) {
+          const name = `${rec.name}${extname(rec.video)}`;
+          if (!videos.some((v) => v.name === name)) videos.push({ src: rec.video, name });
+          run.video = `${mediaFolder}/${name}`;
+        }
+        const still = await lastScreen(rec, opts.ffmpeg).catch(() => undefined);
+        if (still && evidence.recordings.picturesBytes + still.data.length <= stillCap) {
+          const key = `run-${s.id}`;
+          assets[key] = { mime: still.mime, data: still.data };
+          run.picture = key;
+          evidence.recordings.pictures++;
+          evidence.recordings.picturesBytes += still.data.length;
+        } else if (still) evidence.recordings.picturesLeftOut++;
+      }
+      runs[s.id] = run;
+    }
+    if (Object.keys(runs).length > 0) facts.runs = runs;
+    const paths = servingBoxes(record.flow, story.id);
+    facts.commits = commits.filter((c) => c.boxes.some((b) => paths.some((path) => b === path || b.startsWith(`${path}/`)))).length;
+    if (unit) {
+      const ids = [...scenarios.filter((s) => s.story === story.id).map((s) => s.id), ...(Array.isArray(story.acceptance) ? story.acceptance.flatMap((a) => (a && typeof a.id === 'string' ? [a.id] : [])) : [])];
+      facts.unit = unitCount(unit, ids);
+    }
+    facts.simulation = sim.get(story.id) ?? { problems: 0, uncovered: 0 };
+    const sig = sigs.byStory.get(story.id);
+    if (sig) facts.signature = sig;
     const link = storyEffectiveDesign(designState, record.slug, story.id).story?.link;
     const pic = link ? linkPicture(top, designState, link) : undefined;
     let png: Uint8Array | undefined;
@@ -153,8 +330,13 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
   const brainstorm = join(epicDir, 'brainstorm.md');
   if (existsSync(brainstorm)) idea = brainstormIdea(readFileSync(brainstorm, 'utf8'));
   const coverage = opts.coverage ? await opts.coverage().catch(() => undefined) : undefined;
+  evidence.e2e.used = used;
+  if (usedAt.length > 0 && evidence.e2e.source === 'player') {
+    evidence.e2e.oldest = iso(Math.min(...usedAt))!;
+    evidence.e2e.newest = iso(Math.max(...usedAt))!;
+  }
   const facts: DeckFacts = {
-    commit: { branch, sha, date: uncommitted ? today : (commitDate ?? today) },
+    commit: commitInfo,
     uncommitted,
     ...(owner ? { owner } : {}),
     ...(idea ? { idea } : {}),
@@ -162,17 +344,56 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
     gate: { ok: report.ok && items.length === 0, items },
     testResults,
     ...(coverage !== undefined ? { coverage } : {}),
+    evidence,
   };
-  return { record, facts, assets };
+  return { record, facts, assets, videos, ...(mediaFolder ? { mediaFolder } : {}), warnings };
+}
+
+/** Where the unit report of `pnpm test:report` goes, from the repo top. */
+export const UNIT_REPORT_FILE = '.rehearse/unit-report.json';
+
+/** The proof sources of a deck that `rehearse present` and `rehearse serve` find on their own. */
+export type DeckSources = Pick<DeckOptions, 'birdviewData' | 'mainTestProject' | 'specAt' | 'unitReport' | 'ffmpeg'>;
+
+export interface DeckSourceOptions {
+  repoTop: string;
+  testProject?: string;
+  git: GitRunner;
+  /** `--birdview-data <dir>`. */
+  birdviewData?: string;
+  /** `--unit-report <file>`; default: .rehearse/unit-report.json when it is there. */
+  unitReport?: string;
+  env?: Record<string, string | undefined>;
+  /** `bb plugin config birdview-e2e --json` (read-only). Default: run bb, 5 s at most. */
+  pluginConfig?: () => string | undefined;
+  home?: string;
+}
+
+/** Birdview's plugin settings from bb, read-only; undefined when bb is not there or says nothing. */
+export function bbBirdviewConfig(): string | undefined {
+  try {
+    return execFileSync('bb', ['plugin', 'config', 'birdview-e2e', '--json'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return undefined;
+  }
+}
+
+/** Finds Birdview's data folder, the main checkout's test project, and the unit report. */
+export async function deckSources(o: DeckSourceOptions): Promise<DeckSources> {
+  const data = findBirdviewData({ ...(o.birdviewData ? { explicit: o.birdviewData } : {}), env: o.env ?? process.env, pluginConfig: o.pluginConfig ?? bbBirdviewConfig, ...(o.home ? { home: o.home } : {}) });
+  const main = o.testProject ? await mainCheckoutProject(o.testProject, o.repoTop, (args) => o.git(args, o.repoTop)) : undefined;
+  const fallbackReport = join(o.repoTop, UNIT_REPORT_FILE);
+  const unitReport = o.unitReport ?? (existsSync(fallbackReport) ? fallbackReport : undefined);
+  return { birdviewData: data ?? null, ...(main ? { mainTestProject: main } : {}), specAt: gitSpecAt(o.git), ...(unitReport ? { unitReport } : {}), ffmpeg: processFfmpeg };
 }
 
 /** Box build-deck + render-deck-html: the deck of an EPIC as one HTML file. */
 export async function buildDeckHtml(opts: DeckOptions): Promise<BuiltDeck> {
-  const { record, facts, assets } = await gatherDeckFacts(opts);
+  const { record, facts, assets, videos, mediaFolder, warnings } = await gatherDeckFacts(opts);
   const { inputs, findings } = readPresentation(record);
   const deck = presentationDeck(record, facts, inputs);
   const html = deckHtml(deck, assets);
-  return { deck, html, bytes: Buffer.byteLength(html), facts, inputFindings: findings };
+  return { deck, html, bytes: Buffer.byteLength(html), facts, inputFindings: findings, videos, ...(mediaFolder ? { mediaFolder } : {}), warnings };
 }
 
 /** The record as loaded, for callers that only need the slug. */

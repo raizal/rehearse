@@ -2,16 +2,17 @@
 // gather-deck-facts), GET /api/present (box present-view) and the PDF printer (box print-deck-pdf).
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { solidPng } from '@rehearse/core';
+import { readZip, solidPng } from '@rehearse/core';
 import { makeEpic } from '../../core/test/helpers.js';
-import { ME } from '../../core/test/trust/helpers.js';
+import { approvedEpic, ME } from '../../core/test/trust/helpers.js';
 import { inRepo, VERIFIER } from '../../core/test/trust/keys.js';
+import { makeZip } from './zip.js';
 import {
-  brainstormIdea, buildDeckHtml, chromiumPrinter, execGit, gatherDeckFacts, newToken, NO_CHROMIUM, PrinterUnavailable, startServer, UncommittedError,
+  brainstormIdea, buildDeckHtml, chromiumPrinter, execGit, gatherDeckFacts, NO_BIRDVIEW_DATA, newToken, NO_CHROMIUM, PrinterUnavailable, resultsFileOf, startServer, UncommittedError,
   type Printer, type RunningServer, type ServerSession,
 } from '../src/index.js';
 
@@ -25,8 +26,8 @@ afterEach(async () => {
 });
 
 /** The shop EPIC committed in a fresh repo (branch main), with a wide design picture linked to S1. */
-function committedShop(): { dir: string; top: string } {
-  const dir = inRepo(makeEpic());
+function committedShop(approved = false): { dir: string; top: string } {
+  const dir = inRepo(approved ? approvedEpic() : makeEpic());
   const top = dirname(dir);
   mkdirSync(join(top, 'design'));
   writeFileSync(join(top, 'design', 'links.yaml'), 'epics:\n  2026-11-05-shop:\n    S1:\n      file: design/shop.figcraft\n      page: 1\n      png: design/s1.png\n');
@@ -42,6 +43,27 @@ function committedShop(): { dir: string; top: string } {
 
 const gitIn = (dir: string) => (args: string[]) => execGit(args, dir);
 const NOW = () => new Date('2026-11-07T10:00:00Z');
+
+const RAN = Date.parse('2026-11-06T09:00:00Z');
+
+/** An e2e project with S1's tests, and a Birdview data folder with their saved runs and one recording. */
+function savedRuns(top: string): { testProject: string; data: string } {
+  const testProject = join(top, 'e2e');
+  mkdirSync(join(testProject, 'tests'), { recursive: true });
+  writeFileSync(join(testProject, 'tests', 'shop.spec.ts'), "test('S1-buy', async () => {});\ntest('S1-empty', async () => {});\n");
+  const data = mkdtempSync(join(tmpdir(), 'rehearse-bv-'));
+  writeFileSync(join(data, 'projects.json'), '{}');
+  const results = resultsFileOf(data, testProject);
+  mkdirSync(dirname(results), { recursive: true });
+  // Written after the spec: the spec's titles are trusted as they are.
+  writeFileSync(results, JSON.stringify({ 'tests/shop.spec.ts:1': { last: 'passed', at: Date.now() + 60_000 }, 'tests/shop.spec.ts:2': { last: 'failed', at: Date.now() + 60_000, failedStep: 'cart: the error is shown' }, 'tests/gone.spec.ts:4': { last: 'passed', at: RAN } }));
+  const rec = join(data, 'recordings', '20261106-buy-passed');
+  mkdirSync(rec, { recursive: true });
+  writeFileSync(join(rec, 'about.json'), JSON.stringify({ file: 'tests/shop.spec.ts:1', status: 'passed', at: Date.now() + 50_000, ms: 5000 }));
+  writeFileSync(join(rec, 'video.webm'), 'a video');
+  writeFileSync(join(rec, 'trace.zip'), makeZip([{ name: 'resources/page@p-10.jpeg', data: 'jpeg bytes' }]));
+  return { testProject, data };
+}
 
 describe('gatherDeckFacts', () => {
   it('reads branch, short sha, commit date, owner, Flow-Box commits, the idea and the design picture (≤1600 px)', async () => {
@@ -77,6 +99,47 @@ describe('gatherDeckFacts', () => {
     const { dir, top } = committedShop();
     const { facts } = await gatherDeckFacts({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, testResults: async () => ({}) });
     expect(facts.testResults).toBe(true);
+  });
+
+  it("no player results: Birdview's saved results, the recording's last screen and video, and the evidence", async () => {
+    const { dir, top } = committedShop(true);
+    const { testProject, data } = savedRuns(top);
+    const built = await buildDeckHtml({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, testProject, birdviewData: { dir: data, how: 'test' }, media: { folder: 'shop-media' }, now: NOW });
+    const s1 = built.facts.stories.S1!;
+    expect(s1.tests).toMatchObject({ 'S1-buy': 'passed', 'S1-empty': 'failed' });
+    expect(s1.runs?.['S1-buy']).toMatchObject({ recorded: true, video: 'shop-media/20261106-buy-passed.webm', picture: 'run-S1-buy' });
+    expect(s1.runs?.['S1-empty']).toMatchObject({ failedStep: 'cart: the error is shown' });
+    expect(s1.runs?.['S1-empty']?.recorded).toBeUndefined();
+    expect(built.html).toContain(`data:image/jpeg;base64,${Buffer.from('jpeg bytes').toString('base64')}`);
+    expect(built.videos).toEqual([{ src: join(data, 'recordings', '20261106-buy-passed', 'video.webm'), name: '20261106-buy-passed.webm' }]);
+    expect(built.facts.evidence?.e2e).toMatchObject({ source: 'saved', used: 2, dropped: 1 });
+    expect(built.warnings.join(' ')).toMatch(/1 saved Birdview result left out/);
+    expect(built.html).toContain('href="shop-media/20261106-buy-passed.webm"');
+    expect(built.html).toContain('not written by hand');
+  });
+
+  it('without --with-recordings the deck links no video; a missing data folder is said, not fatal', async () => {
+    const { dir, top } = committedShop(true);
+    const { testProject, data } = savedRuns(top);
+    const kept = await buildDeckHtml({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, testProject, birdviewData: { dir: data, how: 'test' }, now: NOW });
+    expect(kept.videos).toEqual([]);
+    expect(kept.facts.stories.S1?.runs?.['S1-buy']?.video).toBeUndefined();
+    expect(kept.html).toMatch(/recording kept by/);
+    const none = await buildDeckHtml({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, testProject, birdviewData: null, now: NOW });
+    expect(none.facts.testResults).toBe(false);
+    expect(none.warnings.join(' ')).toContain(NO_BIRDVIEW_DATA);
+  });
+
+  it('a unit report counts the tests naming the story; an unreadable one is a warning', async () => {
+    const { dir, top } = committedShop();
+    const report = join(top, 'unit.json');
+    writeFileSync(report, JSON.stringify({ startTime: RAN, testResults: [{ assertionResults: [{ fullName: 'S1-buy works', status: 'passed' }, { fullName: 'S1-A1 holds', status: 'failed' }] }] }));
+    const ok = await gatherDeckFacts({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, unitReport: report, now: NOW });
+    expect(ok.facts.evidence?.unit).toMatchObject({ file: 'unit.json', tests: 2, passed: 1, failed: 1 });
+    expect(ok.facts.stories.S1?.unit).toEqual({ tests: 2, passed: 1, failed: 1 });
+    const bad = await gatherDeckFacts({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, unitReport: join(top, 'none.json'), now: NOW });
+    expect(bad.facts.evidence?.unit?.why).toMatch(/unit report missing or unreadable/);
+    expect(bad.warnings).toHaveLength(1);
   });
 
   it('brainstormIdea: the Idea section up to its first list or label line', () => {
@@ -145,6 +208,22 @@ describe('GET /api/present', () => {
     expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename="2026-11-05-shop-.*\.pdf"$/);
     expect(await res.text()).toBe('%PDF-1.7 fake');
     expect(printed).toMatch(/^<!doctype html>/);
+  });
+
+  it('format=zip: the HTML and the media folder with the videos it links', async () => {
+    const { dir, top } = committedShop(true);
+    const { testProject, data } = savedRuns(top);
+    const session: ServerSession = { token: newToken(), identity: ME, signer: { ok: false, reason: 'no key in this test' } };
+    running = await startServer({ epicDir: dir, uiDir: UI, port: 0, session, verifier: VERIFIER, birdview: { port: 9, projectDir: testProject }, deckSources: async () => ({ birdviewData: { dir: data, how: 'test' } }) });
+    const res = await fetch(new URL('api/present?format=zip', running.url), { headers: { 'x-rehearse-token': session.token, origin: new URL(running.url).origin } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/zip');
+    const name = /filename="(.+)\.zip"/.exec(res.headers.get('content-disposition') ?? '')![1]!;
+    expect(res.headers.get('x-deck-videos')).toBe('1');
+    const files = readZip(Buffer.from(await res.arrayBuffer()), { maxBytes: 10_000_000 });
+    expect(files.map((f) => f.name)).toEqual([`${name}.html`, `${name}-media/20261106-buy-passed.webm`]);
+    expect(files[0]!.data.toString()).toContain(`href="${name}-media/20261106-buy-passed.webm"`);
+    expect(files[1]!.data.equals(readFileSync(join(data, 'recordings', '20261106-buy-passed', 'video.webm')))).toBe(true);
   });
 
   it('no Chromium: 503 with the plain words', async () => {

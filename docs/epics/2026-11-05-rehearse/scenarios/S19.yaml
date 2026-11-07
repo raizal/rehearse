@@ -1,0 +1,306 @@
+story: S19
+scenarios:
+
+  - id: S19-recap
+    title: The slide after the title is a recap of every story, done or not, with one sentence on top
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - name: story-done-state
+        example: { id: states, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", doneStates: "12 done, 4 in progress, 3 not started" } }
+      - name: build-recap
+        example: { id: recap, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", doneStates: "12 done, 4 in progress, 3 not started", recap: "12 of 19 stories are done" } }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "title; recap: 12 of 19 stories are done; why; big picture" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A1, state: { secondSlide: recap, sentence: "12 of 19 stories are done", rows: 19, states: [done, in progress, not started] } }
+
+  - id: S19-done-rule
+    title: One rule decides done, in progress and not started everywhere in the deck
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - name: story-done-state
+        example: { id: states, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", doneStates: "S12 done; S16 in progress: not signed off; S19 not started: no box has code" } }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "recap, progress and story slides use the same state" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A2, state: { done: [signed off, not stale, approved tests passed in last run, every box has code], notStarted: [not signed off, no box has code], inProgress: any other, sameStateOnEverySlide: true } }
+
+  - id: S19-proof-lines
+    title: Every story slide has one proof line per source
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - name: proof-lines
+        example: { id: lines, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", proofLines: "S12: 4 of 4 e2e passed; last screen; recording; 23 unit tests passed; simulation OK; 6 parts built in 3 commits; signed" } }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "S12: story, criteria, proof lines, design, how it works, signed" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A3, state: { sources: [e2e results, last screen picture, recording link, unit tests, simulation, built parts and commits, signature], oneLinePerSource: true } }
+
+  - id: S19-saved-results
+    title: When the player does not have the project, the results Birdview saved are read and matched
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - name: read-saved-test-results
+        example: { id: saved, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", e2eResults: "38 results from saved files: 35 by file:line, 3 by title" } }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "S12: 4 of 4 e2e passed (saved results)" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A4, state: { source: saved results, matchedByLine: 35, matchedByTitle: 3, leftOut: 0 } }
+
+  - id: S19-unmatched-result
+    title: A saved result that matches no test is left out and counted
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - name: read-saved-test-results
+        branch: "result does not match a test"
+        example: { id: unmatched, given: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" }, then: { exit: result does not match a test } }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "evidence: 2 saved results matched no test and were left out" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A4, state: { leftOut: 2, said: "2 saved results matched no test and were left out" } }
+
+  - id: S19-no-birdview-data
+    title: With no Birdview player and no saved results, the e2e proof says it is missing
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - name: read-saved-test-results
+        branch: "Birdview data not found"
+        example: { id: no-data, given: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" }, then: { exit: Birdview data not found } }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "e2e results: not found; no story called done without them" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A9, state: { e2eProof: missing, evidence: "Birdview data not found", storiesDoneWithoutProof: 0, deck: written } }
+
+  - id: S19-last-screen
+    title: A scenario shows a still of the last screen of its recording and a link to the video
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - name: last-screen-picture
+        example: { id: still, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", pictures: "S12-open-design: last frame, 1600 px; video S12-open-design.webm" } }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "S12: last screen picture and recording link" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A5, state: { picture: last frame, maxWidth: 1600, link: recording video } }
+
+  - id: S19-with-recordings
+    title: With --with-recordings the linked videos are copied next to the deck
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "story slides link 12 recordings" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - name: copy-recordings
+        example: { id: copy, given: { html: deck.html, withRecordings: test-results }, then: { html: deck.html, media: deck-media, copied: 12 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A6, state: { media: <deck>-media/, copied: 12, linksPointTo: media folder, missingNamed: true } }
+
+  - id: S19-zip-download
+    title: The EPIC page downloads the deck and its recordings in one zip
+    status: draft
+    steps:
+      - { name: present-view }
+      - name: download-with-recordings
+        example: { id: zip, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, withRecordings: true } }
+      - { name: gather-deck-facts }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - { name: build-deck }
+      - { name: render-deck-html }
+      - name: copy-recordings
+        example: { id: copy, given: { html: deck.html, withRecordings: test-results }, then: { html: deck.html, media: deck-media, copied: 12 } }
+      - { name: deck-file }
+      - { name: download-with-recordings }
+    expect: { criterion: S19-A6, state: { zip: [deck.html, deck-media/], tokenAndOrigin: required } }
+
+  - id: S19-unit-report
+    title: A vitest JSON report gives each story its unit tests that passed and failed
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - name: read-unit-report
+        example: { id: unit, given: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", unitReport: vitest.json }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", unitTests: "S12: 23 passed, 0 failed" } }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "S12: 23 unit tests passed" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A7, state: { perStory: [passed, failed], source: vitest JSON report } }
+
+  - id: S19-unit-report-unreadable
+    title: A unit report that is missing or unreadable is said plainly and the deck is still made
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - name: read-unit-report
+        branch: "unit report missing or unreadable"
+        example: { id: unreadable, given: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", unitReport: missing.json }, then: { exit: unit report missing or unreadable } }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "unit tests: the report missing.json could not be read" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A7, state: { message: "the unit report missing.json could not be read", deck: written } }
+
+  - id: S19-evidence-page
+    title: An evidence page before the glossary says where each proof comes from
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - { name: proof-lines }
+      - name: evidence-page
+        example: { id: evidence, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", evidence: "Birdview saved results: found; recordings: found; unit report: not given; simulation; git; signatures" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "evidence page, then glossary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A8, state: { before: glossary, sources: [Birdview player or saved results, recordings, unit report, simulation, git commits, signatures], foundOrNot: true } }
+
+  - id: S19-missing-sources
+    title: Every missing source shows as missing on the story slides and the evidence page
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: story-done-state }
+      - { name: build-recap }
+      - name: proof-lines
+        example: { id: missing, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", proofLines: "S12: e2e results not found; no recording; no unit report given" } }
+      - { name: evidence-page }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "S12: in progress, proof missing: e2e results, recording, unit report" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
+      - { name: deck-file }
+    expect: { criterion: S19-A9, state: { missingShown: [story slides, evidence page], storiesDoneWithoutProof: 0, leftOut: 0 } }

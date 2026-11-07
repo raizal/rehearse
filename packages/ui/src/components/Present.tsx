@@ -1,6 +1,7 @@
 // The Present button of the EPIC page (T52, box present-view): the deck for a supervisor, made by
 // the server from the record, previewed in a frame (← → move between slides) and downloaded as the
-// HTML file or a PDF. The frame runs the deck's own script only: it has no access to this page.
+// HTML file or a PDF, or (T53, box download-with-recordings) a zip of the HTML and the recordings it
+// links. The frame runs the deck's own script only: it has no access to this page.
 
 import { useEffect, useRef, useState } from 'react';
 import { HTTP_PRESENT_API, type DeckHtml, type PresentApi } from '../present-api.js';
@@ -21,12 +22,12 @@ export function download(data: Blob, name: string): void {
 
 export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slug: string; api?: PresentApi; save?: (data: Blob, name: string) => void }) {
   const [state, setState] = useState<State>({ kind: 'closed' });
-  const [pdf, setPdf] = useState<{ busy: boolean; error?: string }>({ busy: false });
+  const [file, setFile] = useState<{ busy?: 'pdf' | 'zip'; error?: string; note?: string }>({});
   const frame = useRef<HTMLIFrameElement>(null);
 
   const open = () => {
     setState({ kind: 'loading' });
-    setPdf({ busy: false });
+    setFile({});
     void api.html(slug).then((r) => setState(r.ok ? { kind: 'ready', deck: r.body } : { kind: 'error', error: r.error }));
   };
   const close = () => setState({ kind: 'closed' });
@@ -41,12 +42,24 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
   }, [state.kind]);
 
   const downloadPdf = () => {
-    setPdf({ busy: true });
+    setFile({ busy: 'pdf' });
     void api.pdf(slug).then((r) => {
       if (r.ok) {
         save(r.body.data, r.body.name);
-        setPdf({ busy: false });
-      } else setPdf({ busy: false, error: r.error });
+        setFile({});
+      } else setFile({ error: r.error });
+    });
+  };
+
+  const downloadZip = () => {
+    setFile({ busy: 'zip' });
+    void api.zip(slug).then((r) => {
+      if (!r.ok) return setFile({ error: r.error });
+      save(r.body.data, r.body.name);
+      const n = r.body.videos;
+      setFile({
+        note: n > 0 ? `${r.body.name}: the deck and ${n} recording${n === 1 ? '' : 's'}. Unzip it and keep the folder next to the HTML file.` : `${r.body.name}: Birdview has no recording of these tests, so the zip holds the deck only.`,
+      });
     });
   };
 
@@ -70,8 +83,11 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
                   <button type="button" data-testid="present-download-html" onClick={() => save(new Blob([state.deck.data], { type: 'text/html' }), state.deck.name)}>
                     Download HTML
                   </button>
-                  <button type="button" data-testid="present-download-pdf" disabled={pdf.busy} onClick={downloadPdf}>
-                    {pdf.busy ? 'Making the PDF…' : 'Download PDF'}
+                  <button type="button" data-testid="present-download-pdf" disabled={file.busy !== undefined} onClick={downloadPdf}>
+                    {file.busy === 'pdf' ? 'Making the PDF…' : 'Download PDF'}
+                  </button>
+                  <button type="button" data-testid="present-download-zip" disabled={file.busy !== undefined} onClick={downloadZip} title="The HTML file and the videos of the test runs it links, in one zip">
+                    {file.busy === 'zip' ? 'Packing the recordings…' : 'HTML + recordings (zip)'}
                   </button>
                 </>
               )}
@@ -80,9 +96,14 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
               </button>
             </span>
           </div>
-          {pdf.error && (
-            <div className="status-msg error" role="alert" data-testid="present-pdf-error">
-              {pdf.error}
+          {file.error && (
+            <div className="status-msg error" role="alert" data-testid="present-file-error">
+              {file.error}
+            </div>
+          )}
+          {file.note && (
+            <div className="status-msg" data-testid="present-zip-note">
+              {file.note}
             </div>
           )}
           {state.kind === 'loading' && <div className="status-msg" data-testid="present-loading">Making the deck from the record…</div>}

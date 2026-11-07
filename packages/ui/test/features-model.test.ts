@@ -241,8 +241,10 @@ describe('big picture (S4-A4)', () => {
       { from: 'refresh-design-pictures', to: 'design-tab', back: true },
       // T52 (S18): the deck comes back to the preview.
       { from: 'deck-file', to: 'present-view', back: true },
+      // T53 (S19): the zip download asks the server for the deck's facts again, with the recordings.
+      { from: 'download-with-recordings', to: 'gather-deck-facts', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 18, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 19, processes: main.length });
   });
 });
 
