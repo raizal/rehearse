@@ -118,7 +118,7 @@ export const DOWNLOAD_NOTE = 'Saved as a download, not written to the repo';
 
 /** "FigCraft could not start: <error>. …" */
 export function failedWords(error: string): string {
-  return `FigCraft could not start: ${error}. Close the editor and try again; if the error is about WebGL, open figcraft/?webgl to check what this browser can draw.`;
+  return `FigCraft could not start: ${error}. Close the editor and try again. If the error is about WebGL, open figcraft/?webgl to check what this browser can draw.`;
 }
 
 export const UNSAVED_CONFIRM = 'FigCraft has unsaved changes. Close it anyway? The changes are lost.';

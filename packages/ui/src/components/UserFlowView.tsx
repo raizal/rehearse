@@ -37,7 +37,7 @@ export function UserFlowView({ view, onOpenBox }: BigViewProps) {
           </p>
         ) : (
           <div className="bp-map-wrap gd-canvas">
-            {lay.kind === 'busy' && <p className="muted gd-status">Laying out the user flow…</p>}
+            {lay.kind === 'busy' && <p className="muted gd-status">rehearse draws the user flow…</p>}
             {lay.kind === 'error' && <p className="warn gd-status">Could not lay out the user flow: {lay.message}</p>}
             {lay.kind === 'ready' && <GraphDiagram prefix="uf" label={`User flow of ${who}`} graph={uf} layout={lay.layout} onOpenBox={onOpenBox} />}
           </div>

@@ -139,7 +139,7 @@ describe('T45 rehearse play', () => {
     expect(await runPlay([epic, 'S1'], t.io, fake.client)).toBe(0);
     expect(fake.calls.map((c) => c.call)).toEqual(['project', 'playlist', 'play']);
     expect(fake.calls[2]!.body).toEqual({ playlist: 's1-to-pay-for-my-cart' });
-    expect(t.out.stdout).toMatch(/^Birdview: .*e2e · playlist S1 · to pay for my cart \(1 test\)\nPlaying the playlist\.\n$/);
+    expect(t.out.stdout).toMatch(/^Birdview: .*e2e · playlist S1 · to pay for my cart \(1 test\)\nBirdview plays the playlist\.\n$/);
   });
 
   it('T45 cli 4 --test plays one test; --json prints the outcome', async () => {

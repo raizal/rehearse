@@ -162,7 +162,7 @@ describe('links by frame name (T51, box frame-tag-links)', () => {
     const amb = resolveFrameTags(tagged(['[S1] Home']), epics, {});
     expect(amb.links).toEqual([]);
     expect(amb.findings.map((f) => [f.epics, f.finding.message])).toEqual([
-      [['2026-01-01-a', '2026-01-02-b'], 'design/review.figcraft, page 1 "1 Screens", frame "[S1] Home": the tag [S1]: 2026-01-01-a and 2026-01-02-b both have S1; name the EPIC, e.g. [2026-01-01-a:S1]'],
+      [['2026-01-01-a', '2026-01-02-b'], 'design/review.figcraft, page 1 "1 Screens", frame "[S1] Home": the tag [S1]: 2026-01-01-a and 2026-01-02-b both have S1; name the EPIC, for example [2026-01-01-a:S1]'],
     ]);
     const named = resolveFrameTags(tagged(['[2026-01-02-b:S1] Home']), epics, {});
     expect(named.links.map((l) => l.slug)).toEqual(['2026-01-02-b']);

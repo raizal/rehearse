@@ -20,10 +20,10 @@ describe('approval state in words (S6-A1)', () => {
   it('S6-A1: approved with a valid signature is done; every other state says what it is', () => {
     const buy = sv('S1-buy');
     expect(approvalState(buy, { 'S1-buy': VALID })).toMatchObject({ kind: 'signed', done: true, text: 'approved, signature valid' });
-    expect(approvalState(buy, { 'S1-buy': { ...VALID, sigStatus: 'missing' } })).toMatchObject({ done: false, text: 'approved, signature missing' });
+    expect(approvalState(buy, { 'S1-buy': { ...VALID, sigStatus: 'missing' } })).toMatchObject({ done: false, text: 'approved, no signature' });
     expect(approvalState(buy, { 'S1-buy': { ...VALID, sigStatus: 'invalid' } })).toMatchObject({ done: false, text: 'approved, signature invalid' });
     expect(approvalState(buy, { 'S1-buy': { ...VALID, sigStatus: 'unknown-signer' } })).toMatchObject({ done: false, text: 'approved, unknown signer' });
-    expect(approvalState(buy, {})).toMatchObject({ done: false, text: 'approved, signature missing' });
+    expect(approvalState(buy, {})).toMatchObject({ done: false, text: 'approved, no signature' });
     expect(approvalState(buy, undefined)).toMatchObject({ kind: 'unchecked', done: false });
     expect(approvalState(sv('S1-empty'), {})).toMatchObject({ kind: 'draft', done: false, text: 'draft, not approved' });
     expect(approvalState(sv('S2-out-of-stock'), { 'S2-out-of-stock': VALID })).toMatchObject({ kind: 'stale', done: false });

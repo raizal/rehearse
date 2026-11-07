@@ -1300,6 +1300,116 @@ root:
       title: The builder knows what is not done and who acts
       stories: [S23]
 
+    # T60 (S25): product text and new plan text in STE, with a checker.
+    - id: ste-text
+      kind: input
+      lane: builder
+      package: core
+      title: A builder writes product text or new plan text
+      stories: [S25]
+      inputs:  { text: string }
+      outputs: { text: string, source: "enum[product, plan]" }
+      # Product text: UI strings, CLI usage and output, finding messages, the deck, the briefs,
+      # the skill and docs. Plan text: stories and scenarios in docs/epics/.
+
+    - id: ste-words
+      kind: process
+      lane: rehearse
+      package: core
+      title: Find the words that STE does not approve, with the approved word
+      stories: [S25]
+      inputs:  { text: string, source: "enum[product, plan]" }
+      outputs: { text: string, source: "enum[product, plan]", words: string }
+      # One data file (present/ste-words.ts) with the source and the size of the list. The plan
+      # terms are technical names and are not checked.
+
+    - id: ste-check
+      kind: process
+      lane: rehearse
+      package: core
+      title: Check the sentences, the paragraphs, the verbs and the nouns
+      stories: [S25]
+      inputs:  { text: string, source: "enum[product, plan]", words: string }
+      outputs: { text: string, source: "enum[product, plan]", findings: string }
+      # Sentence length (20 words in an instruction, 25 in a description), paragraph length (6
+      # sentences), a passive verb in an instruction, an -ing form, more than 3 nouns in a row.
+      # Code spans, ids, box ids, paths, commands and quoted labels are not checked.
+
+    - id: ste-source
+      kind: decision
+      lane: rehearse
+      package: core
+      title: Product text or plan text?
+      stories: [S25]
+      inputs:  { text: string, source: "enum[product, plan]", findings: string }
+
+    - id: ste-repo-test
+      kind: process
+      lane: ci
+      package: core
+      title: The repo test checks every product text source
+      stories: [S25]
+      inputs:  { text: string, source: "enum[product, plan]", findings: string }
+      outputs: { text: string, source: "enum[product, plan]", findings: string, allowList: string }
+      errorExits: ["a word with no STE word", "a new STE finding"]
+      # A list of files and the string tables. A finding that is not on the allow list fails the
+      # test, with the file, the line, the rule and the suggestion.
+
+    - id: ste-allow
+      kind: process
+      lane: builder
+      package: core
+      title: Put the finding on the allow list with a reason
+      stories: [S25]
+      inputs:  { findings: string, allowList: string }
+      outputs: { allowList: string }
+      # Only for an old finding with no STE fix. An entry that matches no finding fails the test.
+
+    - id: ste-rewrite
+      kind: process
+      lane: builder
+      package: core
+      title: Write the text again in STE and keep its meaning
+      stories: [S25]
+      inputs:  { text: string, source: "enum[product, plan]", findings: string }
+      outputs: { text: string, source: "enum[product, plan]" }
+
+    - id: ste-draft
+      kind: decision
+      lane: rehearse
+      package: core
+      title: Is the plan text a draft?
+      stories: [S25]
+      inputs:  { text: string, findings: string }
+
+    - id: ste-validate
+      kind: process
+      lane: rehearse
+      package: core
+      title: validate gives STE notes on draft text as information
+      stories: [S25]
+      inputs:  { text: string, findings: string }
+      outputs: { information: string }
+      # A draft story has no sign-off; a draft scenario has the status draft. A note is never a
+      # finding, an error or a gate item. The report stays OK.
+
+    - id: ste-signed
+      kind: process
+      lane: rehearse
+      package: core
+      title: Leave signed text as it is, with no STE note
+      stories: [S25]
+      inputs:  { text: string }
+      outputs: { information: string }
+      # A change to signed text makes the owner's approvals stale.
+
+    - id: ste-known
+      kind: end
+      lane: builder
+      package: core
+      title: Every reader gets one clear meaning
+      stories: [S25]
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -1499,3 +1609,19 @@ root:
     - { from: status-text,    to: status-known }
     - { from: start,          to: status-cli }
     - { from: epic-all-approved, to: status-view }
+    # T60 (S25)
+    - { from: start,         to: ste-text }
+    - { from: ste-text,      to: ste-words }
+    - { from: ste-words,     to: ste-check }
+    - { from: ste-check,     to: ste-source }
+    - { from: ste-source,    to: ste-repo-test, label: product, kind: branch }
+    - { from: ste-source,    to: ste-draft,     label: plan,    kind: branch }
+    - { from: ste-repo-test, to: ste-known }
+    - { from: ste-repo-test, to: ste-allow,     label: "a word with no STE word", kind: error }
+    - { from: ste-repo-test, to: ste-rewrite,   label: "a new STE finding",       kind: error }
+    - { from: ste-allow,     to: ste-known }
+    - { from: ste-rewrite,   to: ste-words }
+    - { from: ste-draft,     to: ste-validate,  label: "yes", kind: branch }
+    - { from: ste-draft,     to: ste-signed,    label: "no",  kind: branch }
+    - { from: ste-validate,  to: ste-known }
+    - { from: ste-signed,    to: ste-known }

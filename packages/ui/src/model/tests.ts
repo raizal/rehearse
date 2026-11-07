@@ -82,7 +82,7 @@ function baseRows(scenarios: Scenario[], info: BirdviewInfo | undefined): TestRo
         const r = player.results[key];
         return { ...base, key, status: 'failed', words: 'failed · held', failedStep: r?.failedStep, failedBox: r?.failedStep ? t.steps[r.failedStep] : undefined, reason: r?.reason };
       }
-      return { ...base, key, status: 'running', words: player.status === 'paused' ? 'running · paused' : 'running' };
+      return { ...base, key, status: 'running', words: player.status === 'paused' ? 'in progress · paused' : 'in progress' };
     }
     const r = player.results[key];
     if (r?.last === 'passed') return { ...base, key, status: 'passed', words: 'passed' };

@@ -54,7 +54,7 @@ function MapPanel({ flow, prd, map, testId }: { flow: Flow | undefined; prd: Prd
         {map.path === '' ? 'Top diagram' : <>Inside <strong>{map.title}</strong> <code>{map.path}</code></>}
       </figcaption>
       {!layout ? (
-        <p className="muted small">Laying out…</p>
+        <p className="muted small">rehearse draws the map…</p>
       ) : (
         <MapSvg map={map} layout={layout} marker={marker} label={summary} testId={testId} />
       )}

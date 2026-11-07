@@ -155,8 +155,8 @@ export function MergePanel({ storyId, kind, api = HTTP_MERGE_API, refreshKey = '
       {summary.refusal === null && confirming && (
         <div className="merge-confirm" role="dialog" aria-label={`Merge into ${into}`} data-testid={`${t}-confirm`}>
           <p className="small">
-            Merge {summary.commits.length} commit{summary.commits.length === 1 ? '' : 's'} of <code>{summary.branch}</code> into <code>{into}</code> with <code>git merge --no-ff</code>, touching {files.length} file{files.length === 1 ? '' : 's'}
-            {kind === 'tests' && summary.scenarios.length > 0 ? ` and adding the tests of ${summary.scenarios.join(', ')}` : ''}. The commit says “Merge {summary.title}”.
+            Merge {summary.commits.length} commit{summary.commits.length === 1 ? '' : 's'} of <code>{summary.branch}</code> into <code>{into}</code> with <code>git merge --no-ff</code>. The merge changes {files.length} file{files.length === 1 ? '' : 's'}
+            {kind === 'tests' && summary.scenarios.length > 0 ? ` and adds the tests of ${summary.scenarios.join(', ')}` : ''}. The commit says “Merge {summary.title}”.
           </p>
           <button type="button" className="action small primary" data-testid={`${t}-yes`} disabled={busy} onClick={() => void merge()}>
             {busy ? 'Merging…' : `Merge into ${into}`}

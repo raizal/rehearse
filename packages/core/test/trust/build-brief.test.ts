@@ -225,12 +225,12 @@ describe('how to work, one text for the brief and the skill', () => {
     expect(HOW_TO_WORK).toContain(
       "Commit on your thread's branch. Do not merge, push or rebase onto main yourself, and never turn the sandbox off. When done, say so in the thread: the owner merges from rehearse.",
     );
-    expect(HOW_TO_WORK).toContain('Set up first: `pnpm install --frozen-lockfile && pnpm -r build` (the install needs network: if the sandbox blocks it, say so in the thread).');
+    expect(HOW_TO_WORK).toContain('Set up first: `pnpm install --frozen-lockfile && pnpm -r build`. The install needs network access. If the sandbox blocks it, say so in the thread.');
     expect(HOW_TO_WORK.join('\n')).toContain('`rehearse play <epic> <story> --test <file:line> --wait`');
     expect(HOW_TO_WORK.join('\n')).toContain('Do not try to start Chromium in the sandbox.');
     expect(HOW_TO_WORK.join('\n')).toContain('an agent never calls `POST /api/thread/merge`');
     // A repo without a known setup says how to find it.
-    expect(howToWorkLines({ cli: 'rehearse' })[1]).toBe('Set up first: install and build the repo as its README says (the install needs network: if the sandbox blocks it, say so in the thread).');
+    expect(howToWorkLines({ cli: 'rehearse' })[1]).toBe('Set up first: install and build the repo as its README says. The install needs network access. If the sandbox blocks it, say so in the thread.');
   });
 
   it('T48 the build brief writes each command as it runs in the repo', () => {

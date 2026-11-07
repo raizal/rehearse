@@ -27,16 +27,16 @@ export function howToWorkLines(cmds: RepoCommands = DEFAULT_COMMANDS): string[] 
   return [
     "Commit on your thread's branch. Do not merge, push or rebase onto main yourself, and never turn the sandbox off. When done, say so in the thread: the owner merges from rehearse.",
     cmds.setup
-      ? `Set up first: \`${cmds.setup}\` (the install needs network: if the sandbox blocks it, say so in the thread).`
-      : 'Set up first: install and build the repo as its README says (the install needs network: if the sandbox blocks it, say so in the thread).',
+      ? `Set up first: \`${cmds.setup}\`. The install needs network access. If the sandbox blocks it, say so in the thread.`
+      : 'Set up first: install and build the repo as its README says. The install needs network access. If the sandbox blocks it, say so in the thread.',
     'Every commit carries a `Flow-Box: <box path>` trailer for each box it builds: that is how rehearse links code to the plan. Add the `Co-Authored-By` line your own rules ask for.',
-    `Start from the section *Code you start from*; use \`${c} context <box path>\` before reading files by hand, \`${c} find|show|near\` for the rest, \`${c} coverage\` for unit test coverage.`,
+    `Start from the section *Code you start from*; use \`${c} context <box path>\` before reading files by hand. Use \`${c} find|show|near\` for the rest and \`${c} coverage\` for unit test coverage.`,
     `Re-read the plan any time with \`${c} brief <epic> <story>\`; see what rehearse sees of your work with \`${c} progress <epic> <story>\`.`,
-    `Run e2e tests through Birdview: \`${c} play <epic> <story> --test <file:line> --wait\` plays one, waits for it and exits 0 when it passed, 1 when it failed or timed out. Do not try to start Chromium in the sandbox.`,
+    `Run e2e tests through Birdview with \`${c} play <epic> <story> --test <file:line> --wait\`. This command plays one test and waits for it. It exits 0 when the test passed, and 1 when it failed or timed out. Do not try to start Chromium in the sandbox.`,
     `Before you say done: \`${c} validate <epic>\`, \`${c} simulate <epic>\` and \`${c} gate check <epic>\`, the repo's tests, and one e2e test per approved scenario, named after the scenario id.`,
     'Never approve a scenario or sign off a story. No command does it; only the owner, in the rehearse UI.',
     'Never merge your branch: no command does it. Only the owner merges, with "Merge into <branch>" in the rehearse UI; an agent never calls `POST /api/thread/merge`.',
-    'Do not edit the record (`docs/epics/…`) without asking in the thread first: a change to a story, its scenarios or its boxes makes the owner\'s approvals and sign-off stale. If the plan is wrong, say so and propose the change. Something found after the build goes in `corrections.md`.',
+    'Ask in the thread before you edit the record (`docs/epics/…`). A change to a story, its scenarios or its boxes makes the owner\'s approvals and sign-off stale. If the plan is wrong, say so and propose the change. Something found after the build goes in `corrections.md`.',
     'Report in the thread in plain words: what is done per box, what is not, and the test results. Then stop: the owner merges.',
   ];
 }

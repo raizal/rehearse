@@ -97,7 +97,7 @@ describe('statusTable', () => {
   it('a failing unit test: not done, and the builders act', () => {
     const row = statusTable(real, facts({ [DONE]: { unit: { tests: 3, passed: 2, failed: 1 } } })).rows.find((r) => r.id === DONE)!;
     expect(row.done.state).not.toBe('done');
-    expect(row.unit).toMatchObject({ text: '1 failing, 2 of 3 passed', tone: 'bad' });
+    expect(row.unit).toMatchObject({ text: '1 failed, 2 of 3 passed', tone: 'bad' });
     expect(row.missing.map(missingLine)).toContain('an automated test fails: builders');
   });
 

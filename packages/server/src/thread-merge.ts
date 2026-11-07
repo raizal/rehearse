@@ -201,7 +201,7 @@ export function createThreadMerge(opts: ThreadMergeOptions): ThreadMergeService 
     };
     const into = current ?? 'the checkout';
     const refuse = (refusal: string, text = refusal) => ({ summary: { ...base, refusal, text }, top, coAuthor: DEFAULT_CO_AUTHOR });
-    if (!bb.ok) return refuse(`bb cannot say what the thread is doing, so rehearse does not merge it (${bb.error}).`);
+    if (!bb.ok) return refuse(`bb cannot give the status of the thread, so rehearse does not merge it (${bb.error}).`);
     if (branch === null) return refuse('bb names no branch for the thread, so there is nothing to merge.');
     if (!BRANCH.test(branch) || branch.includes('..')) return refuse(`The thread's branch "${branch}" is not a branch name rehearse merges.`);
     if (current === null) return refuse('The checkout is not on a branch (detached HEAD), so there is nothing to merge into. Check out a branch first.');
@@ -239,7 +239,7 @@ export function createThreadMerge(opts: ThreadMergeOptions): ThreadMergeService 
         : commits.length === 0
           ? `Nothing in the thread that ${into} does not have.`
           : inMerge
-            ? 'A merge is going on in the checkout already. Finish it or run git merge --abort, then merge.'
+            ? 'The checkout already has a merge in progress. Finish it or run git merge --abort, then merge.'
             : dirty.length > 0
               ? `The checkout has uncommitted changes in files the merge touches: ${listFiles(dirty)}. Commit or put them aside, then merge.`
               : null;
@@ -252,7 +252,7 @@ export function createThreadMerge(opts: ThreadMergeOptions): ThreadMergeService 
     },
 
     async merge(storyId, kind) {
-      if (merging) throw new StoryThreadError(409, 'A merge is going on already; wait for it.');
+      if (merging) throw new StoryThreadError(409, 'A merge is already in progress; wait for it.');
       merging = true;
       try {
         const { summary, top, coAuthor } = await summaryOf(storyId, kind);
@@ -295,7 +295,7 @@ export function createThreadMerge(opts: ThreadMergeOptions): ThreadMergeService 
       if (summary.branch === null || summary.current === null) throw new StoryThreadError(409, summary.refusal ?? 'There is no branch to rebase.');
       const text = [
         `The owner could not merge your branch ${summary.branch} into ${summary.current}: it conflicts${files.length > 0 ? ` in ${files.join(', ')}` : ''}. Nothing was merged.`,
-        `Please rebase your branch onto ${summary.current} (this once, the owner asks for it), fix the conflicts, run the tests again and commit. Do not merge or push.`,
+        `The owner asks for a rebase this once. Rebase your branch onto ${summary.current}, fix the conflicts, run the tests again and commit. Do not merge or push.`,
         'Then say so in the thread and stop: the owner merges from rehearse.',
       ].join('\n\n');
       await opts.threads.tell(summary.threadId, text);

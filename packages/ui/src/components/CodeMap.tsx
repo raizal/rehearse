@@ -290,7 +290,7 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
             Hide outside packages
           </Chip>
           <label className="cm-epic">
-            <span className="muted small">Only code serving the boxes of</span>{' '}
+            <span className="muted small">Only code for the boxes of</span>{' '}
             <select
               data-testid="code-map-epic"
               value={filters.epic ?? ''}
@@ -330,7 +330,7 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
         <div className="cm-canvas-wrap">
           {current === undefined ? (
             <p className="muted" data-testid="code-map-loading">
-              {status && !status.indexed ? 'Indexing your repo for the first time. This can take a minute; the map shows when it is done.' : `Drawing the map of ${levelName}…`}
+              {status && !status.indexed ? 'rehearse indexes your repo for the first time. This can take a minute. The map shows when it is done.' : `rehearse draws the map of ${levelName}…`}
             </p>
           ) : !current.ok ? (
             current.notFound ? (
@@ -682,7 +682,7 @@ function SidePanel({ id, mapNode, epic, onOpenBox, onLoc, onClose }: { id: strin
         </p>
       </div>
       {near === undefined ? (
-        <p className="muted small">Asking the code graph about {name}…</p>
+        <p className="muted small">rehearse asks the code graph about {name}…</p>
       ) : !near.ok ? (
         isServerRestarted(near.error) ? <ServerRestarted /> : <p className="warn">{near.notFound ? `${name} is not in the code graph any more.` : `Could not read ${name}: ${near.error}`}</p>
       ) : (

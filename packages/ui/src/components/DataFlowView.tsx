@@ -32,7 +32,7 @@ export function DataFlowView({ view, onOpenBox }: BigViewProps) {
           </p>
         ) : (
           <div className="bp-map-wrap gd-canvas">
-            {lay.kind === 'busy' && <p className="muted gd-status">Laying out the data flow…</p>}
+            {lay.kind === 'busy' && <p className="muted gd-status">rehearse draws the data flow…</p>}
             {lay.kind === 'error' && <p className="warn gd-status">Could not lay out the data flow: {lay.message}</p>}
             {lay.kind === 'ready' && <GraphDiagram prefix="df" label="Data flow diagram, level 1" graph={df} layout={lay.layout} onOpenBox={onOpenBox} />}
           </div>

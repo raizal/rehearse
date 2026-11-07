@@ -101,7 +101,7 @@ describe('T48 rehearse play --wait (box play-wait)', () => {
     const fake = fakePlayer(tests, [state(tests, 'running')]);
     const t = io(epic);
     expect(await runPlay([epic, 'S1', '--test', KEY, '--wait', '--timeout', '5'], t.io, fake.client, fakeClock())).toBe(1);
-    expect(t.out.stdout).toContain(`no result ${KEY} (S1-buy): still running when the wait ran out\n`);
+    expect(t.out.stdout).toContain(`no result ${KEY} (S1-buy): the run did not end before the wait ran out\n`);
     expect(fake.played).toHaveLength(1);
     expect(fake.looks()).toBeGreaterThan(3);
   });

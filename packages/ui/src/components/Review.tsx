@@ -10,7 +10,7 @@ export type SessionState = { kind: 'loading' } | { kind: 'error'; message: strin
 
 /** Why the approve and sign-off buttons are off, or undefined when they can be used. */
 export function signingBlocked(state: SessionState): string | undefined {
-  if (state.kind === 'loading') return 'Loading the session…';
+  if (state.kind === 'loading') return 'rehearse loads the session…';
   if (state.kind === 'error') return `Could not load the session: ${state.message}`;
   return state.session.signing.ok ? undefined : state.session.signing.reason;
 }

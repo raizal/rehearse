@@ -39,14 +39,14 @@ Commands:
   new <slug> --title "<title>"           Create docs/epics/<slug>/ (slug YYYY-MM-DD-<kebab>) at the git top-level.
   serve [epic-dir-or-slug] [--port N] [--birdview-port N] [--thread-model M] [--thread-reasoning R]
                                          Serve the review UI on 127.0.0.1 (default port 4700; Birdview player 3298).
-                                         --thread-model/--thread-reasoning: the model and reasoning level of story threads.
+                                         --thread-model/--thread-reasoning: the model of story threads and how much it reasons.
   brief <epic-dir-or-slug> <story> [--scenario <id>]… [--allow-unsigned] [--json]
                                          The build brief of a signed story, as a thread gets it. Exit 1 when the story is
-                                         not signed off or changed since (--allow-unsigned prints it, saying so on top).
+                                         not signed off or changed since (--allow-unsigned prints it, with a note on top).
                                          --scenario: these scenarios in full, the others in one line each.
   brief <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]
                                          The test brief of scenarios without an e2e test, as a test thread gets it
-                                         (default: all of the story's). Exit 1 on a draft or stale scenario, or none missing.
+                                         (default: all of the story's). Exit 1 on a draft or stale scenario, or when all have a test.
   progress <epic-dir-or-slug> <story> [--json]
                                          What rehearse sees of the work on a story: each box built (Flow-Box commits on
                                          every branch, code the code graph maps to it), no code of its own (start/end, or a
@@ -54,7 +54,7 @@ Commands:
                                          per scenario, gate findings, whether it is signed, its thread.
   status <epic-dir-or-slug> [--json] [--not-done] [--unit-report <file.json>] [--birdview-data <dir>]
                                          Per story: signed, built, tests on the real screens, automated tests, done, and what
-                                         is missing and who acts; not done first. The same rule as the deck and the Status page.
+                                         the story still needs and who acts; not done first. The same rule as the deck and the Status page.
                                          --not-done shows only the stories not done. Exit 0.
   present <epic-dir-or-slug> [--full] [--out <file.html>] [--pdf <file.pdf>] [--committed-only]
           [--with-recordings <dir>] [--unit-report <file.json>] [--birdview-data <dir>]
@@ -71,7 +71,7 @@ Commands:
                                          named --unit-report cannot be read (the deck is still written).
   playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir> | --push [--birdview-port N]]
                                          Write one Birdview playlist per story from the e2e tests named after scenarios.
-                                         --push writes them through the Birdview player (switching it to the test project).
+                                         --push writes them through the Birdview player and switches it to the test project.
   play <epic-dir-or-slug> <story> [--test <file:line>] [--wait [--timeout <seconds>]] [--birdview-port N] [--json]
                                          Switch Birdview to this repo's test project, write the story playlist through it
                                          and play it (or one test). Exit 1 when Birdview is busy or not running: try again.
@@ -87,7 +87,7 @@ Commands:
                                          Exit 1 when there is no readable design file under design/.
 
 Code graph (each verb first updates .rehearse/graph.db at the git top-level; --rebuild makes it again):
-  find <words> [--json] [--rebuild]      Find code by words (BM25; camelCase and snake_case are split).
+  find <words> [--json] [--rebuild]      Find code by words (BM25; the search splits camelCase and snake_case).
   show <target> [--json] [--rebuild]     One node: its code, file, ID, and its edges with their trust marks.
   near <target> [--depth n] [--json] [--rebuild]
                                          The nodes up to n edges away, both ways (default 1).

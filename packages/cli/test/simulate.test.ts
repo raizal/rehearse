@@ -11,6 +11,13 @@ import { run, USAGE } from '../src/index.js';
 
 const REPO = fileURLToPath(new URL('../../..', import.meta.url));
 
+/** The report is OK: no findings, and each other line is an STE note on draft text (T60). */
+function validateOk(out: string): boolean {
+  const lines = out.trimEnd().split('\n');
+  const last = lines.pop()!;
+  return /^validate: OK, no findings( \(\d+ STE notes on draft text: information only\))?$/.test(last) && lines.every((l) => l.includes(': information: STE '));
+}
+
 /** Hash of every file under `dir` (names and bytes). */
 function hashDir(dir: string): string {
   const h = createHash('sha256');
@@ -103,7 +110,7 @@ describe('rehearse simulate', () => {
     const { code, out } = cli(['simulate', '2026-11-05-rehearse']);
     expect([0, 1]).toContain(code);
     expect(out).toMatch(/simulate: /);
-    expect(cli(['validate', '2026-11-05-rehearse']).out).toBe('validate: OK, no findings\n');
+    expect(validateOk(cli(['validate', '2026-11-05-rehearse']).out)).toBe(true);
   });
 });
 

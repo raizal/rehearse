@@ -35,7 +35,8 @@ export {
 export { deckHtml, SLIDE_H, SLIDE_W, type DeckAsset, type DeckAssets } from './html.js';
 export { isSlideKey, NO_INPUTS, parsePresentation, PRESENTATION_FILE, readPresentation, SLIDE_KEYS, type PresentationInputs, type SlideKey } from './inputs.js';
 export { downscalePng, MAX_DECK_IMAGE_WIDTH, pngSize, solidPng, type PngSize } from './png.js';
-export { ID_PATTERN, plain, plainWordProblems, sentences, YAML_KEYS } from './plain.js';
+export { ID_PATTERN, isInstruction, plain, plainWordProblems, sentences, steFindings, steFindingText, steMask, STE_LIMITS, YAML_KEYS, type SteFinding, type SteRule } from './plain.js';
+export { ING_NOUNS, STE_TECHNICAL_NAMES, STE_WORDS, type SteWord } from './ste-words.js';
 export {
   DONE_RULE,
   DONE_WORDS,

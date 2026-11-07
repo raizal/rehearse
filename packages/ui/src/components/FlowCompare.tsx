@@ -183,7 +183,7 @@ export function FlowCompare({ c, asIs, epic, prd, mode, onOpenBox }: FlowCompare
   if (chart.boxes.length === 0) return <p className="muted small" data-testid="ba-flow-empty">Neither flow has a box to draw.</p>;
   const draw = (side: DiffSide, label: string) =>
     !layout ? (
-      <p className="muted gd-status">Laying out the flow…</p>
+      <p className="muted gd-status">rehearse draws the flow…</p>
     ) : side === 'before' && !chart.boxes.some((b) => b.onBefore) ? (
       <p className="muted small" data-testid="ba-flow-before-none">
         The repo has no <code>docs/system/flow.yaml</code>, so there is no flow as built to draw.

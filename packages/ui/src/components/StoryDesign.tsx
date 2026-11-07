@@ -116,7 +116,7 @@ export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; a
   };
   const refresh = async () => {
     setBusy(true);
-    setMsg({ text: 'Asking FigCraft for fresh pictures…', warn: false });
+    setMsg({ text: 'rehearse asks FigCraft for new pictures…', warn: false });
     const r = await api.refresh(storyId);
     setBusy(false);
     setMsg(r.ok ? { text: r.body.message, warn: false } : { text: r.error, warn: true });
@@ -128,7 +128,7 @@ export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; a
 
   const fetchWeb = async () => {
     setPending(true);
-    setMsg({ text: 'Fetching the FigCraft web build…', warn: false });
+    setMsg({ text: 'rehearse gets the FigCraft web build…', warn: false });
     const r = await api.fetchFigcraft();
     setMsg(r.ok ? { text: `Fetched FigCraft web${r.body.version ? ` ${r.body.version}` : ''}.`, warn: false } : { text: `Could not fetch FigCraft web: ${r.error}`, warn: true });
     setPending(false);
@@ -153,7 +153,7 @@ export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; a
       </header>
       {load.kind === 'loading' && (
         <p className="muted" data-testid="design-loading">
-          Reading the design links…
+          rehearse reads the design links…
         </p>
       )}
       {load.kind === 'error' &&
@@ -265,7 +265,7 @@ export function FigcraftEditor({ info, link, api, onClose }: { info: DesignInfo;
   useEffect(() => {
     const post = (data: unknown) => frame.current?.contentWindow?.postMessage(data, window.location.origin);
     const open = async () => {
-      setMsg({ text: `Opening ${link.file}…`, warn: false });
+      setMsg({ text: `rehearse opens ${link.file}…`, warn: false });
       const r = await api.file(link.file);
       if (!r.ok) {
         setMsg({ text: `Could not read ${link.file}: ${r.error}`, warn: true });
@@ -283,7 +283,7 @@ export function FigcraftEditor({ info, link, api, onClose }: { info: DesignInfo;
         setMsg({ text: `${DOWNLOAD_NOTE}: ${target.name}.`, warn: false });
         return;
       }
-      setMsg({ text: `Saving ${target.file}…`, warn: false });
+      setMsg({ text: `rehearse saves ${target.file}…`, warn: false });
       const r = await api.save(target.file, toBase64(bytes));
       setMsg(r.ok ? { text: savedWords(r.body.file || target.file), warn: false } : { text: `Could not save ${target.file}: ${r.error}`, warn: true });
     };

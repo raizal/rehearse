@@ -28,7 +28,7 @@ export function approvalState(sv: ScenarioView, approvals: Record<Id, ApprovalVi
   if (sig === 'valid') return { kind: 'signed', text: 'approved, signature valid', done: true };
   if (sig === 'unknown-signer') return { kind: 'unknown-signer', text: 'approved, unknown signer', done: false };
   if (sig === 'invalid') return { kind: 'invalid', text: 'approved, signature invalid', done: false };
-  return { kind: 'missing', text: 'approved, signature missing', done: false };
+  return { kind: 'missing', text: 'approved, no signature', done: false };
 }
 
 export interface QueueGroup {

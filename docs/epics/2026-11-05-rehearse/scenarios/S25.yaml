@@ -1,0 +1,113 @@
+story: S25
+scenarios:
+
+  - id: S25-checker-rules
+    title: The checker gives one finding for each STE rule, with a suggestion
+    status: draft
+    steps:
+      - { name: start }
+      - name: ste-text
+        example: { id: rules-text, given: { text: "Utilize the panel. Loading the story page header text…" }, then: { source: product } }
+      - name: ste-words
+        example: { id: rules-words, given: { text: "Utilize the panel." }, then: { words: "\"Utilize\" is not an approved STE word. Use \"use\"." } }
+      - name: ste-check
+        example: { id: rules-check, given: { text: "Loading the story page header text…" }, then: { findings: "ing-form: Loading; noun-cluster: story page header text" } }
+      - name: ste-source
+        branch: product
+      - { name: ste-repo-test }
+      - { name: ste-known }
+    expect: { criterion: S25-A1, state: { rules: "sentence-length, paragraph-length, passive-instruction, ing-form, noun-cluster, word", notRead: "code spans, ids, box ids, paths, commands, quoted labels" } }
+
+  - id: S25-product-passes
+    title: The product text has no STE finding that is not on the allow list
+    status: draft
+    steps:
+      - { name: start }
+      - name: ste-text
+        example: { id: product-text, given: { text: "the UI, the CLI, the finding messages, the deck, the briefs, the skill and docs" }, then: { source: product } }
+      - { name: ste-words }
+      - { name: ste-check }
+      - name: ste-source
+        branch: product
+      - name: ste-repo-test
+        example: { id: product-ok, given: { sources: "the list of files and the string tables" }, then: { findings: "none that is not on the allow list" } }
+      - { name: ste-known }
+    expect: { criterion: S25-A2, state: { findings: "none that is not on the allow list", terms: "plan terms stay as technical names" } }
+
+  - id: S25-new-finding
+    title: A new STE finding fails the repo test, and the builder writes the text again
+    status: draft
+    steps:
+      - { name: start }
+      - name: ste-text
+        example: { id: new-text, given: { text: "Loading the EPIC record…" }, then: { source: product } }
+      - { name: ste-words }
+      - { name: ste-check }
+      - name: ste-source
+        branch: product
+      - name: ste-repo-test
+        branch: "a new STE finding"
+        example: { id: new-fails, given: { text: "Loading the EPIC record…" }, then: { exit: "a new STE finding" } }
+      - name: ste-rewrite
+        example: { id: new-again, given: { text: "Loading the EPIC record…" }, then: { text: "rehearse loads the EPIC record…" } }
+      - { name: ste-words }
+      - { name: ste-check }
+      - name: ste-source
+        branch: product
+      - { name: ste-repo-test }
+      - { name: ste-known }
+    expect: { criterion: S25-A3, state: { failure: "names the file, the line, the rule and the suggestion", after: "the test passes" } }
+
+  - id: S25-no-ste-word
+    title: A word with no STE word goes on the allow list with a reason
+    status: draft
+    steps:
+      - { name: start }
+      - { name: ste-text }
+      - { name: ste-words }
+      - { name: ste-check }
+      - name: ste-source
+        branch: product
+      - name: ste-repo-test
+        branch: "a word with no STE word"
+        example: { id: no-word, given: { text: "Send these scenarios to the running thread" }, then: { exit: "a word with no STE word" } }
+      - name: ste-allow
+        example: { id: allow-entry, given: { findings: "ing-form: running" }, then: { allowList: "the signed plan quotes this label (S13)" } }
+      - { name: ste-known }
+    expect: { criterion: S25-A3, state: { allowList: "an entry with a reason", unused: "an entry that matches no finding fails the test" } }
+
+  - id: S25-draft-information
+    title: validate gives STE notes on draft text as information, and the report stays OK
+    status: draft
+    steps:
+      - { name: start }
+      - name: ste-text
+        example: { id: draft-text, given: { text: "a draft scenario title: Buyer is paying for the cart" }, then: { source: plan } }
+      - { name: ste-words }
+      - { name: ste-check }
+      - name: ste-source
+        branch: plan
+      - name: ste-draft
+        branch: "yes"
+      - name: ste-validate
+        example: { id: draft-notes, given: { text: "Buyer is paying for the cart" }, then: { information: "scenarios/S1.yaml: S1-buy: title: information: STE ing-form: \"paying\" is an -ing form." } }
+      - { name: ste-known }
+    expect: { criterion: S25-A4, state: { report: "OK", exit: 0, gate: "no STE item" } }
+
+  - id: S25-signed-not-checked
+    title: validate gives no STE note on a signed story or an approved scenario
+    status: draft
+    steps:
+      - { name: start }
+      - name: ste-text
+        example: { id: signed-text, given: { text: "the text of a signed story" }, then: { source: plan } }
+      - { name: ste-words }
+      - { name: ste-check }
+      - name: ste-source
+        branch: plan
+      - name: ste-draft
+        branch: "no"
+      - name: ste-signed
+        example: { id: signed-none, given: { text: "the text of a signed story" }, then: { information: "no STE note" } }
+      - { name: ste-known }
+    expect: { criterion: S25-A5, state: { notes: none, approvals: "not stale" } }

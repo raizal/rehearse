@@ -53,7 +53,7 @@ export function checkRefs(record: EpicRecord): Finding[] {
     for (const d of duplicates(ids(requirements))) out.push(ref(PRD, d, `duplicate requirement id ${d}`, [d]));
     for (const d of duplicates(ids(stories))) out.push(ref(PRD, d, `duplicate story id ${d}`, [d]));
     const criteria = stories.flatMap((s) => ids(asArray<AcceptanceCriterion>(s.acceptance)));
-    for (const d of duplicates(criteria)) out.push(ref(PRD, d, `duplicate acceptance criterion id ${d}`, [d]));
+    for (const d of duplicates(criteria)) out.push(ref(PRD, d, `two or more criteria have the id ${d}`, [d]));
 
     for (const s of stories) {
       const sid = String(s.id);

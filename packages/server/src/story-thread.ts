@@ -327,8 +327,8 @@ export function briefTitle(brief: StoryBrief, prefix = ''): string {
 /** The first message of a build thread: one line on top, then the build brief. */
 export function buildPrompt(slug: string, storyId: Id, markdown: string): string {
   return [
-    `Build story ${storyId} of the EPIC ${slug} from this brief. It is the plan the owner signed off; the owner watches the work in rehearse (Flow-Box commits per box, the e2e test of each approved scenario, the gate).`,
-    'Start by saying in a few lines how you will build it, box by box. Then build.',
+    `Build story ${storyId} of the EPIC ${slug} from this brief. It is the plan the owner signed off. The owner watches the work in rehearse (Flow-Box commits per box, the e2e test of each approved scenario, the gate).`,
+    'First, say in a few lines how you will build it, box by box. Then build.',
     '',
     markdown,
   ].join('\n');
@@ -400,7 +400,7 @@ export function testFixtures(testProject: string | undefined): { ui?: TestFixtur
 export function testPrompt(slug: string, storyId: Id, scenarios: Id[], markdown: string): string {
   return [
     `Write the e2e tests of story ${storyId} of the EPIC ${slug} for ${scenarios.join(', ')}, from this brief. The scenarios are approved by the owner; the owner watches the tests in rehearse (the story's Tests tab, Birdview).`,
-    'Write only tests. Start by saying in a few lines which spec file you will write and how each test walks its scenario. Then write and run them.',
+    'Write only tests. First, say in a few lines which spec file you will write and how each test walks its scenario. Then write and run them.',
     '',
     markdown,
   ].join('\n');
@@ -909,7 +909,7 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       const brief = briefOf(storyId);
       if ((await threadOf(brief)) !== null) throw new StoryThreadError(409, `story ${storyId} has a thread already`);
       const key = `${brief.slug}/${storyId}`;
-      if (starting.has(key)) throw new StoryThreadError(409, `a thread for ${storyId} is starting`);
+      if (starting.has(key)) throw new StoryThreadError(409, `rehearse already starts a thread for ${storyId}`);
       starting.add(key);
       try {
         const thread = await spawnThread({ title: briefTitle(brief) }, briefPrompt(brief));
@@ -925,7 +925,7 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       if (!state.buildable) throw new StoryThreadError(409, state.refusal ?? `story ${storyId} cannot be built yet`);
       if ((await threadOf(brief)) !== null) throw new StoryThreadError(409, `story ${storyId} has a thread already`);
       const key = `${brief.slug}/${storyId}`;
-      if (starting.has(key)) throw new StoryThreadError(409, `a thread for ${storyId} is starting`);
+      if (starting.has(key)) throw new StoryThreadError(409, `rehearse already starts a thread for ${storyId}`);
       starting.add(key);
       try {
         const rec = record();
@@ -999,12 +999,12 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       const brief = briefOf(storyId);
       // Taken before the first await: two presses at once never both get past the check below.
       const key = `${brief.slug}/${storyId}/tests`;
-      if (starting.has(key)) throw new StoryThreadError(409, `a test thread for ${storyId} is starting`);
+      if (starting.has(key)) throw new StoryThreadError(409, `rehearse already starts a test thread for ${storyId}`);
       starting.add(key);
       try {
         const now0 = await testView(storyId);
         if (now0.thread?.running) {
-          throw new StoryThreadError(409, `a test thread of ${storyId} may still be working (@thread:${now0.thread.id}, ${now0.thread.bb.ok ? now0.thread.bb.statusText : 'bb did not answer'}): send these scenarios to it instead of starting another`);
+          throw new StoryThreadError(409, `a test thread of ${storyId} may still run (@thread:${now0.thread.id}, ${now0.thread.bb.ok ? now0.thread.bb.statusText : 'bb did not answer'}): send these scenarios to it, and do not start another`);
         }
         const ids = scenarios && scenarios.length > 0 ? scenarios : now0.missing;
         if (ids.length === 0) throw new StoryThreadError(409, `every approved scenario of ${storyId} has a test`);

@@ -22,7 +22,7 @@ export function resultLine(r: WaitResult): string {
   if (r.last === 'passed') return `passed ${who}`;
   if (r.last === 'failed') return `failed ${who}${r.failedStep ? ` at step "${r.failedStep}"` : ''}${r.reason ? `: ${r.reason}` : ''}`;
   if (r.last === 'stopped') return `no result ${who}: Birdview stopped before it ended`;
-  return `no result ${who}: still running when the wait ran out`;
+  return `no result ${who}: the run did not end before the wait ran out`;
 }
 
 export async function runPlay(args: string[], io: Io, client?: PlayerClient, wait: Omit<WaitOptions, 'timeoutMs'> = {}): Promise<number> {
@@ -39,7 +39,7 @@ export async function runPlay(args: string[], io: Io, client?: PlayerClient, wai
     else if (a === '--timeout') {
       const v = args[++i];
       if (v === undefined || !/^\d+$/.test(v) || Number(v) < 1) {
-        io.stderr(`rehearse play: --timeout needs a number of seconds, at least 1, got ${v ?? 'nothing'}\n\n${HELP}`);
+        io.stderr(`rehearse play: --timeout needs a time in seconds, at least 1, got ${v ?? 'nothing'}\n\n${HELP}`);
         return EXIT.usage;
       }
       timeout = Number(v);
@@ -100,7 +100,7 @@ export async function runPlay(args: string[], io: Io, client?: PlayerClient, wai
     if (json) io.stdout(JSON.stringify(out, null, 2) + '\n');
     else {
       io.stdout(`Birdview: ${out.project.projectDir} · playlist ${out.playlist.name} (${out.playlist.tests} test${out.playlist.tests === 1 ? '' : 's'})\n`);
-      io.stdout('keys' in out.played ? `Playing ${out.played.keys.join(', ')}.\n` : `Playing the playlist.\n`);
+      io.stdout('keys' in out.played ? `Birdview plays ${out.played.keys.join(', ')}.\n` : `Birdview plays the playlist.\n`);
     }
     for (const p of out.problems) io.stderr(`problem: ${p}\n`);
     return EXIT.ok;

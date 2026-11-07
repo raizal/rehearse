@@ -18,6 +18,7 @@ export { checkDoc, checkSchemas, schemaFor, schemaUrl, toYamlPath, type SchemaNa
 export { checkRefs, enumValues } from './validate/refs.js';
 export { checkStructure } from './validate/structure.js';
 export { checkSteps } from './validate/steps.js';
+export { isDraftStory, steDraftNotes } from './validate/ste.js';
 export { compareFindings, makeReport, reportToJson, reportToText, sortFindings } from './validate/report.js';
 export { simulateEpic, simulateRecord } from './simulate/index.js';
 export { loadScenarios, type LoadedScenarios } from './simulate/load.js';

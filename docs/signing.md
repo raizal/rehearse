@@ -14,7 +14,7 @@ An approval without a valid signature is not evidence. A sign-off without a vali
 not trusted, and its stories must be signed again. The gate names the scenario or story and the
 `sigStatus`:
 
-| sigStatus | Meaning |
+| sigStatus | What it means |
 | --- | --- |
 | `missing` | The event has no signature. |
 | `invalid` | The signature does not match the content. |
@@ -84,7 +84,7 @@ A signature with a key that is not on the list, or that is listed for another em
 the list, the approve or sign-off fails with
 `key SHA256:… is not in .rehearse/allowed_signers for you@example.com`.
 
-## Remaining risk
+## The risk that remains
 
 An agent could add its own key to `.rehearse/allowed_signers`. For this reason:
 

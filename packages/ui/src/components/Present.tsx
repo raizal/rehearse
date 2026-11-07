@@ -91,10 +91,10 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
                     Download HTML
                   </button>
                   <button type="button" data-testid="present-download-pdf" disabled={file.busy !== undefined} onClick={downloadPdf}>
-                    {file.busy === 'pdf' ? 'Making the PDF…' : 'Download PDF'}
+                    {file.busy === 'pdf' ? 'rehearse makes the PDF…' : 'Download PDF'}
                   </button>
                   <button type="button" data-testid="present-download-zip" disabled={file.busy !== undefined} onClick={downloadZip} title="The HTML file and the videos of the test runs it links, in one zip">
-                    {file.busy === 'zip' ? 'Packing the recordings…' : 'HTML + recordings (zip)'}
+                    {file.busy === 'zip' ? 'rehearse packs the recordings…' : 'HTML + recordings (zip)'}
                   </button>
                 </>
               )}
@@ -113,7 +113,7 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
               {file.note}
             </div>
           )}
-          {state.kind === 'loading' && <div className="status-msg" data-testid="present-loading">Making the deck from the record…</div>}
+          {state.kind === 'loading' && <div className="status-msg" data-testid="present-loading">rehearse makes the deck from the record…</div>}
           {state.kind === 'error' && (
             <div className="status-msg error" role="alert" data-testid="present-error">
               Could not make the deck: {state.error}

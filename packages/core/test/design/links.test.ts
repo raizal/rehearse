@@ -106,7 +106,8 @@ describe('design links (T50, box design-links)', () => {
   });
 
   it('this repo: the links in design/links.yaml are all good', () => {
-    expect(validateEpic(REAL_EPIC)).toEqual({ command: 'validate', ok: true, findings: [] });
+    // T60: STE notes on draft text are information only, so this test does not compare them.
+    expect(validateEpic(REAL_EPIC)).toMatchObject({ command: 'validate', ok: true, findings: [] });
   });
 
   it('rehearse validate reports a bad link of its EPIC as a finding', () => {

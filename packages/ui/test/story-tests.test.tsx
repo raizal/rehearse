@@ -154,7 +154,7 @@ describe('T45 play a story in Birdview from the Tests tab', () => {
     await user.click(play);
     expect(play).toBeDisabled();
     expect(screen.getByTestId('story-test-play-S1-buy')).toBeDisabled();
-    expect(screen.getByTestId('story-tests-msg')).toHaveTextContent('Asking Birdview…');
+    expect(screen.getByTestId('story-tests-msg')).toHaveTextContent('rehearse asks Birdview…');
     release();
     await waitFor(() => expect(play).toBeEnabled());
   });

@@ -138,7 +138,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
     if (!api.testCall || ids.length === 0) return;
     setPending(true);
     const sending = running;
-    setMsg({ text: sending ? 'Sending to the test thread…' : 'Starting a test thread…', warn: false });
+    setMsg({ text: sending ? 'rehearse sends the scenarios to the test thread…' : 'rehearse starts a test thread…', warn: false });
     const out = await api.testCall(sending ? 'send' : 'thread', { story: storyId, scenarios: ids });
     if (out.kind === 'ok') {
       setTv(out.body);
@@ -172,7 +172,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
             data-testid="story-tests-play"
             disabled={playBlocked}
             title={status?.blocked}
-            onClick={() => void send('play-story', { story: storyId }, 'Asking Birdview…', `Birdview plays the ${playlist?.name ?? storyId} playlist.`)}
+            onClick={() => void send('play-story', { story: storyId }, 'rehearse asks Birdview…', `Birdview plays the ${playlist?.name ?? storyId} playlist.`)}
           >
             ▶ Play in Birdview
           </button>
@@ -190,7 +190,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
             {status.switchBack && !status.other && (
               <>
                 {' · '}
-                <SwitchBack label={status.switchBack.label} disabled={pending} onClick={() => void send('use-project', { to: 'default' }, 'Asking Birdview…', 'Birdview is back on its default project.')} />
+                <SwitchBack label={status.switchBack.label} disabled={pending} onClick={() => void send('use-project', { to: 'default' }, 'rehearse asks Birdview…', 'Birdview is back on its default project.')} />
               </>
             )}
           </p>
@@ -200,7 +200,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
               {status.switchBack && (
                 <>
                   {' '}
-                  <SwitchBack label="Switch back" disabled={pending} onClick={() => void send('use-project', { to: 'default' }, 'Asking Birdview…', 'Birdview is back on its default project.')} />
+                  <SwitchBack label="Switch back" disabled={pending} onClick={() => void send('use-project', { to: 'default' }, 'rehearse asks Birdview…', 'Birdview is back on its default project.')} />
                 </>
               )}
             </p>
@@ -232,7 +232,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
         <div className="story-tests-list">
           <h4>One test per scenario</h4>
           <p className="small muted" data-testid="story-tests-summary">
-            {load.kind === 'loading' ? 'Reading the player…' : testSummary(rows)}
+            {load.kind === 'loading' ? 'rehearse reads the player…' : testSummary(rows)}
           </p>
           {api.merge && tv?.thread && (
             <MergePanel
@@ -254,7 +254,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
                 data-testid="story-tests-play-new"
                 disabled={!playerReachable || pending}
                 title={merged.map((t) => t.key).join(', ')}
-                onClick={() => void send('play-test', { story: storyId, test: merged.map((t) => t.key) }, 'Asking Birdview…', `Birdview plays ${merged.map((t) => t.scenario).join(', ')}.`)}
+                onClick={() => void send('play-test', { story: storyId, test: merged.map((t) => t.key) }, 'rehearse asks Birdview…', `Birdview plays ${merged.map((t) => t.scenario).join(', ')}.`)}
               >
                 ▶ Play the new tests in Birdview
               </button>
@@ -284,7 +284,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
                       disabled={!playerReachable || pending}
                       aria-label={`Play the test of ${r.scenarioId} in Birdview`}
                       title={`Play ${r.key} in Birdview`}
-                      onClick={() => void send('play-test', { story: storyId, test: r.key! }, 'Asking Birdview…', `Birdview plays ${r.key}.`)}
+                      onClick={() => void send('play-test', { story: storyId, test: r.key! }, 'rehearse asks Birdview…', `Birdview plays ${r.key}.`)}
                     >
                       ▶
                     </button>
@@ -309,7 +309,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
           </ul>
           <aside className="story-tests-note" data-testid="story-tests-failure-note">
             <strong>Where a failure goes</strong>
-            <p className="small">As Birdview works today, a failure holds every window on the failure screen and goes to the Birdview chat thread, not to the thread of this story.</p>
+            <p className="small">Today, a failure holds every Birdview window on the failure screen. The failure goes to the Birdview chat thread, not to the thread of this story.</p>
           </aside>
         </div>
         <div className="story-tests-player">

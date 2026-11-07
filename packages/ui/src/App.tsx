@@ -400,7 +400,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           </div>
         </header>
 
-        {state.kind === 'loading' && <div className="status-msg" data-testid="loading">Loading the EPIC record…</div>}
+        {state.kind === 'loading' && <div className="status-msg" data-testid="loading">rehearse loads the EPIC record…</div>}
         {state.kind === 'error' && (
           <div className="status-msg error" data-testid="load-error">
             Could not load the EPIC record: {state.message}

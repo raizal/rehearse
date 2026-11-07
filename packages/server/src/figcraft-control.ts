@@ -53,7 +53,7 @@ function call(addr: FigcraftControlAddress, c: Call): Promise<unknown> {
       if (err) reject(err);
       else resolve(value);
     };
-    socket.setTimeout(addr.timeoutMs ?? 15_000, () => finish(connected ? new Error(`FigCraft did not answer ${c.method} in time`) : new FigcraftNotRunning('timed out connecting')));
+    socket.setTimeout(addr.timeoutMs ?? 15_000, () => finish(connected ? new Error(`FigCraft did not answer ${c.method} in time`) : new FigcraftNotRunning('no connection in time')));
     socket.on('connect', () => {
       connected = true;
       socket.write(`${JSON.stringify({ id: ++nextId, method: c.method, params: c.params })}\n`);
@@ -74,7 +74,7 @@ function call(addr: FigcraftControlAddress, c: Call): Promise<unknown> {
       else finish(undefined, answer.result);
     });
     socket.on('error', (e: NodeJS.ErrnoException) => finish(connected ? e : new FigcraftNotRunning(e.code ?? e.message)));
-    socket.on('close', () => finish(new Error(`FigCraft closed the connection before answering ${c.method}`)));
+    socket.on('close', () => finish(new Error(`FigCraft closed the connection before it answered ${c.method}`)));
   });
 }
 
