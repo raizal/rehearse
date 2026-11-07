@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedRealEpic } from '../../core/test/helpers.js';
+import { hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedRealEpic, waitingStories } from '../../core/test/helpers.js';
 import { signedEpic } from '../../core/test/trust/helpers.js';
 import { KEY } from '../../core/test/trust/keys.js';
 import { run, USAGE } from '../src/index.js';
@@ -59,7 +59,12 @@ describe('rehearse gate check', () => {
     // Each story is stale, signed under hash rule 1 (C11), or its latest sign-off has no valid signature (D41).
     const stories = [...readFileSync(join(dir, 'prd.yaml'), 'utf8').matchAll(/^ {2}- id: (S\d+)$/gm)].map((m) => m[1]!);
     expect(stories.length).toBeGreaterThan(0);
-    for (const s of stories) expect(out, s).toMatch(new RegExp(`signoff\\.yaml: ${s}: gate: .*must be signed again`));
+    // A new story that waits for the owner (T44's S11) was never signed off, so it is not signed again either.
+    const waiting = waitingStories(dir);
+    for (const s of stories) {
+      const want = waiting.includes(s) ? `signoff\\.yaml: ${s}: gate: ${s} is not signed off` : `signoff\\.yaml: ${s}: gate: .*must be signed again`;
+      expect(out, s).toMatch(new RegExp(want));
+    }
     expect(out).toMatch(/gate: \d+ findings/);
     // D41: an approval without a signature is not evidence.
     expect(out.match(/is not evidence: sigStatus missing/g)?.length).toBeGreaterThan(0);
@@ -81,16 +86,24 @@ describe('rehearse gate check', () => {
     const { code, out } = cli(['gate', 'check', '2026-11-05-rehearse']);
     expect(hashDir(REAL_EPIC)).toBe(before);
     expect(cli(['validate', '2026-11-05-rehearse']).code).toBe(0);
+    // A new story that waits for the owner (never signed, drafts only) has only its own findings; the rest is pinned.
+    const waiting = waitingStories(REAL_EPIC);
+    const json = JSON.parse(cli(['gate', 'check', '2026-11-05-rehearse', '--json']).out) as { findings: { kind: string; file: string; path: string; message: string; refs: string[] }[] };
+    const ofWaiting = (f: { refs: string[] }) => f.refs.length > 0 && f.refs.every((r) => waiting.some((w) => r === w || r.startsWith(`${w}-`)));
+    const others = json.findings.filter((f) => !ofWaiting(f)).map((f) => `${f.file}: ${f.path}: ${f.kind}: ${f.message}`);
+    if (waiting.length > 0) expect(json.findings.some(ofWaiting)).toBe(true);
     // True without the key list: no story must be signed again for its content or hash rule, no approval lacks a signature.
-    expect(out).not.toMatch(/is stale: content changed|signed under hash rule 1|sigStatus missing|has no approved scenario/);
+    for (const f of others) expect(f).not.toMatch(/is stale: content changed|signed under hash rule 1|sigStatus missing|has no approved scenario/);
     if (liveAllowedSigners()) {
       // The owner's checkout: every signature is by a key that .rehearse/allowed_signers lists.
-      expect(code, out).toBe(0);
-      expect(out).toMatch(/^gate: OK, no findings\nsigners .*\n {2}\S+@\S+ SHA256:\S+: \d+ approvals, \d+ sign-offs\n/);
+      expect(others, out).toEqual([]);
+      expect(code, out).toBe(waiting.length > 0 ? 1 : 0);
+      expect(out).toMatch(/\nsigners .*\n {2}\S+@\S+ SHA256:\S+: \d+ approvals, \d+ sign-offs\n/);
+      if (waiting.length === 0) expect(out).toMatch(/^gate: OK, no findings\n/);
     } else {
       // No key list (a clean worktree): each finding is a good signature by a key not listed.
       expect(code).toBe(1);
-      const findings = out.split('\n').filter((l) => /: gate: /.test(l));
+      const findings = others.filter((l) => /: gate: /.test(l));
       expect(findings.length).toBeGreaterThan(0);
       for (const f of findings) expect(f).toMatch(/sigStatus unknown-signer/);
     }

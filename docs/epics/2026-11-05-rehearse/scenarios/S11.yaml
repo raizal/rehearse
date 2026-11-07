@@ -1,0 +1,113 @@
+story: S11
+scenarios:
+  - id: S11-brief
+    title: The brief of a signed story holds everything the agent builds to
+    status: draft
+    steps:
+      - { name: sign-off }
+      - name: watch-build
+        example: { id: signed-story, given: { storyId: S1, signed: true, stale: false }, then: { button: Build with an agent } }
+      - { name: start-build }
+      - name: build-brief
+        example:
+          id: brief-content
+          given: { storyId: S1 }
+          then:
+            header: [signed by, signed at, rule-2 hash, matches the signed story]
+            sections: [Story, Approved scenarios, Boxes, Decisions, Entities, How to work in this repo]
+            draftsApart: true
+            underTokens: 6000
+      - { name: watch-build }
+    expect: { criterion: S11-A1, state: { briefSections: 6, draftsListedApart: true, tokens: "< 6000" } }
+
+  - id: S11-unsigned
+    title: An unsigned story gets no build button, only a question thread
+    status: draft
+    steps:
+      - name: watch-build
+        branch: "story not signed or stale"
+        example: { id: unsigned-story, given: { storyId: S2, signed: false }, then: { refusal: not signed off, offer: Start a question thread } }
+      - { name: review/swimlanes }
+    expect: { criterion: S11-A2, state: { buildButton: false, refusal: not signed off, questionThread: offered } }
+
+  - id: S11-stale
+    title: A story edited after its sign-off is stale and is not handed over
+    status: draft
+    steps:
+      - { name: signed-edit }
+      - name: content-changed
+        example: { id: edit-after-sign, given: { epicDir: docs/epics/x }, then: { staleStories: [S1], staleScenarios: [] } }
+      - name: watch-build
+        branch: "story not signed or stale"
+        example: { id: stale-story, given: { storyId: S1 }, then: { refusal: "changed since the sign-off on 2026-11-05", offer: Start a question thread } }
+      - { name: review/swimlanes }
+    expect: { criterion: S11-A2, state: { buildButton: false, briefRefused: true, reasonNamesSignOffDate: true } }
+
+  - id: S11-spawn
+    title: Build with an agent starts a bb thread in a new worktree from the current branch
+    status: draft
+    steps:
+      - { name: watch-build }
+      - name: start-build
+        example:
+          id: spawn-worktree
+          given: { storyId: S1, branch: feature/plan, threadModel: "", threadReasoning: "" }
+          then: { storyId: S1, thread: thr_new, hash: "sha256:abc", at: "2026-11-07T10:00:00Z", spawnArgs: [--new-environment, worktree, --base-branch, feature/plan], modelFlags: none }
+      - { name: build-brief }
+      - { name: watch-build }
+    expect: { criterion: S11-A3, state: { worktree: new, baseBranch: current, linkKeeps: [thread, hash, at], modelFlagsOnlyWhenSet: true } }
+
+  - id: S11-plan-changed
+    title: The plan changed after the thread started, and the builder sends the change
+    status: draft
+    steps:
+      - { name: signed-edit }
+      - { name: content-changed }
+      - name: watch-build
+        example: { id: plan-changed, given: { storyId: S1, linkHash: "sha256:old" }, then: { notice: the plan changed since this thread started, button: Send the change } }
+      - name: start-build
+        example: { id: send-change, given: { storyId: S1 }, then: { told: thr_new, message: "before and now, per change" } }
+      - { name: build-brief }
+      - { name: watch-build }
+    expect: { criterion: S11-A4, state: { notice: shown, threadTold: true, linkHash: updated } }
+
+  - id: S11-progress
+    title: The progress block shows what is built and tested
+    status: draft
+    steps:
+      - { name: build-brief }
+      - name: watch-build
+        example:
+          id: progress-block
+          given: { storyId: S1, boxes: 2, boxesWithCommits: 1, approvedScenarios: 2, e2ePassing: 1, e2eNotRun: 1 }
+          then: { summary: "1 of 2 boxes have code · 1 of 2 scenarios tested", notRun: not run yet, signOff: holds }
+    expect: { criterion: S11-A5, state: { thread: status and last activity, perBox: [built, commits, branch, coverage], perScenario: [found, passing, failing, missing] } }
+
+  - id: S11-overview
+    title: The Stories list shows the build of every story
+    status: draft
+    steps:
+      - { name: sign-off }
+      - name: watch-build
+        example: { id: overview, given: { stories: [S1, S2] }, then: { S1: "1/2 boxes · 1/2 tested · thread running", S2: "0/1 boxes · 0/1 tested" } }
+    expect: { criterion: S11-A6, state: { column: shown per story, thread: status when linked } }
+
+  - id: S11-cli
+    title: An agent asks for the brief and the progress on the command line
+    status: draft
+    steps:
+      - { name: start-build }
+      - name: build-brief
+        example: { id: cli-brief, given: { command: rehearse brief 2026-11-05-shop S1 --json }, then: { brief: "# Build brief: story S1", hash: "sha256:abc" } }
+      - name: watch-build
+        example: { id: cli-progress, given: { command: rehearse progress 2026-11-05-shop S1 }, then: { summary: "1 of 2 boxes have code · 1 of 2 scenarios tested" } }
+    expect: { criterion: S11-A7, state: { textOrJson: true, staleOrUnsignedExitCode: 1 } }
+
+  - id: S11-skill
+    title: The skill holds the same how-to-work lines as the brief
+    status: draft
+    steps:
+      - name: build-brief
+        example: { id: skill-text, given: { storyId: S1 }, then: { brief: "## How to work in this repo", hash: "sha256:abc", skillSection: Working on a story, skillNames: [rehearse brief, rehearse progress] } }
+      - { name: watch-build }
+    expect: { criterion: S11-A8, state: { sameLines: true, namesCommands: true } }

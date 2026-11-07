@@ -204,8 +204,13 @@ describe('big picture (S4-A4)', () => {
     expect(new Set(lay.boxes.map((b) => `${b.x} ${b.y}`)).size).toBe(main.length);
     expect(lay.rows.map((r) => lay.boxes.some((b) => b.y >= r.y && b.y < r.y + r.height))).toEqual([true, true, true, true]);
     expect(Math.max(...lay.boxes.map((b) => b.x + b.w))).toBeLessThanOrEqual(lay.width);
-    expect(bp.edges.filter((e) => e.back)).toEqual([{ from: 'log-correction', to: 'draft-record', back: true }]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 10, processes: main.length });
+    // T44 (S11): the refusal goes back to review, and a started build comes back to its panel.
+    expect(bp.edges.filter((e) => e.back)).toEqual([
+      { from: 'log-correction', to: 'draft-record', back: true },
+      { from: 'watch-build', to: 'review', back: true },
+      { from: 'build-brief', to: 'watch-build', back: true },
+    ]);
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 11, processes: main.length });
   });
 });
 
