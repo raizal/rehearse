@@ -25,6 +25,9 @@ import {
   briefSignState,
   scenarioStatuses,
   scenarioTestBrief,
+  briefBoxPaths,
+  codeStartSection,
+  testBriefBoxPaths,
   decisionTexts,
   diffStoryContent,
   loadEpic,
@@ -35,6 +38,7 @@ import {
   type Diagram,
   type EpicRecord,
   type TestBrief,
+  type TestCodeOptions,
   type Id,
 } from '@rehearse/core';
 import type { CoverageStats } from '@rehearse/graph';
@@ -336,12 +340,13 @@ export function testsNeeded(record: EpicRecord, storyId: Id, testProject: string
  * The test brief of some scenarios with the paths relative to the repo top: the spec file goes
  * beside the first existing spec of the test project (its style to copy), else in `<project>/tests/`.
  */
-export function storyTestBrief(record: EpicRecord, storyId: Id, ids: Id[], testProject: string | undefined, top: string): TestBrief {
+export function storyTestBrief(record: EpicRecord, storyId: Id, ids: Id[], testProject: string | undefined, top: string, code: TestCodeOptions = {}): TestBrief {
   const rel = (p: string) => relative(top, p).split(sep).join('/');
   const project = testProject ? rel(testProject) : 'e2e';
   const example = specTests(testProject)[0];
   const specDir = example ? dirname(`${project}/${example.file}`) : `${project}/tests`;
   return scenarioTestBrief(record, storyId, ids, {
+    ...code,
     testProject: project,
     specFile: `${specDir}/${storyId}.spec.ts`,
     ...(example ? { exampleSpec: `${project}/${example.file}` } : {}),
@@ -519,6 +524,8 @@ export interface StoryThreadOptions {
   coverage?: () => Promise<Record<string, CoverageStats> | undefined>;
   /** The e2e test project of the EPIC. */
   testProject?: string;
+  /** The code facts of some boxes for "Code you start from" (T49); never rejects. Unset: the briefs have no such section. */
+  briefCode?: (record: EpicRecord, boxes: readonly string[]) => Promise<TestCodeOptions>;
   /** Last e2e results by `file:line` for a story, when the player can answer. */
   testResults?: (storyId: Id) => Promise<Record<string, TestResult> | undefined>;
   now?: () => number;
@@ -627,8 +634,19 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     }
   }
 
+  /** "Code you start from" for the boxes a change adds to a story (T49), after a blank line; '' when none. */
+  async function addedBoxCode(was: Record<string, unknown>, now: Record<string, unknown>): Promise<string> {
+    const boxesOf = (c: Record<string, unknown>) => (typeof c.boxes === 'object' && c.boxes !== null ? (c.boxes as Record<string, unknown>) : {});
+    const added = Object.keys(boxesOf(now)).filter((b) => !(b in boxesOf(was)));
+    if (added.length === 0 || !opts.briefCode) return '';
+    const section = codeStartSection(added, await opts.briefCode(record(), added));
+    return section === '' ? '' : `\n\n${section}\n`;
+  }
+
   async function testBrief(storyId: string, ids: Id[]): Promise<TestBrief & { ok: true }> {
-    const made = storyTestBrief(record(), storyId, ids, opts.testProject, await topLevel());
+    const rec = record();
+    const code = opts.briefCode ? await opts.briefCode(rec, testBriefBoxPaths(rec, storyId, ids)) : {};
+    const made = storyTestBrief(rec, storyId, ids, opts.testProject, await topLevel(), code);
     if (!made.ok) throw new StoryThreadError(409, made.reason);
     return made;
   }
@@ -830,7 +848,9 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       if (starting.has(key)) throw new StoryThreadError(409, `a thread for ${storyId} is starting`);
       starting.add(key);
       try {
-        const made = storyBuildBrief(record(), storyId, { decisions: decisionTexts(epicDir) });
+        const rec = record();
+        const code = opts.briefCode ? await opts.briefCode(rec, briefBoxPaths(rec, storyId)) : {};
+        const made = storyBuildBrief(rec, storyId, { ...code, decisions: decisionTexts(epicDir) });
         if (!made.ok) throw new StoryThreadError(409, made.reason);
         const thread = await spawnThread(
           {
@@ -857,7 +877,8 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       const plan = planNow(storyId);
       const message = storyChangeMessage(brief.slug, storyId, link.content, plan.content, sign);
       if (message) {
-        const r = await run('bb', ['thread', 'tell', link.thread, '--message-file', '-', '--json'], { cwd: epicDir, input: message.text });
+        const text = message.text + (await addedBoxCode(link.content, plan.content));
+        const r = await run('bb', ['thread', 'tell', link.thread, '--message-file', '-', '--json'], { cwd: epicDir, input: text });
         if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, bbFailure(r));
         const told = parseTell(r.stdout);
         if (!told.ok) throw new StoryThreadError(502, told.error);

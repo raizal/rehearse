@@ -71,7 +71,9 @@ export {
 } from './signoff-preview.js';
 export { HOW_TO_WORK, howToWorkMarkdown } from './how-to-work.js';
 export {
+  briefBoxPaths,
   briefSignState,
+  MAX_BRIEF_CHARS,
   parseDecisionTexts,
   storyBuildBrief,
   storyChangeMessage,
@@ -79,4 +81,24 @@ export {
   type BuildBrief,
   type BuildBriefOptions,
 } from './build-brief.js';
-export { APPROVE_FIRST, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testTitleLine, type TestBrief, type TestBriefOptions } from './test-brief.js';
+export { APPROVE_FIRST, scenarioBoxes, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testBriefBoxPaths, testTitleLine, type TestBrief, type TestBriefOptions } from './test-brief.js';
+export {
+  CODE_START_HEADING,
+  codeStartSection,
+  coverageBadge,
+  MAX_CODE_COMMITS,
+  MAX_CODE_FUNCTIONS,
+  MAX_CODE_GUESSES,
+  MAX_CODE_NEIGHBOURS,
+  MAX_CODE_SECTION_CHARS,
+  MAX_E2E_HELPERS,
+  MAX_TEST_BRIEF_FUNCTIONS,
+  testCodeSection,
+  type BoxCode,
+  type CodeCommit,
+  type CodeCoverage,
+  type CodeFunction,
+  type CodeRef,
+  type CodeStartOptions,
+  type TestCodeOptions,
+} from './code-start.js';

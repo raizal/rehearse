@@ -9,12 +9,12 @@ import type { Runner } from '@rehearse/server';
 import { makeEpic } from '../../core/test/helpers.js';
 import { approvedEpic, editYaml, signedEpic } from '../../core/test/trust/helpers.js';
 import { runProgress } from '../src/commands/progress.js';
-import { main, run, USAGE } from '../src/index.js';
+import { main, USAGE } from '../src/index.js';
 
-function cli(args: string[], cwd = tmpdir()): { code: number; out: string; err: string } {
+async function cli(args: string[], cwd = tmpdir()): Promise<{ code: number; out: string; err: string }> {
   let out = '';
   let err = '';
-  const code = run(args, { cwd, stdout: (t) => (out += t), stderr: (t) => (err += t) });
+  const code = await main(args, { cwd, stdout: (t) => (out += t), stderr: (t) => (err += t) });
   return { code, out, err };
 }
 
@@ -28,9 +28,9 @@ function shopWithTests(): string {
   return dir;
 }
 
-describe('rehearse brief --tests (T47, box test-brief)', () => {
-  it('without --scenario: the approved scenarios of the story that have no test, exit 0', () => {
-    const r = cli(['brief', shopWithTests(), 'S1', '--tests']);
+describe('rehearse brief --tests (T47, box test-brief)', async () => {
+  it('without --scenario: the approved scenarios of the story that have no test, exit 0', async () => {
+    const r = await cli(['brief', shopWithTests(), 'S1', '--tests']);
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/^# Test brief: e2e tests for S1-empty \(story S1 of the EPIC 2026-11-05-shop\)\n/);
     expect(r.out).toContain('- File: `e2e/specs/S1.spec.ts`');
@@ -39,8 +39,8 @@ describe('rehearse brief --tests (T47, box test-brief)', () => {
     expect(r.out).toContain('Write only tests');
   });
 
-  it('--scenario names them; --json has the scenarios, the spec file, the hash and the markdown', () => {
-    const r = cli(['brief', approvedEpic(), 'S1', '--tests', '--scenario', 'S1-buy', '--scenario', 'S1-empty', '--json']);
+  it('--scenario names them; --json has the scenarios, the spec file, the hash and the markdown', async () => {
+    const r = await cli(['brief', approvedEpic(), 'S1', '--tests', '--scenario', 'S1-buy', '--scenario', 'S1-empty', '--json']);
     expect(r.code).toBe(0);
     const j = JSON.parse(r.out);
     expect(j).toMatchObject({ ok: true, storyId: 'S1', scenarios: ['S1-buy', 'S1-empty'], specFile: 'e2e/tests/S1.spec.ts' });
@@ -48,36 +48,36 @@ describe('rehearse brief --tests (T47, box test-brief)', () => {
     expect(j.markdown).toContain('## S1-buy:');
   });
 
-  it('exit 1: a draft scenario (approve it first), no missing test, an unknown story or scenario', () => {
-    const draft = cli(['brief', makeEpic(), 'S1', '--tests', '--scenario', 'S1-buy']);
+  it('exit 1: a draft scenario (approve it first), no missing test, an unknown story or scenario', async () => {
+    const draft = await cli(['brief', makeEpic(), 'S1', '--tests', '--scenario', 'S1-buy']);
     expect(draft).toMatchObject({ code: 1, out: '', err: 'rehearse brief: S1-buy (draft): approve this scenario first; an agent writes tests for approved scenarios only\n' });
-    expect(JSON.parse(cli(['brief', makeEpic(), 'S1', '--tests', '--scenario', 'S1-buy', '--json']).out)).toMatchObject({ ok: false, notApproved: [{ id: 'S1-buy', status: 'draft' }] });
+    expect(JSON.parse((await cli(['brief', makeEpic(), 'S1', '--tests', '--scenario', 'S1-buy', '--json'])).out)).toMatchObject({ ok: false, notApproved: [{ id: 'S1-buy', status: 'draft' }] });
     // Every scenario is a draft: none is missing a test yet, and the drafts are named.
-    expect(cli(['brief', makeEpic(), 'S1', '--tests'])).toMatchObject({ code: 1, err: 'rehearse brief: no approved scenario of S1 is without an e2e test; not approved yet: S1-buy (draft), S1-empty (draft), approve them first; name one with --scenario <id>\n' });
-    expect(cli(['brief', approvedEpic(), 'S9', '--tests'])).toMatchObject({ code: 1, err: 'rehearse brief: no story S9 in prd.yaml\n' });
-    expect(cli(['brief', approvedEpic(), 'S1', '--tests', '--scenario', 'S2-out-of-stock']).code).toBe(1);
+    expect(await cli(['brief', makeEpic(), 'S1', '--tests'])).toMatchObject({ code: 1, err: 'rehearse brief: no approved scenario of S1 is without an e2e test; not approved yet: S1-buy (draft), S1-empty (draft), approve them first; name one with --scenario <id>\n' });
+    expect(await cli(['brief', approvedEpic(), 'S9', '--tests'])).toMatchObject({ code: 1, err: 'rehearse brief: no story S9 in prd.yaml\n' });
+    expect((await cli(['brief', approvedEpic(), 'S1', '--tests', '--scenario', 'S2-out-of-stock'])).code).toBe(1);
   });
 
-  it('usage errors exit 2: --scenario without --tests or a value, --tests with --allow-unsigned', () => {
+  it('usage errors exit 2: --scenario without --tests or a value, --tests with --allow-unsigned', async () => {
     const dir = approvedEpic();
     for (const args of [[dir, 'S1', '--scenario', 'S1-buy'], [dir, 'S1', '--tests', '--scenario'], [dir, 'S1', '--tests', '--allow-unsigned']]) {
-      expect(cli(['brief', ...args]).code, args.join(' ')).toBe(2);
+      expect((await cli(['brief', ...args])).code, args.join(' ')).toBe(2);
     }
     expect(USAGE).toContain('brief <epic-dir-or-slug> <story> --tests [--scenario <id>]…');
   });
 });
 
-describe('rehearse brief', () => {
-  it('prints the build brief of a signed story, exit 0', () => {
-    const r = cli(['brief', signedEpic(), 'S1']);
+describe('rehearse brief', async () => {
+  it('prints the build brief of a signed story, exit 0', async () => {
+    const r = await cli(['brief', signedEpic(), 'S1']);
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/^# Build brief: story S1 of the EPIC 2026-11-05-shop\n/);
     expect(r.out).toContain('This brief matches the signed story.');
     expect(r.out).toContain('## How to work in this repo');
   });
 
-  it('--json has the hash, the sign state and the markdown', () => {
-    const r = cli(['brief', signedEpic(), 'S2', '--json']);
+  it('--json has the hash, the sign state and the markdown', async () => {
+    const r = await cli(['brief', signedEpic(), 'S2', '--json']);
     expect(r.code).toBe(0);
     const j = JSON.parse(r.out);
     expect(j).toMatchObject({ ok: true, storyId: 'S2', sign: { status: 'signed', buildable: true } });
@@ -85,24 +85,47 @@ describe('rehearse brief', () => {
     expect(j.markdown).toContain('story S2');
   });
 
-  it('refuses an unsigned or stale story with exit 1, and --allow-unsigned prints it, saying so', () => {
+  it('refuses an unsigned or stale story with exit 1, and --allow-unsigned prints it, saying so', async () => {
     const draft = makeEpic();
-    const r = cli(['brief', draft, 'S1']);
+    const r = await cli(['brief', draft, 'S1']);
     expect(r).toMatchObject({ code: 1, out: '' });
     expect(r.err).toContain('not signed off');
-    const allowed = cli(['brief', draft, 'S1', '--allow-unsigned']);
+    const allowed = await cli(['brief', draft, 'S1', '--allow-unsigned']);
     expect(allowed.code).toBe(0);
     expect(allowed.out).toContain('**The story is not signed off.**');
     const stale = signedEpic();
     editYaml(stale, 'prd.yaml', (doc) => doc.setIn(['requirements', 0, 'text'], 'The buyer pays for an order by card.'));
-    expect(cli(['brief', stale, 'S1']).err).toContain('changed since it was signed off');
-    expect(JSON.parse(cli(['brief', stale, 'S1', '--json']).out)).toMatchObject({ ok: false, sign: { status: 'stale' } });
-    expect(cli(['brief', stale, 'S99'])).toMatchObject({ code: 1, err: 'rehearse brief: no story S99 in prd.yaml\n' });
+    expect((await cli(['brief', stale, 'S1'])).err).toContain('changed since it was signed off');
+    expect(JSON.parse((await cli(['brief', stale, 'S1', '--json'])).out)).toMatchObject({ ok: false, sign: { status: 'stale' } });
+    expect(await cli(['brief', stale, 'S99'])).toMatchObject({ code: 1, err: 'rehearse brief: no story S99 in prd.yaml\n' });
   });
 
-  it('usage errors exit 2', () => {
+  it('T49 --json has the code facts of each box, gathered from the graph of the repo', async () => {
+    const r = await cli(['brief', signedEpic(), 'S1', '--json']);
+    expect(r.code).toBe(0);
+    const j = JSON.parse(r.out);
+    expect(j.code.cli).toBe('rehearse');
+    expect(j.code.code.map((c: { box: string }) => c.box)).toEqual(['cart', 'pay']);
+    expect(j.code.code[0]).toMatchObject({ box: 'cart', functions: [], commits: [] });
+    expect(j.markdown).toContain('## Code you start from');
+    expect(j.markdown).toContain('### `cart`: no code yet');
+  });
+
+  it('T49 a graph that cannot open: the brief says so in one line and still builds', async () => {
+    const dir = signedEpic();
+    mkdirSync(join(dirname(dir), '.rehearse', 'graph.db'), { recursive: true });
+    const r = await cli(['brief', dir, 'S1', '--json']);
+    expect(r.code).toBe(0);
+    const j = JSON.parse(r.out);
+    expect(j.code.codeUnavailable).toEqual(expect.any(String));
+    expect(j.markdown).toMatch(/## Code you start from\n\nThe code graph is not available \(.+\), so this brief lists no code; find it with `rehearse find <words>` once the graph opens\./);
+    const tests = await cli(['brief', shopWithTests(), 'S1', '--tests', '--json']);
+    expect(JSON.parse(tests.out).code.e2eHelpers).toEqual([]);
+  });
+
+  it('usage errors exit 2', async () => {
     for (const args of [[], ['x'], [signedEpic()], [signedEpic(), 'S1', '--nope'], ['no-such-epic', 'S1']]) {
-      const r = cli(['brief', ...args]);
+      const r = await cli(['brief', ...args]);
       expect(r.code, args.join(' ')).toBe(2);
     }
     expect(USAGE).toContain('brief <epic-dir-or-slug> <story>');

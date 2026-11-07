@@ -14,13 +14,14 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { extname, join, normalize, sep } from 'node:path';
+import { extname, join, normalize, relative, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { MAP_LEVELS, type CoverageStats, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, PLAYER_ACTIONS, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { BirdviewError, playStory, useProject } from './birdview-play.js';
-import { graphServiceFor, type GraphService } from './graph-route.js';
+import { gatherBriefCode } from './brief-code.js';
+import { graphServiceFor, repoRoot, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { MAX_PREVIEW_STORIES, signOffPreview } from './signoff-preview.js';
 import { bbProjectFrom } from './bb-project.js';
@@ -135,6 +136,10 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
     ...(threadModel ? { threadModel } : {}),
     ...(threadReasoning ? { threadReasoning } : {}),
     ...(birdview.projectDir ? { testProject: birdview.projectDir } : {}),
+    // The code a brief starts from (T49): the graph is brought up to date first; when it cannot
+    // open, the brief says so in one line.
+    briefCode: (record, boxes) =>
+      gatherBriefCode({ epicDir: opts.epicDir, record, boxes, graph: (fn) => graph.withGraph(fn), git, ...(birdview.projectDir ? { testProject: relative(repoRoot(opts.epicDir), birdview.projectDir).split(sep).join('/') } : {}) }),
     // Coverage only from a graph that is indexed already: progress never starts an index run.
     coverage: async () => {
       if (!graph.status().indexed) return undefined;

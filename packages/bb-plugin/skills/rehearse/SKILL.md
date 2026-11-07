@@ -46,7 +46,7 @@ A thread started from the panel ("Build with an agent") gets the build brief of
 a signed story. Work on it like this:
 
 - Every commit carries a `Flow-Box: <box path>` trailer for each box it builds: that is how rehearse links code to the plan. Add the `Co-Authored-By` line your own rules ask for.
-- Read code with `rehearse find|show|near|context`; check unit test coverage with `rehearse coverage`.
+- Start from the section *Code you start from*; use `rehearse context <box path>` before reading files by hand, `rehearse find|show|near` for the rest; check unit test coverage with `rehearse coverage`.
 - Re-read the plan any time with `rehearse brief <epic> <story>`; see what rehearse sees of your work with `rehearse progress <epic> <story>`.
 - Before you say done: `rehearse validate`, `rehearse simulate` and `rehearse gate check` on the EPIC, the repo's tests, and one e2e test per approved scenario, named after the scenario id.
 - Never approve a scenario or sign off a story. No command does it; only the owner, in the rehearse UI.
