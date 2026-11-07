@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { EntityModel, Finding, Flow } from '../types.js';
 import { parseYaml } from '../yaml.js';
+import { parseDecisionTexts } from '../trust/build-brief.js';
 import { SYSTEM_DIR_NAME, SYSTEM_FILES, type SystemArchitecture, type SystemLoadResult, type SystemRecord } from './types.js';
 
 /** docs/system/ of the repo that holds `docs/epics/<slug>/`. */
@@ -76,4 +77,26 @@ export function decisionIds(epicDir: string): string[] {
     }
   }
   return [...out].sort();
+}
+
+/** Decision id → text, from every brainstorm.md in docs/epics/ (the build brief, T44). The first EPIC that defines an id wins. */
+export function decisionTexts(epicDir: string): Record<string, string> {
+  const epics = resolve(epicDir, '..');
+  const out: Record<string, string> = {};
+  let names: string[] = [];
+  try {
+    names = readdirSync(epics).sort();
+  } catch {
+    return out;
+  }
+  for (const name of names) {
+    const file = join(epics, name, 'brainstorm.md');
+    if (!existsSync(file)) continue;
+    try {
+      for (const [id, text] of Object.entries(parseDecisionTexts(readFileSync(file, 'utf8')))) if (!(id in out)) out[id] = text;
+    } catch {
+      // An unreadable log gives no texts; the brief then lists the ids alone.
+    }
+  }
+  return out;
 }

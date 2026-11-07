@@ -1,5 +1,5 @@
 export * from './types.js';
-export { decisionIds, loadSystem, parseDecisionIds, systemDirFor, systemFile } from './load.js';
+export { decisionIds, decisionTexts, loadSystem, parseDecisionIds, systemDirFor, systemFile } from './load.js';
 export {
   applyArchitectureChange,
   compareEntities,

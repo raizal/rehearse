@@ -69,3 +69,13 @@ export {
   type StoryPreviewContent,
   type WordPart,
 } from './signoff-preview.js';
+export { HOW_TO_WORK, howToWorkMarkdown } from './how-to-work.js';
+export {
+  briefSignState,
+  parseDecisionTexts,
+  storyBuildBrief,
+  storyChangeMessage,
+  type BriefSignState,
+  type BuildBrief,
+  type BuildBriefOptions,
+} from './build-brief.js';
