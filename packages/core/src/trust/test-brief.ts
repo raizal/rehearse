@@ -6,6 +6,9 @@
 // Tests tab matches on, TEST_NAME_RULE), a spec to copy the style from, how to run it through
 // Birdview, "write only tests", and how to work in a rehearse repo (`howToWorkMarkdown`). A draft
 // or stale scenario is refused: the owner approves it first. Pure: the paths come in as options.
+//
+// A brief over its budget (MAX_TEST_BRIEF_CHARS) keeps as many scenarios in full as fit; each other
+// one is one line with its title and criterion, and `--tests --scenario <id>` prints it in full (T56).
 
 import { indexBoxes } from '../flow-index.js';
 import type { AcceptanceCriterion, Box, EpicRecord, Hash, Id, Role, Scenario, ScenarioStep, Story } from '../types.js';
@@ -35,6 +38,9 @@ export interface TestFixture {
   file: string;
   exports: string[];
 }
+
+/** The most a test brief holds, about 6k tokens at four characters a token (T47). */
+export const MAX_TEST_BRIEF_CHARS = 24_000;
 
 /** What the brief says of an expected result no UI box shows. */
 export const NOT_SHOWN = 'not shown in the UI, check the files';
@@ -120,22 +126,66 @@ export function scenarioTestBrief(record: EpicRecord, storyId: Id, scenarioIds: 
   const testProject = (opts.testProject ?? 'e2e').replace(/\/+$/, '');
   const specFile = opts.specFile ?? `${testProject}/tests/${storyId}.spec.ts`;
   const ids = picked.map((m) => m.s.id);
-  /** A box is described once, at its first step in the brief; later steps name it only. */
-  const seen = new Set<string>();
   const cmds = opts.commands ?? DEFAULT_COMMANDS;
-  const markdown = [
-    header(record, story, ids),
-    ...picked.map((m) => scenarioSection(record, story, m.s, seen, opts.fixtures ?? {})),
+  const tail = [
     testCodeSection(picked.map((m) => ({ id: m.s.id, boxes: scenarioBoxes(m.s) })), opts),
     whereSection(testProject, specFile, ids, opts.exampleSpec),
     fixtureSection(testProject, opts.fixtures ?? {}),
     runSection(cmds.cli, record.slug, storyId, testProject),
     rulesSection(cmds.cli, record.slug, storyId, ids),
     `## How to work in this repo\n\n${howToWorkMarkdown(cmds)}`,
-  ]
-    .filter((s) => s !== '')
-    .join('\n\n');
+  ];
+  /** The brief with the first `full` scenarios in full and, when shortened, the rest one line each. */
+  const render = (full: number, shortened: boolean): string => {
+    /** A box is described once, at its first step in the brief; later steps name it only. */
+    const seen = new Set<string>();
+    /** Shortened, a step example shown before points to its first scenario. */
+    const examples = shortened ? new Map<string, string>() : undefined;
+    const shown = picked.slice(0, full);
+    return [
+      header(record, story, ids),
+      ...shown.map((m) => scenarioSection(record, story, m.s, seen, opts.fixtures ?? {}, examples)),
+      shortened ? inShortSection(story, picked.slice(full).map((m) => m.s), shown.map((m) => m.s), cmds.cli, record.slug) : '',
+      ...tail,
+    ]
+      .filter((s) => s !== '')
+      .join('\n\n');
+  };
+  let markdown = render(picked.length, false);
+  // Over the budget, as many scenarios in full as fit (T56).
+  if (markdown.length >= MAX_TEST_BRIEF_CHARS) {
+    for (let n = picked.length; n >= 0; n--) {
+      markdown = render(n, true);
+      if (markdown.length < MAX_TEST_BRIEF_CHARS) break;
+    }
+  }
   return { ok: true, storyId, scenarios: ids, markdown: `${markdown}\n`, hash: sign.currentHash, specFile };
+}
+
+/** The criterion a scenario checks, or undefined. */
+function criterionOf(story: Story, s: Scenario): AcceptanceCriterion | undefined {
+  return s.expect?.criterion ? asArray<AcceptanceCriterion>(story.acceptance).find((c) => isObject(c) && c.id === s.expect!.criterion) : undefined;
+}
+
+const criterionText = (c: AcceptanceCriterion): string => `given ${oneLine(str(c.given))}; when ${oneLine(str(c.when))}; then ${oneLine(str(c.then))}`;
+
+/** The scenarios a shortened brief does not print in full: one line each, with the criterion once (T56). */
+function inShortSection(story: Story, rest: Scenario[], full: Scenario[], cli: string, slug: string): string {
+  if (rest.length === 0) return '';
+  const told = new Set(full.map((s) => s.expect?.criterion).filter((c): c is string => typeof c === 'string'));
+  const lines = [
+    full.length > 0 ? '## The other scenarios, in short' : '## The scenarios, in short',
+    '',
+    `The brief would be too long with every step of every scenario. Write one test for each of these too; \`${cli} brief ${slug} ${story.id} --tests --scenario <id>\` prints a scenario's steps, examples, boxes and where each result shows.`,
+    '',
+  ];
+  for (const s of rest) {
+    const c = criterionOf(story, s);
+    const checks = !c ? '' : told.has(c.id) ? ` Checks ${c.id} (above).` : ` Checks ${c.id}: ${criterionText(c)}.`;
+    if (c) told.add(c.id);
+    lines.push(`- ${s.id}: ${oneLine(str(s.title))}.${checks}`);
+  }
+  return lines.join('\n');
 }
 
 /** The boxes a scenario walks, in step order, once each. */
@@ -221,18 +271,21 @@ function fixtureSection(testProject: string, fixtures: { ui?: TestFixture; cli?:
   ].join('\n');
 }
 
-function scenarioSection(record: EpicRecord, story: Story, s: Scenario, seen: Set<string>, fixtures: { ui?: TestFixture; cli?: TestFixture }): string {
+function scenarioSection(record: EpicRecord, story: Story, s: Scenario, seen: Set<string>, fixtures: { ui?: TestFixture; cli?: TestFixture }, examples?: Map<string, string>): string {
   const index = indexBoxes(record.flow);
-  const criterion = s.expect?.criterion ? asArray<AcceptanceCriterion>(story.acceptance).find((c) => isObject(c) && c.id === s.expect!.criterion) : undefined;
+  const criterion = criterionOf(story, s);
   const lines = [`## ${s.id}: ${oneLine(str(s.title))}`, ''];
-  if (criterion) lines.push(`Checks ${criterion.id}: given ${oneLine(str(criterion.given))}; when ${oneLine(str(criterion.when))}; then ${oneLine(str(criterion.then))}.`, '');
+  if (criterion) lines.push(`Checks ${criterion.id}: ${criterionText(criterion)}.`, '');
   lines.push('Steps (one `test.step` each, its title starts with the box path; a box is described at its first step in this brief):');
   asArray<ScenarioStep>(s.steps).forEach((st, i) => {
     if (!isObject(st)) return;
     lines.push(`${i + 1}. \`${st.name}\`${st.branch ? ` taking "${st.branch}"` : ''}`);
     if (isObject(st.example)) {
       const ex = st.example;
-      lines.push(`  - example: given ${compact(ex.given ?? {})} → then ${compact(ex.then ?? {})}${ex.stateAfter ? `; state after ${compact(ex.stateAfter)}` : ''}`);
+      const text = `given ${compact(ex.given ?? {})} → then ${compact(ex.then ?? {})}${ex.stateAfter ? `; state after ${compact(ex.stateAfter)}` : ''}`;
+      const first = examples?.get(`${st.name} ${text}`);
+      lines.push(`  - example: ${first ? `as in ${first}` : text}`);
+      if (examples && !first) examples.set(`${st.name} ${text}`, s.id);
     }
     if (!seen.has(st.name)) {
       seen.add(st.name);

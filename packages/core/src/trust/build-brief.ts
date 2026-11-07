@@ -5,6 +5,9 @@
 // repo (HOW_TO_WORK). It refuses an unsigned or stale story unless the caller allows it. Pure:
 // the decision texts come in as an option (`decisionTexts` reads them from brainstorm.md).
 //
+// A brief over its budget keeps every scenario id, title and criterion, but not every step (T56):
+// see `scenarioSection`. `rehearse brief <epic> <story> --scenario <id>` prints a scenario in full.
+//
 // The change notice (`storyChangeMessage`) tells a running thread what changed in its plan: the
 // T39 content diff from the content the thread started from to the content now.
 
@@ -13,7 +16,7 @@ import type { AcceptanceCriterion, Box, EntityDef, EpicRecord, Hash, Id, Require
 import { asArray, isObject } from '../util.js';
 import { designSection, type BriefDesign } from './design-section.js';
 import { codeStartSection, MAX_CODE_SECTION_CHARS, type CodeStartOptions } from './code-start.js';
-import { howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
+import { DEFAULT_COMMANDS, howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
 import { diffStoryContent, type ContentChange } from './signoff-preview.js';
 import { allScenarios, detectStale, scenarioTrust, signOffRule } from './stale.js';
 import { servingBoxes, storyContentV2, storyHashV2 } from './story-hash.js';
@@ -26,6 +29,13 @@ import { CURRENT_HASH_RULE, type SignOffWithRule } from './types.js';
  */
 export const MAX_BRIEF_CHARS = 26_000;
 
+/**
+ * What the record parts leave the code section at least (T56): about one line per box. A brief whose
+ * record parts take more than `MAX_BRIEF_CHARS - MIN_CODE_ROOM` shortens its approved scenarios
+ * (`scenarioSection`); one that fits is printed as before.
+ */
+export const MIN_CODE_ROOM = 1_500;
+
 /** `code`, `codeUnavailable` and `cli`: the "Code you start from" section (T49), gathered by the caller. */
 export interface BuildBriefOptions extends CodeStartOptions {
   /** Make a brief of a story that is not signed or is stale; it says so on top. */
@@ -36,6 +46,8 @@ export interface BuildBriefOptions extends CodeStartOptions {
   commands?: RepoCommands;
   /** The story's design links (T50), read from design/links.yaml by the caller. None: "No design linked". */
   design?: BriefDesign;
+  /** Approved scenarios to print in full (`--scenario`); the others get one line each (T56). */
+  scenarios?: Id[];
 }
 
 /** Where the story stands against its sign-off. */
@@ -112,10 +124,29 @@ export function storyBuildBrief(record: EpicRecord, storyId: Id, opts: BuildBrie
   if (!story || !prd || !sign) return { ok: false, storyId, reason: `no story ${storyId} in prd.yaml` };
   if (!sign.buildable && !opts.allowUnsigned) return { ok: false, storyId, reason: sign.refusal ?? `story ${storyId} cannot be built yet`, sign };
   const content = storyContentV2(story, prd, record.flow, allScenarios(record));
-  const before = [header(record, story, sign), storySection(record, story), scenarioSection(record, story), boxSection(record, story), designSection(opts.design)];
+  const approved = approvedScenarios(record, story).map((s) => s.id);
+  const named = [...new Set(opts.scenarios ?? [])];
+  const notApproved = named.filter((id) => !approved.includes(id));
+  if (notApproved.length > 0) return { ok: false, storyId, reason: `no approved scenario ${notApproved.join(', ')} in story ${storyId}`, sign };
+  const top = header(record, story, sign);
+  const storyText = storySection(record, story);
+  const boxes = boxSection(record, story);
+  const design = designSection(opts.design);
   const after = [decisionSection(record, story, opts.decisions ?? {}), entitySection(record, story), `## How to work in this repo\n\n${howToWorkMarkdown(opts.commands)}`];
+  const join = (scenarios: string) => [top, storyText, scenarios, boxes, design, ...after].filter((s) => s !== '').join('\n\n');
+  // Over its share of the budget, the brief keeps as many scenarios in full as fit (T56).
+  const short = { slug: record.slug, cli: (opts.commands ?? DEFAULT_COMMANDS).cli };
+  let scenarios = scenarioSection(record, story);
+  if (named.length > 0) scenarios = scenarioSection(record, story, { ...short, full: named });
+  else if (join(scenarios).length > MAX_BRIEF_CHARS - MIN_CODE_ROOM) {
+    for (let n = approved.length; n >= 0; n--) {
+      scenarios = scenarioSection(record, story, { ...short, full: approved.slice(0, n) });
+      if (join(scenarios).length <= MAX_BRIEF_CHARS - MIN_CODE_ROOM) break;
+    }
+  }
+  const before = [top, storyText, scenarios, boxes, design];
   // The code section gets what the rest leaves under the budget (T49).
-  const rest = [...before, ...after].filter((s) => s !== '').join('\n\n').length;
+  const rest = join(scenarios).length;
   const room = Math.min(MAX_CODE_SECTION_CHARS, MAX_BRIEF_CHARS - rest - 4);
   const markdown = [...before, codeStartSection(briefBoxPaths(record, story.id), opts, room), ...after].filter((s) => s !== '').join('\n\n');
   return { ok: true, storyId, markdown: `${markdown}\n`, hash: sign.currentHash, content, sign };
@@ -160,25 +191,65 @@ function stepText(s: ScenarioStep): string {
   return s.branch ? `${s.name} [${s.branch}]` : s.name;
 }
 
-function scenarioSection(record: EpicRecord, story: Story): string {
+/** The scenarios of a story with their trust, in record order. */
+function storyScenarios(record: EpicRecord, story: Story) {
+  return record.scenarioFiles.flatMap((f) => asArray<Scenario>(f.scenarios).filter((s) => isObject(s) && s.story === story.id).map((s) => ({ s, trust: scenarioTrust(s, f.file) })));
+}
+
+function approvedScenarios(record: EpicRecord, story: Story): Scenario[] {
+  return storyScenarios(record, story).filter((m) => m.trust.status === 'approved').map((m) => m.s);
+}
+
+/** How a brief over its budget prints its approved scenarios (T56). */
+interface ShortScenarios {
+  slug: string;
+  cli: string;
+  /** The approved scenarios printed in full; every other one gets one line. */
+  full: Id[];
+}
+
+/**
+ * The approved scenarios, each in full. Shortened (`short`), a full scenario names its criterion by
+ * id (the criteria are listed above) and points to an example already shown instead of repeating it,
+ * and every scenario not in `short.full` is one line: id, title and the criterion it checks.
+ */
+function scenarioSection(record: EpicRecord, story: Story, short?: ShortScenarios): string {
   const criteria = new Map(asArray<AcceptanceCriterion>(story.acceptance).filter(isObject).map((c) => [c.id, c]));
-  const mine = record.scenarioFiles.flatMap((f) => asArray<Scenario>(f.scenarios).filter((s) => isObject(s) && s.story === story.id).map((s) => ({ s, trust: scenarioTrust(s, f.file) })));
+  const mine = storyScenarios(record, story);
   const approved = mine.filter((m) => m.trust.status === 'approved').map((m) => m.s);
   const others = mine.filter((m) => m.trust.status !== 'approved');
+  const full = short ? approved.filter((s) => short.full.includes(s.id)) : approved;
+  const brief = approved.filter((s) => !full.includes(s));
+  /** Step example text → where it was first shown, when shortened. */
+  const shown = new Map<string, string>();
   const lines = ['## Approved scenarios', ''];
   if (approved.length === 0) lines.push('None yet. Build nothing to a scenario the owner has not approved.');
   else lines.push('Build to these. Write one e2e test per scenario, named after its id; each step of the test starts with the box it walks.');
-  for (const s of approved) {
+  if (short && full.length > 0) lines.push('Each one names the criterion it checks (see Acceptance criteria above); a step example shown before reads "as in" the first scenario that has it.');
+  for (const s of full) {
     lines.push('', `### ${s.id}: ${oneLine(str(s.title))}`, '');
     const c = s.expect?.criterion ? criteria.get(s.expect.criterion) : undefined;
-    if (c) lines.push(`- Checks ${c.id}: given ${oneLine(str(c.given))}; when ${oneLine(str(c.when))}; then ${oneLine(str(c.then))}.`);
+    if (c && short) lines.push(`- Checks ${c.id}.`);
+    else if (c) lines.push(`- Checks ${c.id}: given ${oneLine(str(c.given))}; when ${oneLine(str(c.when))}; then ${oneLine(str(c.then))}.`);
     lines.push(`- Steps: ${asArray<ScenarioStep>(s.steps).filter(isObject).map(stepText).join(' → ')}`);
     asArray<ScenarioStep>(s.steps).forEach((st, i) => {
       if (!isObject(st) || !isObject(st.example)) return;
       const ex = st.example;
-      lines.push(`- Step ${i + 1} \`${st.name}\`: given ${compact(ex.given ?? {})} → then ${compact(ex.then ?? {})}${ex.stateAfter ? `; state after ${compact(ex.stateAfter)}` : ''}`);
+      const text = `given ${compact(ex.given ?? {})} → then ${compact(ex.then ?? {})}${ex.stateAfter ? `; state after ${compact(ex.stateAfter)}` : ''}`;
+      const key = `${st.name} ${text}`;
+      const first = shown.get(key);
+      lines.push(`- Step ${i + 1} \`${st.name}\`: ${first ? `as in ${first}` : text}`);
+      if (short && !first) shown.set(key, s.id);
     });
     if (isObject(s.expect)) lines.push(`- Expect (what the e2e test checks): ${compact(s.expect.state ?? {})}`);
+  }
+  if (short && brief.length > 0) {
+    lines.push('', full.length > 0 ? '### The other approved scenarios, in short' : '### In short', '');
+    lines.push(`The brief would be too long with every step of every scenario. Build to these too, one e2e test each; \`${short.cli} brief ${short.slug} ${story.id} --scenario <id>\` prints a scenario's steps, examples and expect in full.`, '');
+    for (const s of brief) {
+      const c = s.expect?.criterion;
+      lines.push(`- ${s.id}: ${oneLine(str(s.title))}${c ? ` (checks ${c})` : ''}`);
+    }
   }
   if (others.length > 0) {
     lines.push('', '### Not approved, do not build to them', '');

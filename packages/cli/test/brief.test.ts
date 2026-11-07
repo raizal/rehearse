@@ -58,9 +58,9 @@ describe('rehearse brief --tests (T47, box test-brief)', async () => {
     expect((await cli(['brief', approvedEpic(), 'S1', '--tests', '--scenario', 'S2-out-of-stock'])).code).toBe(1);
   });
 
-  it('usage errors exit 2: --scenario without --tests or a value, --tests with --allow-unsigned', async () => {
+  it('usage errors exit 2: --scenario without a value, --tests with --allow-unsigned', async () => {
     const dir = approvedEpic();
-    for (const args of [[dir, 'S1', '--scenario', 'S1-buy'], [dir, 'S1', '--tests', '--scenario'], [dir, 'S1', '--tests', '--allow-unsigned']]) {
+    for (const args of [[dir, 'S1', '--scenario'], [dir, 'S1', '--tests', '--scenario'], [dir, 'S1', '--tests', '--allow-unsigned']]) {
       expect((await cli(['brief', ...args])).code, args.join(' ')).toBe(2);
     }
     expect(USAGE).toContain('brief <epic-dir-or-slug> <story> --tests [--scenario <id>]…');
@@ -74,6 +74,15 @@ describe('rehearse brief', async () => {
     expect(r.out).toMatch(/^# Build brief: story S1 of the EPIC 2026-11-05-shop\n/);
     expect(r.out).toContain('This brief matches the signed story.');
     expect(r.out).toContain('## How to work in this repo');
+  });
+
+  it('--scenario shows those approved scenarios in full and the others in one line each (T56); exit 1 on one not approved', async () => {
+    const dir = signedEpic();
+    const r = await cli(['brief', dir, 'S1', '--scenario', 'S1-buy']);
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/### S1-buy: /);
+    expect(r.out.split(/### (?:The other approved scenarios, )?in short/)[1]).toContain('- S1-empty: Buyer checks out an empty cart');
+    expect(await cli(['brief', dir, 'S1', '--scenario', 'S1-nope'])).toMatchObject({ code: 1, err: 'rehearse brief: no approved scenario S1-nope in story S1\n' });
   });
 
   it('--json has the hash, the sign state and the markdown', async () => {

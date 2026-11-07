@@ -18,9 +18,10 @@ import {
   storyChangeMessage,
   // The budget of the whole brief: T44 set 24_000, T49 raised it, and T50's Design section adds a line.
   MAX_BRIEF_CHARS,
+  MIN_CODE_ROOM,
 } from '../../src/index.js';
 import { CODE_GRAPH_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
-import { editYaml, signedEpic } from './helpers.js';
+import { editYaml, signedEpic, withManyScenarios } from './helpers.js';
 
 const SKILL = fileURLToPath(new URL('../../../bb-plugin/skills/rehearse/SKILL.md', import.meta.url));
 
@@ -115,6 +116,53 @@ describe('storyBuildBrief (T44, box build-brief)', () => {
         expect(r.ok, `${record.slug} ${s.id}`).toBe(true);
         if (r.ok) expect(r.markdown.length, `${record.slug} ${s.id}`).toBeLessThan(MAX_BRIEF_CHARS);
       }
+    }
+  });
+});
+
+describe('a brief too long for its budget (T56, box build-brief)', () => {
+  const big = () => withManyScenarios(loadEpic(signedEpic()).record, 60);
+  const ids = Array.from({ length: 60 }, (_, i) => `S1-buy-${i + 1}`);
+
+  it('a small brief shows every scenario in full, with no short list and no "as in"', () => {
+    const r = storyBuildBrief(loadEpic(signedEpic()).record, 'S1');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.markdown).not.toContain('in short');
+    expect(r.markdown).not.toContain('as in ');
+    expect(r.markdown).not.toContain('--scenario');
+  });
+
+  it('shortens the scenarios past the first ones to one line each, keeping every id, title and criterion', () => {
+    const r = storyBuildBrief(big(), 'S1', { allowUnsigned: true });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const md = r.markdown;
+    expect(md.length).toBeLessThan(MAX_BRIEF_CHARS - MIN_CODE_ROOM);
+    expect(md).toContain('- S1-A1: given a cart with items; when the buyer pays; then the order is shipped.');
+    expect(md).toContain('### The other approved scenarios, in short');
+    expect(md).toContain('brief 2026-11-05-shop S1 --scenario <id>');
+    for (const id of ['S1-buy', 'S1-empty', ...ids]) expect(md, id).toContain(`${id}: `);
+    const short = md.split('### The other approved scenarios, in short')[1]!;
+    expect(short).toContain('- S1-buy-60: Buyer 60 pays for a cart of many items and the order ships (checks S1-A1)');
+  });
+
+  it('shows the scenarios named with --scenario in full and the others in short', () => {
+    const r = storyBuildBrief(big(), 'S1', { allowUnsigned: true, scenarios: ['S1-buy-42'] });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const [full, short] = r.markdown.split(/### (?:The other approved scenarios, )?in short/i);
+    expect(full).toMatch(/### S1-buy-42: /);
+    expect(full).toContain('item-42-11');
+    expect(full).not.toMatch(/### S1-buy: /);
+    expect(short).toContain('- S1-buy: ');
+    expect(short).not.toContain('S1-buy-42:');
+  });
+
+  it('refuses a scenario named that is not approved in the story', () => {
+    const record = big();
+    for (const id of ['S1-nope', 'S2-out-of-stock']) {
+      expect(storyBuildBrief(record, 'S1', { allowUnsigned: true, scenarios: [id] })).toMatchObject({ ok: false, reason: `no approved scenario ${id} in story S1` });
     }
   });
 });

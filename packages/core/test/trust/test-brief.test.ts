@@ -3,12 +3,9 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Box } from '../../src/index.js';
-import { APPROVE_FIRST, HOW_TO_WORK, howToWorkLines, isUiScenario, loadEpic, NOT_SHOWN, scenarioTestBrief, TEST_NAME_RULE, testTitleLine, whereShown } from '../../src/index.js';
+import { APPROVE_FIRST, HOW_TO_WORK, howToWorkLines, isUiScenario, loadEpic, MAX_TEST_BRIEF_CHARS, NOT_SHOWN, scenarioTestBrief, TEST_NAME_RULE, testTitleLine, whereShown } from '../../src/index.js';
 import { CODE_GRAPH_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
-import { approvedEpic } from './helpers.js';
-
-/** About 6k tokens at four characters a token, like the build brief. */
-const MAX_BRIEF_CHARS = 24_000;
+import { approvedEpic, withManyScenarios } from './helpers.js';
 
 describe('scenarioTestBrief (T47, box test-brief)', () => {
   it('holds the story, each scenario with its criterion, steps, boxes and expect, then where, how to run, the rules and how to work', () => {
@@ -137,6 +134,26 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
     expect(testTitleLine('S13-row')).toBe("test('S13-row', async ({ page }) => {");
   });
 
+  it('a brief over its budget shows the first scenarios in full and the others in one line each, every criterion once (T56)', () => {
+    const record = withManyScenarios(loadEpic(approvedEpic()).record, 60);
+    const ids = ['S1-buy', 'S1-empty', ...Array.from({ length: 60 }, (_, i) => `S1-buy-${i + 1}`)];
+    const r = scenarioTestBrief(record, 'S1', ids);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const md = r.markdown;
+    expect(md.length).toBeLessThan(MAX_TEST_BRIEF_CHARS);
+    expect(md).toContain('## The other scenarios, in short');
+    expect(md).toContain('brief 2026-11-05-shop S1 --tests --scenario <id>');
+    for (const id of ids) expect(md, id).toContain(`${id}: `);
+    expect(md).toContain('- S1-buy-60: Buyer 60 pays for a cart of many items and the order ships. Checks S1-A1 (above).');
+    expect(md).toContain('given a cart with items; when the buyer pays; then the order is shipped');
+  });
+
+  it('a small brief is not shortened', () => {
+    const r = scenarioTestBrief(loadEpic(approvedEpic()).record, 'S1', ['S1-buy', 'S1-empty']);
+    if (r.ok) expect(r.markdown).not.toMatch(/in short|as in /);
+  });
+
   it('stays compact: every approved scenario of each story of both EPICs, under about 6k tokens', () => {
     for (const dir of [REAL_EPIC, CODE_GRAPH_EPIC]) {
       const { record } = loadEpic(dir);
@@ -144,7 +161,7 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
         const ids = record.scenarioFiles.flatMap((f) => f.scenarios.filter((sc) => sc.story === s.id && sc.status === 'approved').map((sc) => sc.id));
         if (ids.length === 0) continue;
         const r = scenarioTestBrief(record, s.id, ids);
-        if (r.ok) expect(r.markdown.length, `${record.slug} ${s.id}`).toBeLessThan(MAX_BRIEF_CHARS);
+        if (r.ok) expect(r.markdown.length, `${record.slug} ${s.id}`).toBeLessThan(MAX_TEST_BRIEF_CHARS);
       }
     }
   });
