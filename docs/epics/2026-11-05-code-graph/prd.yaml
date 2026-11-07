@@ -206,6 +206,21 @@ requirements:
       150 nodes and drawn so that names can be read without zooming. (C12)
     provenBy: unit checks of the map query and the graph route, and component tests of the Code map tab
 
+  - id: R20
+    kind: functional
+    text: >-
+      Each place that shows code also shows its unit test coverage, read from
+      every coverage/lcov.info in the repo (not node_modules): a badge such as
+      "72% · 3 tests" on boxes, on the Code map nodes and in the Code view;
+      green, orange and red marks on the lines run, not run and with branches
+      partly taken; the tests that call a function, directly or through one
+      helper; a line when the coverage is older than the code; and one plain
+      line on how to make a coverage file when there is none. `rehearse
+      coverage <file|symbol|box>` prints the same numbers and the lines not
+      run. The graph route answers `verb=coverage` read only, with the same
+      token and Origin check as R17.
+    provenBy: unit checks of the lcov parser, the roll-ups and the graph route, CLI tests, and component tests of the badges, line marks and tested-by list
+
 stories:
   - id: S1
     role: agent
@@ -427,3 +442,38 @@ stories:
         given: a map request with no session token or a foreign Origin, or with a bad level, a missing target or a bad EPIC
         when: serve gets it
         then: serve answers 403 before any graph work and sends no graph data, or 400 for the bad query; a target that is not in the graph gets 404
+
+  - id: S12
+    role: builder
+    want: to see how much of the code under a box or on the map is run by unit tests
+    soThat: I know which code has no tests before I trust or change it
+    requirements: [R20]
+    acceptance:
+      - id: S12-A1
+        given: a repo with coverage/lcov.info files from its unit tests
+        when: the builder opens a box drawer, the nested diagram, the Before / after flow chart, the swimlanes or the Code map at the package, folder, file or function level
+        then: each box with code and each node shows a badge such as "72% · 3 tests", green at 80% or more, orange from 50% to 79% and red below 50%, grey "no coverage data" when the lcov has no line for its code; a box with children shows the total of its children, and a box's code is its builds edges, else the files of its Flow-Box commits
+      - id: S12-A2
+        given: the Code view of a function below a leaf box, with coverage
+        when: the builder reads its code
+        then: each line that was run has a green mark, each line not run a red mark, a line that is not code has none, and a line whose branches were only partly taken has its own mark; the title says how many times and which branches
+      - id: S12-A3
+        given: a function that tests call, directly or through one helper
+        when: the builder opens it in the Code view or selects it on the Code map
+        then: a "Tested by" list names each test and whether it calls the function or goes through a helper, and each name opens the test's code
+      - id: S12-A4
+        given: a coverage file older than a source file it covers
+        when: the builder or an agent reads the coverage of that code
+        then: the badge has a mark and a line says "coverage is older than this code; run the tests again"
+      - id: S12-A5
+        given: a repo with no coverage file
+        when: the builder opens a box drawer, the Code view or the Code map, or an agent runs rehearse coverage
+        then: one plain line says there is no coverage data and how to make it ("pnpm coverage", or "coverage lcov" for Python); no badge pretends to be 0%
+      - id: S12-A6
+        given: an indexed repo with coverage
+        when: an agent runs rehearse coverage with a file, a symbol or "box <path>", with or without --json
+        then: it prints the badge, the lines and branches, the code least covered first with the lines not run (such as "13-16"), and the tests that call it; a target that is not found exits 1, bad arguments exit 2
+      - id: S12-A7
+        given: a coverage request with no session token or a foreign Origin, or with an empty or too long target
+        when: serve gets it
+        then: serve answers 403 before any graph or coverage work and sends no data, or 400 for the bad target; a target that is not found gets 404
