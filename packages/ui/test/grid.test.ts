@@ -100,9 +100,10 @@ describe('T18b grid layout (pages 5 and 6)', () => {
       // As the page draws it: one column fewer while the gutters make it wider than the page.
       const { layout, cols } = dataFlowLayout(df);
       // Two columns is the floor: with T52's S18 process the real EPIC is 16 px wider than the page there,
-      // and T55's S21 processes (they read scenario, approval and story status) add gutters: 172 px. The canvas scrolls.
+      // and T55's S21 processes (they read scenario, approval and story status) add gutters: 172 px; T58's S23
+      // processes (they read stories, boxes, scenarios and sign-offs): 256 px. The canvas scrolls.
       if (cols > 2) expect(layout.width).toBeLessThanOrEqual(DIAGRAM_W);
-      expect(layout.width).toBeLessThanOrEqual(DIAGRAM_W + 200);
+      expect(layout.width).toBeLessThanOrEqual(DIAGRAM_W + 260);
       expect(layout).toEqual(layoutGrid(df, dataFlowCells(df, cols)));
       expectGridReadable(df.nodes, df.edges, layout);
     }
@@ -112,9 +113,9 @@ describe('T18b grid layout (pages 5 and 6)', () => {
     const df = dataFlow(realEpic().flow, realEpic().prd, realEpic().entities);
     expect(layoutGrid(df, dataFlowCells(df, 7)).width).toBeGreaterThan(DIAGRAM_W);
     expect(dataFlowLayout(df).cols).toBeLessThan(7);
-    // T52 (S18): even two columns are 16 px too wide now (T55, S21: 172 px); it stops at two (one column would be 8000 px tall).
+    // T52 (S18): even two columns are 16 px too wide now (T55, S21: 172 px; T58, S23: 256 px); it stops at two (one column would be 8000 px tall).
     expect(dataFlowLayout(df)).toMatchObject({ cols: 2 });
-    expect(dataFlowLayout(df).layout.width).toBeLessThanOrEqual(DIAGRAM_W + 200);
+    expect(dataFlowLayout(df).layout.width).toBeLessThanOrEqual(DIAGRAM_W + 260);
     // A small record keeps every column.
     const small = dataFlow(reviewEpic().flow, reviewEpic().prd, reviewEpic().entities);
     expect(dataFlowLayout(small).cols).toBe(columnsFor(DIAGRAM_W, Math.max(...small.nodes.map((n) => n.w))));

@@ -30,6 +30,7 @@ import { extname, join, normalize, relative, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, readFigcraftThumbnail, repoTopOf, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { MAP_LEVELS, type CoverageStats, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
+import { buildStatus } from './status.js';
 import { buildDeckHtml, chromiumPrinter, deckFileName, epicSlugOf, PrinterUnavailable, type DeckOptions, type DeckSources, type Printer } from './present.js';
 import { writeZip } from './zip-write.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, PLAYER_ACTIONS, type BirdviewSetup, type PlayerAction } from './birdview.js';
@@ -39,6 +40,7 @@ import { designView, figcraftFile, FIGCRAFT_PATH, MAX_DESIGN_BODY_BYTES, readLin
 import { linkDesign, refreshDesignPictures } from './design-link.js';
 import { FIGCRAFT_CONTROL_HOST, FIGCRAFT_CONTROL_PORT, type FigcraftControlAddress } from './figcraft-control.js';
 import { FIGCRAFT_VERSION, FigcraftFetchError, fetchFigcraftWeb, type Fetcher } from './figcraft-web.js';
+import { GRAPH_FILE } from './graph-built.js';
 import { graphServiceFor, repoRoot, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { MAX_PREVIEW_STORIES, signOffPreview } from './signoff-preview.js';
@@ -142,6 +144,7 @@ const ROUTES: Record<string, string> = {
   '/api/thread/ask-rebase': 'POST',
   '/api/birdview': 'GET',
   '/api/present': 'GET',
+  '/api/status': 'GET, HEAD',
   '/api/design': 'GET, HEAD',
   '/api/design/file': 'GET',
   '/api/design/save': 'POST',
@@ -158,7 +161,7 @@ const TEST_KEY = /^[A-Za-z0-9_][\w./-]{0,250}:\d{1,6}$/;
 const MAX_TARGET = 512;
 
 /** The request handler, without listening. */
-export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res: ServerResponse) => void {
+export function createHandler(opts: HandlerOptions & { defaultGraph?: boolean }): (req: IncomingMessage, res: ServerResponse) => void {
   const session = opts.session ?? createSession(opts.epicDir);
   const verifier = opts.verifier ?? defaultVerifier(opts.epicDir);
   const git = opts.git ?? execGit;
@@ -167,6 +170,9 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const threadReasoning = opts.threadReasoning ?? (process.env.REHEARSE_THREAD_REASONING || undefined);
   const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
   const graph = opts.graph ?? graphServiceFor(opts.epicDir);
+  // The default graph service makes .rehearse/graph.db when it opens: a read that finds no graph must not open it (T58).
+  const ownGraph = opts.graph === undefined || opts.defaultGraph === true;
+  const noGraphYet = (): boolean => ownGraph && !existsSync(join(repoRoot(opts.epicDir), GRAPH_FILE));
   const run = opts.run ?? processRunner();
   const top = opts.repoTop ?? repoTopOf(opts.epicDir);
   const threads = createStoryThreads({
@@ -182,7 +188,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       gatherBriefCode({ epicDir: opts.epicDir, record, boxes, graph: (fn) => graph.withGraph(fn), git, ...(birdview.projectDir ? { testProject: relative(repoRoot(opts.epicDir), birdview.projectDir).split(sep).join('/') } : {}) }),
     // Coverage only from a graph that is indexed already: progress never starts an index run.
     coverage: async () => {
-      if (!graph.status().indexed) return undefined;
+      if (noGraphYet() || !graph.status().indexed) return undefined;
       const [, answer] = await readCoverage(new URLSearchParams(), graph, opts.epicDir, git);
       return (answer as { ok?: boolean; boxes?: Record<string, CoverageStats> }).boxes;
     },
@@ -350,24 +356,28 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       );
       return;
     }
-    if (path === '/api/present') {
-      void (opts.deckSources ? opts.deckSources().catch(() => ({})) : Promise.resolve({})).then((sources) => present(req, res, query, session, {
-        epicDir: opts.epicDir,
-        repoTop: top,
-        git: (args) => git(args, opts.epicDir),
-        verifier,
-        ...(birdview.projectDir ? { testProject: birdview.projectDir } : {}),
-        ...sources,
-        testResults: async (storyId) => {
-          const info = await birdviewInfo(birdview, storyId, opts.epicDir);
-          return info.player.kind === 'ours' ? info.player.results : undefined;
-        },
-        coverage: async () => {
-          if (!graph.status().indexed) return undefined;
-          const [, answer] = await readCoverage(new URLSearchParams(), graph, opts.epicDir, git);
-          return coveragePercent((answer as { boxes?: Record<string, CoverageStats> }).boxes);
-        },
-      }, opts.printer ?? chromiumPrinter(top)));
+    if (path === '/api/present' || path === '/api/status') {
+      // The deck and the Status page gather the same facts (T58): one rule, one set of sources.
+      void (opts.deckSources ? opts.deckSources().catch(() => ({})) : Promise.resolve({})).then((sources) => {
+        const deckOptions: DeckOptions = {
+          epicDir: opts.epicDir,
+          repoTop: top,
+          git: (args) => git(args, opts.epicDir),
+          verifier,
+          ...(birdview.projectDir ? { testProject: birdview.projectDir } : {}),
+          ...sources,
+          testResults: async (storyId) => {
+            const info = await birdviewInfo(birdview, storyId, opts.epicDir);
+            return info.player.kind === 'ours' ? info.player.results : undefined;
+          },
+          coverage: async () => {
+            if (noGraphYet() || !graph.status().indexed) return undefined;
+            const [, answer] = await readCoverage(new URLSearchParams(), graph, opts.epicDir, git);
+            return coveragePercent((answer as { boxes?: Record<string, CoverageStats> }).boxes);
+          },
+        };
+        return path === '/api/status' ? status(req, res, query, session, deckOptions) : present(req, res, query, session, deckOptions, opts.printer ?? chromiumPrinter(top));
+      });
       return;
     }
     if (path.startsWith('/api/design') || path === '/api/figcraft/fetch') {
@@ -632,6 +642,30 @@ async function threadMerge(req: IncomingMessage, res: ServerResponse, path: stri
  * `<name>-media/` with the videos it links. The token and a same-origin Origin first; no Chromium
  * is a 503 in plain words.
  */
+/**
+ * `GET /api/status[?epic=<slug>]` (T58, box status-table): the Status page of the served EPIC, read-only.
+ * The token and the Origin first; 404 for another EPIC. A missing unit report or Birdview results
+ * is not an error: the columns say "not run" or "Birdview results not found", and `sources` says why.
+ */
+async function status(req: IncomingMessage, res: ServerResponse, query: URLSearchParams, session: ServerSession, deckOptions: DeckOptions): Promise<void> {
+  const refused = checkRequest(req, session);
+  if (refused) {
+    sendJson(res, refused.status, { ok: false, error: refused.error });
+    return;
+  }
+  try {
+    const slug = epicSlugOf(deckOptions.epicDir);
+    const epic = query.get('epic');
+    if (epic !== null && epic !== slug) {
+      sendJson(res, 404, { ok: false, error: `this server shows the EPIC ${slug}, not ${epic}` });
+      return;
+    }
+    sendJson(res, 200, { ok: true, status: await buildStatus(deckOptions) });
+  } catch (e) {
+    sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 async function present(req: IncomingMessage, res: ServerResponse, query: URLSearchParams, session: ServerSession, deckOptions: DeckOptions, printer: Printer): Promise<void> {
   const refused = checkRequest(req, session);
   if (refused) {
@@ -904,7 +938,7 @@ function send(res: ServerResponse, status: number, type: string, body: string | 
 /** Start the server on 127.0.0.1. There is no option for another host (R20). */
 export function startServer(opts: ServeOptions): Promise<RunningServer> {
   const graph = opts.graph ?? graphServiceFor(opts.epicDir);
-  const server = createServer(createHandler({ ...opts, graph }));
+  const server = createServer(createHandler({ ...opts, graph, defaultGraph: opts.graph === undefined }));
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(opts.port, LISTEN_HOST, () => {

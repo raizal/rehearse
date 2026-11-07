@@ -187,10 +187,10 @@ describe('rehearse progress', () => {
   it('prints boxes with code, scenarios tested, the sign-off; no thread, so no bb call', async () => {
     const r = await progress([signedEpic(), 'S1']);
     expect(r.code).toBe(0);
-    expect(r.out).toContain('Story S1 of 2026-11-05-shop: 1 of 2 boxes have code · 0 of 2 scenarios tested');
+    expect(r.out).toContain('Story S1 of 2026-11-05-shop: 1 of 2 boxes built · 0 of 2 scenarios tested');
     expect(r.out).toContain('No thread works on this story yet.');
-    expect(r.out).toMatch(/pay: built, 1 commit/);
-    expect(r.out).toContain('cart: not yet');
+    expect(r.out).toContain('  pay: built\n      built: 1 Flow-Box commit');
+    expect(r.out).toContain('  cart: not built\n      not built: no Flow-Box commit names it or a box inside it');
     expect(r.calls.filter((c) => c[0] === 'bb')).toEqual([]);
   });
 

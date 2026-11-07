@@ -15,6 +15,7 @@ describe('the place as a URL hash (T23)', () => {
     [{ tab: 'readiness', requirement: 'R3' }, '#/readiness/R3'],
     [{ tab: 'usecases' }, '#/usecases'],
     [{ tab: 'signoff' }, '#/signoff'],
+    [{ tab: 'status' }, '#/status'],
     [{ tab: 'code' }, '#/code'],
     [{ tab: 'code', level: { kind: 'package', target: '@rehearse/server' } }, '#/code/package/%40rehearse%2Fserver'],
     [{ tab: 'code', level: { kind: 'file', target: 'packages/ui/src/App.tsx' }, node: 'scip-typescript npm @rehearse/ui 0.1.0 src/`App.tsx`/App().' }, '#/code/file/packages%2Fui%2Fsrc%2FApp.tsx/node/scip-typescript%20npm%20%40rehearse%2Fui%200.1.0%20src%2F%60App.tsx%60%2FApp().'],

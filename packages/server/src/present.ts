@@ -27,7 +27,6 @@ import {
   readFigcraftThumbnail,
   readPresentation,
   repoTopOf,
-  servingBoxes,
   signOffPayload,
   simulateRecord,
   storyEffectiveDesign,
@@ -37,6 +36,7 @@ import {
   type DeckFacts,
   type EpicRecord,
   type Finding,
+  type GraphBuilds,
   type Id,
   type SignatureState,
   type SignedSignOff,
@@ -49,7 +49,8 @@ import type { TestResult } from './birdview.js';
 import type { GitRunner } from './box-code.js';
 import { linkPicture } from './design-route.js';
 import { findBirdviewData, gitSpecAt, lastScreen, mainCheckoutProject, NO_BIRDVIEW_DATA, processFfmpeg, readSavedResults, type BirdviewData, type Ffmpeg, type Recording, type SavedResults, type SpecAt } from './saved-results.js';
-import { epicGateItems, parseBranchLog, specTests, storyProgress, type GitCall } from './story-progress.js';
+import { readGraphBuilds, repoFileReader } from './graph-built.js';
+import { commitFiles, epicGateItems, parseBranchLog, specTests, storyProgress, withFiles, type GitCall } from './story-progress.js';
 import { readUnitReport, unitCount, UnitReportError, type UnitReport } from './unit-report.js';
 
 /** The record has uncommitted changes and the caller asked for a committed deck only. */
@@ -96,6 +97,12 @@ export interface DeckOptions {
   ffmpeg?: Ffmpeg;
   /** Most bytes of last-screen stills in one deck. */
   maxStillBytes?: number;
+  /** What the code graph maps to each box (T58). Default: .rehearse/graph.db of the repo, read-only. */
+  graph?: (slug: string) => GraphBuilds;
+  /** A repo file as text, for the decision check (T58). Default: the repo's files. */
+  readFile?: (file: string) => string | undefined;
+  /** The Status page (T58): no pictures, no stills, no videos. */
+  light?: boolean;
 }
 
 /** A video to copy next to the deck: from `src` to `<media folder>/<name>`. */
@@ -178,9 +185,12 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
   const today = (opts.now ?? (() => new Date()))().toISOString().slice(0, 10);
   const owner = (await gitLine(git, ['config', 'user.name'])) ?? (await gitLine(git, ['config', 'user.email']));
   const log = await git(['log', 'HEAD', '-n', String(MAX_COMMITS), '--grep=^Flow-Box:', '--format=%H%x1f%S%x1f%s%x1f%B%x1e']);
-  const commits = log.ok ? parseBranchLog(log.stdout) : [];
+  const commits = withFiles(log.ok ? parseBranchLog(log.stdout) : [], await commitFiles(git));
 
   const { record, gate } = epicGateItems(epicDir);
+  // T58: "built" from Flow-Box commits and the code graph; a decision through a built neighbour.
+  const graph = opts.graph ? opts.graph(record.slug) : readGraphBuilds(top, record.slug);
+  const readFile = opts.readFile ?? repoFileReader(top);
   const report = gateEpic(epicDir, simulateRecord, opts.verifier ? { verifier: opts.verifier } : {});
   const items: DeckFacts["gate"]["items"] = gate.map((g) => ({ check: g.check, message: g.finding.message, stories: g.stories }));
   const known = new Set(gate.map((g) => g.finding.message));
@@ -271,8 +281,8 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
   for (const story of Array.isArray(record.prd?.stories) ? record.prd.stories : []) {
     if (!story || typeof story.id !== 'string') continue;
     const results = live.get(story.id) ?? savedResults;
-    const p = storyProgress({ record, storyId: story.id, commits, thread: null, tests, ...(results ? { results } : {}), gate: [] });
-    const facts: StoryFacts = { built: p.counts.boxesWithCode, tests: Object.fromEntries(p.scenarios.map((s) => [s.id, STATE[s.state]!])) };
+    const p = storyProgress({ record, storyId: story.id, commits, thread: null, tests, ...(results ? { results } : {}), gate: [], graph, readFile });
+    const facts: StoryFacts = { built: p.counts.boxesWithCode, boxes: p.boxes.map((b) => b.evidence), tests: Object.fromEntries(p.scenarios.map((s) => [s.id, STATE[s.state]!])) };
     // The runs: when, the failing step, and the recording (a still, and a video to copy).
     const runs: Record<Id, TestRun> = {};
     for (const s of p.scenarios) {
@@ -290,7 +300,7 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
           if (!videos.some((v) => v.name === name)) videos.push({ src: rec.video, name });
           run.video = `${mediaFolder}/${name}`;
         }
-        const still = await lastScreen(rec, opts.ffmpeg).catch(() => undefined);
+        const still = opts.light ? undefined : await lastScreen(rec, opts.ffmpeg).catch(() => undefined);
         if (still && evidence.recordings.picturesBytes + still.data.length <= stillCap) {
           const key = `run-${s.id}`;
           assets[key] = { mime: still.mime, data: still.data };
@@ -302,8 +312,7 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
       runs[s.id] = run;
     }
     if (Object.keys(runs).length > 0) facts.runs = runs;
-    const paths = servingBoxes(record.flow, story.id);
-    facts.commits = commits.filter((c) => c.boxes.some((b) => paths.some((path) => b === path || b.startsWith(`${path}/`)))).length;
+    facts.commits = new Set(p.boxes.flatMap((b) => b.evidence.commits.map((c) => c.sha))).size;
     if (unit) {
       const ids = [...scenarios.filter((s) => s.story === story.id).map((s) => s.id), ...(Array.isArray(story.acceptance) ? story.acceptance.flatMap((a) => (a && typeof a.id === 'string' ? [a.id] : [])) : [])];
       facts.unit = unitCount(unit, ids);
@@ -311,7 +320,7 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
     facts.simulation = sim.get(story.id) ?? { problems: 0, uncovered: 0 };
     const sig = sigs.byStory.get(story.id);
     if (sig) facts.signature = sig;
-    const link = storyEffectiveDesign(designState, record.slug, story.id).story?.link;
+    const link = opts.light ? undefined : storyEffectiveDesign(designState, record.slug, story.id).story?.link;
     const pic = link ? linkPicture(top, designState, link) : undefined;
     let png: Uint8Array | undefined;
     try {
@@ -348,6 +357,7 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
     testResults,
     ...(coverage !== undefined ? { coverage } : {}),
     evidence,
+    codeGraph: graph.ok ? { ok: true, ...(graph.at ? { at: graph.at } : {}) } : { ok: false, why: graph.why },
   };
   return { record, facts, assets, videos, ...(mediaFolder ? { mediaFolder } : {}), warnings };
 }

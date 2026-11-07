@@ -5,6 +5,7 @@
 
 import type { Finding, Id } from '@rehearse/core';
 import type { MergeDone, MergeKind, MergeSummary, SignOffPreview, StoryProgress, StoryThreadView, TestThreadView } from '@rehearse/server';
+import type { StatusTable } from '@rehearse/core';
 import type { ApproveOk, PostOutcome, ReviewEpicView, SignOffOk } from './contract.js';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
@@ -176,4 +177,14 @@ async function threadCall<T>(client: SessionClient, url: string, body?: unknown,
   const conflict = r.body?.conflict as { files?: unknown } | undefined;
   const files = Array.isArray(conflict?.files) ? conflict.files.filter((f): f is string => typeof f === 'string') : undefined;
   return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? missing : error, ...(details ? { details } : {}), ...(files ? { conflict: { files } } : {}) };
+}
+
+// ---------------------------------------------------------------- the Status page (T58)
+
+export type { StatusRow, StatusTable } from '@rehearse/core';
+
+/** `GET api/status?epic=` (T58, box status-table): per story, signed, built, tested, done, and what is missing. Read-only. */
+export async function fetchStatus(slug: string, client: SessionClient = sessionClient): Promise<ThreadOutcome<StatusTable>> {
+  const r = await threadCall<{ status: StatusTable }>(client, `api/status?epic=${encodeURIComponent(slug)}`, undefined, 'this rehearse serve has no Status page yet; update rehearse');
+  return r.kind === 'ok' ? { kind: 'ok', body: r.body.status } : r;
 }

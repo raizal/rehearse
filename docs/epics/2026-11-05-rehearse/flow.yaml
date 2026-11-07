@@ -1099,6 +1099,117 @@ root:
       outputs: { epic: string }
       # A link back to the EPIC; no Next story.
 
+    # --- The Status page and honest "built" (S23, T58) ---
+    # New boxes only; root edges join them, and the deck's facts (gather-deck-facts) to box-evidence.
+    - id: status-view
+      kind: input
+      lane: builder
+      package: ui
+      title: Open the Status page
+      stories: [S23]
+      inputs:  { epic: string }
+      outputs: { epic: string, filter: "enum[all, not-done, done-not-seen]" }
+      # The top-level "Status" item of rehearse serve, or "Status" on the EPIC picker card of the
+      # bb panel (it opens #/status). GET /api/status?epic=<slug> with the session token and
+      # serve's Origin; read-only.
+
+    - id: status-cli
+      kind: input
+      lane: builder
+      package: cli
+      title: rehearse status <epic> [--json] [--not-done]
+      stories: [S23]
+      inputs:  { epic: string, json: "boolean?", notDone: "boolean?" }
+      outputs: { epic: string, filter: "enum[all, not-done, done-not-seen]" }
+      # The same facts and rule as the page and the deck. Exit 0 whatever the table says.
+
+    - id: box-evidence
+      kind: process
+      lane: rehearse
+      package: core
+      title: Decide per box built, no code of its own, or not built, with the evidence
+      stories: [S23]
+      inputs:  { epic: string, filter: "enum[all, not-done, done-not-seen]?" }
+      outputs: { epic: string, boxStates: string, graph: string }
+      reads:   [Story.*, Box.*]
+      errorExits: ["code graph not built yet"]
+      # Built: a Flow-Box commit names the box or a box inside it (an EPIC prefix on the trailer
+      # is ours or another EPIC's), and/or the code graph's `builds` edges reach code (file,
+      # symbol). No code of its own: a start or end box; a decision only when a built neighbour's
+      # code (graph code first, then the files of its Flow-Box commits; product code, not tests,
+      # docs or design drawings) has a branching line that names it; the neighbour, file and line
+      # are named. Not built: what was looked for. One function for progress, the deck, the page
+      # and the CLI. No graph (the error exit): Flow-Box commits only, and it says so.
+
+    - id: status-table
+      kind: process
+      lane: rehearse
+      package: core
+      title: One row per story - signed, built, real screens, automated tests, done
+      stories: [S23]
+      inputs:  { epic: string, boxStates: string, graph: string }
+      outputs: { epic: string, header: string, rows: string }
+      reads:   [Story.*, Scenario.*, SignOff.*]
+      errorExits: ["no unit report", "Birdview results not found"]
+      # The deck's story views and its one done rule: Signed (yes, changed since sign-off, no),
+      # Built ("8 of 8 boxes", "6 of 8 — 2 left"), Tests on the real screens, Automated tests,
+      # Done (done · seen working, done · checked by automated tests, not done). Not done first,
+      # then done but not seen working. No unit report: "not run". No Birdview results: "Birdview
+      # results not found".
+
+    - id: whats-missing
+      kind: process
+      lane: rehearse
+      package: core
+      title: Say what is missing per story and who acts
+      stories: [S23]
+      inputs:  { epic: string, header: string, rows: string }
+      outputs: { epic: string, header: string, rows: string, missing: string }
+      # The deck's own reasons, with who acts: boxes not built (builders), approve N scenarios,
+      # sign off, changed since sign-off (you), a test fails (builders), no real-screen test yet
+      # (test thread), a plan problem (planning agent).
+
+    - id: status-sources
+      kind: process
+      lane: rehearse
+      package: core
+      title: Say where the facts come from, and when
+      stories: [S23]
+      inputs:  { epic: string, header: string, rows: string, missing: string }
+      outputs: { epic: string, header: string, rows: string, missing: string, sources: string }
+      # The commit (branch, sha, date), the code graph (and when it was updated), Birdview's
+      # results (player or saved file, newest run date), the unit report (file, date) or why not.
+
+    - id: status-page
+      kind: output
+      lane: builder
+      package: ui
+      title: The Status page - table, filters, a row opens the story's progress
+      stories: [S23]
+      inputs:  { epic: string, header: string, rows: string, missing: string, sources: string }
+      outputs: { epic: string, storyId: "string?" }
+      # Filters All / Not done / Done but not seen working, each with its count. A row opens the
+      # story's progress (GET /api/story-progress): boxes with their evidence, scenarios with
+      # their tests, and "Open story".
+
+    - id: status-text
+      kind: output
+      lane: builder
+      package: cli
+      title: The status table as text or JSON
+      stories: [S23]
+      inputs:  { epic: string, header: string, rows: string, missing: string, sources: string }
+      outputs: { epic: string, text: string }
+      # Aligned columns and "Where the facts come from:"; --json prints the table; --not-done
+      # keeps the stories not done.
+
+    - id: status-known
+      kind: end
+      lane: builder
+      package: cli
+      title: The builder knows what is not done and who acts
+      stories: [S23]
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -1268,3 +1379,18 @@ root:
     - { from: next-story,         to: review }
     - { from: next-story,         to: epic-all-approved,  label: "nothing left to approve",      kind: error }
     - { from: epic-all-approved,  to: review }
+    - { from: status-view,    to: box-evidence }
+    - { from: status-cli,     to: box-evidence }
+    - { from: box-evidence,   to: status-table }
+    - { from: box-evidence,   to: status-table,   label: "code graph not built yet",   kind: error }
+    - { from: gather-deck-facts, to: box-evidence }
+    - { from: status-table,   to: whats-missing }
+    - { from: status-table,   to: whats-missing,  label: "no unit report",             kind: error }
+    - { from: status-table,   to: whats-missing,  label: "Birdview results not found", kind: error }
+    - { from: whats-missing,  to: status-sources }
+    - { from: status-sources, to: status-page }
+    - { from: status-sources, to: status-text }
+    - { from: status-page,    to: status-known }
+    - { from: status-text,    to: status-known }
+    - { from: start,          to: status-cli }
+    - { from: epic-all-approved, to: status-view }

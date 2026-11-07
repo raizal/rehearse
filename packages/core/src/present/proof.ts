@@ -152,29 +152,72 @@ function keptRecordings(v: StoryView): number {
 
 // ---------------------------------------------------------------- what is missing, most important first
 
+/** Who acts on a missing thing (T58): the owner, the builders, the test thread, the planning agent. */
+export type Actor = 'you' | 'builders' | 'test thread' | 'planning agent';
+
+/** One thing that keeps a story from done (or, `blocking: false`, from being seen working). */
+export interface MissingItem {
+  /** The deck's words (unchanged since T53). */
+  deck: string;
+  /** The Status page's words. */
+  text: string;
+  who: Actor;
+  /** False: the story can be done without it (it is not yet seen working on the real screens). */
+  blocking: boolean;
+}
+
+/**
+ * Box whats-missing (T58): what keeps a story from done, the most important first, and who acts;
+ * for a story that is done, what keeps it from being seen working. The one list behind the deck's
+ * "what is missing" and the Status page.
+ */
+export function missingItems(v: StoryView): MissingItem[] {
+  const out: MissingItem[] = [];
+  const add = (deck: string, text: string, who: Actor, blocking = true) => out.push({ deck, text, who, blocking });
+  if (viewDoneState(v) !== 'done') {
+    const failed = approvedRuns(v).filter((r) => r.state === 'failed');
+    if (failed.length > 0) {
+      const step = plainStep(failed[0]!.run?.failedStep);
+      const words = `${failed.length === 1 ? 'a test fails' : `${failed.length} tests fail`}${step ? `: ${cut(step, 70)}` : ''}`;
+      add(words, words, 'builders');
+    }
+    const unitFailed = v.facts.unit?.failed ?? 0;
+    if (unitFailed > 0) {
+      const words = unitFailed === 1 ? 'an automated test fails' : `${unitFailed} automated tests fail`;
+      add(words, words, 'builders');
+    }
+    const problems = v.facts.simulation?.problems ?? 0;
+    if (problems > 0) add(`the plan check finds ${plural(problems, 'problem')}`, `the plan check finds ${plural(problems, 'problem')}`, 'planning agent');
+    if (v.sign?.status === 'stale') add('changed after it was signed off: needs a new sign-off', 'changed since sign-off: sign off again', 'you');
+    else if (v.sign?.status === 'signed' && !v.sign.buildable) add('signed off under an older rule: needs a new sign-off', 'signed under an older rule: sign off again', 'you');
+    const waiting = v.scenarios.length - v.approved;
+    if (v.scenarios.length === 0) add('no scenarios written yet', 'no scenarios written yet', 'planning agent');
+    else if (waiting > 0) add(`waiting for my approval (${plural(waiting, 'scenario')})`, `approve ${plural(waiting, 'scenario')}`, 'you');
+    else if (!v.sign || v.sign.status === 'draft') add('waiting for my sign-off', 'sign off', 'you');
+    if (v.boxes === 0) add('nothing planned to build yet', 'nothing planned to build yet', 'planning agent');
+    else if (v.facts.built < v.boxes) {
+      const left = v.boxes - v.facts.built;
+      const ids = (v.facts.boxes ?? []).filter((b) => b.state === 'not-built').map((b) => b.path);
+      add(`${plural(left, 'part')} not built`, `${plural(left, 'box', 'boxes')} not built${ids.length > 0 ? ` (${ids.slice(0, 4).join(', ')}${ids.length > 4 ? ', …' : ''})` : ''}`, 'builders');
+    }
+    if (out.length === 0) add('not done yet', 'not done yet', 'builders');
+  }
+  // Not seen working yet on the real screens: the test thread writes or runs the e2e tests.
+  if (v.tests.failed === 0 && v.approved > 0 && v.tests.passed < v.approved) {
+    const missing = v.tests['not-written'];
+    const notRun = v.tests['not-run'];
+    if (missing === v.approved) add('', 'no real-screen test yet', 'test thread', false);
+    else {
+      if (missing > 0) add('', `${plural(missing, 'scenario')} without a real-screen test`, 'test thread', false);
+      if (notRun > 0) add('', `${plural(notRun, 'real-screen test')} not run yet`, 'test thread', false);
+    }
+  }
+  return out;
+}
+
 /** What keeps a story from done, the most important first. Empty for a done story. */
 export function missingThings(v: StoryView): string[] {
-  if (viewDoneState(v) === 'done') return [];
-  const out: string[] = [];
-  const failed = approvedRuns(v).filter((r) => r.state === 'failed');
-  if (failed.length > 0) {
-    const step = plainStep(failed[0]!.run?.failedStep);
-    out.push(`${failed.length === 1 ? 'a test fails' : `${failed.length} tests fail`}${step ? `: ${cut(step, 70)}` : ''}`);
-  }
-  const unitFailed = v.facts.unit?.failed ?? 0;
-  if (unitFailed > 0) out.push(`${unitFailed === 1 ? 'an automated test fails' : `${unitFailed} automated tests fail`}`);
-  const problems = v.facts.simulation?.problems ?? 0;
-  if (problems > 0) out.push(`the plan check finds ${plural(problems, 'problem')}`);
-  if (v.sign?.status === 'stale') out.push('changed after it was signed off: needs a new sign-off');
-  else if (v.sign?.status === 'signed' && !v.sign.buildable) out.push('signed off under an older rule: needs a new sign-off');
-  const waiting = v.scenarios.length - v.approved;
-  if (v.scenarios.length === 0) out.push('no scenarios written yet');
-  else if (waiting > 0) out.push(`waiting for my approval (${plural(waiting, 'scenario')})`);
-  else if (!v.sign || v.sign.status === 'draft') out.push('waiting for my sign-off');
-  if (v.boxes === 0) out.push('nothing planned to build yet');
-  else if (v.facts.built < v.boxes) out.push(`${plural(v.boxes - v.facts.built, 'part')} not built`);
-  if (out.length === 0) out.push('not done yet');
-  return out;
+  return missingItems(v).filter((m) => m.blocking).map((m) => m.deck);
 }
 
 // ---------------------------------------------------------------- proof lines
@@ -240,7 +283,10 @@ export function proofRows(v: StoryView, ctx: ProofContext): ProofRow[] {
   if (v.boxes === 0) rows.push({ label: 'Built', text: 'nothing planned to build yet', tone: 'muted' });
   else {
     const commits = v.facts.commits;
-    rows.push({ label: 'Built', text: `${v.facts.built} of ${plural(v.boxes, 'part')} ${v.facts.built === 1 ? 'has' : 'have'} code${commits !== undefined ? ` (${plural(commits, 'commit')})` : ''}`, tone: v.facts.built >= v.boxes ? 'good' : 'warn' });
+    const noCode = (v.facts.boxes ?? []).filter((b) => b.state === 'no-code').length;
+    const withCode = v.facts.built - noCode;
+    const builtText = noCode > 0 ? `${withCode} of ${plural(v.boxes, 'part')} ${withCode === 1 ? 'has' : 'have'} code and ${noCode} need${noCode === 1 ? 's' : ''} no code of ${noCode === 1 ? 'its' : 'their'} own` : `${v.facts.built} of ${plural(v.boxes, 'part')} ${v.facts.built === 1 ? 'has' : 'have'} code`;
+    rows.push({ label: 'Built', text: `${builtText}${commits !== undefined ? ` (${plural(commits, 'commit')})` : ''}`, tone: v.facts.built >= v.boxes ? 'good' : 'warn' });
   }
 
   // Signed

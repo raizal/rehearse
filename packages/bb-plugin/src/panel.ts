@@ -4,16 +4,24 @@
 export interface PanelRoute {
   projectId: string | null;
   slug: string | null;
+  /** T58: open the EPIC on its Status page (`<project>/<slug>/status`). */
+  view?: 'status';
 }
 
 export function parseSubPath(subPath: string): PanelRoute {
-  const [projectId, slug] = subPath.split('/').filter((part) => part !== '');
-  return { projectId: projectId ?? null, slug: slug ?? null };
+  const [projectId, slug, view] = subPath.split('/').filter((part) => part !== '');
+  return { projectId: projectId ?? null, slug: slug ?? null, ...(slug && view === 'status' ? { view } : {}) };
 }
 
 export function subPathOf(route: PanelRoute): string {
   if (!route.projectId) return '';
-  return route.slug ? `${route.projectId}/${route.slug}` : route.projectId;
+  if (!route.slug) return route.projectId;
+  return route.view === 'status' ? `${route.projectId}/${route.slug}/status` : `${route.projectId}/${route.slug}`;
+}
+
+/** The serve UI's address, on the Status page when the route asks for it (T58). */
+export function frameSrc(src: string, view: PanelRoute['view']): string {
+  return view === 'status' ? `${src.replace(/#.*$/, '')}#/status` : src;
 }
 
 /** True when the browser runs on the machine itself, so it can open 127.0.0.1 directly. */

@@ -47,9 +47,9 @@ describe('the shell', () => {
     await screen.findByTestId('big-picture');
     expect(screen.getByTestId('app')).toHaveClass('app');
     expect(screen.getByTestId('epic-title')).toHaveTextContent('Shop checkout');
-    expect(screen.getAllByTestId(/^nav-/).map((el) => el.textContent)).toEqual(['PRD', 'Tech spec', 'Big picture', 'Code map', 'Stories', 'Use cases', 'Readiness', 'Sign off']);
+    expect(screen.getAllByTestId(/^nav-/).map((el) => el.textContent)).toEqual(['PRD', 'Tech spec', 'Big picture', 'Code map', 'Stories', 'Use cases', 'Readiness', 'Sign off', 'Status']);
     expect(screen.queryByTestId('nav-flow')).toBeNull();
-    for (const tab of ['bigpicture', 'code', 'stories', 'usecases', 'readiness', 'signoff']) expect(screen.getByTestId(`nav-${tab}`)).toBeEnabled();
+    for (const tab of ['bigpicture', 'code', 'stories', 'usecases', 'readiness', 'signoff', 'status']) expect(screen.getByTestId(`nav-${tab}`)).toBeEnabled();
     expect(screen.getByTestId('report-status')).toHaveTextContent('validate: OK');
   });
 

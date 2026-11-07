@@ -290,8 +290,8 @@ describe('T44 build with an agent, the plan-changed notice, the progress block',
       storyId: 'S1',
       thread: { id: 'thr_story1', status: 'idle', statusText: 'idle', updatedAt: NOW - 120_000, branch: 'bb/build-s1', kind: 'build' },
       boxes: [
-        { path: 'checkout', title: 'Checkout', built: true, commits: 3, onThreadBranch: 2, branches: ['bb/build-s1', 'main'], coverage: { lines: 10, covered: 8, branches: 0, branchesCovered: 0, percent: 80, tests: 4, stale: false } },
-        { path: 'checkout/pay', title: 'Pay', built: false, commits: 0, onThreadBranch: 0, branches: [] },
+        { path: 'checkout', title: 'Checkout', built: true, state: 'built', evidence: { path: 'checkout', title: 'Checkout', kind: 'process', state: 'built', commits: [], code: [], text: 'built: 3 Flow-Box commits' }, commits: 3, onThreadBranch: 2, branches: ['bb/build-s1', 'main'], coverage: { lines: 10, covered: 8, branches: 0, branchesCovered: 0, percent: 80, tests: 4, stale: false } },
+        { path: 'checkout/pay', title: 'Pay', built: false, state: 'not-built', evidence: { path: 'checkout/pay', title: 'Pay', kind: 'process', state: 'not-built', commits: [], code: [], text: 'not built: no Flow-Box commit names it or a box inside it' }, commits: 0, onThreadBranch: 0, branches: [] },
       ],
       scenarios: [
         { id: 'S1-buy', title: 'Buy', state: 'failing', test: 'shop.spec.ts:3', failedStep: 'pay: card' },
@@ -313,7 +313,8 @@ describe('T44 build with an agent, the plan-changed notice, the progress block',
     expect(within(block).getByTestId('story-progress-thread')).toHaveTextContent('Thread idle, last activity 14:58, branch bb/build-s1');
     expect(within(block).getByTestId('story-progress-box-checkout')).toHaveTextContent('built · 3 commits, 2 on bb/build-s1');
     expect(within(block).getByTestId('story-progress-cov-checkout')).toHaveTextContent('80%');
-    expect(within(block).getByTestId('story-progress-box-checkout/pay')).toHaveTextContent('not yet');
+    expect(within(block).getByTestId('story-progress-box-checkout/pay')).toHaveTextContent('not built');
+    expect(within(block).getByTestId('story-progress-evidence-checkout/pay')).toHaveTextContent('not built: no Flow-Box commit names it');
     expect(within(block).getByTestId('story-progress-scenario-S1-buy')).toHaveTextContent('failing at pay: card shop.spec.ts:3');
     expect(within(block).getByTestId('story-progress-scenario-S1-empty')).toHaveTextContent('test found, not run yet');
     expect(within(block).getByTestId('story-progress-scenario-S1-late')).toHaveTextContent('no e2e test yet');

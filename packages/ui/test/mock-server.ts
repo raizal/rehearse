@@ -33,6 +33,8 @@ export interface MockRoutes {
   graph?: (query: URLSearchParams) => Reply;
   /** `GET api/story-progress` and `?story=` (T44). */
   progress?: (storyId: string | null) => Reply;
+  /** `GET api/status?epic=` (T58): the Status table, `{ ok, status }`. */
+  status?: (epic: string) => Reply;
   /** `GET api/story-tests/thread?story=`, `POST api/story-tests/thread | send` (T47). */
   testThread?: (method: string, path: string, body: unknown) => Reply;
   /** `GET api/thread/merge?story=&kind=`, `POST api/thread/merge | ask-rebase` (T48): GET passes the query as the body. */
@@ -83,6 +85,7 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     if (url.startsWith('api/graph?') && method === 'GET') {
       return respond(routes.graph?.(new URLSearchParams(url.slice('api/graph?'.length))) ?? { status: 404, body: { ok: false, error: 'no route' } });
     }
+    if (url.startsWith('api/status?epic=') && method === 'GET' && routes.status) return respond(routes.status(decodeURIComponent(url.slice('api/status?epic='.length))));
     if ((url === 'api/story-progress' || url.startsWith('api/story-progress?story=')) && method === 'GET' && routes.progress) {
       const story = url.includes('?story=') ? decodeURIComponent(url.split('?story=')[1]!) : null;
       return respond(routes.progress(story));

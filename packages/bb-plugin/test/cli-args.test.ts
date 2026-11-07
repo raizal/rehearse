@@ -28,6 +28,8 @@ describe('parseBbRehearse: pass-through', () => {
     [['brief', 'x', 'S1']],
     [['brief', 'x', 'S1', '--json']],
     [['progress', 'x', 'S1', '--json']],
+    [['status', 'x']],
+    [['status', 'x', '--json', '--not-done']],
   ])('passes %j to the rehearse CLI unchanged', (argv) => {
     expect(parseBbRehearse(argv)).toEqual({ kind: 'pass', args: argv });
   });

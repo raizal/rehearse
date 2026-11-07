@@ -15,6 +15,7 @@ import { isGraphVerb, runGraph } from './commands/graph.js';
 import { runBrief } from './commands/brief.js';
 import { runPresent } from './commands/present.js';
 import { runProgress } from './commands/progress.js';
+import { runStatus } from './commands/status.js';
 import { runFigcraft } from './commands/figcraft.js';
 import { runDesign } from './commands/design.js';
 
@@ -47,8 +48,14 @@ Commands:
                                          The test brief of scenarios without an e2e test, as a test thread gets it
                                          (default: all of the story's). Exit 1 on a draft or stale scenario, or none missing.
   progress <epic-dir-or-slug> <story> [--json]
-                                         What rehearse sees of the work on a story: boxes with code (Flow-Box commits on
-                                         every branch), e2e tests per scenario, gate findings, whether it is signed, its thread.
+                                         What rehearse sees of the work on a story: each box built (Flow-Box commits on
+                                         every branch, code the code graph maps to it), no code of its own (start/end, or a
+                                         decision a built neighbour branches on) or not built, with the evidence; e2e tests
+                                         per scenario, gate findings, whether it is signed, its thread.
+  status <epic-dir-or-slug> [--json] [--not-done] [--unit-report <file.json>] [--birdview-data <dir>]
+                                         Per story: signed, built, tests on the real screens, automated tests, done, and what
+                                         is missing and who acts; not done first. The same rule as the deck and the Status page.
+                                         --not-done shows only the stories not done. Exit 0.
   present <epic-dir-or-slug> [--full] [--out <file.html>] [--pdf <file.pdf>] [--committed-only]
           [--with-recordings <dir>] [--unit-report <file.json>] [--birdview-data <dir>]
                                          The EPIC as a deck for a supervisor: one self-contained HTML file (default
@@ -113,13 +120,14 @@ function isDir(p: string): boolean {
   return existsSync(p) && statSync(p).isDirectory();
 }
 
-/** The entry of bin/rehearse.js: the code graph verbs, coverage, brief, progress, present, playlists, play and figcraft are async; the other commands run in `run`. */
+/** The entry of bin/rehearse.js: the code graph verbs, coverage, brief, progress, status, present, playlists, play and figcraft are async; the other commands run in `run`. */
 export async function main(argv: string[], io: Io): Promise<number> {
   const [command, ...rest] = argv;
   if (isGraphVerb(command)) return runGraph(command, rest, io);
   if (command === 'coverage') return runCoverage(rest, io);
   if (command === 'brief') return runBrief(rest, io);
   if (command === 'progress') return runProgress(rest, io);
+  if (command === 'status') return runStatus(rest, io);
   if (command === 'present') return runPresent(rest, io);
   if (command === 'playlists') return runPlaylists(rest, io);
   if (command === 'play') return runPlay(rest, io);
