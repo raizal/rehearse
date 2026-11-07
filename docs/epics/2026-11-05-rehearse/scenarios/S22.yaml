@@ -3,873 +3,1016 @@
 # the others share its opening and leave it where they differ.
 story: S22
 scenarios:
-- id: S22-collapsed-seen
-  title: The shared opening is one row; steps seen on the main path count, and Approve turns on after the different part
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  - name: highlight-scenario
-    example:
-      id: branch
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
-        header: 'Branch of the main path at Write the deck: when the example has another deck file'
-        marker: 'Branches here: when the example has another deck file'
-        rejoin: Joins the main path again
-  - name: collapse-shared
-    example:
-      id: seen-on-main
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
-        shared: 3
-        startAt: 4
-        seen: 3
-  - name: approve
-    example:
-      id: approve-branch
-      given:
-        scenarioIds: [S18-single-file]
-      then:
-        approvals:
-        - scenario: S18-single-file
-          sigStatus: valid
-  expect:
-    criterion: S22-A7
-    state:
-      row: Same as the main path up to Build the slides in plain words (3 steps)
-      rowSays: seen on the main path
-      playbackStartsAt: 4
-      approve: on after every step was seen
-- id: S22-one-map
-  title: One map shows every scenario of the story, the main path as the spine, and opens the main path
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance-main
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-opening
-  - name: highlight-scenario
-    example:
-      id: main
-      given:
-        scenarioId: S18-opening
-      then:
-        scenarioId: S18-opening
+  - id: S22-collapsed-seen
+    title: The shared opening is one row; steps seen on the main path count, and Approve turns on after the different part
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+      - name: highlight-scenario
+        example:
+          id: branch
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            header: 'Branch of the main path at Write the deck: when the example has another deck file'
+            marker: 'Branches here: when the example has another deck file'
+            rejoin: Joins the main path again
+      - name: collapse-shared
+        example:
+          id: seen-on-main
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            shared: 3
+            startAt: 4
+            seen: 3
+      - name: approve
+        example:
+          id: approve-branch
+          given:
+            scenarioIds: [ S18-single-file ]
+          then:
+            approvals:
+              - scenario: S18-single-file
+                sigStatus: valid
+    expect:
+      criterion: S22-A7
+      state:
+        row: Same as the main path up to Build the slides in plain words (3 steps)
+        rowSays: seen on the main path
+        playbackStartsAt: 4
+        approve: on after every step was seen
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:14:37Z'
+      hash: 'sha256:4ee3a03ae187ac6eb4d1ee47132f965b699a4516a35d16dbf7585a83ab23634b'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA2ZAV/cE2OdyoQYF6W8L7qzZBFmx6V4yGFWk4jJcerTgJV3Uh+ce3VQWfY0
+        v+5nedtMyocOS80tUaYa4U8RobBw==
+        -----END SSH SIGNATURE-----
+  - id: S22-one-map
+    title: One map shows every scenario of the story, the main path as the spine, and opens the main path
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance-main
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-opening
+      - name: highlight-scenario
+        example:
+          id: main
+          given:
+            scenarioId: S18-opening
+          then:
+            scenarioId: S18-opening
+            header: Main path
+      - name: approve
+        example:
+          id: approve-main
+          given:
+            scenarioIds: [ S18-opening ]
+          then:
+            approvals:
+              - scenario: S18-opening
+                sigStatus: valid
+    expect:
+      criterion: S22-A4
+      state:
+        section: The story at a glance
+        boxesDrawnOnce: true
+        paths: 4
+        spine: S18-opening
+        opens: S18-opening
         header: Main path
-  - name: approve
-    example:
-      id: approve-main
-      given:
-        scenarioIds: [S18-opening]
-      then:
-        approvals:
-        - scenario: S18-opening
-          sigStatus: valid
-  expect:
-    criterion: S22-A4
-    state:
-      section: The story at a glance
-      boxesDrawnOnce: true
-      paths: 4
-      spine: S18-opening
-      opens: S18-opening
-      header: Main path
-- id: S22-derive-main
-  title: The main path is the scenario the others follow the furthest, with no error edge
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: tie
-      given:
-        storyId: S17
-      then:
-        storyId: S17
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:24:02Z'
+      hash: 'sha256:3fc61a75dd818b1dff179f6c2e32bdac11ef419c8dfb5e15db90d0bce0eecb32'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA5sGJunFKUCV5c2fqJSAQA8IQbezZOtdZKyD1yonAlNBR9uxEEi0/i3BSto
+        jjRG0Y81jO+8O/6VfVpVAir9HCAA==
+        -----END SSH SIGNATURE-----
+  - id: S22-derive-main
+    title: The main path is the scenario the others follow the furthest, with no error edge
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: tie
+          given:
+            storyId: S17
+          then:
+            storyId: S17
+            mainPath: S17-suggest
+            source: derived
+      - name: branch-point
+        example:
+          id: s17
+          given:
+            storyId: S17
+            mainPath: S17-suggest
+          then:
+            storyId: S17
+            mainPath: S17-suggest
+            scenarioId: S17-pick
+            shared: 2
+            branchAt: Pick a frame
+            condition: it goes to another box
+      - name: review-order
+        example:
+          id: s17-order
+          given:
+            storyId: S17
+            mainPath: S17-suggest
+          then:
+            storyId: S17
+            order: [ S17-suggest, S17-pick, S17-index ]
+      - name: story-map
+        example:
+          id: glance-s17
+          given:
+            storyId: S17
+            order: [ S17-suggest, S17-pick, S17-index ]
+          then:
+            storyId: S17
+            scenarioId: S17-suggest
+    expect:
+      criterion: S22-A1
+      state:
         mainPath: S17-suggest
         source: derived
-  - name: branch-point
-    example:
-      id: s17
-      given:
-        storyId: S17
-        mainPath: S17-suggest
-      then:
-        storyId: S17
-        mainPath: S17-suggest
-        scenarioId: S17-pick
-        shared: 2
-        branchAt: Pick a frame
-        condition: it goes to another box
-  - name: review-order
-    example:
-      id: s17-order
-      given:
-        storyId: S17
-        mainPath: S17-suggest
-      then:
-        storyId: S17
-        order: [S17-suggest, S17-pick, S17-index]
-  - name: story-map
-    example:
-      id: glance-s17
-      given:
-        storyId: S17
-        order: [S17-suggest, S17-pick, S17-index]
-      then:
-        storyId: S17
-        scenarioId: S17-suggest
-  expect:
-    criterion: S22-A1
-    state:
-      mainPath: S17-suggest
-      source: derived
-      takesErrorEdge: false
-      onTie: first in file order
-      oneScenario: that scenario
-- id: S22-no-clean-path
-  title: When every scenario takes an error edge the first one is the main path, and the page says so
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    branch: no scenario without an error edge
-    example:
-      id: all-errors
-      given:
-        storyId: S9
-      then:
-        exit: no scenario without an error edge
-  - name: branch-point
-    example:
-      id: first
-      given:
-        storyId: S9
+        takesErrorEdge: false
+        onTie: first in file order
+        oneScenario: that scenario
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:19:21Z'
+      hash: 'sha256:07f8f116e7c244ed34981dd0de329a85080171a13ccd8de928014bb458980250'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABArEzJqJ+YIZ0ZEQNiSuN+gUknFQReSHYHWZqPmz3LK4m7Psi7DqnzWwxVtA
+        qkxi4q8HNVhWRio1SFcvkyviUOCQ==
+        -----END SSH SIGNATURE-----
+  - id: S22-no-clean-path
+    title: When every scenario takes an error edge the first one is the main path, and the page says so
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        branch: no scenario without an error edge
+        example:
+          id: all-errors
+          given:
+            storyId: S9
+          then:
+            exit: no scenario without an error edge
+      - name: branch-point
+        example:
+          id: first
+          given:
+            storyId: S9
+            mainPath: S9-first
+          then:
+            storyId: S9
+            mainPath: S9-first
+            scenarioId: S9-second
+            shared: 1
+            branchAt: Run the gate
+            condition: it takes the error exit "gate fails"
+      - name: review-order
+        example:
+          id: s9-order
+          given:
+            storyId: S9
+            mainPath: S9-first
+          then:
+            storyId: S9
+            order: [ S9-first, S9-second ]
+      - name: story-map
+        example:
+          id: fallback
+          given:
+            storyId: S9
+            order: [ S9-first, S9-second ]
+          then:
+            storyId: S9
+            scenarioId: S9-first
+            note: 'Every scenario of this story takes an error exit: the first one is shown as the main path.'
+    expect:
+      criterion: S22-A1
+      state:
         mainPath: S9-first
-      then:
-        storyId: S9
-        mainPath: S9-first
-        scenarioId: S9-second
-        shared: 1
-        branchAt: Run the gate
-        condition: it takes the error exit "gate fails"
-  - name: review-order
-    example:
-      id: s9-order
-      given:
-        storyId: S9
-        mainPath: S9-first
-      then:
-        storyId: S9
-        order: [S9-first, S9-second]
-  - name: story-map
-    example:
-      id: fallback
-      given:
-        storyId: S9
-        order: [S9-first, S9-second]
-      then:
-        storyId: S9
-        scenarioId: S9-first
-        note: 'Every scenario of this story takes an error exit: the first one is shown as the main path.'
-  expect:
-    criterion: S22-A1
-    state:
-      mainPath: S9-first
-      source: fallback
-      said: 'Every scenario of this story takes an error exit: the first one is shown as the main path.'
-- id: S22-owner-pick
-  title: The owner picks another main path; review.yaml keeps its comments and the map follows it
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  - name: pick-main-path
-    example:
-      id: pick
-      given:
-        storyId: S18
-        scenarioId: S18-single-file
-      then:
-        storyId: S18
-        mainPath: S18-single-file
-  - name: main-path
-    example:
-      id: owner
-      given:
-        storyId: S18
-      then:
-        storyId: S18
+        source: fallback
+        said: 'Every scenario of this story takes an error exit: the first one is shown as the main path.'
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:16:41Z'
+      hash: 'sha256:504f453db140c1dcce6f8ab808cbf15ab5ba2a61e8fa29747109c7c2a9c94708'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAqkW3NkTSCNcSLOTUbTKSAd8PB1fqUFhIY5sqX0ez5iEm7by+Bq8xoky3U9
+        CbMvGX6Lt5yYyVGv64SY/S0d2DDA==
+        -----END SSH SIGNATURE-----
+  - id: S22-owner-pick
+    title: The owner picks another main path; review.yaml keeps its comments and the map follows it
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+      - name: pick-main-path
+        example:
+          id: pick
+          given:
+            storyId: S18
+            scenarioId: S18-single-file
+          then:
+            storyId: S18
+            mainPath: S18-single-file
+      - name: main-path
+        example:
+          id: owner
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-single-file
+            source: owner
+      - name: branch-point
+        example:
+          id: s18-owner
+          given:
+            storyId: S18
+            mainPath: S18-single-file
+          then:
+            storyId: S18
+            mainPath: S18-single-file
+            scenarioId: S18-opening
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+    expect:
+      criterion: S22-A2
+      state:
+        reviewYaml:
+          mainPath:
+            S18: S18-single-file
+        commentsKept: true
         mainPath: S18-single-file
         source: owner
-  - name: branch-point
-    example:
-      id: s18-owner
-      given:
-        storyId: S18
-        mainPath: S18-single-file
-      then:
-        storyId: S18
-        mainPath: S18-single-file
-        scenarioId: S18-opening
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  expect:
-    criterion: S22-A2
-    state:
-      reviewYaml:
-        mainPath:
-          S18: S18-single-file
-      commentsKept: true
-      mainPath: S18-single-file
-      source: owner
-      agentsCall: false
-- id: S22-pick-refused
-  title: A pick naming no scenario of the story is refused and nothing is written
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
+        agentsCall: false
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:21:23Z'
+      hash: 'sha256:07c84e3303519e9c8d77c1ab14725f87c4d8c745db6919bb304b2386cb5aaee5'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAww3KkIkurqIKebnmMik+DV7D9KRxRJEZGF8Q4zh9IFgkN8FB3cbXTVUFzD
+        ih0eEbICfM3TWLPiKIT9uda70bAA==
+        -----END SSH SIGNATURE-----
+  - id: S22-pick-refused
+    title: A pick naming no scenario of the story is refused and nothing is written
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+      - name: pick-main-path
+        branch: unknown story or scenario
+        example:
+          id: unknown
+          given:
+            storyId: S18
+            scenarioId: S17-pick
+          then:
+            exit: unknown story or scenario
+      - name: story-map
+        example:
+          id: unchanged
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-opening
+    expect:
+      criterion: S22-A2
+      state:
+        status: 404
+        refused: unknown scenario
+        written: false
+        mainPath: S18-opening
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:21:55Z'
+      hash: 'sha256:11afd391410e1de7deb7736f70da883d77eecf4bfb86ea0aff1dc19f45e2f42c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA9iglkIJIG9ry1LfSwzYp2plvEMx/yPI600OTbenCqloFAFPD/ifBtZTl3H
+        NTBivg/7hbaUpCLCyayutdRRIcAg==
+        -----END SSH SIGNATURE-----
+  - id: S22-bad-review-yaml
+    title: An unknown scenario in review.yaml is ignored, validate reports it, and the main path is derived again
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        branch: unknown scenario in review.yaml
+        example:
+          id: bad-pick
+          given:
+            storyId: S18
+          then:
+            exit: unknown scenario in review.yaml
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+    expect:
+      criterion: S22-A2
+      state:
+        finding: mainPath.S18 names S18-gone, which is not a scenario of S18
         mainPath: S18-opening
         source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:16:54Z'
+      hash: 'sha256:9322599f65010e4f6be8be16d6f8af956125839d9fe30d93f644865bc105188a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAXyf1yRnCYqkpgkFJLnt6rIMB4yqCSi39ryy5NZPH130ZWYjNnV0UUAFcUH
+        f4M0D25lYtRVFrdw+1UWiyBy3zBg==
+        -----END SSH SIGNATURE-----
+  - id: S22-branch-point
+    title: A scenario says where it leaves the main path, on what condition, and where it comes back; another example is another step
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: other-example
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+            sameBoxOtherExample: differs
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+    expect:
+      criterion: S22-A3
+      state:
         shared: 3
         branchAt: Write the deck
         condition: the example has another deck file
         rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  - name: pick-main-path
-    branch: unknown story or scenario
-    example:
-      id: unknown
-      given:
-        storyId: S18
-        scenarioId: S17-pick
-      then:
-        exit: unknown story or scenario
-  - name: story-map
-    example:
-      id: unchanged
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-opening
-  expect:
-    criterion: S22-A2
-    state:
-      status: 404
-      refused: unknown scenario
-      written: false
-      mainPath: S18-opening
-- id: S22-bad-review-yaml
-  title: An unknown scenario in review.yaml is ignored, validate reports it, and the main path is derived again
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    branch: unknown scenario in review.yaml
-    example:
-      id: bad-pick
-      given:
-        storyId: S18
-      then:
-        exit: unknown scenario in review.yaml
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  expect:
-    criterion: S22-A2
-    state:
-      finding: mainPath.S18 names S18-gone, which is not a scenario of S18
-      mainPath: S18-opening
-      source: derived
-- id: S22-branch-point
-  title: A scenario says where it leaves the main path, on what condition, and where it comes back; another example is another step
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: other-example
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-        sameBoxOtherExample: differs
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  expect:
-    criterion: S22-A3
-    state:
-      shared: 3
-      branchAt: Write the deck
-      condition: the example has another deck file
-      rejoin: The owner sends the deck
-      equalSteps: same box, branch and example
-- id: S22-highlight
-  title: The open scenario is in full colour; the other paths are faded, not hidden, and out of the tab order
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  - name: highlight-scenario
-    example:
-      id: faded
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
-        header: 'Branch of the main path at Write the deck: when the example has another deck file'
-  - name: collapse-shared
-    example:
-      id: seen-on-main
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
-        shared: 3
-        startAt: 4
-        seen: 3
-  expect:
-    criterion: S22-A5
-    state:
-      fullColour: S18-single-file
-      faded: [S18-opening, S18-no-chromium, S18-present-button]
-      hidden: []
-      fadedInTabOrder: false
-      arrowKeys: work
-- id: S22-marker-header
-  title: The map marks where the branch leaves and comes back, and the header names the branch
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  - name: highlight-scenario
-    example:
-      id: branch
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
-        header: 'Branch of the main path at Write the deck: when the example has another deck file'
+        equalSteps: same box, branch and example
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:23:18Z'
+      hash: 'sha256:1584771b55543218823c4a0ee7a88b59025e66e9bf71d5bcb98440d1f2c5b72a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA6wgOOhdVIeoUmXwXFbvlF396v24KDFT/9F5gb0sdwqn7yqUFOR9kW340Bx
+        2WHbR0i47qbC8K8aveUZrnphBGDg==
+        -----END SSH SIGNATURE-----
+  - id: S22-highlight
+    title: The open scenario is in full colour; the other paths are faded, not hidden, and out of the tab order
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+      - name: highlight-scenario
+        example:
+          id: faded
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            header: 'Branch of the main path at Write the deck: when the example has another deck file'
+      - name: collapse-shared
+        example:
+          id: seen-on-main
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            shared: 3
+            startAt: 4
+            seen: 3
+    expect:
+      criterion: S22-A5
+      state:
+        fullColour: S18-single-file
+        faded: [ S18-opening, S18-no-chromium, S18-present-button ]
+        hidden: []
+        fadedInTabOrder: false
+        arrowKeys: work
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:24:18Z'
+      hash: 'sha256:137e8e2f23e1b6b70c858f72191c647be114fcb536f24d591513fe97863df86c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABApRZcXXbGsYH6AAIQ43/tinksDgwN66v+edwD3LR1hZNiRITncQIHUHlvZI
+        c2oLgGkdOQJ2dT7d86YfjLyIH6Bg==
+        -----END SSH SIGNATURE-----
+  - id: S22-marker-header
+    title: The map marks where the branch leaves and comes back, and the header names the branch
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+      - name: highlight-scenario
+        example:
+          id: branch
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            header: 'Branch of the main path at Write the deck: when the example has another deck file'
+            marker: 'Branches here: when the example has another deck file'
+            rejoin: Joins the main path again
+      - name: collapse-shared
+        example:
+          id: seen-on-main
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            shared: 3
+            startAt: 4
+            seen: 3
+    expect:
+      criterion: S22-A6
+      state:
         marker: 'Branches here: when the example has another deck file'
         rejoin: Joins the main path again
-  - name: collapse-shared
-    example:
-      id: seen-on-main
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
-        shared: 3
-        startAt: 4
-        seen: 3
-  expect:
-    criterion: S22-A6
-    state:
-      marker: 'Branches here: when the example has another deck file'
-      rejoin: Joins the main path again
-      header: 'Branch of the main path at Write the deck: when the example has another deck file'
-      mainHeader: Main path
-- id: S22-shared-not-seen
-  title: Shared steps not seen on the main path keep Approve off until they are seen here or there
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  - name: highlight-scenario
-    example:
-      id: branch
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
         header: 'Branch of the main path at Write the deck: when the example has another deck file'
-        marker: 'Branches here: when the example has another deck file'
-        rejoin: Joins the main path again
-  - name: collapse-shared
-    branch: shared steps not seen yet
-    example:
-      id: not-seen
-      given:
-        scenarioId: S18-single-file
-      then:
-        exit: shared steps not seen yet
-  - name: highlight-scenario
-    example:
-      id: expanded
-      given:
-        scenarioId: S18-single-file
-      then:
-        scenarioId: S18-single-file
-        header: 'Branch of the main path at Write the deck: when the example has another deck file'
-  expect:
-    criterion: S22-A7
-    state:
-      rowSays: not seen yet on the main path — expand to see 3 steps
-      approve: 'off'
-      expandMarksSeen: true
-- id: S22-review-order
-  title: 'The queue, the cards and Next scenario follow the map: main path first, then branches in the order they leave it'
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: next-scenario
-    example:
-      id: next-on-map
-      given:
-        scenarioId: S18-opening
-      then:
-        scenarioId: S18-single-file
-        storyId: S18
-        place: 2 of 4 in S18
-  expect:
-    criterion: S22-A8
-    state:
-      order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      cards: [Main path, 'Branch at Write the deck: the example has another deck file']
-      next: S18-single-file
-- id: S22-review-yaml-ignored
-  title: Writing review.yaml leaves every approval and sign-off as it was; simulate and gate ignore it
-  status: draft
-  steps:
-  - name: review/readiness
-  - name: main-path
-    example:
-      id: derived
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        source: derived
-  - name: branch-point
-    example:
-      id: s18
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        mainPath: S18-opening
-        scenarioId: S18-single-file
-        shared: 3
-        branchAt: Write the deck
-        condition: the example has another deck file
-        rejoin: The owner sends the deck
-  - name: review-order
-    example:
-      id: s18-order
-      given:
-        storyId: S18
-        mainPath: S18-opening
-      then:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-  - name: story-map
-    example:
-      id: glance
-      given:
-        storyId: S18
-        order: [S18-opening, S18-single-file, S18-no-chromium, S18-present-button]
-      then:
-        storyId: S18
-        scenarioId: S18-single-file
-  - name: pick-main-path
-    example:
-      id: pick
-      given:
-        storyId: S18
-        scenarioId: S18-single-file
-      then:
-        storyId: S18
-        mainPath: S18-single-file
-  - name: main-path
-    example:
-      id: owner-unsigned
-      given:
-        storyId: S18
-      then:
-        storyId: S18
-        mainPath: S18-single-file
-        source: owner
-  expect:
-    criterion: S22-A9
-    state:
-      approvalsStale: 0
-      signOffsStale: 0
-      contentHashes: unchanged
-      gate: unchanged
-      simulate: unchanged
+        mainHeader: Main path
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:24:39Z'
+      hash: 'sha256:528d27b8f2e626b1e523de90b9b4ee16e2d081bb4fc3e3a86eaa3d891a1c0825'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA+21Hd/xiyRSdUaTCmV49XL29fh05tCl0t2K5Re+cDou12/iSV9vlORlPO8
+        hs+5DzTfckwUKxuWvCFCtBsEcgBQ==
+        -----END SSH SIGNATURE-----
+  - id: S22-shared-not-seen
+    title: Shared steps not seen on the main path keep Approve off until they are seen here or there
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+      - name: highlight-scenario
+        example:
+          id: branch
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            header: 'Branch of the main path at Write the deck: when the example has another deck file'
+            marker: 'Branches here: when the example has another deck file'
+            rejoin: Joins the main path again
+      - name: collapse-shared
+        branch: shared steps not seen yet
+        example:
+          id: not-seen
+          given:
+            scenarioId: S18-single-file
+          then:
+            exit: shared steps not seen yet
+      - name: highlight-scenario
+        example:
+          id: expanded
+          given:
+            scenarioId: S18-single-file
+          then:
+            scenarioId: S18-single-file
+            header: 'Branch of the main path at Write the deck: when the example has another deck file'
+    expect:
+      criterion: S22-A7
+      state:
+        rowSays: not seen yet on the main path — expand to see 3 steps
+        approve: 'off'
+        expandMarksSeen: true
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:24:56Z'
+      hash: 'sha256:f32decd8c7fd9b72e9ebf4bac77533b56e5b4e6b13e65be164596141022614bc'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAJOS3YCLcTV2pN8WRgEUt2aMNfDWWalf4WNFA0ws3la2JjcEJntUh5zGSFx
+        AAX/Q7pgOLLGwV5JsVyUEg4GUrDg==
+        -----END SSH SIGNATURE-----
+  - id: S22-review-order
+    title: 'The queue, the cards and Next scenario follow the map: main path first, then branches in the order they leave it'
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: next-scenario
+        example:
+          id: next-on-map
+          given:
+            scenarioId: S18-opening
+          then:
+            scenarioId: S18-single-file
+            storyId: S18
+            place: 2 of 4 in S18
+    expect:
+      criterion: S22-A8
+      state:
+        order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+        cards: [ Main path, 'Branch at Write the deck: the example has another deck file' ]
+        next: S18-single-file
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:18:27Z'
+      hash: 'sha256:c9de9c6ee5e928ea4a6cae0f87031206359cb8063264f55100082da58772b49d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABALqLRdENw0R8YWrq8tBfmV7py8jE7mmxikrbEOt04FFNfowGnYNF8N/2xRZ
+        d1zON3Xfeyih8soHMuF6hZyFOrDw==
+        -----END SSH SIGNATURE-----
+  - id: S22-review-yaml-ignored
+    title: Writing review.yaml leaves every approval and sign-off as it was; simulate and gate ignore it
+    status: approved
+    steps:
+      - name: review/readiness
+      - name: main-path
+        example:
+          id: derived
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            source: derived
+      - name: branch-point
+        example:
+          id: s18
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            mainPath: S18-opening
+            scenarioId: S18-single-file
+            shared: 3
+            branchAt: Write the deck
+            condition: the example has another deck file
+            rejoin: The owner sends the deck
+      - name: review-order
+        example:
+          id: s18-order
+          given:
+            storyId: S18
+            mainPath: S18-opening
+          then:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+      - name: story-map
+        example:
+          id: glance
+          given:
+            storyId: S18
+            order: [ S18-opening, S18-single-file, S18-no-chromium, S18-present-button ]
+          then:
+            storyId: S18
+            scenarioId: S18-single-file
+      - name: pick-main-path
+        example:
+          id: pick
+          given:
+            storyId: S18
+            scenarioId: S18-single-file
+          then:
+            storyId: S18
+            mainPath: S18-single-file
+      - name: main-path
+        example:
+          id: owner-unsigned
+          given:
+            storyId: S18
+          then:
+            storyId: S18
+            mainPath: S18-single-file
+            source: owner
+    expect:
+      criterion: S22-A9
+      state:
+        approvalsStale: 0
+        signOffsStale: 0
+        contentHashes: unchanged
+        gate: unchanged
+        simulate: unchanged
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:23:43Z'
+      hash: 'sha256:3758d3f28134feb235d371af6bdffcad4f7b467776c97ee1a929c20e75b3fa09'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAofy5wxSjgDlreHQaoVJa9mg21yz66yxtozp0rgNjeZrHyx8krgHuwIDUck
+        CmcHoQYi8H90GnrSA0+AvlLItLDQ==
+        -----END SSH SIGNATURE-----

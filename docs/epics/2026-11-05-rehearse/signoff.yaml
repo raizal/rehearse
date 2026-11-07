@@ -196,3 +196,27 @@ signOffs:
       MjU1MTkAAABAW390+ZIp/G8CVMLk72y0slZvx9qWRILafDwsx7wz0/jnnydFF1hNQleDTr
       kiDDfGPKXoy0QgWzNdVntCn5ZtAQ==
       -----END SSH SIGNATURE-----
+  - by: raizal.pregnanta@systemearth.com
+    at: '2026-11-07T17:25:32Z'
+    hashRule: 2
+    storyHashes:
+      S22: 'sha256:5a0051d98fafa9dc9cf4463cccdba60f0d9a0b393d05d6dcf5a638b9ab0f5c40'
+    sig: |
+      -----BEGIN SSH SIGNATURE-----
+      U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+      j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+      MjU1MTkAAABAIZ30tajZTmXk1ibsWPZTFvSGSDz1bNhv0fNw6P6wBzBjJ6NPTbw0wkWr0k
+      e4W6AjeKF9yGfrBgrkYIea6VD6BA==
+      -----END SSH SIGNATURE-----
+  - by: raizal.pregnanta@systemearth.com
+    at: '2026-11-07T17:33:34Z'
+    hashRule: 2
+    storyHashes:
+      S23: 'sha256:d2f4ffa6ab0397707355117194cef80d13524f8a41e32a20efa0b9870a2d663b'
+    sig: |
+      -----BEGIN SSH SIGNATURE-----
+      U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+      j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+      MjU1MTkAAABAktOtL4En6AVu36MIBkimQOxjApaC3rL5Lpgwoc438Caz/jvpa5Nqy8KuBR
+      309quYC60r/6kOWOYJPA/CUYgLAA==
+      -----END SSH SIGNATURE-----

@@ -3,7 +3,7 @@ scenarios:
 
   - id: S23-built-states
     title: Each box says built, no code of its own or not built, with its evidence
-    status: draft
+    status: approved
     steps:
       - { name: status-cli }
       - name: box-evidence
@@ -14,10 +14,21 @@ scenarios:
       - { name: status-text }
       - { name: status-known }
     expect: { criterion: S23-A1, state: { built: "commits and code named", noCode: "start and end boxes", notBuilt: "says what was looked for" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:30:20Z'
+      hash: 'sha256:cbf2ec658cc36ee837fc6b1594b7c2588cfd0b3e0aba5cb91d8d6d9f4c9d7a4f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA8nlNEWEqY2BQVmiDT7Q9luc5PGkf987SftXQGDmKLveizWTMfC4SLw6ASj
+        sn3J/bpdd/ht3yKOh6AuIYZftxBA==
+        -----END SSH SIGNATURE-----
 
   - id: S23-decision-held
     title: A decision counts only when a built neighbour branches on it, and says which one
-    status: draft
+    status: approved
     steps:
       - { name: status-cli }
       - name: box-evidence
@@ -28,10 +39,21 @@ scenarios:
       - { name: status-text }
       - { name: status-known }
     expect: { criterion: S23-A2, state: { held: "neighbour, file and line named", unheld: "not built: none of its neighbours branches on it" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:31:37Z'
+      hash: 'sha256:92c497884bf97266d673ead30a45601601fb6da9c2c4d41010a9298bb939294f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA/kXVBLT8CS7LkcphYKHnAGIrLHnCbdJr8vDLnI4ba5o2k9rpnc76akEZha
+        wNWGSwZiNQbBel5CVGF4A9LolMAA==
+        -----END SSH SIGNATURE-----
 
   - id: S23-page-table
     title: The Status page shows one row per story with its columns, the header and the sources
-    status: draft
+    status: approved
     steps:
       - { name: status-view }
       - { name: box-evidence }
@@ -43,10 +65,21 @@ scenarios:
       - { name: status-page }
       - { name: status-known }
     expect: { criterion: S23-A3, state: { header: "N of M stories done · K seen working on the real screens · J not done", columns: 6, sources: "with dates", writes: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:27:19Z'
+      hash: 'sha256:0031b353adc4d2d2c3e4ec2cfffc3f26a1c1235cb8efd74d01b00361a3669dd5'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAmKR5w4/SOZ+81RAWp0UespaGGzKkRIiIPhi0PD8oI6BM3XVxCkXLK3yWSw
+        gUOcN35ioLAOU91Uc0mvK2c29zAA==
+        -----END SSH SIGNATURE-----
 
   - id: S23-whats-missing
     title: Each story not done says what is missing and who acts
-    status: draft
+    status: approved
     steps:
       - { name: status-view }
       - { name: box-evidence }
@@ -57,10 +90,21 @@ scenarios:
       - { name: status-page }
       - { name: status-known }
     expect: { criterion: S23-A4, state: { S6: "2 boxes not built (happy, more-scenarios): builders", actors: [ builders, you, test thread, planning agent ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:29:10Z'
+      hash: 'sha256:cd3cccd2d544a8a8861a43a09c6c5cdc5739f16c532417a6ccf44757166668af'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAAiY1rzMFAcmWWGgMCLUwP2lve8DNd8WE60nwxgOoX1b51jXEwr3pomNScq
+        WxiXtm85H0XFu6O75dIvOAsc/IBg==
+        -----END SSH SIGNATURE-----
 
   - id: S23-filters-and-click
     title: Filters keep not done or done but not seen, not done comes first, and a row opens the story's progress
-    status: draft
+    status: approved
     steps:
       - name: status-view
         example: { id: filter, given: { epic: 2026-11-05-rehearse, filter: not-done }, then: { filter: not-done } }
@@ -72,10 +116,21 @@ scenarios:
         example: { id: open-row, given: { click: S6 }, then: { storyId: S6 } }
       - { name: status-known }
     expect: { criterion: S23-A5, state: { filters: [ All, Not done, Done but not seen working ], order: "not done first", click: "opens the story's progress" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:28:47Z'
+      hash: 'sha256:843bf4799195f9fac26f0f6a55e7b23f4caf4d44edd9281ae9c62d67aba82b9b'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAdY6J3WGEdmHm8xIJah5fS0e9BpVWLEu04j+o4Tx5M5dPw+0sDRNxMCxLRd
+        ZyV1kXiFWJ+M/3l23dKAc+pC6YDQ==
+        -----END SSH SIGNATURE-----
 
   - id: S23-cli
     title: rehearse status prints the table, --json the same facts, --not-done only the stories not done, and exits 0
-    status: draft
+    status: approved
     steps:
       - name: status-cli
         example: { id: not-done, given: { epic: 2026-11-05-rehearse, notDone: true }, then: { filter: not-done } }
@@ -87,10 +142,21 @@ scenarios:
         example: { id: text, given: { filter: not-done }, then: { text: "Showing the 3 stories not done.", exit: 0 } }
       - { name: status-known }
     expect: { criterion: S23-A6, state: { text: "aligned columns and where the facts come from", json: "the same table", notDone: "only stories not done", exitCode: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:32:56Z'
+      hash: 'sha256:8e145deb875cc336abd2678369f14368836df90d97969db0605d899ccf029df4'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABATa4O95fb9ApoS18Rj8GT8dpXo8du/JmkdhxyTxfWANa7DVDN0Qt5pb8W25
+        v1WPqPrhNnzZOe951sZbY1yGnkCw==
+        -----END SSH SIGNATURE-----
 
   - id: S23-deck-same-rule
     title: The deck counts built with the same rule as the Status page
-    status: draft
+    status: approved
     steps:
       - { name: present-view }
       - { name: download-with-recordings }
@@ -104,10 +170,21 @@ scenarios:
       - { name: status-text }
       - { name: status-known }
     expect: { criterion: S23-A7, state: { deckDone: "same count as the Status header", deckBuilt: "same boxes as the Status page" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:33:08Z'
+      hash: 'sha256:00b6e28c59baafff045702be54e1180859a7f8cf639a3eafce027213824bf540'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABABJlQpPBLnAJv6hMm4NaRPuFY1ybcI7n6mmP74Lg079KB/XpN0AlQU5/YnV
+        gaHnw19pqw0rPaBR9hl99mpKDXCA==
+        -----END SSH SIGNATURE-----
 
   - id: S23-no-graph
     title: With no code graph, built counts Flow-Box commits only and says so
-    status: draft
+    status: approved
     steps:
       - { name: status-cli }
       - name: box-evidence
@@ -120,10 +197,21 @@ scenarios:
       - { name: status-text }
       - { name: status-known }
     expect: { criterion: S23-A8, state: { built: "Flow-Box commits only", said: "code graph not built yet" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:33:19Z'
+      hash: 'sha256:fdec19d169610058aa3e66d89642b812e374caafeddfe5fb94dbef5914a7f69f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAb6EGkwPUEGynpB9Wvw9qtQ5mmtorxz9byv05MV6GSZaVubkTJFeR+4JQDw
+        uPH+SKxcKJ4tNd109kg9Gf/ifQAA==
+        -----END SSH SIGNATURE-----
 
   - id: S23-no-unit-report
     title: With no unit report, the Automated tests column says not run and the done text says so
-    status: draft
+    status: approved
     steps:
       - { name: status-view }
       - { name: box-evidence }
@@ -136,10 +224,21 @@ scenarios:
       - { name: status-page }
       - { name: status-known }
     expect: { criterion: S23-A8, state: { automated: "not run", done: "done · checked by automated tests (no unit report read)" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:29:40Z'
+      hash: 'sha256:a36a66ece0537a8c089b5152e1872ee2809b0268805d8b719c5976a9dfd57a85'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAbLa5A2c5iCuxSuA8hd5ztJYgjGKOo6BclLAd5M5ecaBtsREqkbLX4OyNDL
+        EFef1uks8rnoT/bl0NXjwJzo6PBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S23-no-birdview
     title: With no Birdview results, the real-screens column says Birdview results not found
-    status: draft
+    status: approved
     steps:
       - { name: status-view }
       - { name: box-evidence }
@@ -151,3 +250,14 @@ scenarios:
       - { name: status-page }
       - { name: status-known }
     expect: { criterion: S23-A8, state: { realScreens: "Birdview results not found", writes: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T17:29:55Z'
+      hash: 'sha256:2f98f60b722028d91706048f6283650dd58184c9fa16b64d35ed0d1b13e97ea6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABATHl6f7QRMTwYjfMtltFz/HY6fN+ewJaq0aTaNz4QDujXPtX6gUj+HvoZCI
+        evoVXZk40mlYnK7Wxem7i79aQ6Bg==
+        -----END SSH SIGNATURE-----
