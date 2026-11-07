@@ -246,6 +246,19 @@ requirements:
       when the file is its active tab, and never sends a command that changes a document. The
       build brief and the skill say to name a new screen's top frame `[<story id>] …`. (T51)
 
+  - id: R29
+    kind: functional
+    text: >-
+      `rehearse present <epic>` makes one EPIC into a deck the owner sends ahead to a supervisor
+      who is not technical: one self-contained HTML file (inline CSS, SVG and pictures, nothing
+      fetched, readable with scripts off) and, when Chromium can start, a PDF with one slide per
+      page. Every slide comes from the record at one commit and says so in its footer: the
+      EPIC's goal and why, the big picture, each story's progress, its design, how it works, what
+      was checked and who signed it, the quality, the risks, the owner's asks and next steps, and
+      a glossary, in plain words, unfinished work as clearly as finished work. The owner's own
+      words live in `presentation.yaml`, outside the signed record. The EPIC page has a Present
+      button with a preview and downloads. (T52)
+
 stories:
   - id: S1
     role: builder
@@ -829,6 +842,100 @@ stories:
         then: >-
           it lists each unlinked story with its top suggestions and their reason, writes nothing,
           and exits 0; no readable design file exits 1, a usage error exits 2
+
+  - id: S18
+    role: builder
+    want: to send my supervisor a deck of an EPIC made from its record
+    soThat: they understand what is built, what is proven and what is left without opening rehearse
+    requirements: [R29]
+    acceptance:
+      - id: S18-A1
+        given: an EPIC with a goal, a brainstorm, roles and stories
+        when: the builder makes its deck
+        then: >-
+          it opens with a title slide (the EPIC's title, its goal in one sentence, the owner, the
+          date and one status line such as "15 of 17 stories signed off"), then why it exists and
+          for whom with the requirements as a short plain list, then one map of the roles and
+          what each of them can do
+      - id: S18-A2
+        given: stories at different stages
+        when: the builder makes the deck
+        then: >-
+          a progress slide shows every story as a row of five steps (designed, scenarios approved,
+          built, tested, signed off), each done, partly or not yet, with a legend and a one-line
+          summary on top
+      - id: S18-A3
+        given: a story with criteria, scenarios, a flow and maybe a design
+        when: the builder makes the deck
+        then: >-
+          the story has its own section: "As a …, I want …, so that …" big, its criteria as a
+          checklist, its design picture when one is linked (no empty box when not), how it works
+          as simple swimlanes per role, each scenario as given / when / then with who approved it
+          and whether its test passed, failed, was not written or not run, and who signed it off
+          and when or what is still missing
+      - id: S18-A4
+        given: the gate's findings and the record's tests and sign-offs
+        when: the builder makes the deck
+        then: >-
+          a quality slide counts stories signed, scenarios approved and tests passing or missing
+          and gives the gate result as OK or "N things still to do"; a risks slide lists the
+          unsigned stories, stale approvals, missing and failed tests and gate findings by story,
+          and the owner's own risks
+      - id: S18-A5
+        given: the owner's asks and next steps, or none
+        when: the builder makes the deck
+        then: >-
+          "What I need from you" lists the asks and is left out when there are none; "What's next"
+          lists the owner's next steps, else what is still to finish; a short glossary ends the deck
+      - id: S18-A6
+        given: any EPIC
+        when: the builder makes the deck
+        then: >-
+          every slide reads on its own in plain words, with one to three sentences saying what the
+          reader sees and why it matters; no YAML, contracts, code or ids in the main text (ids
+          only small in a corner), and the glossary explains scenario, sign-off, e2e test and gate
+      - id: S18-A7
+        given: a story not signed off, a scenario without a test and a failing test
+        when: the builder makes the deck
+        then: they show as plainly as the finished work, in plain words, and none is left out
+      - id: S18-A8
+        given: a commit of the record, with or without uncommitted changes
+        when: the builder makes the deck
+        then: >-
+          every slide's footer says "<EPIC title> · as of <branch> @ <short sha>, <date>";
+          uncommitted changes in the record show a visible notice, and with `--committed-only` the
+          deck is refused and no file is written
+      - id: S18-A9
+        given: an EPIC with linked design pictures
+        when: the builder makes the deck
+        then: >-
+          the deck is one HTML file that needs nothing else: inline CSS and SVG, each picture a
+          data URI no wider than 1600 px, no link that fetches, arrow keys and a slide counter as
+          optional script, one long page with scripts off; printing gives one landscape slide per
+          page, and a PDF is made with Chromium when it can start, else the builder is told in
+          plain words to print the HTML
+      - id: S18-A10
+        given: '`docs/epics/<slug>/presentation.yaml` with asks, next steps, risks, narration and hidden stories'
+        when: the builder makes the deck, or runs validate, simulate or the gate
+        then: >-
+          the deck uses them (a hidden story is left out with "N stories not shown"); validate
+          checks only their shape (an unknown slide key or story id is a finding); simulate, the
+          gate and the approval and sign-off hashes ignore the file; a missing file still makes
+          the deck
+      - id: S18-A11
+        given: rehearse serve on an EPIC
+        when: the builder presses Present on the EPIC page
+        then: >-
+          the deck shows in rehearse as it will be sent, with arrow keys, and "Download HTML" and
+          "Download PDF" give the files; a PDF with no Chromium says so in plain words; the route
+          needs the session token and serve's own Origin
+      - id: S18-A12
+        given: a repo with an EPIC
+        when: the builder runs `pnpm rehearse present <epic> [--out <file.html>] [--pdf <file.pdf>] [--committed-only]`
+        then: >-
+          it writes the deck (default `presentations/<slug>-<date>-<sha>.html`, a folder git
+          ignores), says the path, the size and the number of slides, and exits 0; refused
+          inputs or uncommitted changes with `--committed-only` exit 1, a usage error exits 2
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

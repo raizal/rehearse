@@ -778,6 +778,92 @@ root:
       # one that changes a document. Not running: "Open the file in FigCraft (port 4800) to
       # refresh pictures". Says what it wrote.
 
+    # --- A deck of an EPIC for a supervisor who is not technical (S18, T52) ---
+    # New boxes only: review, draft-record and rejected stay as they are; root edges join them.
+    - id: present-view
+      kind: input
+      lane: builder
+      package: ui
+      title: Press Present on the EPIC page
+      stories: [S18]
+      inputs:  { epic: string }
+      outputs: { epic: string, committedOnly: "boolean?" }
+      # The EPIC page's Present button opens a preview of the deck as it will be sent (the same
+      # HTML in an iframe, arrow keys), with "Download HTML" and "Download PDF". GET
+      # /api/present?epic=<slug>[&format=pdf] with the session token and serve's Origin.
+
+    - id: present-cli
+      kind: input
+      lane: builder
+      package: cli
+      title: Make a deck with rehearse present
+      stories: [S18]
+      inputs:  { epic: string, out: "string?", pdf: "string?", committedOnly: "boolean?" }
+      outputs: { epic: string, out: "string?", pdf: "string?", committedOnly: "boolean?" }
+      # `pnpm rehearse present <epic> [--out <file.html>] [--pdf <file.pdf>] [--committed-only]`.
+      # Default out: presentations/<slug>-<date>-<sha>.html at the git top (git ignores the
+      # folder: the owner sends the file). Exit 0 written, 1 refused, 2 usage.
+
+    - id: gather-deck-facts
+      kind: process
+      lane: rehearse
+      package: server
+      title: Gather what the deck shows from the record and the repo
+      stories: [S18]
+      inputs:  { epic: string, committedOnly: "boolean?" }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string }
+      reads:   [Story.*, Scenario.*, Epic.*]
+      errorExits: ["uncommitted changes"]
+      # The branch, short sha and date of HEAD; whether the EPIC folder has uncommitted changes
+      # (refused with --committed-only); Flow-Box commits reachable from HEAD; the e2e tests and
+      # the last results Birdview knows; design links and their pictures; the gate; who signed.
+
+    - id: build-deck
+      kind: process
+      lane: rehearse
+      package: core
+      title: Build the slides in plain words
+      stories: [S18]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, slides: number, deck: string }
+      errorExits: ["bad presentation inputs"]
+      # Pure: presentationDeck(record, facts, inputs). Slides in a fixed order, each with a key, a
+      # title, narration and blocks. presentation.yaml (asks, next, risks, narration, hide) is
+      # not part of the signed record; a file of the wrong shape is refused in plain words.
+
+    - id: render-deck-html
+      kind: process
+      lane: rehearse
+      package: core
+      title: Write the deck as one self-contained HTML file
+      stories: [S18]
+      inputs:  { epic: string, deck: string }
+      outputs: { epic: string, html: string, bytes: number }
+      # Pure: deckHtml(deck, assets). Inline CSS and SVG, pictures as data URIs no wider than
+      # 1600 px, no fetch; arrow keys and a counter as optional script; print CSS gives one
+      # landscape slide per page.
+
+    - id: print-deck-pdf
+      kind: process
+      lane: rehearse
+      package: server
+      title: Print the deck to PDF with Chromium
+      stories: [S18]
+      inputs:  { html: string }
+      outputs: { html: string, pdf: string }
+      errorExits: ["Chromium not available"]
+      # Playwright's Chromium from the e2e package, when it can start; else the owner is told to
+      # open the HTML and use the browser's "Save as PDF".
+
+    - id: deck-file
+      kind: output
+      lane: builder
+      package: cli
+      title: The deck the owner sends
+      stories: [S18]
+      inputs:  { html: string, pdf: "string?" }
+      outputs: { html: string, pdf: "string?" }
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -896,3 +982,16 @@ root:
     - { from: refresh-design-pictures, to: design-tab }
     - { from: refresh-design-pictures, to: design-tab,       label: "FigCraft not running",    kind: error }
     - { from: refresh-design-pictures, to: design-tab,       label: "file not the active tab", kind: error }
+    - { from: review,            to: present-view }
+    - { from: draft-record,      to: present-cli }
+    - { from: present-view,      to: gather-deck-facts }
+    - { from: present-cli,       to: gather-deck-facts }
+    - { from: gather-deck-facts, to: build-deck }
+    - { from: gather-deck-facts, to: rejected,       label: "uncommitted changes",     kind: error }
+    - { from: build-deck,        to: render-deck-html }
+    - { from: build-deck,        to: rejected,       label: "bad presentation inputs", kind: error }
+    - { from: render-deck-html,  to: deck-file }
+    - { from: render-deck-html,  to: print-deck-pdf }
+    - { from: print-deck-pdf,    to: deck-file }
+    - { from: print-deck-pdf,    to: deck-file,      label: "Chromium not available",  kind: error }
+    - { from: deck-file,         to: present-view }

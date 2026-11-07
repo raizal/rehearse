@@ -1,0 +1,221 @@
+story: S18
+scenarios:
+  - id: S18-opening
+    title: The deck opens with the title, why it exists and the map of who does what
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "title: rehearse v1, 15 of 18 stories signed off; why; big picture" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A1, state: { firstSlides: [title, why, big-picture], statusLine: "15 of 18 stories signed off · 3 waiting for review" } }
+
+  - id: S18-progress
+    title: Every story is a row of five steps, each done, partly or not yet
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "progress: 18 rows, 5 steps each, a legend" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A2, state: { rows: 18, steps: [designed, scenarios approved, built, tested, signed off], legend: true } }
+
+  - id: S18-story-section
+    title: Each story has its own section, from its sentence to who signed it
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "S12: story, criteria, design picture, how it works, what we checked, signed" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A3, state: { storySentence: true, checklist: true, designPicture: linked only, swimlanes: svg, scenarios: given when then, status: signed or missing } }
+
+  - id: S18-quality-risks
+    title: Quality and risks are counted and listed by story in plain words
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "quality: gate 3 things still to do; risks: S16, S17, S18 not signed" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A4, state: { gate: "3 things still to do", risksByStory: true, ownerRisks: true } }
+
+  - id: S18-asks-next
+    title: With no asks the asks slide is left out; next steps and a glossary end the deck
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 39, deck: "no asks slide; what is next: the to-finish list; glossary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A5, state: { asksSlide: left out, next: to-finish list, lastSlide: glossary } }
+
+  - id: S18-plain-words
+    title: Every slide reads on its own in plain words, ids only small in a corner
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "title, why, big picture, progress, 18 story sections, quality, risks, next, glossary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A6, state: { narrationOnEverySlide: true, yamlKeysInText: 0, boxPathsInText: 0, idsInText: 0, glossary: [scenario, sign-off, e2e test, gate] } }
+
+  - id: S18-honest
+    title: Unsigned stories, missing tests and failing tests show as plainly as done work
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "S18 not signed off yet; 2 checks have no test yet; 1 test failed" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A7, state: { unsignedShown: true, missingTestsShown: true, failingTestsShown: true, hidden: 0 } }
+
+  - id: S18-frozen
+    title: Every footer names the commit; uncommitted changes show a notice
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "uncommitted: docs/epics/2026-11-05-rehearse/prd.yaml" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "title, why, big picture, progress, 18 story sections, quality, risks, next, glossary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A8, state: { footer: "rehearse v1 · as of main @ 6cc5a4a, 2026-11-07", uncommittedNotice: true } }
+
+  - id: S18-committed-only
+    title: With --committed-only, uncommitted changes refuse the deck and write no file
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: committed-only, given: { epic: 2026-11-05-rehearse, committedOnly: true }, then: { epic: 2026-11-05-rehearse, committedOnly: true } }
+      - name: gather-deck-facts
+        branch: "uncommitted changes"
+        example: { id: dirty, given: { epic: 2026-11-05-rehearse, committedOnly: true }, then: { exit: uncommitted changes } }
+      - { name: rejected }
+    expect: { criterion: S18-A8, state: { exitCode: 1, fileWritten: false } }
+
+  - id: S18-single-file
+    title: The deck is one HTML file that fetches nothing, and a PDF with one slide per page
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse, pdf: deck.pdf }, then: { epic: 2026-11-05-rehearse, pdf: deck.pdf } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "title, why, big picture, progress, 18 story sections, quality, risks, next, glossary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - name: print-deck-pdf
+        example: { id: pdf, then: { html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, pdf: deck.pdf } }
+      - { name: deck-file }
+    expect: { criterion: S18-A9, state: { externalFetches: 0, maxPictureWidth: 1600, printCss: one landscape slide per page, readsWithoutScript: true, pdf: written } }
+
+  - id: S18-no-chromium
+    title: With no Chromium the HTML is still written and the builder is told to print it
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli-pdf, given: { epic: 2026-11-05-rehearse, pdf: deck.pdf }, then: { epic: 2026-11-05-rehearse, pdf: deck.pdf } }
+      - { name: gather-deck-facts }
+      - { name: build-deck }
+      - { name: render-deck-html }
+      - name: print-deck-pdf
+        branch: "Chromium not available"
+        example: { id: no-chromium, given: { html: deck.html }, then: { exit: Chromium not available } }
+      - { name: deck-file }
+    expect: { criterion: S18-A9, state: { html: written, pdf: not written, message: "Chromium is not available: open the HTML and use Print, then Save as PDF" } }
+
+  - id: S18-owner-inputs
+    title: The owner's asks, risks, next steps, narration and hidden stories shape the deck only
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "asks: 2; hidden: 1 story not shown" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A10, state: { asksShown: 2, notShownNote: "1 story not shown", gateChanged: false, hashesChanged: false, missingFile: deck still built } }
+
+  - id: S18-bad-inputs
+    title: A presentation.yaml with an unknown slide key or story id is refused in plain words
+    status: draft
+    steps:
+      - { name: present-cli }
+      - { name: gather-deck-facts }
+      - name: build-deck
+        branch: "bad presentation inputs"
+        example: { id: unknown-story, then: { exit: bad presentation inputs, finding: "hide names S99, which is not a story of this EPIC" } }
+      - { name: rejected }
+    expect: { criterion: S18-A10, state: { exitCode: 1, fileWritten: false, validateFinding: true } }
+
+  - id: S18-present-button
+    title: Present on the EPIC page shows the deck and downloads the HTML and the PDF
+    status: draft
+    steps:
+      - { name: present-view }
+      - { name: gather-deck-facts }
+      - { name: build-deck }
+      - { name: render-deck-html }
+      - name: print-deck-pdf
+        example: { id: pdf, then: { html: deck.html, pdf: deck.pdf } }
+      - { name: deck-file }
+      - { name: present-view }
+    expect: { criterion: S18-A11, state: { preview: iframe, arrowKeys: true, downloads: [HTML, PDF], tokenAndOrigin: required } }
+
+  - id: S18-cli
+    title: rehearse present writes the deck to presentations/ and says its size and slides
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
+      - name: build-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "title, why, big picture, progress, 18 story sections, quality, risks, next, glossary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
+      - { name: deck-file }
+    expect: { criterion: S18-A12, state: { exitCode: 0, out: presentations/<slug>-<date>-<sha>.html, gitIgnored: true, says: [path, size, slides] } }

@@ -15,6 +15,7 @@ import { BigPictureViews } from './components/BigPictureViews.js';
 import { BoxDrawer } from './components/BoxDrawer.js';
 import { CodeMap } from './components/CodeMap.js';
 import { PrdView } from './components/PrdView.js';
+import { Present } from './components/Present.js';
 import type { ApproveControls } from './components/Approve.js';
 import { ReadinessView } from './components/ReadinessView.js';
 import { signingBlocked, type SessionState } from './components/Review.js';
@@ -386,6 +387,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
                 validate: {report.ok ? 'OK' : `${report.findings.length} findings`}
               </span>
             )}
+            {view && <Present slug={view.slug} />}
             <button type="button" className="link" data-testid="reload" onClick={reload} title="Read the record files again">
               Reload
             </button>
