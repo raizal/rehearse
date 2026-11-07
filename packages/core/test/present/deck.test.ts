@@ -31,7 +31,7 @@ import {
   type EpicRecord,
   type PresentationInputs,
 } from '../../src/index.js';
-import { makeEpic, REAL_EPIC } from '../helpers.js';
+import { makeEpic, REAL_EPIC, withWaitingStory } from '../helpers.js';
 
 const COMMIT = { branch: 'main', sha: 'abc1234', date: '2026-11-07' };
 
@@ -175,13 +175,15 @@ describe('honesty', () => {
   });
 
   it('progress says what done means; a story with nothing approved never reads "0 of 0"', () => {
-    const deck = fullDeck(real, facts(real), NO_INPUTS);
+    // The last story with its approvals and sign-off taken away: nothing of it is approved.
+    const waiting = real.prd!.stories.at(-1)!.id;
+    const record = withWaitingStory(real, waiting);
+    const deck = fullDeck(record, facts(record), NO_INPUTS);
     const progress = deck.slides.find((s) => s.key === 'progress')!;
     expect(progress.narration).toMatch(/done \(built and signed off, no test failing\)/);
-    const s18 = deck.slides.find((s) => s.key === 'S18')!;
-    expect(JSON.stringify(s18.blocks)).toMatch(/no approved scenario yet/);
+    expect(JSON.stringify(deck.slides.find((s) => s.key === waiting)!.blocks)).toMatch(/no approved scenario yet/);
     expect(JSON.stringify(deck.slides)).not.toMatch(/0 of 0 approved/);
-    expect(deck.slides.find((s) => s.key === 'S18-checks')!.narration).toMatch(/all waiting for approval, so none is tested yet/);
+    expect(deck.slides.find((s) => s.key === `${waiting}-checks`)!.narration).toMatch(/all waiting for approval, so none is tested yet/);
   });
 
   it('written tests not run and tests not written both show in the progress cell', () => {

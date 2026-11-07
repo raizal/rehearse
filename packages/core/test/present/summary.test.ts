@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   deckHtml,
+  detectStale,
   loadEpic,
   MAX_GROUPS,
   MAX_LINES,
@@ -23,11 +24,12 @@ import {
   type PresentationInputs,
   type StoryFacts,
 } from '../../src/index.js';
-import { REAL_EPIC } from '../helpers.js';
+import { REAL_EPIC, withWaitingStory } from '../helpers.js';
 
 const COMMIT = { branch: 'main', sha: 'abc1234', date: '2026-11-07' };
 const real = loadEpic(REAL_EPIC).record;
-const signed = real.prd!.stories.map((s) => s.id).filter((id) => ['S16', 'S17', 'S18', 'S19', 'S20'].indexOf(id) < 0);
+/** The stories signed off in the live record, in record order: read from it, so a new sign-off changes nothing here. */
+const signed = detectStale(real).stories.filter((s) => s.status === 'signed').map((s) => s.id);
 
 function facts(over: Partial<DeckFacts> = {}): DeckFacts {
   return { commit: COMMIT, uncommitted: false, owner: 'Ada', stories: {}, gate: { ok: true, items: [] }, testResults: true, ...over };
@@ -218,7 +220,9 @@ describe('what is done, by area (group-done-by-area)', () => {
 
 describe('what is not done, by reason (group-not-done-by-reason)', () => {
   it('grouped by reason, failures first, each with what it takes and who acts', () => {
-    const deck = presentationDeck(real, facts({ stories: mixed() }), NO_INPUTS);
+    // The last story waits for my approval, whatever the owner signed in the live record.
+    const record = withWaitingStory(real, real.prd!.stories.at(-1)!.id);
+    const deck = presentationDeck(record, facts({ stories: mixed() }), NO_INPUTS);
     const g = groups(deck, 'not-done');
     expect(g.map((c) => c.title.replace(/: .*/, ''))).toEqual(['A test fails', 'Waiting for my approval', 'Being built']);
     expect(g.length).toBeLessThanOrEqual(MAX_GROUPS);

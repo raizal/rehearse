@@ -7,7 +7,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse, stringify } from 'yaml';
 import { detectStale, loadEpic, validateEpic } from '../src/index.js';
-import type { Finding, Report } from '../src/index.js';
+import type { EpicRecord, Finding, Report } from '../src/index.js';
 
 export const SHOP = fileURLToPath(new URL('./fixtures/shop', import.meta.url));
 export const REAL_EPIC = fileURLToPath(new URL('../../../docs/epics/2026-11-05-rehearse', import.meta.url));
@@ -42,6 +42,26 @@ export function waitingStories(epicDir: string): string[] {
   return detectStale(record)
     .stories.filter((s) => s.status === 'draft' && s.signedHash === undefined)
     .map((s) => s.id);
+}
+
+/**
+ * A copy of a loaded record in which one story waits for the owner again: its scenarios are drafts
+ * with no approval, and no sign-off holds its hash. Tests that need "a story with nothing approved"
+ * or "a story waiting for my approval" build it with this, so they stay true whatever the owner
+ * signs in the live record.
+ */
+export function withWaitingStory(record: EpicRecord, storyId: string): EpicRecord {
+  const copy = structuredClone(record);
+  if (!copy.prd?.stories.some((s) => s.id === storyId)) throw new Error(`no story ${storyId}`);
+  for (const f of copy.scenarioFiles) {
+    for (const sc of f.scenarios) {
+      if (sc.story !== storyId) continue;
+      sc.status = 'draft';
+      delete sc.approval;
+    }
+  }
+  for (const so of copy.signoff?.signOffs ?? []) delete so.storyHashes[storyId];
+  return copy;
 }
 
 /** Hash of every file under `dir` (names and bytes), to show that a command wrote nothing. */
