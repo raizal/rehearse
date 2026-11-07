@@ -375,3 +375,17 @@ export function snakeCells(graph: DGraph, cols: number): Map<string, Cell> {
 
 /** The width a diagram may take on a 1920 wide page: the page less its margins and the card padding. */
 export const DIAGRAM_W = 1780;
+
+/**
+ * The snaking rows at the widest column count that fits `maxW`: start from what the widest box
+ * allows, and drop a column while long labels in the gaps still push the page wider.
+ */
+export function userFlowLayout(graph: DGraph, maxW: number = DIAGRAM_W): { layout: GraphLayout; cols: number } {
+  let cols = columnsFor(maxW, Math.max(...graph.nodes.map((n) => n.w)));
+  let layout = layoutGrid(graph, snakeCells(graph, cols));
+  while (layout.width > maxW && cols > 3) {
+    cols -= 1;
+    layout = layoutGrid(graph, snakeCells(graph, cols));
+  }
+  return { layout, cols };
+}

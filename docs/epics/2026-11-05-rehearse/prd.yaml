@@ -196,6 +196,18 @@ requirements:
       thread, and more scenarios go to the running thread instead of a second one. A draft or
       stale scenario is approved first. `rehearse brief --tests` prints the same brief. (T47)
 
+  - id: R25
+    kind: functional
+    text: >-
+      An agent thread lands its work through the owner: it commits on its own branch and stops,
+      and the owner merges it from rehearse with "Merge into <current branch>" after a summary of
+      the commits, files and (for tests) the scenario rows they fill. rehearse refuses in plain
+      words, changing nothing, when the checkout has uncommitted changes in files the merge
+      touches, the merge conflicts (it aborts and offers to ask the thread to rebase), the thread
+      is still working, or the branch has nothing new. The briefs say how work lands, how to set
+      up the worktree, and how to run e2e tests through Birdview (`pnpm rehearse play … --wait`),
+      and name the e2e fixtures to start from. (T48)
+
 stories:
   - id: S1
     role: builder
@@ -545,6 +557,63 @@ stories:
         then: >-
           it prints the test brief and exits 0; a draft or stale scenario, or none missing,
           exits 1 with the reason; a bad argument exits 2
+
+  - id: S14
+    role: builder
+    want: to merge the work of an agent thread into my branch with one button, after seeing what it brings
+    soThat: an agent never has to leave its sandbox to land its work, and nothing lands that I did not see
+    requirements: [R25]
+    acceptance:
+      - id: S14-A1
+        given: a story whose build thread or test thread has commits on its branch that the current branch has not
+        when: the builder opens the story's thread panel or its Tests tab
+        then: >-
+          rehearse shows "N commits in the thread, not in <current branch> yet" with each commit's
+          subject and the files changed, and for a test thread the scenario rows the new tests fill
+      - id: S14-A2
+        given: that summary, and a thread bb says is idle or done
+        when: the builder presses "Merge into <current branch>" and confirms the summary
+        then: >-
+          rehearse runs `git merge --no-ff <branch>` in serve's checkout with the message "Merge
+          <thread title>" and the Co-Authored-By line the repo uses; the summary then says
+          nothing is left to merge
+      - id: S14-A3
+        given: >-
+          the checkout has uncommitted changes in files the merge touches, or the merge conflicts,
+          or bb says the thread is still working, or the branch has nothing new
+        when: the builder asks for the merge
+        then: >-
+          rehearse refuses in plain words and changes nothing: it names the dirty files; on a
+          conflict it aborts the merge, lists the files and offers "Ask the thread to rebase",
+          which sends the thread a message; a working thread gets no merge button
+      - id: S14-A4
+        given: a test thread's branch was merged
+        when: the builder looks at the Tests tab
+        then: >-
+          the rows of the new tests say "not run", and one button "Play the new tests in
+          Birdview" plays them, so the results land for this checkout's test project
+      - id: S14-A5
+        given: a build brief or a test brief
+        when: an agent reads how to work in the repo
+        then: >-
+          it says to commit on the thread's branch and stop: do not merge, push or rebase onto
+          main, never turn the sandbox off, say so in the thread when done because the owner
+          merges from rehearse; and to set up first (install, which needs network, then build)
+      - id: S14-A6
+        given: the rehearse repo
+        when: an agent runs `pnpm rehearse play <epic> <story> --test <key> --wait`
+        then: >-
+          the root script runs the CLI; it plays the test in Birdview, waits for the run to end,
+          prints passed or failed (with the failed step) and exits 0 or 1; no result before
+          --timeout exits 1; a bad argument exits 2
+      - id: S14-A7
+        given: approved scenarios of a story
+        when: rehearse makes their test brief
+        then: >-
+          per scenario it says where each expected result shows in the app (the box that shows
+          it, or "not shown in the UI, check the files"), and which fixture to start from: the
+          serve fixture for a scenario that walks a UI box, the fresh repo and CLI helper for one
+          that does not
 
 resolvedQuestions:
   - question: Who is "the builder" in records?
