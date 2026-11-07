@@ -43,3 +43,4 @@ export {
 export * from './trust/index.js';
 export { createEpic, EPIC_FILES, GRAPH_DB_IGNORE, ignoreGraphDb, isEpicSlug, type NewEpicExit, type NewEpicResult } from './new.js';
 export * from './architecture/index.js';
+export * from './design/index.js';

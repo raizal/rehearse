@@ -1,0 +1,25 @@
+# Which design page each story (and, optionally, a box of it) is built to (T50).
+# Not part of the signed record: edit it freely. Paths are relative to the repo top;
+# `page` is the page's number in the FigCraft file (1 is the first) or its name.
+# `rehearse validate <epic>` reports a link to a story, box or file that does not exist.
+epics:
+  2026-11-05-rehearse:
+    # S4-A5: one story as WHAT, HOW, OUTPUT and its scenarios.
+    S4: { file: design/rehearse-review.figcraft, page: 2, png: design/2-story-view.png }
+    # S5: play a scenario step by step on its storyboard.
+    S5: { file: design/rehearse-review.figcraft, page: 3, png: design/3-scenario-storyboard.png }
+    # S6: the storyboard is where the owner approves a scenario.
+    S6: { file: design/rehearse-review.figcraft, page: 3, png: design/3-scenario-storyboard.png }
+    # S7: who may change which data, as a use case diagram.
+    S7: { file: design/rehearse-review.figcraft, page: 4, png: design/4-use-cases.png }
+    # S11: watch a story's build: its code per box; the build panel is the story thread panel.
+    S11:
+      file: design/rehearse-review.figcraft
+      page: 13
+      png: design/13-story-code.png
+      boxes:
+        watch-build: { file: design/rehearse-review.figcraft, page: 15, png: design/15-story-code-thread-hidden.png }
+    # S12: the story's e2e tests in the Birdview player.
+    S12: { file: design/rehearse-review.figcraft, page: 14, png: design/14-story-tests.png }
+    # S13: the Tests tab's no-test rows and the test thread.
+    S13: { file: design/rehearse-review.figcraft, page: 14, png: design/14-story-tests.png }

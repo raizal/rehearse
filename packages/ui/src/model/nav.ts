@@ -19,7 +19,7 @@ import type { Id } from '@rehearse/core';
 export const TAB_IDS = ['prd', 'techspec', 'bigpicture', 'code', 'stories', 'usecases', 'readiness', 'signoff'] as const;
 export type Tab = (typeof TAB_IDS)[number];
 
-export const STORY_TAB_IDS = ['what', 'how', 'output', 'before-after', 'code', 'tests'] as const;
+export const STORY_TAB_IDS = ['what', 'how', 'output', 'before-after', 'code', 'tests', 'design'] as const;
 export type StoryTabId = (typeof STORY_TAB_IDS)[number];
 
 export const DEFAULT_BIG_VIEW = 'features';

@@ -1,0 +1,136 @@
+story: S16
+scenarios:
+  - id: S16-links
+    title: Good design links give no finding, and validate stays OK
+    status: draft
+    steps:
+      - { name: validate/report }
+      - name: design-links
+        example: { id: good-links, given: { links: "S12: { file: design/rehearse-review.figcraft, page: 14, png: design/14-story-tests.png }" }, then: { findings: [] } }
+      - { name: valid }
+    expect: { criterion: S16-A1, state: { validate: OK, recordEdited: false } }
+
+  - id: S16-bad-link
+    title: A link to a missing file, story or box is a finding, never a crash
+    status: draft
+    steps:
+      - { name: validate/report }
+      - name: design-links
+        branch: "bad link"
+        example: { id: missing-png, given: { links: "S12: { file: design/rehearse-review.figcraft, page: 14, png: design/99-gone.png }" }, then: { exit: bad link, finding: "design/99-gone.png does not exist" } }
+      - { name: draft-record }
+    expect: { criterion: S16-A1, state: { findings: 1, crash: false } }
+
+  - id: S16-fetch
+    title: rehearse figcraft fetch downloads the web build, checks its hash and unpacks it
+    status: draft
+    steps:
+      - { name: draft-record }
+      - name: fetch-figcraft-web
+        example: { id: fetch, given: { version: 0.16.0 }, then: { version: 0.16.0, dir: .rehearse/figcraft-web/0.16.0 } }
+      - { name: host-figcraft }
+    expect: { criterion: S16-A2, state: { hashChecked: true, gitignored: true, exitCode: 0 } }
+
+  - id: S16-hash-mismatch
+    title: A hash mismatch exits 1 and changes nothing
+    status: draft
+    steps:
+      - { name: draft-record }
+      - name: fetch-figcraft-web
+        branch: "hash mismatch"
+        example: { id: bad-hash, given: { version: 0.16.0, sha256: not the zip's }, then: { exit: hash mismatch } }
+      - { name: rejected }
+    expect: { criterion: S16-A2, state: { exitCode: 1, filesChanged: 0 } }
+
+  - id: S16-host
+    title: Serve hosts FigCraft web under /figcraft/ on its own origin, framed by its own pages only
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: design-links }
+      - { name: design-tab }
+      - name: host-figcraft
+        example: { id: wasm, given: { file: /figcraft/figcraft-web-abc_bg.wasm }, then: { url: /figcraft/, version: 0.16.0, contentType: application/wasm, csp: "frame-ancestors 'self'" } }
+      - { name: design-tab }
+    expect: { criterion: S16-A3, state: { sameOrigin: true, xFrameOptionsDeny: false } }
+
+  - id: S16-not-fetched
+    title: Not fetched, the Design tab says so with the command and fetches it with a button
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: design-links }
+      - name: design-tab
+        branch: "web build not fetched"
+        example: { id: not-fetched, given: { fetched: false }, then: { exit: web build not fetched, text: "The FigCraft web build is not fetched. Run `pnpm rehearse figcraft fetch`" } }
+      - { name: fetch-figcraft-web }
+      - { name: host-figcraft }
+    expect: { criterion: S16-A3, state: { button: Fetch FigCraft web } }
+
+  - id: S16-picture
+    title: The Design tab shows the linked page's picture; no link says how to add one
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - name: design-links
+        example: { id: tests-tab, given: { storyId: S12 }, then: { storyId: S12, links: [ design/14-story-tests.png ] } }
+      - name: design-tab
+        example: { id: picture, given: { storyId: S12 }, then: { picture: design/14-story-tests.png, caption: "design/rehearse-review.figcraft · page 14" } }
+    expect: { criterion: S16-A4, state: { noLinkText: No design linked, boxDrawerPicture: true } }
+
+  - id: S16-edit-save
+    title: Edit in FigCraft opens the linked file, and Save writes it back
+    status: draft
+    steps:
+      - { name: design-tab }
+      - name: host-figcraft
+        example: { id: ready, given: { message: "figcraft:ready" }, then: { url: /figcraft/, version: 0.16.0, sent: "figcraft:open rehearse-review.figcraft", banner: "Open page 13" } }
+      - { name: design-tab }
+      - name: save-design
+        example: { id: save, given: { file: design/rehearse-review.figcraft, bytes: base64 }, then: { file: design/rehearse-review.figcraft, size: 249097 } }
+      - { name: design-tab }
+    expect: { criterion: S16-A5, state: { text: "Saved to design/rehearse-review.figcraft — commit it when you are happy", dirtyGuard: true } }
+
+  - id: S16-save-refused
+    title: A save of a file links.yaml does not name is refused, nothing written
+    status: draft
+    steps:
+      - { name: design-tab }
+      - name: save-design
+        branch: "file not linked"
+        example: { id: not-linked, given: { file: design/other.figcraft, bytes: base64 }, then: { exit: file not linked } }
+      - { name: design-tab }
+    expect: { criterion: S16-A6, state: { written: 0, saveAsIsDownload: true, cliWrites: false } }
+
+  - id: S16-brief
+    title: The build brief names the design to build to
+    status: draft
+    steps:
+      - { name: start-build }
+      - { name: design-links }
+      - name: design-brief
+        example: { id: design-section, given: { storyId: S12 }, then: { storyId: S12, section: "## Design: design/rehearse-review.figcraft, page 14, picture design/14-story-tests.png" } }
+      - { name: build-brief }
+    expect: { criterion: S16-A7, state: { json: design, neverWrite: true } }
+
+  - id: S16-brief-no-link
+    title: A story with no design link gets one line in its brief
+    status: draft
+    steps:
+      - { name: start-build }
+      - { name: design-links }
+      - name: design-brief
+        example: { id: no-link, given: { storyId: S9 }, then: { storyId: S9, section: No design linked for this story. } }
+      - { name: build-brief }
+    expect: { criterion: S16-A7, state: { lines: 1 } }
+
+  - id: S16-beside
+    title: Where the owner approves and signs off, the design shows beside the latest test result
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: design-links }
+      - name: design-beside-result
+        example: { id: beside, given: { storyId: S12, lastRun: passed }, then: { decision: approve } }
+      - { name: happy }
+    expect: { criterion: S16-A8, state: { readOnly: true, noRun: no run yet } }

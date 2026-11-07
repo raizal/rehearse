@@ -123,6 +123,24 @@ describe('rehearse brief', async () => {
     expect(JSON.parse(tests.out).code.e2eHelpers).toEqual([]);
   });
 
+  it('T50 the brief names the story design from design/links.yaml: "## Design" and `design` in --json', async () => {
+    const dir = signedEpic();
+    const top = dirname(dir);
+    mkdirSync(join(top, 'design'));
+    writeFileSync(join(top, 'design', 'links.yaml'), 'epics:\n  2026-11-05-shop:\n    S1:\n      file: design/shop.figcraft\n      page: 3\n      png: design/s1.png\n      boxes:\n        cart: { file: design/shop.figcraft, page: Cart }\n');
+    const r = await cli(['brief', dir, 'S1', '--json']);
+    expect(r.code).toBe(0);
+    const j = JSON.parse(r.out);
+    expect(j.design).toEqual({ story: { file: 'design/shop.figcraft', page: 3, png: 'design/s1.png' }, boxes: { cart: { file: 'design/shop.figcraft', page: 'Cart' } } });
+    expect(j.markdown).toContain('## Design\n\n- The story: `design/shop.figcraft`, page 3, picture `design/s1.png`.\n- Box `cart`: `design/shop.figcraft`, page Cart (no PNG linked).');
+    const md = await cli(['brief', dir, 'S1']);
+    expect(md.out).toContain('never call `POST /api/design/save`');
+    // S2 has no link.
+    const s2 = JSON.parse((await cli(['brief', dir, 'S2', '--json'])).out);
+    expect(s2.design).toEqual({ boxes: {} });
+    expect(s2.markdown).toContain('## Design\n\nNo design linked for this story.');
+  });
+
   it('usage errors exit 2', async () => {
     for (const args of [[], ['x'], [signedEpic()], [signedEpic(), 'S1', '--nope'], ['no-such-epic', 'S1']]) {
       const r = await cli(['brief', ...args]);

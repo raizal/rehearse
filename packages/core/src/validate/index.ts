@@ -1,6 +1,7 @@
 // Box `validate`: parse → schema → refs → report. No network, no LLM (R18).
 
 import { checkArchitectureChange } from '../architecture/validate.js';
+import { designLinkFindings, repoTopOf } from '../design/load.js';
 import { loadEpic } from '../loader.js';
 import type { LoadResult, Report } from '../types.js';
 import { checkRefs } from './refs.js';
@@ -22,7 +23,10 @@ export function validateRecord(loaded: LoadResult): Report {
   ]);
 }
 
-/** Load and validate one EPIC folder. */
+/** Load and validate one EPIC folder, with the repo's design links of its stories (T50). */
 export function validateEpic(dir: string): Report {
-  return validateRecord(loadEpic(dir));
+  const loaded = loadEpic(dir);
+  const report = validateRecord(loaded);
+  const design = designLinkFindings(loaded.record, repoTopOf(dir));
+  return design.length === 0 ? report : makeReport('validate', [...report.findings, ...design]);
 }

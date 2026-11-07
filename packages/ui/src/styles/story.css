@@ -449,6 +449,29 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .story-tests-notice code { user-select: all; overflow-wrap: anywhere; }
 .story-tests-frame { width: 100%; height: 620px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--ink); }
 
+/* ---------------------------------------------------------------- Design tab and FigCraft (T50) */
+.story-design-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-bottom: var(--s-4); }
+.story-design-head h3 { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
+.story-design-head .action { margin-left: auto; }
+.story-design-notice { margin-bottom: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--note-line); border-radius: var(--r-md); background: var(--ci-tint); color: var(--note-ink); display: grid; gap: var(--s-2); justify-items: start; }
+.story-design-notice p { margin: 0; }
+.story-design-notice code, .design-link-line code { user-select: all; overflow-wrap: anywhere; }
+.design-link-line { margin: var(--s-2) 0 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--subtle); white-space: pre-wrap; font-size: var(--fs-sm); }
+.design-figure { margin: 0; display: grid; gap: var(--s-1); }
+.design-figure img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); }
+.design-no-png { margin: 0; padding: var(--s-3); border: 1px dashed var(--line-strong); border-radius: var(--r-md); }
+.design-beside { margin-top: var(--s-4); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5); }
+.design-beside h4 { margin: 0 0 var(--s-2); }
+.design-beside-runs { list-style: none; margin: 0 0 var(--s-2); padding: 0; display: grid; gap: var(--s-1); }
+.figcraft-overlay { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: var(--card); }
+.figcraft-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--line); }
+.figcraft-bar h2 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-bold); }
+.figcraft-bar p { margin: 0; }
+.figcraft-bar .action { margin-left: auto; }
+.figcraft-banner { padding: 2px var(--s-2); border-radius: var(--r-sm); background: var(--builder-tint); color: var(--builder-strong); font-weight: var(--fw-semibold); }
+.dirty-dot { margin-left: var(--s-2); color: var(--ci); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.figcraft-frame { flex: 1; width: 100%; min-height: 0; border: 0; }
+
 /* ---------------------------------------------------------------- story thread rail (pages 13–15) */
 /* A card on the right, 420 px; » makes it a 56 px strip and the body takes the freed width.
    Status is always in words too; the dot only repeats it. */

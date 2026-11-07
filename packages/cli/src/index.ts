@@ -14,6 +14,7 @@ import { runCoverage } from './commands/coverage.js';
 import { isGraphVerb, runGraph } from './commands/graph.js';
 import { runBrief } from './commands/brief.js';
 import { runProgress } from './commands/progress.js';
+import { runFigcraft } from './commands/figcraft.js';
 
 export interface Io {
   cwd: string;
@@ -53,6 +54,10 @@ Commands:
                                          and play it (or one test). Exit 1 when Birdview is busy or not running: try again.
                                          --wait waits for the run to end and prints each result from Birdview's state:
                                          exit 0 when all passed, 1 when one failed or the timeout ran out (default 600 s).
+  figcraft fetch [--version <v>] [--json]
+                                         Download the FigCraft web build (default: the installed app's version, else the
+                                         latest release), check its SHA-256 and unpack it into .rehearse/figcraft-web/<v>/
+                                         for the Design tab of rehearse serve. Exit 1 on a hash mismatch or a network error.
 
 Code graph (each verb first updates .rehearse/graph.db at the git top-level; --rebuild makes it again):
   find <words> [--json] [--rebuild]      Find code by words (BM25; camelCase and snake_case are split).
@@ -88,7 +93,7 @@ function isDir(p: string): boolean {
   return existsSync(p) && statSync(p).isDirectory();
 }
 
-/** The entry of bin/rehearse.js: the code graph verbs, coverage, brief, progress, playlists and play are async; the other commands run in `run`. */
+/** The entry of bin/rehearse.js: the code graph verbs, coverage, brief, progress, playlists, play and figcraft are async; the other commands run in `run`. */
 export async function main(argv: string[], io: Io): Promise<number> {
   const [command, ...rest] = argv;
   if (isGraphVerb(command)) return runGraph(command, rest, io);
@@ -97,6 +102,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   if (command === 'progress') return runProgress(rest, io);
   if (command === 'playlists') return runPlaylists(rest, io);
   if (command === 'play') return runPlay(rest, io);
+  if (command === 'figcraft') return runFigcraft(rest, io);
   return run(argv, io);
 }
 

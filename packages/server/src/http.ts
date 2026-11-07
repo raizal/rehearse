@@ -11,17 +11,25 @@
 // the same token and Origin check. The sign-off preview (`GET /api/sign-off/preview`, T39) reads
 // git history too, with the same check. The thread merge routes (T48) read git and bb and, on the
 // owner's press only, run `git merge --no-ff` of a thread's branch in this checkout; same check.
+// The Design tab (T50) reads design/links.yaml and the files it links (`/api/design`,
+// `/api/design/file`; same check) and the linked PNGs (`GET /design/<file>.png`, no token: an <img>).
+// The only design write is `POST /api/design/save`: the owner's Save in the embedded FigCraft, from
+// the UI, for a .figcraft file linked in links.yaml only; agents never call it. `POST /api/figcraft/fetch`
+// (owner's button) downloads the FigCraft web build into .rehearse/figcraft-web/, checked against its
+// SHA-256; `GET /figcraft/…` hosts it, framed by this origin only.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, relative, sep } from 'node:path';
-import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
+import { approveScenarios, defaultVerifier, repoTopOf, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { MAP_LEVELS, type CoverageStats, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, PLAYER_ACTIONS, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { BirdviewError, playStory, useProject } from './birdview-play.js';
 import { gatherBriefCode } from './brief-code.js';
+import { designView, figcraftFile, FIGCRAFT_PATH, MAX_DESIGN_BODY_BYTES, readLinkedDesignFile, saveDesign } from './design-route.js';
+import { FIGCRAFT_VERSION, FigcraftFetchError, fetchFigcraftWeb, type Fetcher } from './figcraft-web.js';
 import { graphServiceFor, repoRoot, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { MAX_PREVIEW_STORIES, signOffPreview } from './signoff-preview.js';
@@ -58,6 +66,10 @@ export interface ServeOptions {
   threadModel?: string;
   /** `--reasoning-level` of a build thread (T44). Default: REHEARSE_THREAD_REASONING; unset: bb's default. */
   threadReasoning?: string;
+  /** The repo top: design/links.yaml, design/ and .rehearse/figcraft-web/ (T50). Default: the git top above the EPIC folder. */
+  repoTop?: string;
+  /** Downloads for `POST /api/figcraft/fetch`. Default: fetch from GitHub (tests pass a fake). */
+  figcraftFetcher?: Fetcher;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -90,7 +102,7 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph' | 'threadModel' | 'threadReasoning'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph' | 'threadModel' | 'threadReasoning' | 'repoTop' | 'figcraftFetcher'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
@@ -114,6 +126,10 @@ const ROUTES: Record<string, string> = {
   '/api/thread/merge': 'GET, POST',
   '/api/thread/ask-rebase': 'POST',
   '/api/birdview': 'GET',
+  '/api/design': 'GET, HEAD',
+  '/api/design/file': 'GET',
+  '/api/design/save': 'POST',
+  '/api/figcraft/fetch': 'POST',
   ...Object.fromEntries(PLAYER_ACTIONS.map((a) => [`/api/birdview/${a}`, 'POST'])),
 };
 
@@ -134,6 +150,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
   const graph = opts.graph ?? graphServiceFor(opts.epicDir);
   const run = opts.run ?? processRunner();
+  const top = opts.repoTop ?? repoTopOf(opts.epicDir);
   const threads = createStoryThreads({
     epicDir: opts.epicDir,
     run,
@@ -313,6 +330,27 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
           else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
         },
       );
+      return;
+    }
+    if (path.startsWith('/api/design') || path === '/api/figcraft/fetch') {
+      void design(req, res, path, query, top, opts.epicDir, session, opts.figcraftFetcher);
+      return;
+    }
+    if (path.startsWith('/design/')) {
+      // A linked PNG, for an <img>: no token, linked files only.
+      const png = readLinkedDesignFile(top, path.slice(1), 'png');
+      if (png) send(res, 200, TYPES['.png']!, png);
+      else send(res, 404, 'text/plain; charset=utf-8', 'not found: only PNGs linked in design/links.yaml are served\n');
+      return;
+    }
+    if (path === '/figcraft') {
+      const search = new URL(req.url ?? '/', 'http://localhost').search;
+      send(res, 301, 'text/plain; charset=utf-8', '', { location: `${FIGCRAFT_PATH}${search}` });
+      return;
+    }
+    if (path.startsWith(FIGCRAFT_PATH)) {
+      const [status, type, body, headers] = figcraftFile(top, path);
+      send(res, status, type, body, headers);
       return;
     }
     serveStatic(opts.uiDir, path, res);
@@ -543,6 +581,69 @@ async function threadMerge(req: IncomingMessage, res: ServerResponse, path: stri
   }
 }
 
+/**
+ * The Design tab (T50). Each needs the token and a same-origin Origin.
+ *   GET  /api/design?story=<id>          the story's links, findings, the FigCraft build's state
+ *   GET  /api/design/file?file=<path>    the bytes of a .figcraft file linked in links.yaml
+ *   POST /api/design/save {file, bytes}  the owner's Save: base64 bytes of a linked .figcraft file
+ *   POST /api/figcraft/fetch {version?}  download and check the FigCraft web build
+ */
+async function design(
+  req: IncomingMessage,
+  res: ServerResponse,
+  path: string,
+  query: URLSearchParams,
+  top: string,
+  epicDir: string,
+  session: ServerSession,
+  fetcher: Fetcher | undefined,
+): Promise<void> {
+  try {
+    if (req.method !== 'POST') {
+      const refused = checkRequest(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { ok: false, error: refused.error });
+        return;
+      }
+      if (path === '/api/design') {
+        const story = query.get('story') ?? '';
+        if (!STORY_ID.test(story)) {
+          sendJson(res, 400, { ok: false, error: 'query must be ?story=<story id>' });
+          return;
+        }
+        const [status, body] = designView(epicDir, top, story, session.identity.by);
+        sendJson(res, status, body);
+        return;
+      }
+      const file = query.get('file') ?? '';
+      const bytes = readLinkedDesignFile(top, file, 'file');
+      if (bytes) send(res, 200, 'application/octet-stream', bytes);
+      else sendJson(res, 404, { ok: false, error: `${file} is not a .figcraft file linked in design/links.yaml, or it does not exist` });
+      return;
+    }
+    const body = await readJsonPost(req, session, path === '/api/design/save' ? MAX_DESIGN_BODY_BYTES : MAX_BODY_BYTES);
+    if ('status' in body) {
+      sendJson(res, body.status, { ok: false, error: body.error });
+      return;
+    }
+    if (path === '/api/design/save') {
+      const [status, out] = saveDesign(top, body.json);
+      sendJson(res, status, out);
+      return;
+    }
+    const version = body.json.version;
+    if (version !== undefined && !(typeof version === 'string' && FIGCRAFT_VERSION.test(version))) {
+      sendJson(res, 400, { ok: false, error: '"version" must be a FigCraft version, like "0.16.0"' });
+      return;
+    }
+    const fetched = await fetchFigcraftWeb({ top, ...(version !== undefined ? { version } : {}), ...(fetcher ? { fetcher } : {}) });
+    sendJson(res, 200, { ok: true, version: fetched.version });
+  } catch (e) {
+    if (e instanceof FigcraftFetchError) sendJson(res, e.kind === 'hash mismatch' ? 409 : 502, { ok: false, reason: e.kind, error: e.message });
+    else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 /** Run approve or sign-off as the server's identity, with the server's key. */
 function write(res: ServerResponse, path: string, ids: Id[], epicDir: string, session: ServerSession, verifier: Verifier): void {
   if (!session.signer.ok) {
@@ -574,9 +675,9 @@ function checkRequest(req: IncomingMessage, session: ServerSession): PostError |
 
 /**
  * Check a POST and read its JSON object: the token and Origin (403), a JSON content type (415),
- * a body under MAX_BODY_BYTES (413) that is a JSON object (400).
+ * a body under `limit` (default MAX_BODY_BYTES; 413) that is a JSON object (400).
  */
-async function readJsonPost(req: IncomingMessage, session: ServerSession): Promise<{ json: Record<string, unknown> } | PostError> {
+async function readJsonPost(req: IncomingMessage, session: ServerSession, limit = MAX_BODY_BYTES): Promise<{ json: Record<string, unknown> } | PostError> {
   const refused = checkRequest(req, session);
   if (refused) return drain(req, refused);
   const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
@@ -585,7 +686,7 @@ async function readJsonPost(req: IncomingMessage, session: ServerSession): Promi
   let size = 0;
   for await (const chunk of req as AsyncIterable<Buffer>) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) return { status: 413, error: `body is larger than ${MAX_BODY_BYTES} bytes` };
+    if (size > limit) return { status: 413, error: `body is larger than ${limit} bytes` };
     chunks.push(chunk);
   }
   let body: unknown;

@@ -208,9 +208,14 @@ describe('big picture (S4-A4)', () => {
     expect(bp.edges.filter((e) => e.back)).toEqual([
       { from: 'log-correction', to: 'draft-record', back: true },
       { from: 'watch-build', to: 'review', back: true },
+      // T50 (S16): a bad link goes back to the record; the hosted FigCraft and a save or refusal come back to the Design tab.
+      { from: 'design-links', to: 'draft-record', back: true },
+      { from: 'host-figcraft', to: 'design-tab', back: true },
+      { from: 'save-design', to: 'design-tab', back: true },
       { from: 'build-brief', to: 'watch-build', back: true },
       // T45 (S12): the Tests tab goes back to review; a play or a switch comes back to the tab.
       { from: 'story-playlist', to: 'review', back: true },
+      { from: 'play-story', to: 'story-playlist', back: true },
       { from: 'use-project', to: 'story-playlist', back: true },
       // T47 (S13): the test rows go back to the Tests tab; a started or refused thread and its brief come back to the rows.
       { from: 'test-rows', to: 'story-playlist', back: true },
@@ -220,7 +225,6 @@ describe('big picture (S4-A4)', () => {
       // T48 (S14): the branch summary and a merge or refusal come back to the panel.
       { from: 'thread-branch', to: 'merge-panel', back: true },
       { from: 'merge-thread', to: 'merge-panel', back: true },
-      { from: 'play-story', to: 'story-playlist', back: true },
       // T49 (S15): the code section feeds both briefs; the test thread reaches it after the build
       // brief stands, so the section goes back to the build brief, and the test brief stands after it.
       { from: 'code-start-section', to: 'build-brief', back: true },
@@ -228,7 +232,7 @@ describe('big picture (S4-A4)', () => {
       // T48 (S14): the test brief's work rules come back to the panel.
       { from: 'test-brief', to: 'work-rules', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 15, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 16, processes: main.length });
   });
 });
 

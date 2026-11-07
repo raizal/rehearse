@@ -3,9 +3,9 @@
 // change", and the progress from Flow-Box commits on every branch. Every git and bb call goes to a
 // fake runner: no test touches the real repo or runs a real `bb thread spawn`.
 
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadEpic, type GateItem } from '@rehearse/core';
 import { coverageIndexOf, EMPTY_COVERAGE, Store, type CoverageIndex } from '@rehearse/graph';
@@ -157,6 +157,15 @@ describe('T44 build with an agent (box start-build)', () => {
     expect(body.link).toMatchObject({ kind: 'build', hash: before.build.hash });
     expect(body.planChanged).toBeNull();
     expect((await s.post('build', { story: 'S1' })).status).toBe(409);
+  });
+
+  it('T50 the build brief names the story design from design/links.yaml at the repo top', async () => {
+    const s = await serve(signedEpic());
+    const repo = dirname(dirname(s.linkFile));
+    mkdirSync(join(repo, 'design'));
+    writeFileSync(join(repo, 'design', 'links.yaml'), `epics:\n  ${s.slug}:\n    S1: { file: design/shop.figcraft, page: 2, png: design/s1.png }\n`);
+    expect((await s.post('build', { story: 'S1' })).status).toBe(200);
+    expect(spawnCall(s.calls)!.input).toContain('## Design\n\n- The story: `design/shop.figcraft`, page 2, picture `design/s1.png`.');
   });
 
   it('passes --model and --reasoning-level only when serve has them', async () => {
