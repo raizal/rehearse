@@ -3,7 +3,7 @@ scenarios:
 
   - id: S20-summary
     title: "The deck is a short summary by default: where we are, done, not done and why, how we know, next"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -21,11 +21,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
-    expect: { criterion: S20-A1, state: { slides: [where we are, "what's done", "what's not done yet, and why", how we know, "what's next"], atMost: 6, asksSlide: only with asks, bar: [seen working, done checked by automated tests, not done yet] } }
+    expect: { criterion: S20-A1, state: { slides: [ where we are, "what's done", "what's not done yet, and why", how we know, "what's next" ], atMost: 6, asksSlide: only with asks, bar: [ seen working, done checked by automated tests, not done yet ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:09:47Z'
+      hash: 'sha256:ff6f770f915882c89ae8b4bcf73f72553070507b6d9af86ac7b93eb567401172'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAsmy3fxgVDfIT9IwjgRDQjvJM4SmXHjBCgqqEAFzP3U3qMZYV/dJFUWTf5x
+        SBTLrNo9RBxs72Cn7MPogQI4ZYBg==
+        -----END SSH SIGNATURE-----
 
   - id: S20-done-rule
     title: "One rule decides done, and a done story says how strong its proof is"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -44,11 +55,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
-    expect: { criterion: S20-A2, state: { done: [built, signed off and not stale, no test fails], levels: [seen working, "partly seen working (5 of 6)", checked by automated tests], sameRuleEverywhere: true } }
+    expect: { criterion: S20-A2, state: { done: [ built, signed off and not stale, no test fails ], levels: [ seen working, "partly seen working (5 of 6)", checked by automated tests ], sameRuleEverywhere: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:01:28Z'
+      hash: 'sha256:af03c9c8f8f79cfd1e3dafefb30a1ec2612b4f298b0c1b2c03e829192e02a56e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAH9osOf076E8foaOuthC+nh3nEH4oAoeLj4Oi4TcS9nOXkc+TwenBRhEYun
+        mGkWKAkXrJQ538DCZJFfvHQwyqDg==
+        -----END SSH SIGNATURE-----
 
   - id: S20-done-by-area
     title: "The done slide groups the done stories by area, each line with its proof level"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -67,11 +89,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
-    expect: { criterion: S20-A3, state: { groups: { atMost: 6, from: [presentation.yaml areas, else role] }, linesPerGroup: { atMost: 3 }, lineEndsWith: proof level and date } }
+    expect: { criterion: S20-A3, state: { groups: { atMost: 6, from: [ presentation.yaml areas, else role ] }, linesPerGroup: { atMost: 3 }, lineEndsWith: proof level and date } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:01:44Z'
+      hash: 'sha256:16195e02346c821ff0d50c71570b1c1d02356714dc25e1db1d1e277aef95775a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABACTge/HebFpOvzxdyAmzoTK1j/nWYJroicE+LJbN+CV6KJByJ0+AcZYFNKb
+        DASxKu+Id7dLs9xqZq1NZHM7qwDw==
+        -----END SSH SIGNATURE-----
 
   - id: S20-not-done-by-reason
     title: "The not-done slide groups the stories by reason, with what it takes and who acts"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -90,11 +123,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
-    expect: { criterion: S20-A4, state: { reasons: [a test fails, an automated check fails, changed after it was signed off; needs a new sign-off, waiting for my approval, being built, not planned yet], eachSays: [what it takes, who acts] } }
+    expect: { criterion: S20-A4, state: { reasons: [ a test fails, an automated check fails, changed after it was signed off; needs a new sign-off, waiting for my approval, being built, not planned yet ], eachSays: [ what it takes, who acts ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:02:07Z'
+      hash: 'sha256:e8d2fdf66966b3e0f293d7764ecb8bb9fc1126cd3f3549b1c16e456c90b4e72d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAts9Gwc6xr9GuRoNFiB9b+dFlnW8yoCAGAoEa1S5hzLjhC7xmoUPd99auAt
+        gexr2drA5yzborAtVg+eKzEfX6Cw==
+        -----END SSH SIGNATURE-----
 
   - id: S20-how-we-know
     title: "The how-we-know slide shows what done means, pictures of passed tests, the numbers and their sources"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -113,11 +157,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
-    expect: { criterion: S20-A5, state: { pictures: { atMost: 4, each: [what the screen shows, date, recording link with --with-recordings] }, numbers: [tests on the real screens, automated tests with report date, plan check, signatures], sources: [commit, Birdview results date], line: "made by rehearse from the record and the test runs, not written by hand" } }
+    expect: { criterion: S20-A5, state: { pictures: { atMost: 4, each: [ what the screen shows, date, recording link with --with-recordings ] }, numbers: [ tests on the real screens, automated tests with report date, plan check, signatures ], sources: [ commit, Birdview results date ], line: "made by rehearse from the record and the test runs, not written by hand" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:02:23Z'
+      hash: 'sha256:2f1c5d1e61bc38dd6a5f715409c5fbd098d348cc0a58121d8b27e2a389c2dce9'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA9UUJcdKVfeSncu5JlpAVrA7jcHzgrhIW1rORav3MoSO3oepJHERIz3Eig9
+        T4HZGjQ+YBf67gdSYqnw8rNiYsBw==
+        -----END SSH SIGNATURE-----
 
   - id: S20-full-deck
     title: "With --full the summary comes first, then every story slide as an appendix"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -137,11 +192,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d-full.html, bytes: 4300000 } }
       - { name: deck-file }
-    expect: { criterion: S20-A6, state: { order: [summary, "Details, story by story", story slides], fileName: "<name>-full.html", worksWith: [--with-recordings, --pdf, --committed-only, --unit-report], ui: Full deck } }
+    expect: { criterion: S20-A6, state: { order: [ summary, "Details, story by story", story slides ], fileName: "<name>-full.html", worksWith: [ --with-recordings, --pdf, --committed-only, --unit-report ], ui: Full deck } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:02:50Z'
+      hash: 'sha256:d3f1e52bc9dffb4a6db7bea0e229ea46601a47eee39de9c794aa8279c748ba1b'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAHZw+OvXHtQpoOcwHM9ciR9TaU5sc6ygoQw23vd4/4S760MU7DlbuLV3R6Y
+        jS4T+ahkjp7CvcZhaVtFaspIeTAg==
+        -----END SSH SIGNATURE-----
 
   - id: S20-plain-words
     title: "Every slide of the summary is in plain words"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -160,10 +226,21 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
     expect: { criterion: S20-A7, state: { recordIds: none, yamlKeys: none, codeMarks: none, idsOnlyIn: corner of the full deck story slides } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:03:00Z'
+      hash: 'sha256:6086c543733d47974f224ecd970bb344e1d0fc15951eeb71b06fcb3ec2aef66e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAzvYtMoNzgF8k7l5WC1R/mM8ik6MRQCYqkw0+zN+eMsDkOxqnEbxFArz9jp
+        JZX5KQRKyMEqL7Bjo5zKTk2FUIAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S20-no-story-done
     title: "With no story done yet, the done slide says so plainly"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -184,10 +261,21 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
     expect: { criterion: S20-A3, state: { doneSlide: "Nothing is done yet: no part of the plan is both built and signed off.", titleSentence: "None of the 20 parts of the plan is done yet." } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:03:15Z'
+      hash: 'sha256:a6c74714fe37f19e443e6f1b3e6eeeadda55ec2a2ad891121393da9355dc8cf9'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA0CeK1NJlQdllYy3Z2OAmrwkPxbK+LDoBjbWzb/TT8S9AtVnD8lAJAkWdxn
+        v4x52z90TUNRA8wuBWObtFSgEhBw==
+        -----END SSH SIGNATURE-----
 
   - id: S20-no-picture
     title: "With no picture of a passed test, the how-we-know slide says so and shows no empty box"
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -208,3 +296,14 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
       - { name: deck-file }
     expect: { criterion: S20-A5, state: { message: "No picture of a test run: Birdview kept no recording of these tests.", emptyPictureBox: false, numbersStillShown: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:09:01Z'
+      hash: 'sha256:dec66a7f163cc668392b967dc916fdbc6099b3af4159f1c7d697ba29fd8a3d32'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA20BMkgA3MOx7GSH9lmfvgJitVCy8TcNY2lrXU8pTg6Ebf4ezAXiyA/gNo0
+        QSssvdQhpHtbnXH9IDSQsoQ5lIBg==
+        -----END SSH SIGNATURE-----

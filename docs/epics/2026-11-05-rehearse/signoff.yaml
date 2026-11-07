@@ -183,3 +183,16 @@ signOffs:
       MjU1MTkAAABAB60KJtGe0ufljeSXgA8CsNk+4rK/k7bUfz9aqBLtfWEnGmKHcm7+lxGRyO
       AX4leVXUARXdUOtKvNrfxbh0FtDg==
       -----END SSH SIGNATURE-----
+  - by: raizal.pregnanta@systemearth.com
+    at: '2026-11-07T16:10:33Z'
+    hashRule: 2
+    storyHashes:
+      S20: 'sha256:6e0af50334621bc255d046f04fba09f928350b7484dbdbf1d1b41ac0f6362d95'
+      S21: 'sha256:8fee18253819e179634ee24e279246e11f34066934c1e474248639bdf7536cc7'
+    sig: |
+      -----BEGIN SSH SIGNATURE-----
+      U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+      j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+      MjU1MTkAAABAW390+ZIp/G8CVMLk72y0slZvx9qWRILafDwsx7wz0/jnnydFF1hNQleDTr
+      kiDDfGPKXoy0QgWzNdVntCn5ZtAQ==
+      -----END SSH SIGNATURE-----

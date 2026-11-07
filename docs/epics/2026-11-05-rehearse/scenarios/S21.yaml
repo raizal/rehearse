@@ -3,7 +3,7 @@ scenarios:
 
   - id: S21-next-in-story
     title: Next scenario opens the next scenario of the same story and says which one it is
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - name: next-scenario
@@ -12,10 +12,21 @@ scenarios:
       - name: review/playback
         example: { id: opened, given: { scenarioId: S16-link-frame, step: 1 }, then: { highlighted: "S16-link-frame step 1" } }
     expect: { criterion: S21-A1, state: { open: S16-link-frame, button: "Next scenario →", place: "3 of 8 in S16", key: N, approved: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:09:24Z'
+      hash: 'sha256:d8eddabceb34aeb0f3864182ccdcea04c4c37c9a9a556f31382b6b105b5bfb46'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAOjFHvRvE3lsTSZuWAdbckpokR5IoEGrhWdt9Tsc+A0KuEaTglrAwBB9Ouq
+        +yQLHP+gn0B1dqu6Qpud1mv+QADQ==
+        -----END SSH SIGNATURE-----
 
   - id: S21-skip-and-wrap
     title: Next skips approved scenarios and wraps to an earlier one of the same story
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - name: next-scenario
@@ -23,10 +34,21 @@ scenarios:
       - { name: review/swimlanes }
       - { name: review/playback }
     expect: { criterion: S21-A2, state: { open: S16-second, skipped: [ S16-first, S16-third ], otherStory: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:06:55Z'
+      hash: 'sha256:d9addf5d54463c3acc9f861f3d8c2c5d6ed8f92cd4efdc16009f5ec19ede741a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAko0r6FtSmr58QpgG4DQZjzULx3dYAGUIGBHpCTVuBTWA7I0okOmjxv7xaW
+        e4nBAMUQA1kiwHQHOx6BZL39EwBw==
+        -----END SSH SIGNATURE-----
 
   - id: S21-focus-after-approve
     title: After a successful approval focus moves to Next scenario, and Enter follows it
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: happy, branch: approve }
@@ -40,10 +62,21 @@ scenarios:
       - { name: review/swimlanes }
       - { name: review/playback }
     expect: { criterion: S21-A3, state: { focus: "Next scenario →", openedByItself: false, open: S16-link-frame } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:07:04Z'
+      hash: 'sha256:c3d7bfeb5bde5da3ca47bebfdff8d5b09184717508e3527488638f11195bddb6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABACGnOcl5S8HHDsiNXpBUZwcO8+SUkdvSjneoiR4jTWQghCYUXK6VR4YOYx2
+        cA/E+pNcYX71P8zcONMJ13NROMBw==
+        -----END SSH SIGNATURE-----
 
   - id: S21-story-done
     title: After the last approval of a story, the page says all are approved and offers the next story
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: happy, branch: approve }
@@ -61,10 +94,21 @@ scenarios:
       - { name: review/swimlanes }
       - { name: review/playback }
     expect: { criterion: S21-A4, state: { text: "All 8 scenarios of S16 are approved", nextStory: S17, open: S17-first-left, skippedStories: done ones } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:07:21Z'
+      hash: 'sha256:a090f307f9bf4da2b3d2e07a1bfbc1ef85b64458567773afa230d7a9cc240f44'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAYQTDMqysDAoaOu5tkeK0G8R2Nm8DWgdMaEzjZNBVmm92ewFS0MMa7kFiWE
+        G7El+Sy+WPXMwZT1QgPXcsC+e/Cg==
+        -----END SSH SIGNATURE-----
 
   - id: S21-sign-off
     title: A story that is not signed off, or whose sign-off is stale, offers Sign off, which opens its story page
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - name: story-all-approved
@@ -73,10 +117,21 @@ scenarios:
       - name: review/story-view
         example: { id: story-page, given: { story: S16 }, then: { panels: [ what, how, output, "Sign-off: stale" ] } }
     expect: { criterion: S21-A4, state: { opened: story page of S16, signed: false, signOffSent: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:07:28Z'
+      hash: 'sha256:4f53471e00f9dcf65e5e06ae803caaf3f209b6afdd7a6cf92393ebf2059105e0'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAHtom6Q6qzWGBxYzGWB53Lvc82/HytI1Ny5u0WE6NYuLlsuMXZovWCBL7YL
+        a7Mj49nTWMVymV1hsgfy+c+FVvBw==
+        -----END SSH SIGNATURE-----
 
   - id: S21-story-page-next
     title: The story page offers Next story when all of its scenarios are approved
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - name: story-all-approved
@@ -86,10 +141,21 @@ scenarios:
       - { name: review/swimlanes }
       - { name: review/playback }
     expect: { criterion: S21-A4, state: { page: story, nextStory: S17, open: S17-first-left } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:07:37Z'
+      hash: 'sha256:114a32336776af58677ac4e098f3a75e64edd0807ecbdb68604c57513473563b'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA552ywf7DwtSo0i2emdOOBAhYXz9jqhlz8Z/gnzbxGo1RNTr2KyDGov8yGb
+        N2XeUzjPj0ecfkrGkg+OYJqZ3UBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S21-epic-done
     title: With nothing left anywhere, the page says every scenario of the EPIC is approved and links back to it
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - name: next-scenario
@@ -105,10 +171,21 @@ scenarios:
       - { name: review/swimlanes }
       - { name: review/big-picture }
     expect: { criterion: S21-A5, state: { text: "Every scenario of this EPIC is approved", nextStory: none, link: EPIC } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:07:49Z'
+      hash: 'sha256:8578ad594d102dab69df7ed3836121cf248ba0932715a5299a9c82479a6ebcf4'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA7QwmC3c0VBaf+LAqa7W2NXtBr7RipWUqZFfxCgvezQhSswLTj2V5k0nfgq
+        twO//CJVwx3juI1p98FjgLhZmgAg==
+        -----END SSH SIGNATURE-----
 
   - id: S21-failed-approval
     title: A failed or cancelled approval stays on the scenario, and Next still works
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: happy, branch: approve }
@@ -121,3 +198,14 @@ scenarios:
       - { name: review/swimlanes }
       - { name: review/playback }
     expect: { criterion: S21-A6, state: { open: S16-link-page, focusMoved: false, said: "Signing is not available: ssh-agent has no key", nextWorks: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T16:07:58Z'
+      hash: 'sha256:4905d4e627bde27fce61b8754053eb0300fa9add22175b0846db76d372738a67'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABACXW2p81GyFOU16pV8j9/8t6abdjoqu3jhiTKMcb3jY1BCAQpISelIHSppM
+        bbvgydzb5URjomkZNqHnTW6TcgAQ==
+        -----END SSH SIGNATURE-----
