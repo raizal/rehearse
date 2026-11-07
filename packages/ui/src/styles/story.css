@@ -485,6 +485,22 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .thread-none .thread-link { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; margin-bottom: var(--s-3); font-size: var(--fs-sm); }
 .thread-none .thread-link input { flex: 1; min-width: 120px; min-height: 28px; padding: var(--s-1) var(--s-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
 .thread-none .thread-link input[aria-invalid='true'] { border-color: var(--warn); }
+/* T44: the plan-changed notice and the progress block (above the messages). */
+.thread-plan-changed { padding: var(--s-3) var(--s-5); border-bottom: 1px solid var(--line); background: var(--note-tint, var(--subtle)); font-size: var(--fs-sm); }
+.thread-plan-changed p { margin: 0 0 var(--s-1); color: var(--ink); }
+.thread-plan-changed ul { margin: 0 0 var(--s-2); padding-left: var(--s-5); color: var(--muted); overflow-wrap: anywhere; }
+.story-progress { max-height: 40%; overflow: auto; padding: var(--s-3) var(--s-5); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.story-progress h3 { margin: 0; font-size: var(--fs-2xs); font-weight: var(--fw-bold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.story-progress p { margin: 2px 0 var(--s-2); }
+.progress-summary { font-weight: var(--fw-semibold); color: var(--ink); }
+.progress-rows { list-style: none; margin: 0 0 var(--s-2); padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.progress-row { display: grid; grid-template-columns: 16px minmax(0, auto) minmax(0, 1fr) auto; gap: var(--s-2); align-items: baseline; }
+.progress-mark { color: var(--faint); }
+.progress-row.is-done .progress-mark, .progress-row.is-passing .progress-mark { color: var(--ok); }
+.progress-row.is-failing .progress-mark { color: var(--warn); }
+.progress-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progress-state { color: var(--muted); overflow-wrap: anywhere; }
+.progress-gate { margin: 0 0 var(--s-2); padding-left: var(--s-5); color: var(--muted); }
 .thread-toast-row { grid-column: 1 / -1; grid-row: 2; }
 .thread-toast-row:empty { display: none; }
 .thread-toast { display: block; width: 100%; padding: var(--s-2) var(--s-4); border: 0; border-top: 2px solid var(--accent); background: var(--builder-tint); text-align: left; }
@@ -507,6 +523,10 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .story-link:hover { color: var(--ink); }
 .how-also { margin: 2px 0 0 calc(88px + var(--s-2)); font-size: var(--fs-xs); color: var(--muted); }
 .storyboard.is-list .card-wrap { max-width: 760px; }
+.story-list-rows.has-progress .queue-story { grid-template-columns: 40px minmax(0, 1fr) auto; }
+.queue-build { grid-column: 3; grid-row: 1 / span 2; align-self: center; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+.queue-build .is-done { color: var(--ok); font-weight: var(--fw-semibold); }
+.queue-build-thread { font-size: var(--fs-xs); }
 .story-list-rows { list-style: none; margin: var(--s-4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
 /* The sign-off state of the story and the link to its sign-off preview (T39). */
 .signoff-state.is-signed { background: var(--ok-tint); color: var(--ok); border-color: transparent; }

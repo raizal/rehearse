@@ -4,7 +4,7 @@
 // calls go to the same server, which talks to the player on 127.0.0.1 (T13).
 
 import type { Finding, Id } from '@rehearse/core';
-import type { SignOffPreview, StoryThreadView } from '@rehearse/server';
+import type { SignOffPreview, StoryProgress, StoryThreadView } from '@rehearse/server';
 import type { ApproveOk, PostOutcome, ReviewEpicView, SignOffOk } from './contract.js';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
@@ -87,16 +87,32 @@ export type { StoryThreadView } from '@rehearse/server';
 /** A story-thread answer: the view, or an error in words. */
 export type ThreadOutcome<T> = { kind: 'ok'; body: T } | { kind: 'error'; status: number; message: string };
 
-export type StoryThreadAction = 'link' | 'start' | 'send' | 'open';
+export type StoryThreadAction = 'link' | 'start' | 'build' | 'send-change' | 'send' | 'open';
 
 /** `GET api/story-thread?story=`. Needs the session token, like every story-thread route. */
 export function fetchStoryThread(story: Id, client: SessionClient = sessionClient): Promise<ThreadOutcome<StoryThreadView>> {
   return threadCall<StoryThreadView>(client, `api/story-thread?story=${encodeURIComponent(story)}`);
 }
 
-/** `POST api/story-thread/<action>`. link: { threadId }, send: { text, context }, start and open: nothing more. */
+/** `POST api/story-thread/<action>`. link: { threadId }, send: { text, context }; start, build, send-change and open: nothing more. */
 export function postStoryThread<T = StoryThreadView>(action: StoryThreadAction, body: { story: Id } & Record<string, string>, client: SessionClient = sessionClient): Promise<ThreadOutcome<T>> {
   return threadCall<T>(client, `api/story-thread/${action}`, body);
+}
+
+export type { StoryProgress } from '@rehearse/server';
+
+const NO_PROGRESS = 'this rehearse serve has no progress API; update rehearse';
+
+/** `GET api/story-progress?story=` (T44): what rehearse sees of the work on one story. */
+export async function fetchStoryProgress(story: Id, client: SessionClient = sessionClient): Promise<ThreadOutcome<StoryProgress>> {
+  const r = await threadCall<{ progress: StoryProgress }>(client, `api/story-progress?story=${encodeURIComponent(story)}`, undefined, NO_PROGRESS);
+  return r.kind === 'ok' ? { kind: 'ok', body: r.body.progress } : r;
+}
+
+/** `GET api/story-progress` (T44): the progress of every story, for the Stories overview. */
+export async function fetchAllProgress(client: SessionClient = sessionClient): Promise<ThreadOutcome<StoryProgress[]>> {
+  const r = await threadCall<{ stories: StoryProgress[] }>(client, 'api/story-progress', undefined, NO_PROGRESS);
+  return r.kind === 'ok' ? { kind: 'ok', body: r.body.stories } : r;
 }
 
 export type { SignOffPreview, SinceSignOff, StorySignOffPreview } from '@rehearse/server';

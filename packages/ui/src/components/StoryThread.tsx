@@ -4,10 +4,14 @@
 // to a 56 px strip for every story (localStorage); `]` toggles it. Without bb it says so in
 // words and shows the thread id only. All talk goes through `rehearse serve` (api.ts), with the
 // token of the shared session client (T24).
+// T44: a signed story that is not stale starts a build thread from its build brief ("Build with
+// an agent"); otherwise the panel says why and offers a question thread. When the plan changes
+// after the thread started, a notice lists what changed and sends it. The progress block shows
+// what rehearse sees of the work.
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { Id } from '@rehearse/core';
-import { fetchStoryThread, postStoryThread, type StoryThreadAction, type StoryThreadView, type ThreadOutcome } from '../api.js';
+import { fetchStoryProgress, fetchStoryThread, postStoryThread, type StoryProgress, type StoryThreadAction, type StoryThreadView, type ThreadOutcome } from '../api.js';
 import {
   browserLocalStorage,
   isToggleKey,
@@ -29,14 +33,17 @@ import {
   type ReadMarks,
 } from '../model/storythread.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
+import { StoryProgressBlock } from './StoryProgress.js';
 
 /** The server calls, replaceable in tests. */
 export interface StoryThreadApi {
   load: (story: Id) => Promise<ThreadOutcome<StoryThreadView>>;
   post: (action: StoryThreadAction, body: { story: Id } & Record<string, string>) => Promise<ThreadOutcome<unknown>>;
+  /** The progress block (T44); without it the panel shows none. */
+  progress?: (story: Id) => Promise<ThreadOutcome<StoryProgress>>;
 }
 
-const HTTP: StoryThreadApi = { load: (story) => fetchStoryThread(story), post: (action, body) => postStoryThread(action, body) };
+const HTTP: StoryThreadApi = { load: (story) => fetchStoryThread(story), post: (action, body) => postStoryThread(action, body), progress: (story) => fetchStoryProgress(story) };
 
 export interface StoryThreadProps {
   storyId: Id;
@@ -57,7 +64,10 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
   const [busy, setBusy] = useState<StoryThreadAction | undefined>();
   const [actionError, setActionError] = useState<string | undefined>();
   const [draft, setDraft] = useState('');
+  const [progress, setProgress] = useState<StoryProgress | undefined>();
   const known = useRef<{ thread: string | null; seq: number } | undefined>(undefined);
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
   const panelId = useId();
 
   const setCollapsed = useCallback(
@@ -87,6 +97,7 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
     setData({ kind: 'loading' });
     setActionError(undefined);
     setToast(undefined);
+    setProgress(undefined);
     known.current = undefined;
   }, [storyId]);
 
@@ -105,11 +116,18 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
     if (id) setMarks((m) => (m[id] === undefined ? { ...m, [id]: seq } : m));
   }, []);
 
+  const loadProgress = useCallback(async () => {
+    if (!api.progress) return;
+    const p = await api.progress(storyId);
+    // An older serve has no progress route: no block, and no error either.
+    if (p.kind === 'ok') setProgress(p.body);
+  }, [api, storyId]);
+
   const refresh = useCallback(async () => {
-    const r = await api.load(storyId);
+    const [r] = await Promise.all([api.load(storyId), collapsedRef.current ? undefined : loadProgress()]);
     if (r.kind === 'ok') accept(r.body);
     else setData((old) => (old.kind === 'ok' ? old : { kind: 'error', message: r.message }));
-  }, [api, storyId, accept]);
+  }, [api, storyId, accept, loadProgress]);
 
   // Poll: often while open, slower while collapsed (for the unread count and the toast).
   useEffect(() => {
@@ -157,6 +175,7 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
       return false;
     }
     if (action !== 'open') accept(r.body as StoryThreadView);
+    if (action === 'build' || action === 'send-change') void loadProgress();
     return true;
   };
 
@@ -223,6 +242,8 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
       </header>
 
       {view && <Brief view={view} />}
+      {view?.planChanged && <PlanChanged changes={view.planChanged.changes} busy={busy} canSend={Boolean(bb?.ok)} onSend={() => void act('send-change')} />}
+      {progress && <StoryProgressBlock progress={progress} now={now()} />}
       {data.kind === 'loading' && <p className="muted small thread-pad">Loading the story thread…</p>}
       {data.kind === 'error' &&
         (isServerRestarted(data.message) ? (
@@ -233,7 +254,7 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
           </p>
         ))}
 
-      {view && !threadId && <NoThread busy={busy} onLink={(id) => void act('link', { threadId: id })} onStart={() => void act('start')} />}
+      {view && !threadId && <NoThread build={view.build} busy={busy} onLink={(id) => void act('link', { threadId: id })} onStart={() => void act('start')} onBuild={() => void act('build')} />}
       {view && threadId && bb && !bb.ok && (
         <p className="warn thread-pad" data-testid="story-thread-no-bb">
           bb is not available, so the thread cannot be shown here: {bb.error}. The thread of this story is <code>{threadId}</code>.
@@ -296,7 +317,19 @@ function Brief({ view }: { view: StoryThreadView }) {
       <p className="thread-brief-title">
         {brief.storyId} · {brief.want}
       </p>
-      <p className="muted small">One thread per story. It starts with the story brief:</p>
+      {view.link?.kind === 'build' ? (
+        <p className="muted small" data-testid="story-thread-link-info">
+          A build thread: it started from the build brief{view.link.at ? ` on ${view.link.at.slice(0, 16).replace('T', ' ')}` : ''}
+          {view.link.hash ? (
+            <>
+              , plan <code title={view.link.hash}>{view.link.hash.slice(7, 19)}</code>
+            </>
+          ) : null}
+          .
+        </p>
+      ) : (
+        <p className="muted small">One thread per story. It starts with the story brief:</p>
+      )}
       <ul className="chips" aria-label="Story brief">
         <li className="chip">{brief.storyId}</li>
         {brief.boxes.map((b) => (
@@ -340,15 +373,30 @@ function Messages({ view, now }: { view: StoryThreadView; now: number }) {
   );
 }
 
-function NoThread({ busy, onLink, onStart }: { busy: StoryThreadAction | undefined; onLink: (id: string) => void; onStart: () => void }) {
+function NoThread({ build, busy, onLink, onStart, onBuild }: { build: StoryThreadView['build'] | undefined; busy: StoryThreadAction | undefined; onLink: (id: string) => void; onStart: () => void; onBuild: () => void }) {
   const [text, setText] = useState('');
   const id = threadIdOf(text);
   const inputId = useId();
+  const buildable = build?.buildable === true;
   return (
     <div className="thread-none thread-pad" data-testid="story-thread-none">
       <p>
         <strong>No thread for this story</strong>
       </p>
+      {buildable ? (
+        <>
+          <p className="small muted">The story is signed off. bb starts a thread in a new worktree on this branch, with the build brief: the story, its approved scenarios, boxes and how to work.</p>
+          <button type="button" className="action primary" data-testid="story-thread-build" disabled={busy !== undefined} onClick={onBuild}>
+            {busy === 'build' ? 'Starting…' : 'Build with an agent'}
+          </button>
+        </>
+      ) : (
+        build?.refusal && (
+          <p className="small warn" data-testid="story-thread-refusal">
+            Not ready to build: {build.refusal}. Ask about it in a question thread first.
+          </p>
+        )
+      )}
       <form
         className="thread-link"
         onSubmit={(e) => {
@@ -365,9 +413,29 @@ function NoThread({ busy, onLink, onStart }: { busy: StoryThreadAction | undefin
         </button>
       </form>
       {text.trim() !== '' && !id && <p className="small warn">A thread id looks like thr_abc123.</p>}
-      <p className="small muted">Or start one: bb spawns a thread with the story brief as its first message.</p>
-      <button type="button" className="action primary" data-testid="story-thread-start" disabled={busy !== undefined} onClick={onStart}>
-        {busy === 'start' ? 'Starting…' : 'Start a thread'}
+      <p className="small muted">Or start a question thread: bb spawns a thread with the short story brief as its first message.</p>
+      <button type="button" className={buildable ? 'action' : 'action primary'} data-testid="story-thread-start" disabled={busy !== undefined} onClick={onStart}>
+        {busy === 'start' ? 'Starting…' : 'Start a question thread'}
+      </button>
+    </div>
+  );
+}
+
+function PlanChanged({ changes, busy, canSend, onSend }: { changes: string[]; busy: StoryThreadAction | undefined; canSend: boolean; onSend: () => void }) {
+  const shown = changes.slice(0, 8);
+  return (
+    <div className="thread-plan-changed thread-pad" role="status" data-testid="story-thread-plan-changed">
+      <p>
+        <strong>The plan changed since this thread started.</strong>
+      </p>
+      <ul className="small">
+        {shown.map((c, i) => (
+          <li key={i}>{c}</li>
+        ))}
+        {changes.length > shown.length && <li className="muted">and {changes.length - shown.length} more</li>}
+      </ul>
+      <button type="button" className="action primary" data-testid="story-thread-send-change" disabled={!canSend || busy !== undefined} onClick={onSend}>
+        {busy === 'send-change' ? 'Sending…' : 'Send the change'}
       </button>
     </div>
   );

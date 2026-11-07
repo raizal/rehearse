@@ -31,6 +31,8 @@ export interface MockRoutes {
   signOffPreview?: (storyIds: string[]) => Reply;
   /** `GET api/graph?verb=…` (T36, T40). */
   graph?: (query: URLSearchParams) => Reply;
+  /** `GET api/story-progress` and `?story=` (T44). */
+  progress?: (storyId: string | null) => Reply;
 }
 
 export const SESSION: Session = {
@@ -62,6 +64,10 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     }
     if (url.startsWith('api/graph?') && method === 'GET') {
       return respond(routes.graph?.(new URLSearchParams(url.slice('api/graph?'.length))) ?? { status: 404, body: { ok: false, error: 'no route' } });
+    }
+    if ((url === 'api/story-progress' || url.startsWith('api/story-progress?story=')) && method === 'GET' && routes.progress) {
+      const story = url.includes('?story=') ? decodeURIComponent(url.split('?story=')[1]!) : null;
+      return respond(routes.progress(story));
     }
     if (url === 'api/birdview/action' && method === 'POST') return respond(routes.birdviewAction?.(body) ?? { status: 404, body: { error: 'no route' } });
     if (url === 'api/sign-off' && method === 'POST') return respond(routes.signOff?.(body) ?? { status: 500, body: { error: 'no route' } });
