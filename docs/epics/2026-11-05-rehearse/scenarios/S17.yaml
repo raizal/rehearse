@@ -1,0 +1,135 @@
+story: S17
+scenarios:
+  - id: S17-index
+    title: The design index lists each file's pages and top-level frames with their pictures
+    status: draft
+    steps:
+      - { name: design-tab }
+      - name: design-index
+        example: { id: review-file, given: { storyId: S12 }, then: { storyId: S12, files: [ design/rehearse-review.figcraft ], findings: [] } }
+      - { name: design-tab }
+    expect: { criterion: S17-A1, state: { pages: 15, framesPerPage: 1, pictureFallback: file thumbnail, tooLarge: finding } }
+
+  - id: S17-pick
+    title: Link a design picks a file, a page and a frame, and one click links it
+    status: draft
+    steps:
+      - { name: design-tab }
+      - { name: design-index }
+      - name: link-design
+        example: { id: pick-frame, given: { epic: 2026-11-05-rehearse, storyId: S12, file: design/rehearse-review.figcraft, page: 14, frame: Story tests }, then: { storyId: S12, link: "design/rehearse-review.figcraft page 14 frame Story tests" } }
+      - { name: design-tab }
+    expect: { criterion: S17-A2, state: { linksYamlCommentsKept: true, changeAndUnlink: true } }
+
+  - id: S17-file-not-in-design
+    title: A file outside design/ or not in the index is refused and nothing is written
+    status: draft
+    steps:
+      - { name: design-tab }
+      - { name: design-index }
+      - name: link-design
+        branch: "file not in design/"
+        example: { id: outside, given: { epic: 2026-11-05-rehearse, storyId: S12, file: ../secret.figcraft, page: 1 }, then: { exit: file not in design/ } }
+      - { name: design-tab }
+    expect: { criterion: S17-A2, state: { status: 400, linksYamlWritten: false } }
+
+  - id: S17-suggest
+    title: An unlinked story shows the top 3 suggested pages and frames with their reason
+    status: draft
+    steps:
+      - { name: design-tab }
+      - { name: design-index }
+      - name: suggest-design
+        example: { id: tests-story, given: { storyId: S9 }, then: { storyId: S9, suggestions: [ "User flow, frame Builder reviews and signs (matches: review, sign)" ] } }
+      - { name: link-design }
+      - { name: design-tab }
+    expect: { criterion: S17-A3, state: { shown: 3, linkedByThemselves: false } }
+
+  - id: S17-frame-tag
+    title: A frame named [S17] links the story by itself; a links.yaml entry wins over it
+    status: draft
+    steps:
+      - { name: design-tab }
+      - { name: design-index }
+      - name: frame-tag-links
+        example: { id: tagged, given: { files: [ design/rehearse-review.figcraft ] }, then: { storyId: S17, links: [ "[S17] Link a design" ], findings: [] } }
+      - { name: design-tab }
+    expect: { criterion: S17-A4, state: { source: frame name, linksYamlWins: true, winsOverSuggestion: true } }
+
+  - id: S17-tag-findings
+    title: validate stays OK when every frame tag names a story or box that exists
+    status: draft
+    steps:
+      - { name: validate/report }
+      - { name: design-index }
+      - name: frame-tag-links
+        example: { id: good-tags, given: { files: [ design/rehearse-review.figcraft ] }, then: { links: [ "[S17/link-design] Picker" ], findings: [] } }
+      - { name: valid }
+    expect: { criterion: S17-A5, state: { validate: OK } }
+
+  - id: S17-unknown-story-in-tag
+    title: A tag naming a story or box that does not exist is a finding and links nothing
+    status: draft
+    steps:
+      - { name: validate/report }
+      - { name: design-index }
+      - name: frame-tag-links
+        branch: "unknown story in tag"
+        example: { id: no-such-story, given: { files: [ design/rehearse-review.figcraft ] }, then: { exit: unknown story in tag, finding: "frame \"[S99] Old\" names S99, which is not a story of any EPIC" } }
+      - { name: draft-record }
+    expect: { criterion: S17-A5, state: { findings: 1, crash: false, linked: false } }
+
+  - id: S17-refresh
+    title: Refresh pictures renders the linked frames of the active tab and says what it wrote
+    status: draft
+    steps:
+      - { name: design-tab }
+      - name: refresh-design-pictures
+        example: { id: active, given: { storyId: S12 }, then: { storyId: S12, wrote: [ design/14-story-tests.png ] } }
+      - { name: design-tab }
+    expect: { criterion: S17-A6, state: { commandsSent: [ doc.list, ui.render ], documentChanged: false } }
+
+  - id: S17-figcraft-not-running
+    title: FigCraft not running says to open the file in FigCraft, and nothing is written
+    status: draft
+    steps:
+      - { name: design-tab }
+      - name: refresh-design-pictures
+        branch: "FigCraft not running"
+        example: { id: closed-port, given: { storyId: S12 }, then: { exit: FigCraft not running, text: "Open the file in FigCraft (port 4800) to refresh pictures" } }
+      - { name: design-tab }
+    expect: { criterion: S17-A6, state: { status: 503, filesWritten: 0 } }
+
+  - id: S17-not-active-tab
+    title: Another active tab in FigCraft is said, and nothing is rendered
+    status: draft
+    steps:
+      - { name: design-tab }
+      - name: refresh-design-pictures
+        branch: "file not the active tab"
+        example: { id: other-tab, given: { storyId: S12 }, then: { exit: file not the active tab, text: "design/rehearse-review.figcraft is not the active tab in FigCraft" } }
+      - { name: design-tab }
+    expect: { criterion: S17-A6, state: { status: 409, renderSent: false } }
+
+  - id: S17-brief-line
+    title: The build brief and the skill say how a new frame links itself
+    status: draft
+    steps:
+      - { name: start-build }
+      - { name: design-index }
+      - { name: frame-tag-links }
+      - name: design-brief
+        example: { id: tag-line, given: { storyId: S17 }, then: { storyId: S17, section: "If you design a new screen in FigCraft, name its top frame `[<story id>] <what it shows>` so it links itself." } }
+      - { name: build-brief }
+    expect: { criterion: S17-A7, state: { skillSaysIt: true, skillNamesSuggest: true } }
+
+  - id: S17-cli-suggest
+    title: rehearse design suggest lists the suggestions of every unlinked story and writes nothing
+    status: draft
+    steps:
+      - { name: draft-record }
+      - { name: design-index }
+      - name: suggest-design
+        example: { id: cli, given: { files: [ design/rehearse-review.figcraft ] }, then: { suggestions: [ "S14: 12 Story before after (matches: before, after)" ] } }
+      - { name: design-tab }
+    expect: { criterion: S17-A8, state: { exitCode: 0, filesWritten: 0, noDesignFileExit: 1, usageExit: 2 } }

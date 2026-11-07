@@ -2,8 +2,8 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { EpicRecord, Finding } from '../types.js';
-import { checkDesignLinks, DESIGN_LINKS_FILE, parseDesignLinks, type DesignLinks } from './links.js';
+import type { Finding } from '../types.js';
+import { DESIGN_LINKS_FILE, parseDesignLinks, type DesignLinks } from './links.js';
 
 /** The git top-level above a folder (the folder holding `.git`), else the folder two above it (docs/epics/<slug> → repo). */
 export function repoTopOf(dir: string): string {
@@ -29,11 +29,4 @@ export function fileExistsIn(top: string): (path: string) => boolean {
       return false;
     }
   };
-}
-
-/** Every finding of the repo's links that concerns this EPIC: parse findings, and bad links of its stories. */
-export function designLinkFindings(record: EpicRecord, top: string): Finding[] {
-  const { links, findings } = readDesignLinks(top);
-  const mine = findings.filter((f) => f.path === '' || f.path.startsWith('line ') || f.path === `epics.${record.slug}` || f.path.startsWith(`epics.${record.slug}.`));
-  return [...mine, ...checkDesignLinks(links, record, fileExistsIn(top))];
 }

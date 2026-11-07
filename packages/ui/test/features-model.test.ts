@@ -212,6 +212,12 @@ describe('big picture (S4-A4)', () => {
       { from: 'design-links', to: 'draft-record', back: true },
       { from: 'host-figcraft', to: 'design-tab', back: true },
       { from: 'save-design', to: 'design-tab', back: true },
+      // T51 (S17): the index, a suggestion, a link and a frame tag come back to the Design tab; a bad tag goes back to the record.
+      { from: 'design-index', to: 'design-tab', back: true },
+      { from: 'suggest-design', to: 'design-tab', back: true },
+      { from: 'link-design', to: 'design-tab', back: true },
+      { from: 'frame-tag-links', to: 'design-tab', back: true },
+      { from: 'frame-tag-links', to: 'draft-record', back: true },
       { from: 'build-brief', to: 'watch-build', back: true },
       // T45 (S12): the Tests tab goes back to review; a play or a switch comes back to the tab.
       { from: 'story-playlist', to: 'review', back: true },
@@ -231,8 +237,10 @@ describe('big picture (S4-A4)', () => {
       { from: 'test-brief', to: 'test-rows', back: true },
       // T48 (S14): the test brief's work rules come back to the panel.
       { from: 'test-brief', to: 'work-rules', back: true },
+      // T51 (S17): refreshed pictures come back to the Design tab.
+      { from: 'refresh-design-pictures', to: 'design-tab', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 16, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 17, processes: main.length });
   });
 });
 

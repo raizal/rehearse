@@ -43,6 +43,10 @@ export interface MockRoutes {
   designFile?: (file: string) => { status: number; bytes: Uint8Array };
   /** `POST api/design/save` (T50). */
   designSave?: (body: { file: string; bytes: string }) => Reply;
+  /** `POST api/design/link` (T51). */
+  designLink?: (body: Record<string, unknown>) => Reply;
+  /** `POST api/design/refresh` (T51). */
+  designRefresh?: (body: { story: string }) => Reply;
   /** `POST api/figcraft/fetch` (T50). */
   figcraftFetch?: () => Reply;
 }
@@ -98,6 +102,8 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
       return { ok: status >= 200 && status < 300, status, arrayBuffer: async () => buffer, json: async () => JSON.parse('not json') } as unknown as Response;
     }
     if (url === 'api/design/save' && method === 'POST' && routes.designSave) return respond(routes.designSave(body));
+    if (url === 'api/design/link' && method === 'POST' && routes.designLink) return respond(routes.designLink(body));
+    if (url === 'api/design/refresh' && method === 'POST' && routes.designRefresh) return respond(routes.designRefresh(body));
     if (url === 'api/figcraft/fetch' && method === 'POST' && routes.figcraftFetch) return respond(routes.figcraftFetch());
     if (url === 'api/sign-off' && method === 'POST') return respond(routes.signOff?.(body) ?? { status: 500, body: { error: 'no route' } });
     return respond({ status: 404, body: { error: `no endpoint ${url}` } });

@@ -15,7 +15,7 @@
 
 import { existsSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
-import { briefBoxPaths, decisionTexts, loadEpic, readDesignLinks, repoCommands, storyBuildBrief, storyDesignLinks, testBriefBoxPaths, type EpicRecord, type StoryDesignLinks } from '@rehearse/core';
+import { briefBoxPaths, decisionTexts, loadEpic, repoCommands, storyBriefDesign, storyBuildBrief, testBriefBoxPaths, type EpicRecord, type StoryDesignLinks } from '@rehearse/core';
 import { findTestProject, gatherBriefCode, openGraphAccess, repoRoot, storyTestBrief, testsNeeded, type BriefCode } from '@rehearse/server';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
 
@@ -58,7 +58,7 @@ export async function runBrief(args: string[], io: Io): Promise<number> {
     const { record } = loadEpic(dir);
     const top = repoTop(dir);
     code = await briefCode(dir, record, briefBoxPaths(record, storyId), findTestProject(dir));
-    design = storyDesignLinks(readDesignLinks(top).links, record.slug, storyId);
+    design = storyBriefDesign(top, record, storyId);
     made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(top), design });
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
