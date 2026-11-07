@@ -108,6 +108,8 @@ describe('plain words', () => {
   it('plain() drops code marks and ids', () => {
     expect(plain('the `rehearse gate` of story S3 (D12, C3), see S3-A1 and R4.')).toBe('the rehearse gate of another story, see a criterion and.');
     expect(plain('stories S1 and S2 wait')).toBe('other stories wait');
+    // A dot that starts a name keeps its space; a dot after a dropped id does not.
+    expect(plain('a repo with no `.venv`, then `.rehearse/graph.db` (S4) .')).toBe('a repo with no .venv, then .rehearse/graph.db.');
   });
 
   it('plainWordProblems finds ids, YAML keys, box paths and code marks', () => {
@@ -153,11 +155,56 @@ describe('honesty', () => {
     const record = loadEpic(REAL_EPIC).record;
     // The first approved scenario of the first EPIC, failing.
     const approved = record.scenarioFiles.flatMap((f) => f.scenarios).find((s) => s.approval);
-    if (!approved) return;
+    expect(approved).toBeDefined();
+    if (!approved) throw new Error('the real EPIC has an approved scenario');
     const deck = presentationDeck(record, facts(record, { stories: { [approved.story]: { built: 0, tests: { [approved.id]: 'failed' } } } }), NO_INPUTS);
     const html = deckHtml(deck);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'risks')!.blocks)).toMatch(/e2e test fails/);
     expect(html).toMatch(/failing/);
+  });
+
+  it('progress says what finished means; a story with nothing approved never reads "0 of 0"', () => {
+    const deck = presentationDeck(real, facts(real), NO_INPUTS);
+    const progress = deck.slides.find((s) => s.key === 'progress')!;
+    expect(progress.narration).toMatch(/finished \(signed off, built, and every approved scenario passing its e2e test\)/);
+    const s18 = deck.slides.find((s) => s.key === 'S18')!;
+    expect(JSON.stringify(s18.blocks)).toMatch(/no approved scenario yet/);
+    expect(JSON.stringify(deck.slides)).not.toMatch(/0 of 0 approved/);
+    expect(deck.slides.find((s) => s.key === 'S18-checks')!.narration).toMatch(/all waiting for approval, so none is tested yet/);
+  });
+
+  it('written tests not run and tests not written both show in the progress cell', () => {
+    const record = loadEpic(REAL_EPIC).record;
+    const ids = record.scenarioFiles.flatMap((f) => f.scenarios).filter((s) => s.story === 'S1' && s.approval).map((s) => s.id);
+    expect(ids.length).toBeGreaterThan(1);
+    const deck = presentationDeck(record, facts(record, { stories: { S1: { built: 1, tests: { [ids[0]!]: 'not-run' } } } }), NO_INPUTS);
+    const rows = deck.slides.find((s) => s.key === 'progress')!.blocks.find((b) => b.type === 'progress');
+    const s1 = rows?.type === 'progress' ? rows.rows.find((r) => r.id === 'S1') : undefined;
+    expect(s1?.steps[3]!.note).toBe(`${ids.length - 1} not written, 1 not run`);
+  });
+
+  it('a path no approved scenario walks reads as a gap, apart from other rehearsal findings; story ids in order', () => {
+    const record = shop();
+    const gate = {
+      ok: false,
+      items: [
+        { check: 'sim-clean', message: 'error exit x of b (to c): no approved scenario takes it', stories: ['S2'] },
+        { check: 'sim-clean', message: 'error exit y of a (to c): no approved scenario takes it', stories: ['S1'] },
+        { check: 'sim-clean', message: 'state change not permitted', stories: ['S1'] },
+      ],
+    };
+    const quality = presentationDeck(record, facts(record, { gate }), NO_INPUTS).slides.find((s) => s.key === 'quality')!;
+    const list = quality.blocks.find((b) => b.type === 'list');
+    expect(list?.type === 'list' && list.items.map((i) => [i.text, i.id])).toEqual([
+      ['2 items: a path, often an error case, that no approved scenario walks yet (2 stories)', 'S1 S2'],
+      ['1 item: the rehearsal found a problem (1 story)', 'S1'],
+    ]);
+  });
+
+  it('the big picture has the legend of its marks', () => {
+    const html = deckHtml(presentationDeck(real, facts(real), NO_INPUTS));
+    const map = html.slice(html.indexOf('data-key="big-picture"'), html.indexOf('data-key="progress"'));
+    expect(map).toMatch(/class="legend"/);
   });
 
   it('test results that were not read say so on the quality slide', () => {

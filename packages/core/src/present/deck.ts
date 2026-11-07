@@ -142,12 +142,14 @@ export const GLOSSARY: { term: string; meaning: string }[] = [
   { term: 'Approval', meaning: 'The owner reads a scenario and approves it. Only approved scenarios count as proof.' },
   { term: 'Sign-off', meaning: 'The owner agrees that a story, its plan and its scenarios are right. Agents may build only signed-off stories.' },
   { term: 'E2E test', meaning: 'An end-to-end test: a program that uses the product the way a person would, for one scenario, and passes or fails.' },
+  { term: 'Part', meaning: 'One step of the plan, such as a screen, a check or a command. A part counts as built when a commit says it builds that part.' },
   { term: 'Gate', meaning: 'The final check before the work counts as done: everything traced, rehearsed without problems, unchanged since sign-off and signed off.' },
 ];
 
 const GATE_WORDS: Record<string, string> = {
   traced: 'not yet proven by an approved scenario',
   'sim-clean': 'the rehearsal found a problem',
+  'sim-uncovered': 'a path, often an error case, that no approved scenario walks yet',
   'no-stale': 'changed since it was approved or signed off',
   'signed-off': 'not signed off yet',
   signature: 'a signature that cannot be checked',
@@ -219,7 +221,7 @@ function storyView(record: EpicRecord, facts: DeckFacts, story: Story): StoryVie
   else if (tests.passed === approved) tested = { state: 'done', note: `all ${approved} pass` };
   else if (tests.passed > 0) tested = { state: 'partly', note: `${tests.passed} of ${approved} pass` };
   else if (tests['not-written'] === approved) tested = { state: 'not-yet', note: 'no tests yet' };
-  else tested = { state: 'not-yet', note: tests['not-written'] > 0 ? `${tests['not-written']} not written` : 'not run' };
+  else tested = { state: 'not-yet', note: [tests['not-written'] > 0 ? `${tests['not-written']} not written` : '', tests['not-run'] > 0 ? `${tests['not-run']} not run` : ''].filter(Boolean).join(', ') };
   let signed: ProgressStep;
   if (sign?.buildable) signed = { state: 'done', note: day(sign.at) };
   else if (sign?.status === 'stale') signed = { state: 'partly', note: 'changed since', alarm: true };
@@ -256,7 +258,7 @@ function statusLine(v: StoryView): string {
   if (v.scenarios.length === 0) parts.push('no scenarios yet');
   else {
     const t = v.tests;
-    const bits = [`${t.passed} of ${v.approved} approved ${v.approved === 1 ? 'scenario' : 'scenarios'} tested and passing`];
+    const bits = [v.approved === 0 ? 'no approved scenario yet' : `${t.passed} of ${v.approved} approved ${v.approved === 1 ? 'scenario' : 'scenarios'} tested and passing`];
     if (t.failed > 0) bits.push(`${t.failed} failing`);
     if (waiting > 0) bits.push(`${waiting} waiting for approval`);
     parts.push(bits.join(', '));
@@ -307,8 +309,10 @@ function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInput
   const t = v.tests;
   const made2 =
     `The drawing follows one scenario, "${cap(plain(pick.s.title))}", step by step, in the lane of who does each step. ` +
-    `We checked ${plural(rows.length, 'scenario')}: ${v.approved} approved, ${t.passed} passing ${t.passed === 1 ? 'its' : 'their'} e2e test` +
-    `${t.failed > 0 ? `, ${t.failed} failing` : ''}${t['not-written'] > 0 ? `, ${t['not-written']} without a test yet` : ''}${t['not-run'] > 0 ? `, ${t['not-run']} not run` : ''}.`;
+    (v.approved === 0
+      ? `This story has ${plural(rows.length, 'scenario')}, all waiting for approval, so none is tested yet.`
+      : `We checked ${plural(rows.length, 'scenario')}: ${v.approved} approved, ${t.passed} passing ${t.passed === 1 ? 'its' : 'their'} e2e test` +
+    `${t.failed > 0 ? `, ${t.failed} failing` : ''}${t['not-written'] > 0 ? `, ${t['not-written']} without a test yet` : ''}${t['not-run'] > 0 ? `, ${t['not-run']} not run` : ''}.`);
   const [head, ...rest] = [rows.slice(0, 4), ...chunks(rows.slice(4), 7)];
   slides.push({
     key: `${id}-checks`,
@@ -412,7 +416,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   slides.push({
     key: 'big-picture',
     title: 'The big picture',
-    narration: narrate(inputs, 'big-picture', mapNarr),
+    narration: narrate(inputs, 'big-picture', `${mapNarr} A full circle is a finished story, a half circle one with work left.`),
     ids: [],
     blocks: [{ type: 'map', columns }, ...(hiddenNote ? [{ type: 'text' as const, text: hiddenNote, tone: 'muted' as const }] : [])],
   });
@@ -420,7 +424,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   // 4. Progress
   const rows: ProgressRow[] = shown.map((v) => ({ id: v.story.id, title: v.title, steps: v.steps }));
   const finished = shown.filter((v) => overall(v) === 'done').length;
-  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} finished; ${signed} signed off, ${passing} of ${approved} approved scenarios passing their test${failing > 0 ? `, ${failing} failing` : ''}.`;
+  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} finished (signed off, built, and every approved scenario passing its e2e test). ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
   slides.push({
     key: 'progress',
     title: 'Progress, story by story',
@@ -444,15 +448,18 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   ];
   if (facts.coverage !== undefined) stats.push({ value: `${facts.coverage}%`, label: 'of the code is run by unit tests' });
   const byCheck = new Map<string, Set<string>>();
+  // A rehearsal finding that only says no approved scenario walks a path reads as a gap, not a problem.
+  const kindOf = (g: GateFact): string => (g.check === 'sim-clean' && /no approved scenario|only by drafts/.test(g.message) ? 'sim-uncovered' : g.check);
   for (const g of facts.gate.items) {
-    const set = byCheck.get(g.check) ?? new Set<string>();
+    const set = byCheck.get(kindOf(g)) ?? new Set<string>();
     for (const s of g.stories) set.add(s);
     if (g.stories.length === 0) set.add('');
-    byCheck.set(g.check, set);
+    byCheck.set(kindOf(g), set);
   }
+  const byNumber = (a: string, b: string): number => a.localeCompare(b, 'en', { numeric: true });
   const gateList: ListItem[] = [...byCheck.entries()].map(([check, stories]) => {
-    const ids = [...stories].filter(Boolean);
-    const count = facts.gate.items.filter((g) => g.check === check).length;
+    const ids = [...stories].filter(Boolean).sort(byNumber);
+    const count = facts.gate.items.filter((g) => kindOf(g) === check).length;
     return { text: `${plural(count, 'item')}: ${GATE_WORDS[check] ?? check}${ids.length > 0 ? ` (${plural(ids.length, 'story', 'stories')})` : ''}`, id: ids.join(' '), mark: 'not-yet' as const };
   });
   const gateText = facts.gate.ok ? 'The gate passes: the final check finds nothing open.' : `The gate does not pass yet: ${plural(facts.gate.items.length, 'open item')}.`;

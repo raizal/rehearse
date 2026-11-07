@@ -172,7 +172,7 @@ function block(b: Block, assets: DeckAssets): string {
         .map((r) => `<tr><td>${esc(r.title)} <span class="id">${esc(r.id)}</span></td>${r.steps.map(step).join('')}</tr>`)
         .join('')}</tbody></table>`;
     case 'map':
-      return `<div class="map">${b.columns
+      return `${legend()}<div class="map">${b.columns
         .map(
           (c) =>
             `<div class="role" style="--c:${esc(c.color)}"><h3>${esc(c.role)}</h3><div class="kind">${esc(c.kind)}</div>${c.about ? `<div class="about">${esc(c.about)}</div>` : ''}${c.stories

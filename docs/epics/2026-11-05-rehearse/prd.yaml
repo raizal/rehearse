@@ -897,7 +897,7 @@ stories:
       - id: S18-A7
         given: a story not signed off, a scenario without a test and a failing test
         when: the builder makes the deck
-        then: they show as plainly as the finished work, in plain words, and none is left out
+        then: the unsigned story, the missing test and the failing test show as plainly as the finished work, in plain words, and none is left out
       - id: S18-A8
         given: a commit of the record, with or without uncommitted changes
         when: the builder makes the deck
@@ -918,7 +918,7 @@ stories:
         given: '`docs/epics/<slug>/presentation.yaml` with asks, next steps, risks, narration and hidden stories'
         when: the builder makes the deck, or runs validate, simulate or the gate
         then: >-
-          the deck uses them (a hidden story is left out with "N stories not shown"); validate
+          the deck uses the asks, next steps, risks, narration and hidden stories (a hidden story is left out with "N stories not shown"); validate
           checks only their shape (an unknown slide key or story id is a finding); simulate, the
           gate and the approval and sign-off hashes ignore the file; a missing file still makes
           the deck
@@ -933,7 +933,7 @@ stories:
         given: a repo with an EPIC
         when: the builder runs `pnpm rehearse present <epic> [--out <file.html>] [--pdf <file.pdf>] [--committed-only]`
         then: >-
-          it writes the deck (default `presentations/<slug>-<date>-<sha>.html`, a folder git
+          the command writes the deck (default `presentations/<slug>-<date>-<sha>.html`, a folder git
           ignores), says the path, the size and the number of slides, and exits 0; refused
           inputs or uncommitted changes with `--committed-only` exit 1, a usage error exits 2
 

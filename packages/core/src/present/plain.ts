@@ -35,7 +35,7 @@ export function plain(text: string | undefined): string {
     .replace(/\b(?:story|stories)\s+([RSDGTC]\d+(?:-A\d+)?)(?:\s*(?:,|and|or)\s*[RSDGTC]\d+(?:-A\d+)?)*/gi, (m) => (/^stories/i.test(m) ? 'other stories' : 'another story'))
     .replace(/\b[RSDGTC]\d+-A\d+\b/g, 'a criterion')
     .replace(ID_PATTERN, '')
-    .replace(/\s+([,.;:])/g, '$1')
+    .replace(/\s+([,.;:])(?=\s|$)/g, '$1')
     .replace(/\(\s*\)/g, '')
     .replace(/\s+/g, ' ')
     .trim();
