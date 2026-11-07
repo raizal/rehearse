@@ -9,3 +9,6 @@ dist/
 
 # The code graph's store (code-graph EPIC, G29): a cache that each query makes again.
 .rehearse/graph.db*
+
+# Unit test coverage (T43): `pnpm coverage` writes coverage/lcov.info in each package; rehearse reads it.
+coverage/

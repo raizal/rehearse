@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "coverage": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --coverage.include=src/**",
     "bench": "tsc -p tsconfig.build.json && node dist/bench/main.js"
   },
   "dependencies": {

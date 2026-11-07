@@ -8,11 +8,13 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
+    "coverage": "pnpm -r --no-bail coverage",
     "e2e": "pnpm --filter @rehearse/e2e e2e",
     "e2e:playlists": "pnpm --filter @rehearse/e2e playlists"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "5.1.0",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0"
   }

@@ -9,6 +9,7 @@ import { runGate } from './commands/gate.js';
 import { runNew } from './commands/new.js';
 import { runPlaylists } from './commands/playlists.js';
 import { runServe } from './commands/serve.js';
+import { runCoverage } from './commands/coverage.js';
 import { isGraphVerb, runGraph } from './commands/graph.js';
 
 export interface Io {
@@ -43,6 +44,10 @@ Code graph (each verb first updates .rehearse/graph.db at the git top-level; --r
   context <target> [--budget tokens] [--json] [--rebuild]
                                          The code to read for a target, within a token budget (default 2000;
                                          a token is 4 characters): the target, then by graph distance, then PageRank.
+  coverage <file|symbol|box> [--lcov path] [--json] [--rebuild]
+                                         Unit test coverage from every coverage/lcov.info of the repo (and --lcov files):
+                                         percent, lines and branches run, tests, the lines not run, and the tests that call it.
+                                         A box is "box <path>"; its code is its builds edges. Run \`pnpm coverage\` first.
   A target is a node ID, a name, a route ("GET /api/orders/{order_id}") or a file path.
   Exit 1 with "not found" (no such target) or "no path".
 
@@ -68,6 +73,7 @@ function isDir(p: string): boolean {
 export async function main(argv: string[], io: Io): Promise<number> {
   const [command, ...rest] = argv;
   if (isGraphVerb(command)) return runGraph(command, rest, io);
+  if (command === 'coverage') return runCoverage(rest, io);
   return run(argv, io);
 }
 

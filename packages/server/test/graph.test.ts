@@ -3,7 +3,7 @@
 // The builds edges come from T30's linker; until it lands, a test linker adds the box nodes and
 // a `builds` edge, so the route answers what S9's examples show.
 
-import { cpSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -255,6 +255,70 @@ describe('T40 the code map: GET /api/graph?verb=map|find|path|status', () => {
   it('every new verb gets 403 without the token or from another Origin, and never opens the graph', async () => {
     const { s, f, get } = await serve(shopCopy());
     for (const q of ['verb=map&level=packages', 'verb=find&target=charge', 'verb=path&target=handle&to=loadRow', 'verb=status']) {
+      for (const headers of [{} as Record<string, string>, { 'x-rehearse-token': s.token, origin: 'http://evil.example' }]) {
+        const res = await get(q, headers);
+        expect(res.status).toBe(403);
+        expect(Object.keys(await res.json()).sort()).toEqual(['error', 'ok']);
+      }
+    }
+    expect(f.watching()).toBe(0);
+  });
+});
+
+/** An lcov file as vitest writes it: charge runs lines 10-12 and 17-29, never 13-16; one branch partly taken. */
+function withLcov(root: string): string {
+  const lines = Array.from({ length: 21 }, (_, i) => i + 10).map((n) => `DA:${n},${n >= 13 && n <= 16 ? 0 : 2}`);
+  mkdirSync(join(root, 'coverage'), { recursive: true });
+  writeFileSync(join(root, 'coverage/lcov.info'), ['TN:', 'SF:src/pay.ts', 'FN:10,30,charge', 'FNDA:2,charge', ...lines, 'BRDA:11,0,0,2', 'BRDA:11,0,1,-', 'end_of_record', ''].join('\n'));
+  return root;
+}
+
+describe('S12 coverage on the graph route', () => {
+  it('S12-A1 verb=coverage&target=charge gives its percent, its uncovered lines and the same numbers on show', async () => {
+    const { get } = await serve(withLcov(shopCopy()));
+    const res = await get('verb=coverage&target=charge');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: true, kind: 'node', name: 'charge', stats: { lines: 21, covered: 17, percent: 80 }, info: { found: true } });
+    expect(body.entries[0].uncovered).toEqual(['13-16']);
+    const shown = await (await get('verb=show&target=charge')).json();
+    expect(shown.coverage.stats.percent).toBe(80);
+    expect(shown.coverage.lines.find((l: { n: number }) => l.n === 13)).toMatchObject({ state: 'missed' });
+    expect(shown.coverage.lines.find((l: { n: number }) => l.n === 11)).toMatchObject({ state: 'run', branch: 'partial' });
+    const nearBy = await (await get('verb=near&target=charge')).json();
+    expect(nearBy.coverage).toMatchObject({ stats: { percent: 80 }, uncovered: ['13-16'] });
+  });
+
+  it('S12-A1 the map carries the numbers on the file and the function; a box gets its builds code', async () => {
+    const { get } = await serve(withLcov(shopCopy()));
+    const map = await (await get(`verb=map&level=file&target=${encodeURIComponent('src/pay.ts')}`)).json();
+    expect(map.coverage).toMatchObject({ found: true });
+    expect(map.nodes.find((n: { name: string }) => n.name === 'charge').coverage).toMatchObject({ percent: 80 });
+    const box = await (await get(`verb=coverage&target=${encodeURIComponent('box checkout/pay')}`)).json();
+    expect(box).toMatchObject({ ok: true, kind: 'box', stats: { percent: 80 } });
+    // The served EPIC (core's shop) has a box `pay`; the test linker makes `checkout/pay`, so the
+    // EPIC's boxes have no code here and get no numbers, while the box asked by name has them.
+    const boxes = await (await get('verb=coverage')).json();
+    expect(boxes).toMatchObject({ ok: true, info: { found: true } });
+    expect(boxes.boxes.pay).toBeUndefined();
+    expect(await service!.coverage({ boxes: ['checkout', 'checkout/pay', 'checkout/refund'] })).toMatchObject({
+      boxes: { checkout: { percent: 80 }, 'checkout/pay': { percent: 80 } },
+    });
+  });
+
+  it('S12-A5 no lcov file: found false and the plain line on how to make one; an unknown target is 404', async () => {
+    const { get } = await serve(shopCopy());
+    const body = await (await get('verb=coverage&target=charge')).json();
+    expect(body.info.found).toBe(false);
+    expect(body.info.hint).toMatch(/lcov/);
+    expect(body.stats.percent).toBeNull();
+    expect((await get('verb=coverage&target=nope-nothing')).status).toBe(404);
+    expect((await get('verb=coverage&target=')).status).toBe(400);
+  });
+
+  it('S12 verb=coverage gets 403 without the token or from another Origin, and never opens the graph', async () => {
+    const { s, f, get } = await serve(withLcov(shopCopy()));
+    for (const q of ['verb=coverage', 'verb=coverage&target=charge']) {
       for (const headers of [{} as Record<string, string>, { 'x-rehearse-token': s.token, origin: 'http://evil.example' }]) {
         const res = await get(q, headers);
         expect(res.status).toBe(403);
