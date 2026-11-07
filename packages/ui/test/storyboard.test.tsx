@@ -155,11 +155,13 @@ describe('the storyboard as a flowchart (S6-A1, T37)', () => {
     const view = reviewEpic();
     const sv = view.scenarios.find((s) => s.scenario.id === 'S1-buy')!;
     render(<StoryCard view={view} sv={sv} seen={{}} onSeen={() => {}} approve={approveFor(view)} onOpenBox={onOpenBox} />);
-    const ghosts = screen.getAllByTestId(/^card-ghost-3-/);
-    expect(ghosts).toHaveLength(1);
-    expect(ghosts[0]).toHaveClass('sf-ghost');
-    expect(ghosts[0]).toHaveAttribute('aria-hidden', 'true');
-    const target = ghosts[0]!.dataset.testid!.replace('card-ghost-3-', '');
+    // On the story map (S22) the box "no" leads to is another scenario's (S1-empty ends there): it is
+    // drawn once, faded, not as a second ghost box.
+    expect(screen.queryAllByTestId(/^card-ghost-3-/)).toHaveLength(0);
+    const failed = screen.getByTestId('card-map-node-failed');
+    expect(failed).toHaveClass('is-faded');
+    expect(failed).toHaveAttribute('aria-hidden', 'true');
+    const target = 'failed';
     fireEvent.click(screen.getByTestId('card-step-3'));
     const others = screen.getByTestId('card-detail-not-taken');
     expect(others).toHaveTextContent('no →');
@@ -633,7 +635,10 @@ describe('the real EPIC', () => {
       steps.forEach((step, i) => {
         const title = boxAt(real.flow, step.name)?.title;
         expect(title, `${sv.scenario.id} step ${i + 1}: ${step.name}`).toBeTruthy();
-        expect(screen.getByTestId(`card-node-title-${i + 1}`)).toHaveTextContent(title!);
+        // A box the path visits twice is drawn once (S22): its node carries both step numbers.
+        const node = document.querySelector<HTMLElement>(`[data-steps~="${i + 1}"]`);
+        expect(node, `${sv.scenario.id} step ${i + 1}`).not.toBeNull();
+        expect(node!.querySelector('.sf-title')).toHaveTextContent(title!);
         expect(screen.getByTestId(`card-steps-text-${i + 1}`)).toHaveTextContent(title!);
       });
       // The bootstrap approvals of the real EPIC are not signed (D41).
@@ -665,7 +670,7 @@ describe('accessibility', () => {
     expect(screen.getByTestId('card-flow')).toHaveAccessibleName(/^Flowchart of S1-empty: 3 steps/);
     fireEvent.keyDown(screen.getByTestId('card-step-1'), { key: 'ArrowDown' });
     expect(screen.getByTestId('card-step-2')).toHaveFocus();
-    expect(screen.getByTestId('card-step-2')).toHaveAccessibleName(/, seen$/);
+    expect(screen.getByTestId('card-step-2')).toHaveAccessibleName(/, seen(\. Joins the main path again)?$/);
     expect(screen.getByTestId('card-detail-title')).toHaveAttribute('aria-live', 'polite');
   });
 

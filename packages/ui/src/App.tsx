@@ -28,8 +28,9 @@ import type { Place } from './model/links.js';
 import { boxOfHash, DEFAULT_BIG_VIEW, depthOf, depthState, fromHash, toHash, type CodeLoc, type Loc, type StoryTabId, type Tab } from './model/nav.js';
 import { leaveDesignOk } from './model/design.js';
 import { approveReason, storiesOf } from './model/review.js';
+import { branchIndex, seenContext } from './model/branches.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
-import { nextToApprove, reviewQueue } from './model/storyboard.js';
+import { nextToApprove, queueOf } from './model/storyboard.js';
 import { shortKey } from './model/text.js';
 import { BoxCoverageContext, useBoxesCoverage } from './coverage-api.js';
 
@@ -121,7 +122,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
     [],
   );
   // The storyboard opens on the first scenario with no valid signed approval.
-  const queue = useMemo(() => (view ? reviewQueue(view.prd, view.scenarios).flatMap((g) => g.scenarios) : []), [view]);
+  const queue = useMemo(() => (view ? queueOf(view).flatMap((g) => g.scenarios) : []), [view]);
   const card = queue.find((sv) => sv.scenario.id === cardId) ?? queue.find((sv) => sv.scenario.id === nextToApprove(queue, undefined, view?.approvals)) ?? queue[0];
   // A picked story opens on its first scenario to approve, else its first scenario.
   const firstCard = useCallback(
@@ -284,7 +285,9 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const token = session.kind === 'ready' ? session.session.token : undefined;
   const actionsOff = signingBlocked(session) !== undefined || busy !== undefined || token === undefined;
 
-  const isSeen = useCallback((sv: ScenarioView) => allSeen(seenState, sv), [seenState]);
+  // A branch's shared opening counts as seen when the same steps were seen on the main path (T57).
+  const branchIdx = useMemo(() => (view ? branchIndex(view) : new Map()), [view]);
+  const isSeen = useCallback((sv: ScenarioView) => allSeen(seenState, sv, view ? seenContext(view, sv, branchIdx) : undefined), [seenState, view, branchIdx]);
   const approve = useCallback(
     async (wanted: Id[]) => {
       // Only scenarios whose steps were all seen (S6-A1).

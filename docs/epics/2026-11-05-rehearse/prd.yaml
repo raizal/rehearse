@@ -304,6 +304,25 @@ requirements:
       the same "Next story →" when all its scenarios are approved. A failed or cancelled approval
       never moves on by itself. Nothing approves or signs by itself. (T55)
 
+  - id: R33
+    kind: functional
+    text: >-
+      Every scenario of a story is shown as a branch of the story's main path, on one map per
+      story. The main path is the scenario that takes no error edge and that the other scenarios
+      follow the furthest, then the one that walks the most of the story's boxes, then the first in
+      file order; the owner may pick another one in `review.yaml` (`mainPath`), which is not part of
+      the signed record. Each other scenario says where it leaves the main path (the first step that
+      differs; equal steps have the same box, branch and example), on what condition, and where it
+      joins it again. The map is the union of the story's paths in the role lanes, each box drawn
+      once and each path a line of its own. On a scenario's storyboard its path is in full colour,
+      the others faded, with "Branches here: when …" and "Joins the main path again" on the map and
+      "Main path" or "Branch of the main path at <step>: when <condition>" in the header. The
+      opening shared with the main path collapses into one row and playback starts at the branch
+      point; Approve still needs every step seen, and a collapsed step counts as seen only when the
+      owner saw that same step on the main path's storyboard in this browser. The review queue, the
+      story page and Next scenario follow the map: main path first, then the branches in the order
+      they leave it. (T57)
+
 stories:
   - id: S1
     role: builder
@@ -1157,6 +1176,80 @@ stories:
         then: >-
           the storyboard stays on the same scenario, says why, and moves no focus; "Next scenario →"
           still works
+
+  - id: S22
+    role: builder
+    want: >-
+      every scenario shown as a branch of the story's main path on one map, with the active one
+      highlighted and only its different part to play
+    soThat: I see where, when and why it leaves the normal flow without reading the same steps again
+    requirements: [R33]
+    acceptance:
+      - id: S22-A1
+        given: a story with several scenarios and no review.yaml
+        when: the builder opens the story
+        then: >-
+          the main path is the scenario that takes no error edge and that the others follow the
+          furthest, then the one that walks the most of the story's boxes, then the first in file
+          order; a story with one scenario has it as its main path; when every scenario takes an
+          error edge the first one is the main path and the page says so
+      - id: S22-A2
+        given: a review.yaml with mainPath naming a scenario of the story
+        when: the owner picks the main path in the rehearse UI, or the file is read
+        then: >-
+          that scenario is the main path; validate reports an unknown story or scenario in it, and
+          the main path is derived again; the route needs the session token and the page's Origin,
+          and agents never call it
+      - id: S22-A3
+        given: a scenario that is not the main path
+        when: it is compared with the main path
+        then: >-
+          it says the steps it shares from the start (same box, branch and example), the first step
+          that differs and the condition there in plain words, and the box where it joins the main
+          path again if it does; a step with the same box and another example differs
+      - id: S22-A4
+        given: a story's scenarios
+        when: the builder opens the story page or a storyboard
+        then: >-
+          one map shows the union of the story's paths in the role lanes, the main path as the
+          spine, each branch leaving at its decision with its condition and ending at its end
+          state or joining again; a box many scenarios cross is drawn once; on the story page it is
+          under "The story at a glance", above the scenario cards, and each branch opens its
+          scenario
+      - id: S22-A5
+        given: the storyboard of one scenario
+        when: it opens
+        then: >-
+          its path is in full colour and every other path is faded, not hidden, and not in the tab
+          order; the arrow keys and the step detail work as before
+      - id: S22-A6
+        given: the storyboard of a branch
+        when: it opens
+        then: >-
+          the map says "Branches here: when <condition>" where it leaves and "Joins the main path
+          again" where it comes back, and the header says "Branch of the main path at <step>: when
+          <condition>"; on the main path's storyboard the header says "Main path"
+      - id: S22-A7
+        given: a branch that shares its opening with the main path
+        when: its storyboard opens
+        then: >-
+          the opening is one row, "Same as the main path up to <step> (N steps)", that can be
+          expanded, and playback starts at the branch point; a collapsed step counts as seen only
+          when the owner saw the same step on the main path's storyboard in this browser, else the
+          row says "not seen yet on the main path — expand to see N steps" and Approve stays off
+          until the steps are seen here or there
+      - id: S22-A8
+        given: a story with a main path and branches
+        when: the builder looks at the review queue, the story page or presses Next scenario
+        then: >-
+          the main path comes first, then the branches in the order they leave it, each card or
+          row saying "Main path" or "Branch at <step>: <condition>"
+      - id: S22-A9
+        given: approved scenarios and a signed-off story
+        when: the owner writes or changes review.yaml
+        then: >-
+          no approval or sign-off goes stale: review.yaml is not part of the signed record, and
+          the content hashes, simulate and gate ignore it
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

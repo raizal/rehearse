@@ -12,12 +12,14 @@
 import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent, type RefObject } from 'react';
 import { layoutStoryFlow, notTaken, storyFlow, type StoryFlow } from '../model/storyflow.js';
 import { StoryFlowChart } from './StoryFlowChart.js';
+import { lineColors, StoryMapChart, type MapActive } from './StoryMapChart.js';
+import { branchesOf, branchIndex, branchHeader, branchLabel, layoutStoryMap, mapOf, seenContext, sharedRowText, sharedSeenText } from '../model/branches.js';
 import type { Id } from '@rehearse/core';
 import { fetchAllProgress, type ScenarioView, type StoryProgress, type ThreadOutcome } from '../api.js';
 import type { ApprovalView, ApproveOk, PostOutcome, ReviewEpicView } from '../contract.js';
 import { boxAt, laneColor, roleName } from '../model/diagram.js';
 import { stepCount, stepView } from '../model/playback.js';
-import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.js';
+import { seenOnMain, seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.js';
 import { contextLabel } from '../model/storythread.js';
 import { overviewText, overviewThread } from '../model/progress.js';
 import {
@@ -28,7 +30,7 @@ import {
   nextToApprove,
   pathMap,
   progress,
-  reviewQueue,
+  queueOf,
   storyFinish,
   type ApprovalKind,
   type NextStory,
@@ -239,7 +241,7 @@ function StoryList({ view, onOpenStory, onPickStory, onBigPicture, back, loadPro
 
 function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }: StoryboardProps) {
   const rows = useMemo(() => queueRows(view), [view]);
-  const order = useMemo(() => reviewQueue(view.prd, view.scenarios).flatMap((g) => g.scenarios), [view]);
+  const order = useMemo(() => queueOf(view).flatMap((g) => g.scenarios), [view]);
   const { done, total } = progress(view.scenarios, approve.approvals);
   const next = nextToApprove(order, scenarioId, approve.approvals);
   // Say when "next" crosses into another story than the one open.
@@ -308,10 +310,13 @@ function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }
 // ---------------------------------------------------------------- scenario cards (page 2, below the story)
 
 function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, session, busy, outcome, onBigPicture }: StoryboardProps & { storyId: Id }) {
-  const ofStory = view.scenarios.filter((sv) => sv.scenario.story === storyId);
+  const branches = useMemo(() => branchesOf(view, storyId), [view, storyId]);
+  const index = useMemo(() => branchIndex(view), [view]);
+  // Main path first, then the branches in the order they leave it (S22).
+  const ofStory = branches.branches.flatMap((b) => view.scenarios.filter((sv) => sv.scenario.id === b.scenarioId));
   // Every scenario approved: the next story to approve (S21). Signing off is on this page already.
   const finish = storyFinish({ ...view, approvals: approve.approvals }, storyId);
-  const canSelect = (sv: ScenarioView) => !approve.disabled && approve.reasonFor(sv) !== undefined && isAllSeen(seen, sv);
+  const canSelect = (sv: ScenarioView) => !approve.disabled && approve.reasonFor(sv) !== undefined && isAllSeen(seen, sv, seenContext(view, sv, index));
   const toAdd = ofStory.filter(canSelect).map((sv) => sv.scenario.id).filter((id) => !approve.selected.has(id));
   const approvable = ofStory.some((sv) => approve.reasonFor(sv) !== undefined);
   return (
@@ -334,6 +339,7 @@ function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, se
           </button>
         )}
       </div>
+      {ofStory.length > 0 && <StoryAtAGlance view={view} storyId={storyId} onPick={onPick} />}
       <ApproveBar session={session} selected={approve.selected} disabled={approve.disabled} busy={busy} outcome={outcome} onApprove={approve.onApprove} />
       {finish && <StoryFinishPanel finish={finish} onPick={onPick} onEpic={onBigPicture} />}
       {ofStory.length === 0 ? (
@@ -344,11 +350,17 @@ function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, se
             const s = scenarioSummary(view, sv);
             const state = approvalState(sv, approve.approvals);
             const reason = approve.reasonFor(sv);
-            const seenN = seenSteps(seen, sv).size;
+            const seenN = seenSteps(seen, sv, seenContext(view, sv, index)).size;
+            const branch = branches.branches.find((b) => b.scenarioId === s.id);
             return (
               <li key={s.id} className="scenario-card" data-testid={`story-scenario-${s.id}`} aria-labelledby={`scn-${s.id}`} style={{ ['--role' as string]: storyColor(view, storyId) }}>
                 <span className="scenario-id">{s.id}</span>
                 <h3 id={`scn-${s.id}`}>{s.title}</h3>
+                {branch && (
+                  <p className={`scenario-branch${branch.kind === 'main' ? ' is-main' : ''}`} data-testid={`story-scenario-branch-${s.id}`}>
+                    {branchLabel(branch)}
+                  </p>
+                )}
                 <p className="scenario-meta">
                   {s.steps} step{s.steps === 1 ? '' : 's'} · checks {s.criterion ?? 'no criterion'}
                   {reason !== undefined && (
@@ -394,6 +406,44 @@ function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, se
   );
 }
 
+/** "The story at a glance" (S22): every scenario of the story on one map, a branch of its main path. */
+function StoryAtAGlance({ view, storyId, onPick }: { view: ReviewEpicView; storyId: Id; onPick: (id: Id) => void }) {
+  const map = useMemo(() => mapOf(view, storyId), [view, storyId]);
+  const layout = useMemo(() => layoutStoryMap(map), [map]);
+  const colors = lineColors(map);
+  const { branches } = map;
+  const main = branches.branches[0];
+  return (
+    <section className="story-glance" data-testid="story-glance" aria-labelledby="story-glance-h">
+      <h2 id="story-glance-h">The story at a glance</h2>
+      <p className="muted small" data-testid="story-glance-source">
+        {branches.source === 'owner'
+          ? `Main path: ${main?.scenarioId}, picked by the owner in review.yaml.`
+          : branches.source === 'fallback'
+            ? branches.note
+            : `Main path: ${main?.scenarioId}. Every other scenario is a branch of it.`}
+      </p>
+      <StoryMapChart
+        map={map}
+        layout={layout}
+        testId="glance-map" prefix="glance"
+        label={`Map of story ${storyId}: ${branches.branches.length} scenario${branches.branches.length === 1 ? '' : 's'} on one map, the main path ${main?.scenarioId ?? 'none'} as the spine.`}
+        onOpenScenario={onPick}
+      />
+      <ul className="glance-branches" aria-label="Paths on the map">
+        {branches.branches.map((b) => (
+          <li key={b.scenarioId}>
+            <button type="button" className="link small glance-branch" data-testid={`glance-branch-${b.scenarioId}`} onClick={() => onPick(b.scenarioId)} aria-label={`Open ${b.scenarioId}: ${branchLabel(b)}`}>
+              <span className="glance-swatch" style={{ background: colors.get(b.scenarioId) }} aria-hidden="true" />
+              <strong>{b.scenarioId}</strong> · {branchLabel(b)}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- the storyboard page (page 3)
 
 interface StoryCardProps {
@@ -434,8 +484,21 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   const { flow, prd } = view;
   const id = scenario.id;
   const total = stepCount(scenario);
-  const seenSet = useMemo(() => seenSteps(seen, sv), [seen, sv]);
-  const allSeen = isAllSeen(seen, sv);
+  // Its place on the story's map (S22): main path or branch, and the opening it shares with the main path.
+  const index = useMemo(() => branchIndex(view), [view]);
+  const opening = useMemo(() => seenContext(view, sv, index), [view, sv, index]);
+  const branch = index.get(id)?.branch;
+  const map = useMemo(() => mapOf(view, scenario.story ?? ''), [view, scenario.story]);
+  const mapLayout = useMemo(() => layoutStoryMap(map), [map]);
+  const onMap = map.steps[id]?.length === total;
+  const seenSet = useMemo(() => seenSteps(seen, sv, opening), [seen, sv, opening]);
+  const onMain = useMemo(() => seenOnMain(seen, sv, opening), [seen, sv, opening]);
+  const allSeen = isAllSeen(seen, sv, opening);
+  // The shared opening collapses into one row; playback starts at the branch point. A scenario with
+  // the main path's very steps keeps its last step to play.
+  const collapsible = opening ? Math.min(opening.shared, total - 1) : 0;
+  const [expanded, setExpanded] = useState(false);
+  const start = expanded ? 0 : collapsible;
   const { story, criterion } = criterionFor(prd, scenario);
   const maps = useMemo(() => pathMap(flow, scenario), [flow, scenario]);
   const sf = useMemo(() => storyFlow(flow, prd, scenario), [flow, prd, scenario]);
@@ -444,7 +507,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   const reason = approve.reasonFor(sv);
   const critId = scenario.expect?.criterion;
   // The step shown in the detail panel: the first one when the page opens.
-  const [cur, setCur] = useState(total > 0 ? 0 : -1);
+  const [cur, setCur] = useState(total > 0 ? collapsible : -1);
   const [playing, setPlaying] = useState(false);
   const nodes = useRef(new Map<number, HTMLButtonElement>());
   const markRef = useRef((i: number) => onSeen(sv, i));
@@ -465,6 +528,8 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   const goTo = useCallback(
     (i: number, focus = false) => {
       if (i < 0 || i >= total) return;
+      // Picking a collapsed step opens the shared opening.
+      if (i < collapsible) setExpanded(true);
       setCur(i);
       const el = nodes.current.get(i);
       if (focus && el) {
@@ -472,7 +537,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
         reveal(el);
       }
     },
-    [total],
+    [total, collapsible],
   );
   const pick = useCallback(
     (i: number) => {
@@ -483,13 +548,13 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   );
   const onNodeKey = useCallback(
     (i: number, e: KeyboardEvent<HTMLButtonElement>) => {
-      const to = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: total - 1 }[e.key];
-      if (to === undefined) return;
+      const to = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: start, End: total - 1 }[e.key];
+      if (to === undefined || to < start) return;
       e.preventDefault();
       setPlaying(false);
       goTo(to, true);
     },
-    [goTo, total],
+    [goTo, total, start],
   );
   const refFn = useCallback((i: number, el: HTMLButtonElement | null) => {
     if (el) nodes.current.set(i, el);
@@ -498,9 +563,9 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   const stepBy = useCallback(
     (d: number) => {
       setPlaying(false);
-      setCur((c) => Math.max(0, Math.min(total - 1, c + d)));
+      setCur((c) => Math.max(Math.min(start, c), Math.min(total - 1, c + d)));
     },
-    [total],
+    [total, start],
   );
 
   // Left and right arrows step anywhere on the page, as playback did in the flow view, but not
@@ -527,11 +592,23 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   }, [playing, cur, total]);
   const togglePlay = () => {
     if (playing) return setPlaying(false);
-    if (cur >= total - 1) setCur(0);
+    if (cur >= total - 1 || cur < start) setCur(start);
     setPlaying(true);
   };
   const unseen = Array.from({ length: total }, (_, k) => (cur + 1 + k) % total).find((i) => !seenSet.has(i));
   const laneOf = (role: string) => sf.lanes.find((l) => l.role === role);
+  // Expanding the shared opening shows the detail of each of its steps: they count as seen here.
+  const expand = () => {
+    setExpanded(true);
+    for (let i = 0; i < collapsible; i++) if (!seenSet.has(i)) onSeen(sv, i);
+  };
+  const sharedUnseen = Array.from({ length: collapsible }, (_, i) => i).filter((i) => !seenSet.has(i)).length;
+  const sharedOnMain = Array.from({ length: collapsible }, (_, i) => i).every((i) => onMain.has(i));
+  const active: MapActive = useMemo(
+    () => ({ scenarioId: id, ...(branch ? { branch } : {}), steps: sf.steps, current: cur, seen: seenSet, onPick: pick, onKey: onNodeKey, refFn }),
+    [id, branch, sf.steps, cur, seenSet, pick, onNodeKey, refFn],
+  );
+  const chartLabel = `Flowchart of ${id}: ${total} step${total === 1 ? '' : 's'} down the lanes ${sf.lanes.map((l) => l.label).join(', ')}. Pick a step to see it; the arrow keys move along the path.`;
 
   return (
     <article className="story-card" data-testid="story-card" aria-labelledby="card-title" style={{ ['--role' as string]: laneColor(flow, story?.role) }}>
@@ -552,6 +629,11 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
       <header className="card-head">
         <div>
           <h1 id="card-title">{scenario.title}</h1>
+          {branch && (
+            <p className={`card-branch${branch.kind === 'main' ? ' is-main' : ''}`} data-testid="card-branch">
+              {branchHeader(branch)}
+            </p>
+          )}
           <p className="card-proves" data-testid="card-proves">
             {critId ? (
               <>
@@ -570,16 +652,11 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
       ) : (
         <div className="sf-board">
           <div className="sf-main">
-            <StoryFlowChart
-              sf={sf}
-              layout={layout}
-              current={cur}
-              seen={seenSet}
-              label={`Flowchart of ${id}: ${total} step${total === 1 ? '' : 's'} down the lanes ${sf.lanes.map((l) => l.label).join(', ')}. Pick a step to see it; the arrow keys move along the path.`}
-              onPick={pick}
-              onKey={onNodeKey}
-              refFn={refFn}
-            />
+            {onMap ? (
+              <StoryMapChart map={map} layout={mapLayout} testId="card-flow" prefix="card" label={`${chartLabel} The story's other scenarios are faded.`} active={active} />
+            ) : (
+              <StoryFlowChart sf={sf} layout={layout} current={cur} seen={seenSet} label={chartLabel} onPick={pick} onKey={onNodeKey} refFn={refFn} />
+            )}
             <ol className="sr-only" data-testid="card-steps-text" aria-label={`Steps of ${id}`}>
               {sf.steps.map((s) => {
                 const others = notTaken(sf, s.index);
@@ -596,8 +673,28 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
             </ol>
           </div>
           <aside className="sf-detail" data-testid="card-detail" aria-label="Step detail">
+            {collapsible > 0 && (
+              <div className={`card-shared${expanded ? ' is-open' : ''}`} data-testid="card-shared">
+                <button type="button" className="link small" data-testid="card-shared-toggle" aria-expanded={expanded} onClick={() => (expanded ? setExpanded(false) : expand())}>
+                  <span aria-hidden="true">{expanded ? '▾' : '▸'} </span>
+                  {sharedRowText(sf.steps[collapsible - 1]?.title ?? '', collapsible)}
+                </button>
+                <span className={`small ${sharedUnseen > 0 ? 'warn-text' : 'muted'}`} data-testid="card-shared-seen">
+                  {sharedSeenText(sharedUnseen, sharedOnMain)}
+                </span>
+                {expanded && (
+                  <ol className="card-shared-steps" data-testid="card-shared-steps">
+                    {sf.steps.slice(0, collapsible).map((s) => (
+                      <li key={s.id}>
+                        <StepPanel view={view} sv={sv} sf={sf} index={s.index} seen={seenSet.has(s.index)} onOpenBox={onOpenBox} prefix={`card-shared-${s.index + 1}`} />
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            )}
             <div className="sf-controls" role="group" aria-label="Step through the path">
-              <button type="button" className="action small" data-testid="card-prev-step" aria-label="Previous step" disabled={cur <= 0} onClick={() => stepBy(-1)}>
+              <button type="button" className="action small" data-testid="card-prev-step" aria-label="Previous step" disabled={cur <= start} onClick={() => stepBy(-1)}>
                 ←
               </button>
               <span className="sf-count" data-testid="card-step-count">
@@ -751,10 +848,10 @@ interface NextStepProps {
 function NextStep({ view, sv, approvals, focus, onPick, onSignOff, onEpic }: NextStepProps) {
   const id = sv.scenario.id;
   const storyId = sv.scenario.story ?? '?';
-  const order = useMemo(() => reviewQueue(view.prd, view.scenarios).flatMap((g) => g.scenarios), [view]);
+  const order = useMemo(() => queueOf(view).flatMap((g) => g.scenarios), [view]);
   const next = nextInStory(order, id, approvals);
   const finish = next ? undefined : storyFinish({ ...view, approvals }, storyId);
-  const otherStory = next || finish ? undefined : nextStoryToApprove(reviewQueue(view.prd, view.scenarios), storyId, approvals);
+  const otherStory = next || finish ? undefined : nextStoryToApprove(queueOf(view), storyId, approvals);
   const go = next ? () => onPick?.(next.id) : finish?.next ? () => onPick?.(finish.next!.scenarioId) : otherStory ? () => onPick?.(otherStory.scenarioId) : undefined;
   const primary = useRef<HTMLButtonElement>(null);
   const mode = next ? `scenario ${next.id}` : finish ? `finish ${finish.next?.storyId ?? ''} ${finish.signOff ?? ''}` : 'last';
@@ -897,10 +994,12 @@ interface StepPanelProps {
   index: number;
   seen: boolean;
   onOpenBox?: (path: string) => void;
+  /** Prefix of its test ids and title id: a shared step shown under the collapsed row has its own (`card-shared-<n>`). */
+  prefix?: string;
 }
 
 /** The detail of the current step: everything a step card showed, and the branches not taken. */
-function StepPanel({ view, sv, sf, index, seen, onOpenBox }: StepPanelProps) {
+function StepPanel({ view, sv, sf, index, seen, onOpenBox, prefix = 'card-detail' }: StepPanelProps) {
   const total = stepCount(sv.scenario);
   const step = stepView(view.flow, sv.scenario, index);
   const node = sf.steps[index];
@@ -920,30 +1019,30 @@ function StepPanel({ view, sv, sf, index, seen, onOpenBox }: StepPanelProps) {
       <span data-testid={testId}>{text}</span>
     );
   return (
-    <section className={`sf-step${seen ? ' is-seen' : ''}`} data-testid={`card-detail-step-${n}`} style={{ ['--lane' as string]: color }} aria-labelledby="card-detail-title">
+    <section className={`sf-step${seen ? ' is-seen' : ''}`} data-testid={`${prefix}-step-${n}`} style={{ ['--lane' as string]: color }} aria-labelledby={`${prefix}-title`}>
       <div className="step-panel-head">
         <span className="step-badge">{n}</span>
-        <span className="step-lane" data-testid="card-detail-lane">
+        <span className="step-lane" data-testid={`${prefix}-lane`}>
           <span className="sr-only">lane: </span>
           {roleName(view.prd, box?.lane)}
         </span>
         {node?.decision && <span className="sf-kind">decision</span>}
         {seen && <span className="seen-chip">seen</span>}
       </div>
-      <h2 className="step-title" id="card-detail-title" data-testid="card-detail-title" aria-live="polite">
+      <h2 className="step-title" id={`${prefix}-title`} data-testid={`${prefix}-title`} aria-live={prefix === 'card-detail' ? 'polite' : undefined}>
         <span className="sr-only">
           Step {n} of {total}:{' '}
         </span>
         {stepTitle(view.flow, path || '?')}
       </h2>
-      <p className="sf-path small" data-testid="card-detail-path">
+      <p className="sf-path small" data-testid={`${prefix}-path`}>
         {parts.map((id, k) => {
           const p = parts.slice(0, k + 1).join('/');
           const last = k === parts.length - 1;
           return (
             <span key={p}>
               {k > 0 && <span aria-hidden="true"> › </span>}
-              {boxLink(p, last ? 'Open box' : (boxAt(view.flow, p)?.title ?? id), last ? 'card-detail-open-box' : undefined)}
+              {boxLink(p, last ? 'Open box' : (boxAt(view.flow, p)?.title ?? id), last ? `${prefix}-open-box` : undefined)}
             </span>
           );
         })}{' '}
@@ -951,12 +1050,12 @@ function StepPanel({ view, sv, sf, index, seen, onOpenBox }: StepPanelProps) {
       </p>
       {!box && <p className="warn">No box at {path} in flow.yaml.</p>}
       {step?.branch !== undefined && (
-        <span className="step-branch" data-testid="card-detail-branch">
+        <span className="step-branch" data-testid={`${prefix}-branch`}>
           branch taken: {step.branch}
         </span>
       )}
       {others.length > 0 && (
-        <div className="sf-not-taken small" data-testid="card-detail-not-taken">
+        <div className="sf-not-taken small" data-testid={`${prefix}-not-taken`}>
           <span className="muted">Not taken:</span>
           <ul>
             {others.map((g) => (
@@ -967,7 +1066,7 @@ function StepPanel({ view, sv, sf, index, seen, onOpenBox }: StepPanelProps) {
           </ul>
         </div>
       )}
-      <div className="step-example" data-testid="card-detail-example">
+      <div className="step-example" data-testid={`${prefix}-example`}>
         {step && example ? (
           <>
             <div className="step-kv">
@@ -990,7 +1089,7 @@ function StepPanel({ view, sv, sf, index, seen, onOpenBox }: StepPanelProps) {
         )}
       </div>
       {box && (
-        <dl className="step-contract" data-testid="card-detail-contract">
+        <dl className="step-contract" data-testid={`${prefix}-contract`}>
           <dt>in</dt>
           <dd>{fields(box.inputs)}</dd>
           <dt>out</dt>
@@ -1000,9 +1099,9 @@ function StepPanel({ view, sv, sf, index, seen, onOpenBox }: StepPanelProps) {
         </dl>
       )}
       {step?.expect && (
-        <div className="sf-end small" data-testid="card-detail-expect">
+        <div className="sf-end small" data-testid={`${prefix}-expect`}>
           <div className="step-kv-label">THE PATH ENDS HERE · EXPECTED END STATE</div>
-          <EndState values={step.expect} testId="card-detail-expect-state" />
+          <EndState values={step.expect} testId={`${prefix}-expect-state`} />
         </div>
       )}
     </section>

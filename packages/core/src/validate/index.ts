@@ -5,6 +5,7 @@ import { repoTopOf } from '../design/load.js';
 import { designLinkFindings } from '../design/load-index.js';
 import { loadEpic } from '../loader.js';
 import { readPresentation } from '../present/inputs.js';
+import { readReview } from '../review/main-path.js';
 import type { LoadResult, Report } from '../types.js';
 import { checkRefs } from './refs.js';
 import { makeReport } from './report.js';
@@ -27,11 +28,11 @@ export function validateRecord(loaded: LoadResult): Report {
 
 /**
  * Load and validate one EPIC folder, with the repo's design links of its stories (T50) and the
- * shape of presentation.yaml (T52; not part of the signed record, so only here).
+ * shape of presentation.yaml (T52) and review.yaml (T57; neither is part of the signed record, so only here).
  */
 export function validateEpic(dir: string): Report {
   const loaded = loadEpic(dir);
   const report = validateRecord(loaded);
-  const extra = [...designLinkFindings(loaded.record, repoTopOf(dir)), ...readPresentation(loaded.record).findings];
+  const extra = [...designLinkFindings(loaded.record, repoTopOf(dir)), ...readPresentation(loaded.record).findings, ...readReview(loaded.record).findings];
   return extra.length === 0 ? report : makeReport('validate', [...report.findings, ...extra]);
 }

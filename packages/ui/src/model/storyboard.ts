@@ -7,6 +7,7 @@ import type { ScenarioView } from '../api.js';
 import type { ApprovalView, ReviewEpicView } from '../contract.js';
 import { boxAt, diagramAt } from './diagram.js';
 import { storiesOf } from './review.js';
+import { storyBranches } from '@rehearse/core/layout';
 
 export type ApprovalKind = 'signed' | 'missing' | 'invalid' | 'unknown-signer' | 'unchecked' | 'stale' | 'draft';
 
@@ -36,8 +37,19 @@ export interface QueueGroup {
   scenarios: ScenarioView[];
 }
 
-/** Scenarios grouped by story: stories in prd.yaml order, then stories prd.yaml does not have. */
-export function reviewQueue(prd: Prd | undefined, scenarios: ScenarioView[]): QueueGroup[] {
+/** How the scenarios of a story are ordered: by the story map (S22) when the flow is given. */
+export interface QueueOrder {
+  flow?: Flow;
+  /** review.yaml: the owner's main path per story. */
+  mainPath?: Record<Id, Id>;
+}
+
+/**
+ * Scenarios grouped by story: stories in prd.yaml order, then stories prd.yaml does not have. With
+ * `order`, a story's scenarios follow its map (S22, T57): the main path first, then the branches in
+ * the order they leave it; without it, file order.
+ */
+export function reviewQueue(prd: Prd | undefined, scenarios: ScenarioView[], order?: QueueOrder): QueueGroup[] {
   const stories = storiesOf(prd);
   const groups: QueueGroup[] = stories.map((story) => ({ storyId: story.id, story, scenarios: [] }));
   const byId = new Map(groups.map((g) => [g.storyId, g]));
@@ -51,7 +63,18 @@ export function reviewQueue(prd: Prd | undefined, scenarios: ScenarioView[]): Qu
     }
     group.scenarios.push(sv);
   }
+  if (order) {
+    for (const g of groups) {
+      const rank = new Map(storyBranches(order.flow, g.storyId, g.scenarios.map((sv) => sv.scenario), order.mainPath?.[g.storyId]).branches.map((b, i) => [b.scenarioId, i]));
+      g.scenarios.sort((a, b) => (rank.get(a.scenario.id) ?? 0) - (rank.get(b.scenario.id) ?? 0));
+    }
+  }
   return groups.filter((g) => g.scenarios.length > 0);
+}
+
+/** The review queue of the view, each story in its map's order (S22). */
+export function queueOf(view: Pick<ReviewEpicView, 'prd' | 'scenarios' | 'flow' | 'review'>): QueueGroup[] {
+  return reviewQueue(view.prd, view.scenarios, { ...(view.flow ? { flow: view.flow } : {}), ...(view.review?.mainPath ? { mainPath: view.review.mainPath } : {}) });
 }
 
 /** How many scenarios have a valid signed approval. */
@@ -137,8 +160,8 @@ export interface StoryFinish {
  * approve; else its sign-off need and the next story. The sign-off state is the readiness's
  * (signed, stale, draft); a server without readiness counts as not signed.
  */
-export function storyFinish(view: Pick<ReviewEpicView, 'prd' | 'scenarios' | 'approvals' | 'readiness'>, storyId: Id): StoryFinish | undefined {
-  const groups = reviewQueue(view.prd, view.scenarios);
+export function storyFinish(view: Pick<ReviewEpicView, 'prd' | 'scenarios' | 'approvals' | 'readiness' | 'flow' | 'review'>, storyId: Id): StoryFinish | undefined {
+  const groups = queueOf(view);
   const own = groups.find((g) => g.storyId === storyId)?.scenarios ?? [];
   if (own.length === 0 || own.some((sv) => !approvalState(sv, view.approvals).done)) return undefined;
   const status = view.readiness?.requirements.flatMap((r) => r.stories).find((s) => s.id === storyId)?.status;
