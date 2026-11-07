@@ -3,7 +3,7 @@
 // Temp git repos with throwaway keys; never the real EPICs' git history.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -53,7 +53,7 @@ describe('T39 sign-off preview: what changed since the last sign-off', () => {
 
   it('signed and unchanged: no change since the sign-off, with its date', async () => {
     const dir = committedSignedEpic();
-    expect(await since(dir, 'S1')).toEqual({ kind: 'unchanged', at: '2026-11-05T10:00:00Z', by: 'a@b.c', hashRule: 2 });
+    expect(await since(dir, 'S1')).toEqual({ kind: 'unchanged', at: '2026-11-05T10:00:00Z', by: 'a@b.c', hashRule: 3 });
   });
 
   it('a criterion edited after the committed sign-off: the change, against the sign-off commit, exact', async () => {
@@ -90,6 +90,41 @@ describe('T39 sign-off preview: what changed since the last sign-off', () => {
     expect(s2).toMatchObject({ kind: 'changed', commit: { subject: 'sign off S1 and S2' } });
     if (s2?.kind !== 'changed') throw new Error('not changed');
     expect(s2.changes.map((c) => c.text)).toEqual(['story S2 "I want" changed']);
+  });
+
+  it('T62 a new change C1 after the sign-off: only the change is new, each change item is marked', async () => {
+    const dir = committedSignedEpic();
+    mkdirSync(join(dir, 'changes'));
+    writeFileSync(
+      join(dir, 'changes', 'C1.yaml'),
+      [
+        'id: C1',
+        'story: S1',
+        'title: The buyer pays with a gift card.',
+        'why: Buyers ask for gift cards.',
+        'criteria:',
+        '  - { id: S1-A2, given: a gift card, when: the buyer pays, then: the order is shipped }',
+        'scenarios:',
+        '  - id: S1-c1-gift',
+        '    title: Buyer pays with a gift card',
+        '    status: draft',
+        '    steps: [{ name: start }, { name: cart }, { name: pay }, { name: in-stock, branch: "yes" }, { name: ship/pack }, { name: ship/send }, { name: done }]',
+        '    expect: { criterion: S1-A2, state: { Order.status: shipped } }',
+        '',
+      ].join('\n'),
+    );
+    commitAll(dir, 'add C1 to S1');
+    const p = await signOffPreview(execGit, dir, ['S1']);
+    const s1 = p.stories[0]!;
+    expect(s1.content!.changes).toEqual([{ id: 'C1', title: 'The buyer pays with a gift card.', why: 'Buyers ask for gift cards.', file: 'changes/C1.yaml' }]);
+    expect(s1.content!.criteria.map((c) => [c.id, c.change])).toEqual([
+      ['S1-A1', undefined],
+      ['S1-A2', 'C1'],
+    ]);
+    expect(s1.content!.scenarios.find((s) => s.id === 'S1-c1-gift')?.change).toBe('C1');
+    expect(s1.since).toMatchObject({ kind: 'changed', newChanges: ['C1'], exact: true });
+    if (s1.since?.kind !== 'changed') throw new Error('not changed');
+    expect(s1.since.changes.map((c) => c.text)).toEqual(['criterion S1-A2 added', 'scenario S1-c1-gift added']);
   });
 
   it('git unavailable: says so and still shows the content; the request does not fail', async () => {

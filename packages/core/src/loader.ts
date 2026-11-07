@@ -22,6 +22,7 @@ import { asArray, isObject } from './util.js';
 import { parseYaml } from './yaml.js';
 import { decisionIds, loadSystem, systemDirFor } from './architecture/load.js';
 import type { ArchitectureChange } from './architecture/types.js';
+import { changeFileNames, mergeChanges } from './change/load.js';
 
 export { parseYaml };
 
@@ -69,6 +70,8 @@ export function loadEpic(dir: string): LoadResult {
     }
   }
   for (const f of scenarioNames) read(f, false);
+  const changeNames = changeFileNames(abs);
+  for (const f of changeNames) read(f, false);
 
   const record: EpicRecord = {
     dir: abs,
@@ -104,6 +107,8 @@ export function loadEpic(dir: string): LoadResult {
     );
     record.scenarioFiles.push({ file, story, scenarios });
   }
+  // Small changes (T62): each change file adds to one story of the loaded record.
+  if (changeNames.length > 0) mergeChanges(record);
   return { record, findings };
 }
 

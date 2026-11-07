@@ -7,6 +7,7 @@ import { reportToJson, reportToText, validateEpic } from '@rehearse/core';
 import { runSimulate } from './commands/simulate.js';
 import { runGate } from './commands/gate.js';
 import { runNew } from './commands/new.js';
+import { runChange } from './commands/change.js';
 import { runPlaylists } from './commands/playlists.js';
 import { runPlay } from './commands/play.js';
 import { runServe } from './commands/serve.js';
@@ -37,6 +38,9 @@ Commands:
                                          --drafts counts draft and stale scenarios too: findings only, never evidence.
   gate check <epic-dir-or-slug> [--json] Check the gate: traced, sim-clean, no-stale, signed-off. Never signs off.
   new <slug> --title "<title>"           Create docs/epics/<slug>/ (slug YYYY-MM-DD-<kebab>) at the git top-level.
+  change new <epic-dir-or-slug> <story> --title "<title>"
+                                         Write the start file of a small change to a story: changes/C<n>.yaml (T62).
+                                         A change adds 1 to 3 criteria and 5 scenarios or fewer; it edits no item.
   serve [epic-dir-or-slug] [--port N] [--birdview-port N] [--thread-model M] [--thread-reasoning R]
                                          Serve the review UI on 127.0.0.1 (default port 4700; Birdview player 3298).
                                          --thread-model/--thread-reasoning: the model and reasoning level of story threads.
@@ -144,6 +148,7 @@ export function run(argv: string[], io: Io): number {
   if (command === 'simulate') return runSimulate(rest, io);
   if (command === 'gate') return runGate(rest, io);
   if (command === 'new') return runNew(rest, io);
+  if (command === 'change') return runChange(rest, io);
   if (command === 'serve') return runServe(rest, io);
   if (command === 'design') return runDesign(rest, io);
   if (command !== 'validate') {

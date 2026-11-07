@@ -39,7 +39,7 @@ describe('storyBuildBrief (T44, box build-brief)', () => {
     expect(heads.at(-1)).toBe('How to work in this repo');
     expect(md).toContain('# Build brief: story S1 of the EPIC 2026-11-05-shop');
     expect(md).toContain('Signed off by a@b.c on 2026-11-05T10:00:00');
-    expect(md).toContain('(rule 2)');
+    expect(md).toContain('(rule 3)');
     expect(md).toContain('This brief matches the signed story.');
     expect(md).toContain('As Buyer, I want to pay for my cart, so that I get my items.');
     expect(md).toContain('- R1 (functional): The buyer pays for an order.');
@@ -49,7 +49,7 @@ describe('storyBuildBrief (T44, box build-brief)', () => {
     expect(md).toContain('Flow-Box: <path>');
     expect(md).toContain(howToWorkMarkdown());
     expect(r.hash).toBe(r.sign.currentHash);
-    expect(r.sign).toMatchObject({ status: 'signed', buildable: true, by: 'a@b.c', hashRule: 2 });
+    expect(r.sign).toMatchObject({ status: 'signed', buildable: true, by: 'a@b.c', hashRule: 3 });
   });
 
   it('lists the serving boxes with contracts, their edges, decisions and entities', () => {

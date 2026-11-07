@@ -1,5 +1,6 @@
 // The sign-off preview (T39, box `sign-off`), `GET /api/sign-off/preview?stories=S4,S5`: per story
-// the content that a sign-off fingerprints (story hash rule 2), and what changed since the story's
+// the content that a sign-off fingerprints (story hash rule 2, and rule 3 for the small changes of
+// T62, each item marked with its change), and what changed since the story's
 // last sign-off. The sign-off record keeps only hashes, so the old content comes from git: the
 // commit that added the story's last sign-off entry to signoff.yaml. "Now" is the working tree
 // (it may hold approvals not committed yet). Read only; git runs with argument arrays, no shell.
@@ -12,12 +13,15 @@ import {
   allScenarios,
   detectStale,
   diffStoryContent,
+  CHANGES_DIR,
   HASH_RULES,
   loadEpic,
+  markChanges,
   parseYaml,
   previewContent,
   previewCounts,
   RECORD_FILES,
+  storyChanges,
   storyContentV2,
   storyHash,
   type ContentChange,
@@ -46,13 +50,15 @@ export type SinceSignOff =
       at: string;
       by: string;
       hashRule: number;
+      /** The small changes that no sign-off covers; the rest of the story is as signed (T62). */
+      newChanges?: Id[];
       /** The commit that added the sign-off entry: the "then" side of the changes. */
       commit: CommitRef;
       changes: ContentChange[];
       /** False when the files of that commit do not hash to the signed fingerprint (the record was committed apart from the sign-off). */
       exact: boolean;
     }
-  | { kind: 'unavailable'; at: string; by: string; hashRule: number; reason: string };
+  | { kind: 'unavailable'; at: string; by: string; hashRule: number; reason: string; newChanges?: Id[] };
 
 export interface StorySignOffPreview {
   id: Id;
@@ -73,6 +79,7 @@ const GIT = ['-c', 'core.quotePath=false'];
 const isObject = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const SCENARIO_FILE = new RegExp(`^${RECORD_FILES.scenariosDir}/[^/]+\\.ya?ml$`);
+const CHANGE_FILE = new RegExp(`^${CHANGES_DIR}/C[0-9]+\\.ya?ml$`);
 
 /** The preview of each named story, in the order named. */
 export async function signOffPreview(git: GitRunner, epicDir: string, ids: Id[]): Promise<SignOffPreview> {
@@ -92,13 +99,18 @@ export async function signOffPreview(git: GitRunner, epicDir: string, ids: Id[])
       continue;
     }
     const current = storyContentV2(story, prd, record.flow, scenarios);
-    const content = previewContent(current);
+    const content = markChanges(previewContent(current), record, id);
     const entry: StorySignOffPreview = { id, found: true, content, counts: previewCounts(content) };
     const t = trust.get(id);
     const latest = [...signOffs].reverse().find((s) => isObject(s.storyHashes) && typeof s.storyHashes[id] === 'string');
     if (!latest || !t?.signedHash) entry.since = { kind: 'first' };
     else {
-      const base = { at: String(latest.at), by: String(latest.by), hashRule: latest.hashRule ?? 1 };
+      const base = {
+        at: String(latest.at),
+        by: String(latest.by),
+        hashRule: latest.hashRule ?? 1,
+        ...(t.newChanges && t.newChanges.length > 0 ? { newChanges: t.newChanges } : {}),
+      };
       if (t.status === 'signed') entry.since = { kind: 'unchanged', ...base };
       else {
         try {
@@ -119,7 +131,7 @@ async function changedSince(
   current: Record<string, unknown>,
   latest: SignOffWithRule,
   signedHash: string,
-  base: { at: string; by: string; hashRule: number },
+  base: { at: string; by: string; hashRule: number; newChanges?: Id[] },
 ): Promise<SinceSignOff> {
   const found = await history.commitOf(id, String(latest.at), signedHash);
   if ('reason' in found) return { kind: 'unavailable', ...base, reason: found.reason };
@@ -130,7 +142,8 @@ async function changedSince(
   const oldScenarios = allScenarios(old);
   const before = storyContentV2(oldStory, old.prd, old.flow, oldScenarios);
   const rule = base.hashRule;
-  const exact = (HASH_RULES as readonly number[]).includes(rule) && storyHash(rule as HashRule, oldStory, old.prd, old.flow, oldScenarios) === signedHash;
+  const oldChanges = storyChanges(old, id).map((c) => c.doc);
+  const exact = (HASH_RULES as readonly number[]).includes(rule) && storyHash(rule as HashRule, oldStory, old.prd, old.flow, oldScenarios, oldChanges) === signedHash;
   return { kind: 'changed', ...base, commit: found.commit, changes: diffStoryContent(before, current), exact };
 }
 
@@ -207,7 +220,7 @@ class SignOffHistory {
     return { reason: `the sign-off of ${at} is not in a commit yet, so the signed content cannot be read from git` };
   }
 
-  /** The record of the EPIC folder at a commit (prd, entities, flow, scenarios), loaded from a temp copy. */
+  /** The record of the EPIC folder at a commit (prd, entities, flow, scenarios, changes), loaded from a temp copy. */
   recordAt(sha: string): Promise<EpicRecord | undefined> {
     let p = this.records.get(sha);
     if (!p) {
@@ -223,7 +236,7 @@ class SignOffHistory {
     const tree = await this.run(['ls-tree', '--full-tree', '-r', '-z', '--name-only', `${sha}:${prefix}`]);
     if (!tree.ok) return undefined;
     const top = new Set<string>([RECORD_FILES.prd, RECORD_FILES.entities, RECORD_FILES.flow]);
-    const names = tree.stdout.split('\0').filter((n) => top.has(n) || SCENARIO_FILE.test(n));
+    const names = tree.stdout.split('\0').filter((n) => top.has(n) || SCENARIO_FILE.test(n) || CHANGE_FILE.test(n));
     if (!names.includes(RECORD_FILES.prd)) return undefined;
     const dir = mkdtempSync(join(tmpdir(), 'rehearse-signed-'));
     try {

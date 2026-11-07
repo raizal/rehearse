@@ -48,3 +48,26 @@ export function seeAll(view: ReviewEpicView, ids?: string[]): void {
   }
   saveSeen(sessionStorage, view.slug, state);
 }
+
+/** The title of the small change C1 in `withChange`. */
+export const CHANGE_TITLE = 'Pay again after a declined card';
+
+/**
+ * T62: the view with a small change C1 of story S1 merged in, as the loader merges
+ * `changes/C1.yaml`: a criterion S1-A2, a draft scenario S1-retry and the root box `pay`, each
+ * marked `change: 'C1'`.
+ */
+export function withChange(view: ReviewEpicView): ReviewEpicView {
+  const story = view.prd!.stories.find((s) => s.id === 'S1')!;
+  story.acceptance = [...(story.acceptance ?? []), { id: 'S1-A2', given: 'a declined card', when: 'the buyer pays again', then: 'the order is paid', change: 'C1' }];
+  const buy = view.scenarios.find((sv) => sv.scenario.id === 'S1-buy')!;
+  const retry = structuredClone(buy);
+  retry.file = 'changes/C1.yaml';
+  retry.status = 'draft';
+  retry.scenario = { ...retry.scenario, id: 'S1-retry', title: 'Pay again', status: 'draft', change: 'C1', expect: { ...retry.scenario.expect!, criterion: 'S1-A2' } };
+  delete retry.scenario.approval;
+  view.scenarios.push(retry);
+  view.flow!.root.boxes.find((b) => b.id === 'pay')!.change = 'C1';
+  view.changes = [{ id: 'C1', story: 'S1', title: CHANGE_TITLE, why: 'Some cards fail the first time.', file: 'changes/C1.yaml' }];
+  return view;
+}

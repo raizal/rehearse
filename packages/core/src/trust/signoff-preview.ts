@@ -3,8 +3,11 @@
 // rule 2 covers (`storyContentV2`): the story, its requirements, its scenarios, the boxes that
 // serve it (with their ancestors and children) and the roles of their lanes. Pure: no files, no git.
 
-import type { AcceptanceCriterion, Requirement, Role, Story } from '../types.js';
+import { indexBoxes } from '../flow-index.js';
+import { allScenarios } from './stale.js';
+import type { AcceptanceCriterion, EpicRecord, Id, Requirement, Role, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
+import { changeOf, storyChanges } from '../change/load.js';
 
 /** How a box is in the fingerprint: it serves the story, it holds a serving box, or it is inside one. */
 export type PreviewBoxRelation = 'serves' | 'parent' | 'inside';
@@ -16,6 +19,8 @@ export interface PreviewBox {
   /** Lane role id. */
   lane: string;
   relation: PreviewBoxRelation;
+  /** The change that added the box (T62). */
+  change?: Id;
 }
 
 export interface PreviewScenario {
@@ -23,16 +28,28 @@ export interface PreviewScenario {
   title: string;
   /** Box paths of the steps, in order. */
   steps: string[];
+  /** The change that added the scenario (T62). */
+  change?: Id;
+}
+
+/** One small change of the story (T62): `changes/C<n>.yaml`. */
+export interface PreviewChange {
+  id: Id;
+  title: string;
+  why: string;
+  file: string;
 }
 
 /** The rule-2 content of one story, in the shape a reader reads it. */
 export interface StoryPreviewContent {
   story: { id: string; role: string; want: string; soThat: string };
   requirements: { id: string; kind: string; text: string }[];
-  criteria: { id: string; given: string; when: string; then: string }[];
+  criteria: { id: string; given: string; when: string; then: string; change?: Id }[];
   scenarios: PreviewScenario[];
   boxes: PreviewBox[];
   roles: { id: string; name?: string }[];
+  /** The small changes of the story, in change number order (T62). Absent when the story has none. */
+  changes?: PreviewChange[];
 }
 
 export interface PreviewCounts {
@@ -78,6 +95,27 @@ export function previewContent(content: Record<string, unknown>): StoryPreviewCo
       .map((s) => ({ id: str(s.id), title: str(s.title), steps: asArray<Record<string, unknown>>(s.steps).map((st) => (isObject(st) ? str(st.name) : '')) })),
     boxes: [...flatBoxes(content)].map(([path, { box, relation }]) => ({ path, title: str(box.title), kind: str(box.kind), lane: str(box.lane), relation })),
     roles: Object.entries(roles).map(([id, r]) => (isObject(r) && typeof (r as Role).name === 'string' ? { id, name: (r as Role).name } : { id })),
+  };
+}
+
+/**
+ * Mark each criterion, scenario and box of a preview that a change file added (T62), and list
+ * the changes of the story. The record is the loaded record with its changes merged.
+ */
+export function markChanges(preview: StoryPreviewContent, record: EpicRecord, storyId: Id): StoryPreviewContent {
+  const changes = storyChanges(record, storyId);
+  if (changes.length === 0) return preview;
+  const story = asArray<Story>(record.prd?.stories).find((s) => isObject(s) && s.id === storyId);
+  const criteria = new Map(asArray<AcceptanceCriterion>(story?.acceptance).filter(isObject).map((c) => [c.id, changeOf(c)]));
+  const scenarios = new Map(allScenarios(record).map((s) => [s.id, changeOf(s)]));
+  const boxes = indexBoxes(record.flow);
+  const mark = <T extends object>(item: T, change: Id | undefined): T => (change === undefined ? item : { ...item, change });
+  return {
+    ...preview,
+    criteria: preview.criteria.map((c) => mark(c, criteria.get(c.id))),
+    scenarios: preview.scenarios.map((s) => mark(s, scenarios.get(s.id))),
+    boxes: preview.boxes.map((b) => mark(b, changeOf(boxes.get(b.path)?.box))),
+    changes: changes.map((c) => ({ id: c.doc.id, title: str(c.doc.title), why: str(c.doc.why), file: c.file })),
   };
 }
 

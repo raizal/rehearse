@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkSystem, compareSystem, loadEpic, loadSystem, makeReport, readReview, scenarioHash, systemDirFor, validateRecord, type ReviewInputs } from '@rehearse/core';
+import { checkSystem, compareSystem, loadEpic, loadSystem, makeReport, readReview, recordChanges, scenarioHash, systemDirFor, validateRecord, type ReviewInputs } from '@rehearse/core';
 import type {
   ArchitectureChange,
   EntityModel,
@@ -33,6 +33,16 @@ export interface ScenarioView {
   status: ScenarioStatus;
 }
 
+/** One small change of a story (T62): `changes/C<n>.yaml`. Its items are in prd, flow and scenarios, each with `change`. */
+export interface ChangeView {
+  id: string;
+  story: string;
+  title: string;
+  why: string;
+  /** File relative to the EPIC folder, e.g. `changes/C1.yaml`. */
+  file: string;
+}
+
 export interface EpicView {
   /** EPIC folder name. */
   slug: string;
@@ -56,6 +66,8 @@ export interface EpicView {
   compare?: SystemCompare;
   /** review.yaml (T57): the owner's main path per story, valid picks only. Not part of the signed record. */
   review?: ReviewInputs;
+  /** The small changes (T62), in change number order. Absent when the EPIC has none. */
+  changes?: ChangeView[];
 }
 
 /** docs/system/ as the UI reads it. */
@@ -109,6 +121,8 @@ export function buildEpicView(dir: string): EpicView {
     if (system.entities) view.system.entities = system.entities;
   }
   if (system.architecture || record.architecture) view.compare = compareSystem(system, record);
+  const changes = recordChanges(record).map(({ file, doc }) => ({ id: doc.id, story: doc.story, title: String(doc.title ?? ''), why: String(doc.why ?? ''), file }));
+  if (changes.length > 0) view.changes = changes;
   const review = readReview(record).inputs;
   if (Object.keys(review.mainPath).length > 0) view.review = review;
   return view;

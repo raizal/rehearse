@@ -15,6 +15,7 @@ import { StoryTests } from './StoryTests.js';
 import { StoryDesign } from './StoryDesign.js';
 import { StoryBeforeAfter } from './StoryBeforeAfter.js';
 import { SignOffPreview } from './SignOffPreview.js';
+import { ChangeMark } from './ChangeMark.js';
 
 export const STORY_TABS = [
   { id: 'what', label: 'WHAT' },
@@ -349,7 +350,7 @@ function What({ view, d, id, focus }: { view: ReviewEpicView; d: StoryDetail; id
         <p className="muted small">The story has no acceptance criteria.</p>
       ) : (
         <ul className="criteria" data-testid="story-criteria" aria-label="Acceptance criteria">
-          {d.criteria.map(({ criterion: c, checked, scenarios }) => (
+          {d.criteria.map(({ criterion: c, checked, scenarios, change }) => (
             <li key={c.id} className={`criterion${checked ? ' is-checked' : ''}`} data-testid={`story-criterion-${c.id}`} data-checked={checked ? 'true' : 'false'}>
               <div className="criterion-head">
                 <span className="criterion-id">{c.id}</span>
@@ -357,6 +358,7 @@ function What({ view, d, id, focus }: { view: ReviewEpicView; d: StoryDetail; id
                   <span aria-hidden="true">{checked ? '✓ ' : '○ '}</span>
                   {checked ? 'checked' : 'not checked'}
                 </span>
+                {change && <ChangeMark change={change} testId={`story-criterion-change-${c.id}`} />}
               </div>
               <dl className="gwt-rows">
                 <dt>GIVEN</dt>

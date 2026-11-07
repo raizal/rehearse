@@ -337,6 +337,24 @@ requirements:
       and the evidence says what was looked for. No unit report, no Birdview results or no code
       graph is said in plain words, never hidden. Sources and dates are shown. Read-only. (T58)
 
+  # --- Small changes to a signed story (R38, T62) ---
+  - id: R38
+    kind: functional
+    text: >-
+      A small change adds to a signed story without a new story. The change is a file
+      `changes/C<n>.yaml` with an id, the story, a one-sentence title, why, 1 to 3 new criteria and
+      5 scenarios or fewer (the main path and its error exits). It can add root boxes and root edges
+      that join a new box. It does not edit an existing story, criterion, scenario, box or edge.
+      `validate` gives an error for more than 5 scenarios and for a change that edits an existing
+      item. It gives information when a story has more than 8 scenarios with its changes. The old
+      scenario approvals stay valid. The change scenarios are drafts that the owner approves. The
+      sign-off covers the story and its changes (story hash rule 3), and the preview shows only the
+      change ("New in C3"). A change that nobody signed off fails the gate. Old sign-offs keep
+      their rule and stay valid. The story page, the story map, the storyboard, the review queue,
+      the Status page, the brief and the deck mark the change items "New in C<n>".
+      `rehearse change new <epic> <story> --title "…"` writes a start file. An agent can write a
+      change file; only the owner approves and signs off. (T62)
+
 stories:
   - id: S1
     role: builder
@@ -1323,6 +1341,54 @@ stories:
         then: >-
           the Automated tests column says "not run", the real-screens column says "Birdview results
           not found", or "built" counts Flow-Box commits only, and the sources say so in plain words
+
+  # --- Small changes to a signed story (S27, T62) ---
+  - id: S27
+    role: builder
+    want: to add a small change to a signed story, with 5 scenarios or fewer, and approve only the new scenarios
+    soThat: a small request does not become a full story
+    requirements: [R38]
+    acceptance:
+      - id: S27-A1
+        given: a signed story
+        when: an agent writes `changes/C<n>.yaml` with an id, the story, a one-sentence title, why, 1 to 3 new criteria and 5 scenarios or fewer
+        then: >-
+          validate loads the change into its story, and each criterion, scenario and box of the
+          change has the mark "New in C<n>"
+      - id: S27-A2
+        given: a change with more than 5 scenarios, or a change that edits an existing criterion, scenario, box or edge
+        when: the builder runs `rehearse validate <epic>`
+        then: >-
+          validate gives an error in the change file that names the limit or the existing item; a
+          story with more than 8 scenarios with its changes gives information only ("think about a
+          new story")
+      - id: S27-A3
+        given: a signed story with approved scenarios
+        when: an agent adds a change to the story
+        then: >-
+          each old scenario approval stays valid, and only the change scenarios are drafts that the
+          owner approves
+      - id: S27-A4
+        given: a story with a change that nobody signed off
+        when: the builder runs `rehearse gate check <epic>`
+        then: >-
+          the gate fails and asks only for the approvals of the change scenarios and a new sign-off
+          of the story; the new sign-off uses story hash rule 3, and old sign-offs keep their rule
+          and stay valid
+      - id: S27-A5
+        given: a story with a new change after its last sign-off
+        when: the owner opens the sign-off preview of the story
+        then: the preview shows only the change ("New in C3" with its title) and keeps the rest of the story as signed
+      - id: S27-A6
+        given: a story with a change
+        when: the builder opens the story page, the story map, the storyboard, the review queue or the Status page, or runs `rehearse brief` or `rehearse present`
+        then: each tool shows the change in its story and marks the change items "New in C<n>"
+      - id: S27-A7
+        given: a signed story with scenarios
+        when: an agent runs `rehearse change new <epic> <story> --title "…"`
+        then: >-
+          rehearse writes `changes/C<n>.yaml` with the next number, one criterion and one draft
+          scenario; an unknown story writes no file
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

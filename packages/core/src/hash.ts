@@ -27,9 +27,9 @@ export function sha256(value: unknown): Hash {
   return `sha256:${createHash('sha256').update(canonicalJson(value)).digest('hex')}`;
 }
 
-/** The content of a scenario that an approval covers: everything except status, approval and the loader-added story. */
+/** The content of a scenario that an approval covers: everything except status, approval and the loader-added story and change. */
 export function scenarioContent(scenario: Scenario): Record<string, unknown> {
-  const { status: _status, approval: _approval, story: _story, ...content } = scenario;
+  const { status: _status, approval: _approval, story: _story, change: _change, ...content } = scenario;
   return content;
 }
 

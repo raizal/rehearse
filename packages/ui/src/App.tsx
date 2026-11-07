@@ -408,7 +408,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
         )}
         {view && tab === 'status' && (
           <main className="page-wrap">
-            <StatusPage slug={view.slug} onOpenStory={(id) => openStory(id, 'how')} />
+            <StatusPage slug={view.slug} changes={view.changes} onOpenStory={(id) => openStory(id, 'how')} />
           </main>
         )}
         {view && tab === 'prd' && (

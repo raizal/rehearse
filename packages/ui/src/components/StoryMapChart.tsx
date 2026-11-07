@@ -4,7 +4,8 @@
 // a button per step (the arrow keys move along it, as on the one-path chart); every other path is
 // faded, not hidden, and out of the tab order. "Branches here: when …" marks where the scenario
 // leaves the main path and "Joins the main path again" where it comes back. On the story page
-// ("The story at a glance") nothing is active and each line opens its scenario.
+// ("The story at a glance") nothing is active and each line opens its scenario. A box that a small
+// change added (T62) carries "New in C1".
 
 import { useMemo, type KeyboardEvent } from 'react';
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeProps, type NodeTypes } from '@xyflow/react';
@@ -13,6 +14,8 @@ import { BoxCoverageBadge } from './CoverageBadge.js';
 import { Follow, MAX_H, stepLabel, useWidth } from './StoryFlowChart.js';
 import { SF, type SfLaidLane, type SfStep } from '../model/storyflow.js';
 import type { ScenarioBranch, SmGhost, SmLayout, SmNode, StoryMap } from '../model/branches.js';
+import type { ChangeRef } from '../model/changes.js';
+import { ChangeMark } from './ChangeMark.js';
 
 /** One colour per path, in branch order: the main path first. */
 export const LINE_COLORS = ['#1E293B', '#2563EB', '#D97706', '#7C3AED', '#059669', '#DB2777', '#0891B2', '#B45309', '#475569'];
@@ -47,6 +50,7 @@ interface ActiveData extends Record<string, unknown> {
   played: boolean;
   marker?: string;
   rejoin: boolean;
+  change?: ChangeRef;
   onPick: (index: number) => void;
   onKey: (index: number, e: KeyboardEvent<HTMLButtonElement>) => void;
   refFn: (index: number, el: HTMLButtonElement | null) => void;
@@ -57,6 +61,7 @@ interface BoxData extends Record<string, unknown> {
   /** Faded: not on the active scenario's path. */
   faded: boolean;
   testId: string;
+  change?: ChangeRef;
 }
 interface GhostData extends Record<string, unknown> {
   ghost: SmGhost;
@@ -91,7 +96,7 @@ const Diamond = () => (
 );
 
 function ActiveView({ data }: NodeProps<Node<ActiveData, 'smactive'>>) {
-  const { node, step, indexes, total, color, laneLabel, current, seen, played, marker, rejoin, onPick, onKey, refFn } = data;
+  const { node, step, indexes, total, color, laneLabel, current, seen, played, marker, rejoin, change, onPick, onKey, refFn } = data;
   const n = step.index + 1;
   const cls = ['sf-node', node.decision ? 'is-decision' : 'is-step', 'is-active', current && 'is-current', seen && 'is-seen', played && 'is-played', 'nopan', 'nodrag'].filter(Boolean).join(' ');
   return (
@@ -126,6 +131,7 @@ function ActiveView({ data }: NodeProps<Node<ActiveData, 'smactive'>>) {
               {node.title}
             </span>
             {node.inside !== undefined && !node.decision && <span className="sf-inside">in {node.inside}</span>}
+            {change && <ChangeMark change={change} testId={`card-node-change-${n}`} />}
           </span>
         </span>
       </button>
@@ -145,7 +151,7 @@ function ActiveView({ data }: NodeProps<Node<ActiveData, 'smactive'>>) {
 }
 
 function BoxView({ data }: NodeProps<Node<BoxData, 'smbox'>>) {
-  const { node, color, faded, testId } = data;
+  const { node, color, faded, testId, change } = data;
   const cls = ['sf-node', 'sm-box', node.decision ? 'is-decision' : 'is-step', faded && 'is-faded', node.main && 'is-main'].filter(Boolean).join(' ');
   return (
     <>
@@ -155,6 +161,7 @@ function BoxView({ data }: NodeProps<Node<BoxData, 'smbox'>>) {
           <span className="sf-node-text">
             <span className="sf-title">{node.title}</span>
             {node.inside !== undefined && !node.decision && <span className="sf-inside">in {node.inside}</span>}
+            {change && <ChangeMark change={change} testId={`${testId}-change`} />}
           </span>
         </span>
       </div>
@@ -214,10 +221,12 @@ export interface StoryMapChartProps {
   active?: MapActive;
   /** The story page: a line opens its scenario. */
   onOpenScenario?: (id: Id) => void;
+  /** Box path → the small change that added the box (T62). */
+  changes?: ReadonlyMap<string, ChangeRef>;
 }
 
 /** React Flow nodes and edges of the laid-out story map, the active scenario (if any) highlighted. */
-export function mapElements({ map, layout, prefix, active }: Omit<StoryMapChartProps, 'label' | 'onOpenScenario' | 'testId'>): { nodes: Node[]; edges: Edge[] } {
+export function mapElements({ map, layout, prefix, active, changes }: Omit<StoryMapChartProps, 'label' | 'onOpenScenario' | 'testId'>): { nodes: Node[]; edges: Edge[] } {
   const lane = new Map(layout.lanes.map((l) => [l.role, l]));
   const colors = lineColors(map);
   const fixed = { draggable: false, selectable: false, focusable: false, connectable: false } as const;
@@ -230,6 +239,7 @@ export function mapElements({ map, layout, prefix, active }: Omit<StoryMapChartP
     const l = lane.get(n.lane);
     const color = l?.color ?? '#94A3B8';
     const base = { id: n.id, position: { x: r.x, y: r.y }, width: r.w, height: r.h, ...fixed };
+    const change = changes?.get(n.path);
     if (active && onPath.has(n.id)) {
       const indexes = path.flatMap((id, i) => (id === n.id ? [i] : []));
       const shown = indexes.includes(active.current) ? active.current : indexes[0]!;
@@ -250,13 +260,14 @@ export function mapElements({ map, layout, prefix, active }: Omit<StoryMapChartP
           played: indexes[0]! < active.current,
           ...(markers.branchAt === n.path ? { marker: markers.branchText } : {}),
           rejoin: markers.rejoinAt === n.path,
+          ...(change ? { change } : {}),
           onPick: active.onPick,
           onKey: active.onKey,
           refFn: active.refFn,
         },
       });
     } else {
-      nodes.push({ ...base, type: 'smbox', zIndex: 2, data: { node: n, color, faded: active !== undefined, testId: `${prefix}-map-node-${n.path}` } });
+      nodes.push({ ...base, type: 'smbox', zIndex: 2, data: { node: n, color, faded: active !== undefined, testId: `${prefix}-map-node-${n.path}`, ...(change ? { change } : {}) } });
     }
   }
   for (const g of map.ghosts) {
@@ -306,7 +317,7 @@ export function mapElements({ map, layout, prefix, active }: Omit<StoryMapChartP
 export function StoryMapChart(props: StoryMapChartProps) {
   const { layout, label, testId, active, onOpenScenario } = props;
   const [ref, width] = useWidth<HTMLDivElement>();
-  const elements = useMemo(() => mapElements(props), [props.map, props.layout, props.prefix, props.active]); // eslint-disable-line react-hooks/exhaustive-deps
+  const elements = useMemo(() => mapElements(props), [props.map, props.layout, props.prefix, props.active, props.changes]); // eslint-disable-line react-hooks/exhaustive-deps
   const zoom = width > 1 ? Math.min(1, (width - 4) / layout.width) : 1;
   const height = Math.max(160, Math.min(MAX_H, Math.ceil(layout.height * zoom) + 4));
   const currentId = active ? props.map.steps[active.scenarioId]?.[active.current] : undefined;

@@ -13,7 +13,8 @@ import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent, 
 import { layoutStoryFlow, notTaken, storyFlow, type StoryFlow } from '../model/storyflow.js';
 import { StoryFlowChart } from './StoryFlowChart.js';
 import { lineColors, StoryMapChart, type MapActive } from './StoryMapChart.js';
-import { branchesOf, branchIndex, branchHeader, branchLabel, layoutStoryMap, mapOf, seenContext, sharedRowText, sharedSeenText } from '../model/branches.js';
+import { branchesOf, branchIndex, branchHeader, branchLabel, layoutStoryMap, mapChanges, mapOf, seenContext, sharedRowText, sharedSeenText } from '../model/branches.js';
+import { changeRef } from '../model/changes.js';
 import type { Id } from '@rehearse/core';
 import { fetchAllProgress, type ScenarioView, type StoryProgress, type ThreadOutcome } from '../api.js';
 import type { ApprovalView, ApproveOk, PostOutcome, ReviewEpicView } from '../contract.js';
@@ -43,6 +44,7 @@ import { PathMap } from './PathMap.js';
 import { StoryThread } from './StoryThread.js';
 import { BackButton, CrumbStart, isStoryPage, StoryView, type BackControl, type StoryTab } from './StoryView.js';
 import { OutcomeMessage, SignerInfo, type SessionState } from './Review.js';
+import { ChangeMark } from './ChangeMark.js';
 import { KeyValues, show } from './Values.js';
 
 const MARK: Record<ApprovalKind, string> = { signed: '✓', draft: '○', stale: '!', missing: '!', invalid: '!', 'unknown-signer': '!', unchecked: '?' };
@@ -280,12 +282,19 @@ function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }
                 style={{ ['--role' as string]: r.color }}
                 data-testid={`queue-story-${r.storyId}`}
                 aria-current={on ? 'true' : undefined}
-                aria-label={`Open story ${r.storyId}: ${r.want}; ${r.note}`}
+                aria-label={`Open story ${r.storyId}: ${r.want}; ${r.note}${r.changes.map((c) => `; new in ${c.id}`).join('')}`}
                 onClick={() => onPickStory?.(r.storyId)}
               >
                 <span className="queue-id">{r.storyId}</span>
                 <span className="queue-want">{r.want}</span>
                 <span className="queue-note">{r.note}</span>
+                {r.changes.length > 0 && (
+                  <span className="queue-changes">
+                    {r.changes.map((c) => (
+                      <ChangeMark key={c.id} change={c} testId={`queue-change-${r.storyId}-${c.id}`} />
+                    ))}
+                  </span>
+                )}
               </button>
             </li>
           );
@@ -355,6 +364,7 @@ function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, se
             return (
               <li key={s.id} className="scenario-card" data-testid={`story-scenario-${s.id}`} aria-labelledby={`scn-${s.id}`} style={{ ['--role' as string]: storyColor(view, storyId) }}>
                 <span className="scenario-id">{s.id}</span>
+                {s.change && <ChangeMark change={s.change} testId={`story-scenario-change-${s.id}`} />}
                 <h3 id={`scn-${s.id}`}>{s.title}</h3>
                 {branch && (
                   <p className={`scenario-branch${branch.kind === 'main' ? ' is-main' : ''}`} data-testid={`story-scenario-branch-${s.id}`}>
@@ -411,6 +421,7 @@ function StoryAtAGlance({ view, storyId, onPick }: { view: ReviewEpicView; story
   const map = useMemo(() => mapOf(view, storyId), [view, storyId]);
   const layout = useMemo(() => layoutStoryMap(map), [map]);
   const colors = lineColors(map);
+  const boxChanges = useMemo(() => mapChanges(view, map), [view, map]);
   const { branches } = map;
   const main = branches.branches[0];
   return (
@@ -427,6 +438,7 @@ function StoryAtAGlance({ view, storyId, onPick }: { view: ReviewEpicView; story
         map={map}
         layout={layout}
         testId="glance-map" prefix="glance"
+        changes={boxChanges}
         label={`Map of story ${storyId}: ${branches.branches.length} scenario${branches.branches.length === 1 ? '' : 's'} on one map, the main path ${main?.scenarioId ?? 'none'} as the spine.`}
         onOpenScenario={onPick}
       />
@@ -437,11 +449,18 @@ function StoryAtAGlance({ view, storyId, onPick }: { view: ReviewEpicView; story
               <span className="glance-swatch" style={{ background: colors.get(b.scenarioId) }} aria-hidden="true" />
               <strong>{b.scenarioId}</strong> · {branchLabel(b)}
             </button>
+            <GlanceMark view={view} scenarioId={b.scenarioId} />
           </li>
         ))}
       </ul>
     </section>
   );
+}
+
+/** "New in C1" beside a path of the map that a small change added (T62). */
+function GlanceMark({ view, scenarioId }: { view: ReviewEpicView; scenarioId: Id }) {
+  const change = changeRef(view, view.scenarios.find((sv) => sv.scenario.id === scenarioId)?.scenario);
+  return change ? <ChangeMark change={change} testId={`glance-change-${scenarioId}`} /> : null;
 }
 
 // ---------------------------------------------------------------- the storyboard page (page 3)
@@ -500,6 +519,9 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   const [expanded, setExpanded] = useState(false);
   const start = expanded ? 0 : collapsible;
   const { story, criterion } = criterionFor(prd, scenario);
+  const change = changeRef(view, scenario);
+  const criterionChange = changeRef(view, criterion);
+  const boxChanges = useMemo(() => mapChanges(view, map), [view, map]);
   const maps = useMemo(() => pathMap(flow, scenario), [flow, scenario]);
   const sf = useMemo(() => storyFlow(flow, prd, scenario), [flow, prd, scenario]);
   const layout = useMemo(() => layoutStoryFlow(sf), [sf]);
@@ -629,6 +651,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
       <header className="card-head">
         <div>
           <h1 id="card-title">{scenario.title}</h1>
+          {change && <ChangeMark change={change} testId="card-change" />}
           {branch && (
             <p className={`card-branch${branch.kind === 'main' ? ' is-main' : ''}`} data-testid="card-branch">
               {branchHeader(branch)}
@@ -653,7 +676,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
         <div className="sf-board">
           <div className="sf-main">
             {onMap ? (
-              <StoryMapChart map={map} layout={mapLayout} testId="card-flow" prefix="card" label={`${chartLabel} The story's other scenarios are faded.`} active={active} />
+              <StoryMapChart map={map} layout={mapLayout} changes={boxChanges} testId="card-flow" prefix="card" label={`${chartLabel} The story's other scenarios are faded.`} active={active} />
             ) : (
               <StoryFlowChart sf={sf} layout={layout} current={cur} seen={seenSet} label={chartLabel} onPick={pick} onKey={onNodeKey} refFn={refFn} />
             )}
@@ -792,7 +815,9 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
             )}
           </section>
           <section className="card-section" data-testid="card-criterion" aria-label="Acceptance criterion">
-            <h3>Criterion {critId ?? ''}</h3>
+            <h3>
+              Criterion {critId ?? ''} {criterionChange && <ChangeMark change={criterionChange} testId="card-criterion-change" />}
+            </h3>
             {criterion ? (
               <dl className="gwt-rows">
                 <dt>GIVEN</dt>

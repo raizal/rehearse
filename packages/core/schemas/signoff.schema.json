@@ -18,7 +18,7 @@
           "at": { "type": "string" },
           "kind": { "type": "string" },
           "gateChecks": { "type": "string" },
-          "hashRule": { "type": "integer", "enum": [1, 2] },
+          "hashRule": { "type": "integer", "enum": [1, 2, 3] },
           "sig": { "type": "string", "pattern": "^-----BEGIN SSH SIGNATURE-----" },
           "storyHashes": {
             "type": "object",

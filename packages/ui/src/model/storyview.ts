@@ -9,6 +9,7 @@ import { boxAt, diagramAt, lanesFor, parentPath, roleName, type LaneInfo } from 
 import { flowPaths, servedStories } from './features.js';
 import { storiesOf } from './review.js';
 import { approvalState } from './storyboard.js';
+import { changeRef, type ChangeRef } from './changes.js';
 
 // ---------------------------------------------------------------- writes
 
@@ -43,6 +44,8 @@ export interface CriterionCheck {
   checked: boolean;
   /** Those scenarios. */
   scenarios: Id[];
+  /** The small change that added the criterion (T62). */
+  change?: ChangeRef;
 }
 
 export interface HowBox {
@@ -104,7 +107,8 @@ export function storyDetail(view: ReviewEpicView, storyId: Id): StoryDetail {
     .filter((c) => c && typeof c.id === 'string')
     .map((criterion) => {
       const by = signed.filter((sv) => sv.scenario.expect?.criterion === criterion.id).map((sv) => sv.scenario.id);
-      return { criterion, checked: by.length > 0, scenarios: by };
+      const change = changeRef(view, criterion);
+      return { criterion, checked: by.length > 0, scenarios: by, ...(change ? { change } : {}) };
     });
   const how = storyHow(flow, view.prd, storyId);
 

@@ -41,6 +41,7 @@
 .queue-story.is-active .queue-id { color: var(--accent); }
 .queue-want { font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .queue-note { font-size: var(--fs-sm); color: var(--muted); }
+.queue-changes { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--s-1); }
 .queue-foot { margin-top: auto; padding: var(--s-5) var(--s-5) 0; display: flex; flex-direction: column; gap: var(--s-2); }
 .queue-progress { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
 .queue-bar { width: 100%; height: 6px; accent-color: var(--ok); }

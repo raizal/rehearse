@@ -1,0 +1,110 @@
+story: S27
+scenarios:
+
+  - id: S27-main
+    title: An agent adds a small change to a signed story, and the owner approves it and signs off again
+    status: draft
+    steps:
+      - { name: start }
+      - name: change-new
+        example: { id: start-file, given: { epic: 2026-11-05-rehearse, story: S21, title: "The Next button shows a count of scenarios left." }, then: { file: changes/C1.yaml, criteria: [S21-A7], scenarios: [S21-c1-main] } }
+      - name: change-file
+        example: { id: write, given: { change: C1 }, then: { criteria: "S21-A7", scenarios: "S21-c1-main, S21-c1-last, S21-c1-none" } }
+      - { name: change-limits }
+      - { name: change-signoff }
+      - { name: change-shown }
+      - { name: change-done }
+    expect: { criterion: S27-A1, state: { change: C1, merged: "into story S21", marks: "New in C1" } }
+
+  - id: S27-old-approvals
+    title: The old approvals of the story stay valid, and only the change scenarios wait for the owner
+    status: draft
+    steps:
+      - { name: start }
+      - { name: change-new }
+      - { name: change-file }
+      - { name: change-limits }
+      - name: change-signoff
+        example: { id: approvals, given: { story: S21, oldApproved: 8, change: C1 }, then: { oldApproved: 8, stale: 0, drafts: [S21-c1-main, S21-c1-last, S21-c1-none] } }
+      - { name: change-shown }
+      - { name: change-done }
+    expect: { criterion: S27-A3, state: { oldApprovals: valid, drafts: "the change scenarios only" } }
+
+  - id: S27-preview
+    title: The sign-off preview shows only the change
+    status: draft
+    steps:
+      - { name: start }
+      - { name: change-new }
+      - { name: change-file }
+      - { name: change-limits }
+      - name: change-signoff
+        example: { id: preview, given: { story: S21, newChanges: [C1] }, then: { heading: "New in C1: The Next button shows a count of scenarios left.", shown: "the C1 criterion and scenarios", rest: "as signed, folded" } }
+      - { name: change-shown }
+      - { name: change-done }
+    expect: { criterion: S27-A5, state: { preview: "only the change", rest: "as signed" } }
+
+  - id: S27-tools
+    title: Each tool shows the change in its story with the mark New in C1
+    status: draft
+    steps:
+      - { name: start }
+      - { name: change-new }
+      - { name: change-file }
+      - { name: change-limits }
+      - { name: change-signoff }
+      - name: change-shown
+        example: { id: marks, given: { story: S21, change: C1 }, then: { tools: [story page, story map, storyboard, review queue, Status page, rehearse brief, deck], mark: "New in C1" } }
+      - { name: change-done }
+    expect: { criterion: S27-A6, state: { mark: "New in C1", tools: 7 } }
+
+  - id: S27-unknown-story
+    title: A start file for an unknown story writes no file
+    status: draft
+    steps:
+      - { name: start }
+      - name: change-new
+        branch: "unknown story"
+        example: { id: unknown, given: { story: S99 }, then: { exit: 1, message: "unknown-story: story S99 unknown in prd.yaml; no file changed" } }
+      - { name: change-stopped }
+    expect: { criterion: S27-A7, state: { files: none, exit: 1 } }
+
+  - id: S27-too-many
+    title: A change with more than 5 scenarios is an error
+    status: draft
+    steps:
+      - { name: start }
+      - { name: change-new }
+      - { name: change-file }
+      - name: change-limits
+        branch: "more than 5 scenarios"
+        example: { id: six, given: { scenarios: 6 }, then: { finding: "changes/C1.yaml: structure: the change has 6 scenarios; a change has 5 scenarios or fewer" } }
+      - { name: change-stopped }
+    expect: { criterion: S27-A2, state: { validate: fails, file: changes/C1.yaml } }
+
+  - id: S27-edits-existing
+    title: A change that edits an existing item is an error
+    status: draft
+    steps:
+      - { name: start }
+      - { name: change-new }
+      - { name: change-file }
+      - name: change-limits
+        branch: "the change edits an existing item"
+        example: { id: edit, given: { criterion: S21-A1 }, then: { finding: "changes/C1.yaml: reference: the change edits an existing item: criterion S21-A1 is in prd.yaml" } }
+      - { name: change-stopped }
+    expect: { criterion: S27-A2, state: { validate: fails, edits: none } }
+
+  - id: S27-unsigned-change
+    title: A change that nobody signed off fails the gate
+    status: draft
+    steps:
+      - { name: start }
+      - { name: change-new }
+      - { name: change-file }
+      - { name: change-limits }
+      - name: change-signoff
+        branch: "a change scenario is not approved"
+        example: { id: gate, given: { story: S21, change: C1 }, then: { gate: fails, asks: "the C1 approvals and a new S21 sign-off" } }
+      - { name: change-stopped }
+    expect: { criterion: S27-A4, state: { gate: fails, oldSignOffs: valid } }

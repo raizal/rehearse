@@ -2,12 +2,15 @@
 // whether it is signed, built, tested on the real screens and done, and what is missing and who
 // acts, not done first. Filters: All / Not done / Done but not seen working. A row opens the
 // story's progress (its boxes with their evidence, its scenarios with their tests). Read-only: it
-// only GETs api/status and api/story-progress.
+// only GETs api/status and api/story-progress. A story with small changes (T62) says "New in C1".
 
 import { useEffect, useState } from 'react';
 import { fetchStatus, fetchStoryProgress, type StatusRow, type StatusTable, type StoryProgress, type ThreadOutcome } from '../api.js';
 import { builtTone, doneTone, filterCount, filterStatusRows, signedTone, STATUS_FILTERS, type StatusFilterId } from '../model/status.js';
+import type { ReviewEpicView } from '../contract.js';
+import { storyChanges } from '../model/changes.js';
 import { StoryProgressBlock } from './StoryProgress.js';
+import { ChangeMark } from './ChangeMark.js';
 
 export interface StatusPageApi {
   status: (slug: string) => Promise<ThreadOutcome<StatusTable>>;
@@ -18,7 +21,20 @@ const HTTP: StatusPageApi = { status: (slug) => fetchStatus(slug), progress: (st
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; body: T };
 
-export function StatusPage({ slug, onOpenStory, api = HTTP, now = Date.now() }: { slug: string; onOpenStory: (story: string) => void; api?: StatusPageApi; now?: number }) {
+export function StatusPage({
+  slug,
+  onOpenStory,
+  api = HTTP,
+  now = Date.now(),
+  changes,
+}: {
+  slug: string;
+  onOpenStory: (story: string) => void;
+  api?: StatusPageApi;
+  now?: number;
+  /** The small changes of the EPIC (T62), from `GET api/epic`. */
+  changes?: ReviewEpicView['changes'];
+}) {
   const [table, setTable] = useState<Load<StatusTable>>({ kind: 'loading' });
   const [filter, setFilter] = useState<StatusFilterId>('all');
   const [open, setOpen] = useState<string | undefined>(undefined);
@@ -88,7 +104,7 @@ export function StatusPage({ slug, onOpenStory, api = HTTP, now = Date.now() }: 
           </thead>
           <tbody>
             {rows.map((r) => (
-              <StatusTableRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? undefined : r.id)} onOpenStory={onOpenStory} api={api} now={now} />
+              <StatusTableRow key={r.id} row={r} changes={changes} open={open === r.id} onToggle={() => setOpen(open === r.id ? undefined : r.id)} onOpenStory={onOpenStory} api={api} now={now} />
             ))}
           </tbody>
         </table>
@@ -106,7 +122,7 @@ export function StatusPage({ slug, onOpenStory, api = HTTP, now = Date.now() }: 
   );
 }
 
-function StatusTableRow({ row: r, open, onToggle, onOpenStory, api, now }: { row: StatusRow; open: boolean; onToggle: () => void; onOpenStory: (story: string) => void; api: StatusPageApi; now: number }) {
+function StatusTableRow({ row: r, changes, open, onToggle, onOpenStory, api, now }: { row: StatusRow; changes?: ReviewEpicView['changes']; open: boolean; onToggle: () => void; onOpenStory: (story: string) => void; api: StatusPageApi; now: number }) {
   return (
     <>
       <tr
@@ -124,6 +140,9 @@ function StatusTableRow({ row: r, open, onToggle, onOpenStory, api, now }: { row
       >
         <th scope="row" className="status-story">
           <span className="status-id">{r.id}</span> <span className="status-title">{r.title}</span>
+          {storyChanges({ changes }, r.id).map((c) => (
+            <ChangeMark key={c.id} change={c} testId={`status-change-${r.id}-${c.id}`} />
+          ))}
         </th>
         <td className={`tone-${signedTone(r)}`} data-testid={`status-signed-${r.id}`}>
           {r.signed.text}
