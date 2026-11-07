@@ -2,7 +2,7 @@
 // WHAT, HOW and OUTPUT are the three cards of the story page (page 2: the role and the criteria;
 // the processes it runs top to bottom; the data it writes and the status it moves), with the
 // scenario cards below them; Before / after (StoryBeforeAfter.tsx), Code (StoryCode.tsx) and
-// Tests (T13: the story's e2e tests in Birdview) each get the story header card on top. The story
+// Tests (T13: the story's e2e tests in Birdview) and Design (T50: the FigCraft page, StoryDesign.tsx) each get the story header card on top. The story
 // page head names the story's sign-off state with a link to the sign-off preview (T39), read only.
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
@@ -12,6 +12,7 @@ import { howFlow, statusMachine, storyColor, storyState, type HowLink } from '..
 import { storyDetail, type StoryDetail } from '../model/storyview.js';
 import { CodeChip, StoryCode, useCodeIndex } from './StoryCode.js';
 import { StoryTests } from './StoryTests.js';
+import { StoryDesign } from './StoryDesign.js';
 import { StoryBeforeAfter } from './StoryBeforeAfter.js';
 import { SignOffPreview } from './SignOffPreview.js';
 
@@ -22,6 +23,7 @@ export const STORY_TABS = [
   { id: 'before-after', label: 'Before / after' },
   { id: 'code', label: 'Code' },
   { id: 'tests', label: 'Tests' },
+  { id: 'design', label: 'Design' },
 ] as const;
 export type StoryTab = (typeof STORY_TABS)[number]['id'];
 
@@ -139,6 +141,7 @@ export function StoryView({ view, storyId, onOpenBox, onBigPicture, onStories, o
         {tab === 'before-after' && <StoryBeforeAfter view={view} storyId={storyId} onOpenBox={onOpenBox} />}
         {tab === 'code' && <StoryCode d={d} index={code} />}
         {tab === 'tests' && <StoryTests storyId={storyId} scenarios={scenarios} statuses={statuses} />}
+        {tab === 'design' && <StoryDesign storyId={storyId} />}
       </div>
       {page && children}
     </article>

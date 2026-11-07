@@ -12,3 +12,6 @@ dist/
 
 # Unit test coverage (T43): `pnpm coverage` writes coverage/lcov.info in each package; rehearse reads it.
 coverage/
+
+# The FigCraft web build (T50): `rehearse figcraft fetch` downloads it; rehearse serve hosts it at /figcraft/.
+.rehearse/figcraft-web/

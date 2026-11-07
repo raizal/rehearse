@@ -202,12 +202,13 @@ export function dataFlowCells(df: DataFlow, cols: number): Map<string, Cell> {
 
 /**
  * The data flow laid out as wide as the page at most: as many columns as the widest node allows,
- * one fewer while the lanes in the gutters make it wider than `maxW` (down to three).
+ * one fewer while the lanes in the gutters make it wider than `maxW` (down to two: with T50's S16
+ * boxes the real EPIC's gutters made three columns 1794 wide).
  */
 export function dataFlowLayout(df: DataFlow, maxW: number = DIAGRAM_W): { layout: GraphLayout; cols: number } {
   let cols = columnsFor(maxW, Math.max(...df.nodes.map((n) => n.w)));
   let layout = layoutGrid(df, dataFlowCells(df, cols));
-  while (layout.width > maxW && cols > 3) {
+  while (layout.width > maxW && cols > 2) {
     cols -= 1;
     layout = layoutGrid(df, dataFlowCells(df, cols));
   }

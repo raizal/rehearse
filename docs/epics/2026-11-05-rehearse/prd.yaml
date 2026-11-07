@@ -218,6 +218,19 @@ requirements:
       test brief has the code of the boxes each scenario walks and the e2e helpers. A graph that
       is down is said in one line and the brief still builds; gathering runs no tests. (T49)
 
+  - id: R27
+    kind: functional
+    text: >-
+      A story, and optionally a box of it, links to a page of a FigCraft design in
+      `design/links.yaml`, outside the signed record; `rehearse validate` reports a bad link as a
+      finding. `rehearse figcraft fetch` downloads FigCraft's web build once, checks its SHA-256
+      against the release's SHA256SUMS.txt and unpacks it under `.rehearse/` (a mismatch changes
+      nothing); serve hosts it under `/figcraft/` on its own origin. The story page has a Design
+      tab with the page's picture, and "Edit in FigCraft" opens the file in the embedded editor;
+      the owner's Save writes back only to a linked `.figcraft` file under `design/`. The build
+      brief names the design to build to, and the sign-off view shows the design beside the
+      latest test result. Only the owner saves designs, from the UI. (T50)
+
 stories:
   - id: S1
     role: builder
@@ -675,6 +688,72 @@ stories:
         given: a repo with an EPIC and its code graph
         when: an agent runs `rehearse brief <epic> <story> --json` (with or without --tests)
         then: the JSON includes the code facts of each box, or why the graph is not available
+
+  - id: S16
+    role: builder
+    want: to see and edit a story's design from inside rehearse
+    soThat: I and the agents build each screen to the design I drew, and the design stays next to the plan
+    requirements: [R27]
+    acceptance:
+      - id: S16-A1
+        given: '`design/links.yaml` links stories and boxes to pages of a `.figcraft` file and their PNGs'
+        when: the builder runs `rehearse validate <epic>`
+        then: >-
+          a link to a story or box that is not in the EPIC, a file or PNG that does not exist, or a
+          path outside `design/` is a finding in plain words; links.yaml is never a crash, and
+          good links give no finding
+      - id: S16-A2
+        given: the network reaches github.com
+        when: the builder runs `pnpm rehearse figcraft fetch [--version <v>]`
+        then: >-
+          it downloads `figcraft-web-<version>.zip` and SHA256SUMS.txt (default version: the
+          installed desktop app's, else the latest release), checks the hash and unpacks into
+          `.rehearse/figcraft-web/<version>/`, which git ignores; a hash mismatch exits 1 and
+          changes nothing
+      - id: S16-A3
+        given: the web build is fetched
+        when: the builder opens rehearse serve
+        then: >-
+          serve hosts it under `/figcraft/` on its own origin, `.wasm` as application/wasm, and
+          only serve's own pages may frame it; not fetched, the Design tab says so in plain words
+          with the command to run and a button that fetches it
+      - id: S16-A4
+        given: a story with a design link
+        when: the builder opens the story's Design tab
+        then: >-
+          it shows the linked page's picture with the file and page; a box with its own link
+          shows its picture in the box drawer; a story with no link says "No design linked" and
+          the one line to add to `design/links.yaml`
+      - id: S16-A5
+        given: the Design tab of a linked story and the web build fetched
+        when: the builder presses "Edit in FigCraft", edits and saves
+        then: >-
+          FigCraft opens in the page with the linked file and the tab says which page to open;
+          the unsaved dot follows its changes and leaving asks first; Save writes the file back
+          and says "Saved to design/<file> — commit it when you are happy"; a FigCraft that
+          cannot start is said in plain words
+      - id: S16-A6
+        given: a save that is not a Save of the linked file
+        when: FigCraft or anyone posts it to serve
+        then: >-
+          serve writes only a `.figcraft` file under `design/` that links.yaml names, with the
+          session token and its own Origin; a path outside `design/`, with `..`, not `.figcraft`
+          or not linked is refused, nothing written; Save As and exports are offered as
+          downloads; no CLI command writes design files and agents never call the save route
+      - id: S16-A7
+        given: a story with a design link
+        when: rehearse makes its build brief (thread or `rehearse brief`, with `--json` too)
+        then: >-
+          a section "Design" names the file, the page and the PNG, says to build the screen to
+          match it, to inspect FigCraft read-only if at all, and never to write the design file;
+          a story with no link gets the one line "No design linked for this story."
+      - id: S16-A8
+        given: a story with a design link and a test run Birdview knows
+        when: the builder approves a scenario or signs off the story
+        then: >-
+          the design picture shows beside the latest Birdview result of the story's tests (its
+          screenshot, else a link to the recording, else "no run yet"), read-only, with no new
+          approval rule
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

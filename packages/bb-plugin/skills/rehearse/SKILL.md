@@ -57,6 +57,7 @@ setup line of the repo's lockfile). Work on it like this:
 - Before you say done: `rehearse validate <epic>`, `rehearse simulate <epic>` and `rehearse gate check <epic>`, the repo's tests, and one e2e test per approved scenario, named after the scenario id.
 - Never approve a scenario or sign off a story. No command does it; only the owner, in the rehearse UI.
 - Never merge your branch: no command does it. Only the owner merges, with "Merge into <branch>" in the rehearse UI; an agent never calls `POST /api/thread/merge`.
+- Never write a design file (`design/*.figcraft`) and never call `POST /api/design/save`: only the owner saves designs, in the rehearse UI. Build the screen from the PNG named in the brief's *Design* section.
 - Do not edit the record (`docs/epics/…`) without asking in the thread first: a change to a story, its scenarios or its boxes makes the owner's approvals and sign-off stale. If the plan is wrong, say so and propose the change. Something found after the build goes in `corrections.md`.
 - Report in the thread in plain words: what is done per box, what is not, and the test results. Then stop: the owner merges.
 

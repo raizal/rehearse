@@ -37,6 +37,14 @@ export interface MockRoutes {
   testThread?: (method: string, path: string, body: unknown) => Reply;
   /** `GET api/thread/merge?story=&kind=`, `POST api/thread/merge | ask-rebase` (T48): GET passes the query as the body. */
   threadMerge?: (method: string, path: 'merge' | 'ask-rebase', body: Record<string, unknown>) => Reply;
+  /** `GET api/design?story=` (T50). Without it the server has no design API (404). */
+  design?: (storyId: string) => Reply;
+  /** `GET api/design/file?file=` (T50): the bytes of the file. */
+  designFile?: (file: string) => { status: number; bytes: Uint8Array };
+  /** `POST api/design/save` (T50). */
+  designSave?: (body: { file: string; bytes: string }) => Reply;
+  /** `POST api/figcraft/fetch` (T50). */
+  figcraftFetch?: () => Reply;
 }
 
 export const SESSION: Session = {
@@ -83,6 +91,14 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     if (url.startsWith('api/birdview/') && method === 'POST') {
       return respond(routes.birdviewCall?.(url.slice('api/birdview/'.length), body) ?? { status: 404, body: { error: 'no route' } });
     }
+    if (url.startsWith('api/design?story=') && method === 'GET' && routes.design) return respond(routes.design(decodeURIComponent(url.slice('api/design?story='.length))));
+    if (url.startsWith('api/design/file?file=') && method === 'GET' && routes.designFile) {
+      const { status, bytes } = routes.designFile(decodeURIComponent(url.slice('api/design/file?file='.length)));
+      const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      return { ok: status >= 200 && status < 300, status, arrayBuffer: async () => buffer, json: async () => JSON.parse('not json') } as unknown as Response;
+    }
+    if (url === 'api/design/save' && method === 'POST' && routes.designSave) return respond(routes.designSave(body));
+    if (url === 'api/figcraft/fetch' && method === 'POST' && routes.figcraftFetch) return respond(routes.figcraftFetch());
     if (url === 'api/sign-off' && method === 'POST') return respond(routes.signOff?.(body) ?? { status: 500, body: { error: 'no route' } });
     return respond({ status: 404, body: { error: `no endpoint ${url}` } });
   });

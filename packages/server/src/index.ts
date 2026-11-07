@@ -2,6 +2,27 @@ export { buildEpicView, scenarioStatus, type EpicView, type ScenarioView, type S
 export { createHandler, LISTEN_HOST, startServer, type RunningServer, type ServeOptions } from './http.js';
 export { MAX_BODY_BYTES, TOKEN_HEADER } from './http.js';
 export {
+  compareVersions,
+  desktopFigcraftVersion,
+  expectedHash,
+  FIGCRAFT_APPS,
+  FIGCRAFT_LATEST_API,
+  FIGCRAFT_RELEASES,
+  FIGCRAFT_VERSION,
+  FIGCRAFT_WEB_DIR,
+  FigcraftFetchError,
+  fetchFigcraftWeb,
+  httpFetcher,
+  installedFigcraftWeb,
+  readZip,
+  type FetchedFigcraft,
+  type FetchFigcraftOptions,
+  type Fetcher,
+  type FigcraftFetchErrorKind,
+  type ZipFile,
+} from './figcraft-web.js';
+export { designView, FIGCRAFT_PATH, figcraftFetchCommand, MAX_DESIGN_BODY_BYTES, notFetchedPage, saveDesign, type DesignView, type SaveResult } from './design-route.js';
+export {
   createGraphService,
   DEBOUNCE_MS,
   graphServiceFor,

@@ -15,12 +15,12 @@ import {
   parseDecisionTexts,
   storyBuildBrief,
   storyChangeMessage,
+  // The budget of the whole brief: T44 set 24_000, T49 raised it, and T50's Design section adds a line.
+  MAX_BRIEF_CHARS,
 } from '../../src/index.js';
 import { CODE_GRAPH_EPIC, makeEpic, REAL_EPIC } from '../helpers.js';
 import { editYaml, signedEpic } from './helpers.js';
 
-/** About 6k tokens at four characters a token. */
-const MAX_BRIEF_CHARS = 24_000;
 const SKILL = fileURLToPath(new URL('../../../bb-plugin/skills/rehearse/SKILL.md', import.meta.url));
 
 describe('storyBuildBrief (T44, box build-brief)', () => {

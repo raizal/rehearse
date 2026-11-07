@@ -10,10 +10,12 @@
 // Both briefs carry "Code you start from" (T49): the code graph of the repo is brought up to date
 // and asked for the code of the story's boxes; when it cannot open, the brief says so in one line.
 // `--json` holds the facts under `code`. No tests run.
+//
+// The build brief names the story's design (T50): its links in design/links.yaml, under `design` in `--json`.
 
 import { existsSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
-import { briefBoxPaths, decisionTexts, loadEpic, repoCommands, storyBuildBrief, testBriefBoxPaths, type EpicRecord } from '@rehearse/core';
+import { briefBoxPaths, decisionTexts, loadEpic, readDesignLinks, repoCommands, storyBuildBrief, storyDesignLinks, testBriefBoxPaths, type EpicRecord, type StoryDesignLinks } from '@rehearse/core';
 import { findTestProject, gatherBriefCode, openGraphAccess, repoRoot, storyTestBrief, testsNeeded, type BriefCode } from '@rehearse/server';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
 
@@ -51,10 +53,13 @@ export async function runBrief(args: string[], io: Io): Promise<number> {
   if (tests) return testBrief(dir, storyId, scenarios, json, io);
   let made;
   let code: BriefCode;
+  let design: StoryDesignLinks;
   try {
     const { record } = loadEpic(dir);
+    const top = repoTop(dir);
     code = await briefCode(dir, record, briefBoxPaths(record, storyId), findTestProject(dir));
-    made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(repoTop(dir)) });
+    design = storyDesignLinks(readDesignLinks(top).links, record.slug, storyId);
+    made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(top), design });
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
@@ -64,7 +69,7 @@ export async function runBrief(args: string[], io: Io): Promise<number> {
     else io.stderr(`rehearse brief: ${made.reason}\n`);
     return EXIT.findings;
   }
-  if (json) io.stdout(JSON.stringify({ ok: true, storyId, hash: made.hash, sign: made.sign, code, markdown: made.markdown }, null, 2) + '\n');
+  if (json) io.stdout(JSON.stringify({ ok: true, storyId, hash: made.hash, sign: made.sign, code, design, markdown: made.markdown }, null, 2) + '\n');
   else io.stdout(made.markdown.endsWith('\n') ? made.markdown : `${made.markdown}\n`);
   return EXIT.ok;
 }

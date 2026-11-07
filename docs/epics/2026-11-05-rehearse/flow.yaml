@@ -599,6 +599,109 @@ root:
       # 5 callers and callees. Shorter blocks when the brief would pass its size budget. A graph
       # that is down is one line. The test brief gets the short form per scenario.
 
+    # --- A story's design, inside rehearse, FigCraft embedded (S16, T50) ---
+    # New boxes only: validate, valid, draft-record, rejected, review, happy, start-build and
+    # build-brief stay as they are; root edges join them.
+    - id: design-links
+      kind: process
+      lane: rehearse
+      package: core
+      title: Read and check design/links.yaml
+      stories: [S16]
+      inputs:  { storyId: "string?" }
+      outputs: { storyId: "string?", links: "list string", findings: "list Finding", report: Report }
+      reads:   [Story.*, Box.*]
+      errorExits: ["bad link"]
+      # design/links.yaml at the repo top, outside the signed record: per EPIC slug and story id
+      # (and optionally per box path) a FigCraft file under design/, a page (number or name) and
+      # the page's PNG. Pure parse and check in core; a missing story, box, file or PNG is a
+      # finding that `rehearse validate` reports (the error exit), never a crash.
+
+    - id: fetch-figcraft-web
+      kind: input
+      lane: builder
+      package: server
+      title: Fetch FigCraft's web build once, hash checked
+      stories: [S16]
+      inputs:  { version: "string?" }
+      outputs: { version: string, dir: string }
+      sideEffects: [download figcraft-web-<version>.zip and SHA256SUMS.txt from the GitHub release]
+      errorExits: ["hash mismatch"]
+      # `pnpm rehearse figcraft fetch [--version <v>]`, or the button on the Design tab (POST
+      # /api/figcraft/fetch, token and Origin). Default version: `FigCraft --version` of the
+      # desktop app, else the latest release. Unpacks into .rehearse/figcraft-web/<version>/
+      # (gitignored) through a temporary folder; a hash mismatch exits 1 and changes nothing.
+
+    - id: host-figcraft
+      kind: process
+      lane: rehearse
+      package: server
+      title: Serve hosts FigCraft web under /figcraft/, same origin
+      stories: [S16]
+      inputs:  { version: "string?" }
+      outputs: { url: string, version: string }
+      # The newest fetched version under /figcraft/: .wasm as application/wasm, .js as
+      # text/javascript, a CSP `frame-ancestors 'self'` so only serve's pages frame it, no COOP or
+      # COEP. Not fetched: a plain page that says so with the command.
+
+    - id: design-tab
+      kind: output
+      lane: builder
+      package: ui
+      title: The story's Design tab, and Edit in FigCraft
+      stories: [S16]
+      inputs:  { storyId: "string?", links: "list string?" }
+      outputs: { storyId: string, file: "string?", decision: "enum[look, edit, save, close]" }
+      reads:   [Story.*, Box.*]
+      errorExits: ["web build not fetched"]
+      # The linked page's PNG with file and page, a box's own link in the box drawer; no link:
+      # "No design linked" and the line to add to links.yaml. "Edit in FigCraft": an iframe
+      # /figcraft/?host=parent&author=<owner>; on figcraft:ready it sends figcraft:open with the
+      # file and says which page to open (FigCraft cannot jump there). The unsaved dot follows
+      # figcraft:dirty; closing or leaving while dirty asks first; figcraft:failed in plain words.
+      # A Save of the sent file goes to save-design; Save As and exports are downloads.
+
+    - id: save-design
+      kind: input
+      lane: builder
+      package: server
+      title: Save the design back into design/
+      stories: [S16]
+      inputs:  { file: string, bytes: string }
+      outputs: { file: string, size: number }
+      sideEffects: [write design/<file>.figcraft]
+      errorExits: ["file not linked"]
+      # POST /api/design/save {file, bytes} (token and Origin), an owner action from the UI: no
+      # CLI command writes design files, and the skill and briefs say agents never call it. Only a
+      # .figcraft path under design/ of serve's checkout that links.yaml names; outside design/,
+      # `..`, another extension or not linked is refused and nothing is written.
+
+    - id: design-brief
+      kind: process
+      lane: rehearse
+      package: core
+      title: Write the "Design" section of the build brief
+      stories: [S16]
+      inputs:  { storyId: "string?", links: "list string" }
+      outputs: { storyId: string, section: string }
+      # The linked file, page and PNG of the story and its boxes; build the screen to match it,
+      # read the PNG, inspect FigCraft on 127.0.0.1:4800 read-only with the figcraft-use skill if
+      # at all, never write the design file. No link: "No design linked for this story." Core
+      # stays pure: serve and the CLI read links.yaml; `rehearse brief --json` has it.
+
+    - id: design-beside-result
+      kind: output
+      lane: builder
+      package: ui
+      title: The design beside the latest test result, where the owner approves and signs off
+      stories: [S16]
+      inputs:  { storyId: "string?" }
+      outputs: { decision: "enum[approve, change]" }
+      reads:   [Story.*, Scenario.*]
+      # For a story with a design link: its PNG beside the latest Birdview result of the story's
+      # tests as the Tests tab knows it (the screenshot, else the recording, else "no run yet").
+      # Read-only; no new approval rule.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -678,3 +781,22 @@ root:
     - { from: gather-box-code,    to: code-start-section, label: "graph not available", kind: error }
     - { from: code-start-section, to: build-brief }
     - { from: code-start-section, to: test-brief }
+    - { from: validate,             to: design-links }
+    - { from: design-links,         to: valid }
+    - { from: design-links,         to: draft-record,         label: "bad link", kind: error }
+    - { from: review,               to: design-links }
+    - { from: design-links,         to: design-tab }
+    - { from: design-links,         to: design-beside-result }
+    - { from: design-beside-result, to: happy }
+    - { from: design-tab,           to: host-figcraft }
+    - { from: host-figcraft,        to: design-tab }
+    - { from: design-tab,           to: fetch-figcraft-web,   label: "web build not fetched", kind: error }
+    - { from: draft-record,         to: fetch-figcraft-web }
+    - { from: fetch-figcraft-web,   to: host-figcraft }
+    - { from: fetch-figcraft-web,   to: rejected,             label: "hash mismatch", kind: error }
+    - { from: design-tab,           to: save-design }
+    - { from: save-design,          to: design-tab }
+    - { from: save-design,          to: design-tab,           label: "file not linked", kind: error }
+    - { from: start-build,          to: design-links }
+    - { from: design-links,         to: design-brief }
+    - { from: design-brief,         to: build-brief }

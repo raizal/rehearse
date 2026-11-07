@@ -1,8 +1,8 @@
 // The box drawer (T38): a box opens on the right, over the page the reader is on. It shows where
 // the box sits (parents, lane, kind), its contract, the decisions and stories it names, the steps
 // inside it as a small diagram, the edges in and out with their labels, its code from the
-// Flow-Box commits and the scenarios that step through it. Every box it names opens in the same
-// drawer. Esc, ✕ or a click outside closes it; focus stays inside and goes back when it closes.
+// Flow-Box commits, its design page when a story links one (T50) and the scenarios that step
+// through it. Every box it names opens in the same drawer. Esc, ✕ or a click outside closes it; focus stays inside and goes back when it closes.
 
 import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import type { Id } from '@rehearse/core';
@@ -12,6 +12,7 @@ import { NO_CODE_KINDS } from '../model/code.js';
 import type { Place } from '../model/links.js';
 import type { StoryTabId } from '../model/nav.js';
 import { BoxDiagram } from './BoxDiagram.js';
+import { BoxDesign } from './DesignBeside.js';
 import { BoxCoverageBadge, BoxCoverageHint } from './CoverageBadge.js';
 import { IdLink } from './IdLink.js';
 import { useCodeIndex } from './StoryCode.js';
@@ -24,11 +25,13 @@ export interface BoxDrawerProps {
   onClose: () => void;
   onGo: (place: Place) => void;
   onOpenStory: (id: Id, tab: StoryTabId) => void;
+  /** The story open under the drawer: its design link for this box shows (T50). */
+  storyId?: Id;
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function BoxDrawer({ view, path, onOpenBox, onClose, onGo, onOpenStory }: BoxDrawerProps) {
+export function BoxDrawer({ view, path, onOpenBox, onClose, onGo, onOpenStory, storyId }: BoxDrawerProps) {
   const d = useMemo(() => boxDrawer(view, path), [view, path]);
   const panel = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -190,6 +193,8 @@ export function BoxDrawer({ view, path, onOpenBox, onClose, onGo, onOpenStory }:
               <Edges title="Comes from" edges={d.incoming} dir="in" onOpenBox={onOpenBox} />
               <Edges title="Goes to" edges={d.outgoing} dir="out" onOpenBox={onOpenBox} />
             </section>
+
+            <BoxDesign path={path} storyIds={storyId ? [storyId] : d.stories} />
 
             <DrawerCode path={path} kind={d.box.kind} stories={d.stories} onOpenStory={onOpenStory} />
 

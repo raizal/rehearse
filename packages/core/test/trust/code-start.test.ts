@@ -131,7 +131,9 @@ describe('the build brief with code (T49)', () => {
     const r = storyBuildBrief(record, 'S1', { code: [payCode()] });
     if (!r.ok) throw new Error(r.reason);
     const heads = r.markdown.split('\n').filter((l) => l.startsWith('## ')).map((l) => l.slice(3));
-    expect(heads.indexOf(CODE_START_HEADING)).toBe(heads.indexOf('Boxes') + 1);
+    // The Design section (T50) sits between the boxes and the code.
+    expect(heads.indexOf(CODE_START_HEADING)).toBe(heads.indexOf('Boxes') + 2);
+    expect(heads.indexOf('Design')).toBe(heads.indexOf('Boxes') + 1);
     expect(r.markdown).toContain('Start from the section *Code you start from*');
   });
 
@@ -152,7 +154,10 @@ describe('the build brief with code (T49)', () => {
           callees: Array.from({ length: MAX_CODE_NEIGHBOURS }, (_, i) => long(i, 'graph')),
           testedBy: Array.from({ length: MAX_CODE_NEIGHBOURS }, (_, i) => ({ name: 'storyBuildBrief (T44, box build-brief) > holds every sectio…', file: 'packages/core/test/trust/build-brief.test.ts', line: 22 + i })),
         }));
-        const r = storyBuildBrief(record, s.id, { allowUnsigned: true, decisions, code, cli: 'pnpm rehearse', commands: { cli: 'pnpm rehearse', setup: PNPM_SETUP } });
+        // With a design link of the story and of two boxes (T50).
+        const link = { file: 'design/rehearse-review.figcraft', page: 15, png: 'design/15-story-code-thread-hidden.png' };
+        const design = { story: link, boxes: Object.fromEntries(briefBoxPaths(record, s.id).slice(0, 2).map((b) => [b, link])) };
+        const r = storyBuildBrief(record, s.id, { allowUnsigned: true, decisions, code, cli: 'pnpm rehearse', commands: { cli: 'pnpm rehearse', setup: PNPM_SETUP }, design });
         if (!r.ok) throw new Error(r.reason);
         if (r.markdown.length > largest.chars) largest = { id: `${record.slug} ${s.id}`, chars: r.markdown.length };
         expect(r.markdown.length, `${record.slug} ${s.id}`).toBeLessThan(MAX_BRIEF_CHARS);

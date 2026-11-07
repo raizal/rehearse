@@ -25,6 +25,7 @@ import { TechSpecView } from './components/TechSpecView.js';
 import { UseCaseView } from './components/UseCaseView.js';
 import type { Place } from './model/links.js';
 import { boxOfHash, DEFAULT_BIG_VIEW, depthOf, depthState, fromHash, toHash, type CodeLoc, type Loc, type StoryTabId, type Tab } from './model/nav.js';
+import { leaveDesignOk } from './model/design.js';
 import { approveReason, storiesOf } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
@@ -233,11 +234,24 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   const applyRef = useRef(applyLoc);
   applyRef.current = applyLoc;
   const [depth, setDepth] = useState(() => depthOf(window.history.state));
+  const depthRef = useRef(depth);
+  depthRef.current = depth;
+  // A back or forward the owner took back, because FigCraft has unsaved changes (T50).
+  const undoingPop = useRef(false);
   // The place in the URL when the page opened.
   useEffect(() => {
     const at = fromHash(window.location.hash);
     if (at) applyRef.current(at, boxOfHash(window.location.hash));
     const onPop = (e: PopStateEvent) => {
+      if (undoingPop.current) {
+        undoingPop.current = false;
+        return;
+      }
+      if (!leaveDesignOk()) {
+        undoingPop.current = true;
+        window.history.go(depthOf(e.state) < depthRef.current ? 1 : -1);
+        return;
+      }
       setDepth(depthOf(e.state));
       const to = fromHash(window.location.hash);
       if (to) applyRef.current(to, boxOfHash(window.location.hash));
@@ -462,6 +476,7 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
             onClose={() => setBox(undefined)}
             onGo={go}
             onOpenStory={(id: Id, onTab: StoryTabId) => openStory(id, onTab)}
+            {...(tab === 'stories' && !list && storyShown !== undefined ? { storyId: storyShown } : {})}
           />
         )}
       </div>

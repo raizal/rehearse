@@ -31,8 +31,10 @@ import {
   decisionTexts,
   diffStoryContent,
   loadEpic,
+  readDesignLinks,
   repoCommands,
   storyBuildBrief,
+  storyDesignLinks,
   storyChangeMessage,
   type BriefSignState,
   type Box,
@@ -914,7 +916,10 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       try {
         const rec = record();
         const code = opts.briefCode ? await opts.briefCode(rec, briefBoxPaths(rec, storyId)) : {};
-        const made = storyBuildBrief(rec, storyId, { ...code, decisions: decisionTexts(epicDir), commands: repoCommands(await topLevel()) });
+        const top = await topLevel();
+        // The story's design links (T50): the brief names the FigCraft page and its PNG.
+        const design = storyDesignLinks(readDesignLinks(top).links, rec.slug, storyId);
+        const made = storyBuildBrief(rec, storyId, { ...code, decisions: decisionTexts(epicDir), commands: repoCommands(top), design });
         if (!made.ok) throw new StoryThreadError(409, made.reason);
         const thread = await spawnThread(
           {

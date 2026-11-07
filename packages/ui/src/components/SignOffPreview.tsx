@@ -9,6 +9,7 @@ import type { ContentChange, Id, PreviewBox, StoryPreviewContent } from '@rehear
 import { fetchSignOffPreview, type SignOffPreview as Preview, type SinceSignOff, type StorySignOffPreview } from '../api.js';
 import type { ReviewEpicView } from '../contract.js';
 import { SigBadge } from './Review.js';
+import { DesignBeside } from './DesignBeside.js';
 
 /** What a sign-off is, in plain words. */
 export const SIGN_OFF_MEANING =
@@ -96,6 +97,7 @@ function StoryPreview({ view, s, content, me, onOpenBox }: { view: ReviewEpicVie
         You agree to {plural(n.requirements, 'requirement')}, {plural(n.criteria, 'criterion', 'criteria')}, {plural(n.scenarios, 'scenario')} and {plural(n.boxes, 'box', 'boxes')}.
       </p>
       {s.since && <Since id={s.id} since={s.since} me={me} />}
+      <DesignBeside view={view} storyId={s.id} />
 
       <h4>Story</h4>
       <p className="signoff-sentence" data-testid={`signoff-preview-sentence-${s.id}`}>

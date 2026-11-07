@@ -23,6 +23,7 @@ import { overviewText, overviewThread } from '../model/progress.js';
 import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue, type ApprovalKind } from '../model/storyboard.js';
 import { queueRows, scenarioSummary, stepTitle, storyColor } from '../model/storypage.js';
 import { ApproveBar, type ApproveControls } from './Approve.js';
+import { DesignBeside } from './DesignBeside.js';
 import { PathMap } from './PathMap.js';
 import { StoryThread } from './StoryThread.js';
 import { BackButton, CrumbStart, isStoryPage, StoryView, type BackControl, type StoryTab } from './StoryView.js';
@@ -647,6 +648,8 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
           {session && <OutcomeMessage outcome={outcome} okText={outcome?.kind === 'ok' ? `Approved ${outcome.body.approved.join(', ')}.` : ''} testId="approve-outcome" />}
         </section>
       </div>
+
+      {scenario.story && <DesignBeside view={view} storyId={scenario.story} />}
 
       <details className="card-more">
         <summary>Story, criterion and path map</summary>
