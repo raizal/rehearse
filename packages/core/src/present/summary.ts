@@ -30,7 +30,9 @@ function cut(s: string, max: number): string {
 }
 
 /** "A", "A and B", "A, B and C", "A, B and 3 more". */
-function names(list: string[], max = 3): string {
+function names(titles: string[], max = 3): string {
+  // Inside a sentence the later titles start small ("Create a record and see the flow"); an acronym stays.
+  const list = titles.map((t, i) => (i > 0 && /^[A-Z][a-z]/.test(t) ? `${t[0]!.toLowerCase()}${t.slice(1)}` : t));
   if (list.length <= 1) return list[0] ?? '';
   if (list.length <= max) return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
   return `${list.slice(0, max - 1).join(', ')} and ${list.length - max + 1} more`;
@@ -227,7 +229,8 @@ function howWeKnow(views: StoryView[], facts: DeckFacts, ev: DeckEvidence, ctx: 
   const e = ev.e2e;
   const span = e.newest ? (e.oldest && e.oldest.slice(0, 10) !== e.newest.slice(0, 10) ? `, runs from ${shortDate(e.oldest, year)} to ${shortDate(e.newest, year)}` : `, run ${shortDate(e.newest, year)}`) : '';
   if (e.source === 'none' || !facts.testResults) items.push({ text: `Tests on the real screens: no results were found for this deck${e.why ? ` (${e.why})` : ''}, so nothing is called seen working.`, mark: 'not-yet' });
-  else items.push({ text: `Tests on the real screens: ${passed} of ${plural(approved, 'approved check')} passed${failed > 0 ? `, ${failed} failed` : ''} in their last run (Birdview${span}).`, mark: failed > 0 ? 'failed' : passed > 0 ? 'done' : 'not-yet' });
+  else if (passed + failed === 0) items.push({ text: `Tests on the real screens: none of the ${plural(approved, 'approved check')} has run on the real screens yet (Birdview${span}).`, mark: 'not-yet' });
+  else items.push({ text: `Tests on the real screens: ${passed} of ${plural(approved, 'approved check')} passed${failed > 0 ? `, ${failed} failed` : ''} in their last run (Birdview${span})${approved - passed - failed > 0 ? `; ${approved - passed - failed} have no run on the real screens yet` : ''}.`, mark: failed > 0 ? 'failed' : passed > 0 && passed >= approved ? 'done' : 'not-yet' });
 
   // Unit tests.
   const u = ev.unit;
@@ -330,7 +333,7 @@ export function summarySlides(x: SummaryInput): Slide[] {
   titleBlocks.push({
     type: 'bar',
     segments: [
-      { label: 'seen working', count: s.seen + s.partly, tone: 'good' },
+      { label: s.partly === 0 ? 'seen working' : s.seen === 0 ? 'partly seen working' : `seen working (${s.partly} partly)`, count: s.seen + s.partly, tone: 'good' },
       { label: 'done, checked by automated tests', count: s.automated, tone: 'ok' },
       { label: 'not done yet', count: s.total - s.done, tone: failing > 0 ? 'bad' : 'todo' },
     ],

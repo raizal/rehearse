@@ -7,6 +7,7 @@ import {
   loadEpic,
   MAX_GROUPS,
   MAX_LINES,
+  NO_EVIDENCE,
   NO_INPUTS,
   plainWordProblems,
   presentationDeck,
@@ -110,10 +111,28 @@ describe('the summary (summary-deck)', () => {
     expect(JSON.stringify(title.blocks)).toContain(`5 of ${total} parts of the plan are done; 2 of them are seen working on the real screens, 1 partly. ${total - 5} are not done yet.`);
     const bar = title.blocks.find((b) => b.type === 'bar');
     expect(bar?.type === 'bar' && bar.segments.map((s) => [s.label, s.count])).toEqual([
-      ['seen working', 3],
+      ['seen working (1 partly)', 3],
       ['done, checked by automated tests', 2],
       ['not done yet', total - 5],
     ]);
+  });
+
+  it('titles joined in one line start small after the first, an acronym stays', () => {
+    const many = presentationDeck(real, facts({ stories: Object.fromEntries(signed.map((id) => [id, built(id)])) }), inputs());
+    const lines = groups(many, 'done').flatMap((g) => g.lines.map((l) => l.text));
+    expect(lines.some((l) => / and \d+ more$/.test(l))).toBe(true);
+    expect(lines.join(' | ')).not.toMatch(/, [A-Z][a-z]| and [A-Z][a-z]/);
+  });
+
+  it('the real-screens line is not ticked while some approved checks have no run yet', () => {
+    const evidence: DeckEvidence = { ...NO_EVIDENCE, e2e: { source: 'saved', newest: '2026-11-06T10:00:00Z', used: 1, dropped: 0 } };
+    const some = presentationDeck(real, facts({ stories: { S1: built('S1', 'all') }, evidence }), inputs());
+    const first = slide(some, 'how-we-know').blocks.find((b) => b.type === 'list');
+    expect(first?.type === 'list' && first.items[0]!.mark).toBe('not-yet');
+    expect(first?.type === 'list' && first.items[0]!.text).toMatch(/; \d+ have no run on the real screens yet\.$/);
+    const none = presentationDeck(real, facts({ stories: { S1: built('S1') }, evidence }), inputs());
+    const list = slide(none, 'how-we-know').blocks.find((b) => b.type === 'list');
+    expect(list?.type === 'list' && list.items[0]!.text).toMatch(/^Tests on the real screens: none of the \d+ approved checks has run on the real screens yet/);
   });
 
   it('a failing test leaves a story not done, even built and signed off', () => {
@@ -268,7 +287,8 @@ describe('how we know (how-we-know)', () => {
     const deck = presentationDeck(real, facts({ stories: mixed(), evidence }), NO_INPUTS);
     const all = texts(slide(deck, 'how-we-know').blocks).join('\n');
     expect(all).toMatch(/^Done means: every part is built and the owner signed it off, and no test of it fails\./);
-    expect(all).toMatch(/Tests on the real screens: \d+ of \d+ approved checks passed, 1 failed in their last run \(Birdview, runs from 5 Nov to 7 Nov\)\./);
+    expect(all).toMatch(/Tests on the real screens: \d+ of \d+ approved checks passed, 1 failed in their last run \(Birdview, runs from 5 Nov to 7 Nov\); \d+ have no run on the real screens yet\./);
+    expect(slide(deck, 'how-we-know').blocks.some((b) => b.type === 'list' && b.items[0]!.mark === 'failed')).toBe(true);
     expect(all).toContain('Automated tests: 1200 of 1200 passed (run 7 Nov).');
     expect(all).toContain("Every sign-off is signed with Ada's key, and every signature checks out (15 of 15).");
     expect(all).toContain('Where it comes from: the plan as committed at abc1234 on main, 7 Nov; Birdview test results of 7 Nov.');
