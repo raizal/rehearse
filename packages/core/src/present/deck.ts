@@ -71,6 +71,8 @@ export interface DeckEvidence {
     used: number;
     /** Saved results left out: they match no test now. */
     dropped: number;
+    /** Older saved runs of a test, replaced by its newer run. */
+    older?: number;
     /** Why there are none. */
     why?: string;
   };

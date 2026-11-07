@@ -312,8 +312,9 @@ export function evidenceSlide(facts: DeckFacts, ev: DeckEvidence, owner: string,
   const e = ev.e2e;
   const span = e.oldest && e.newest ? (e.oldest.slice(0, 10) === e.newest.slice(0, 10) ? `, all run on ${shortDate(e.oldest, year)}` : `, run between ${shortDate(e.oldest, year)} and ${shortDate(e.newest, year)}`) : '';
   const dropped = e.dropped > 0 ? ` ${plural(e.dropped, 'saved result')} ${e.dropped === 1 ? 'was' : 'were'} left out because ${e.dropped === 1 ? 'it no longer matches' : 'they no longer match'} a test.` : '';
+  const older = e.older ? ` ${plural(e.older, 'older run')} of a test ${e.older === 1 ? 'was' : 'were'} replaced by its newer run.` : '';
   if (e.source === 'saved')
-    items.push({ text: `E2E test results: Birdview's saved results, the file ${e.file ?? 'of the project'}${e.project ? `, for the test project ${e.project}` : ''}${e.note ? ` (${e.note})` : ''}. ${plural(e.used, 'result')} used${span}.${dropped}` });
+    items.push({ text: `E2E test results: Birdview's saved results, the file ${e.file ?? 'of the project'}${e.project ? `, for the test project ${e.project}` : ''}${e.note ? ` (${e.note})` : ''}. ${plural(e.used, 'result')} used${span}.${dropped}${older}` });
   else if (e.source === 'player') items.push({ text: `E2E test results: the running Birdview player${e.project ? `, test project ${e.project}` : ''}. ${plural(e.used, 'result')} used${span}.${dropped}` });
   else items.push({ text: `E2E test results: none were found${e.why ? ` (${e.why})` : ''}, so every written test shows as "not run".`, mark: 'not-yet' });
 

@@ -213,7 +213,7 @@ describe('the proof on every story slide (proof-lines)', () => {
 
 describe('the evidence page (evidence-page)', () => {
   const evidence: DeckEvidence = {
-    e2e: { source: 'saved', file: '~/birdview/data/projects/e2e-353e1aa5/results.json', project: '/repo/e2e', note: "the main checkout's own", oldest: '2026-11-05T10:00:00Z', newest: '2026-11-07T09:00:00Z', used: 9, dropped: 2 },
+    e2e: { source: 'saved', file: '~/birdview/data/projects/e2e-353e1aa5/results.json', project: '/repo/e2e', note: "the main checkout's own", oldest: '2026-11-05T10:00:00Z', newest: '2026-11-07T09:00:00Z', used: 9, dropped: 2, older: 1 },
     recordings: { found: 3, copied: 'deck-media', pictures: 2, picturesLeftOut: 1, picturesBytes: 300_000 },
     unit: { file: '.rehearse/unit-report.json', date: '2026-11-07T08:00:00Z', tests: 1200, passed: 1199, failed: 1 },
     signatures: { file: '.rehearse/allowed_signers', checked: 15, valid: 15 },
@@ -227,6 +227,7 @@ describe('the evidence page (evidence-page)', () => {
     expect(text).toContain('e2e-353e1aa5/results.json');
     expect(text).toMatch(/run between 5 Nov and 7 Nov/);
     expect(text).toMatch(/2 saved results were left out because they no longer match a test/);
+    expect(text).toMatch(/1 older run of a test was replaced by its newer run/);
     expect(text).toContain('.rehearse/unit-report.json');
     expect(text).toContain('allowed_signers');
     expect(text).toContain(TRUST_SENTENCE);

@@ -223,6 +223,7 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
       note: saved.note,
       used: 0,
       dropped: saved.dropped,
+      ...(saved.older > 0 ? { older: saved.older } : {}),
       ...(saved.oldest !== undefined ? { oldest: iso(saved.oldest)! } : {}),
       ...(saved.newest !== undefined ? { newest: iso(saved.newest)! } : {}),
     };

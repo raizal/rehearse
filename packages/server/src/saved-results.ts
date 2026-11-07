@@ -4,7 +4,7 @@
 // project in results.json) and recordings/<stamp>-<slug>-<passed|failed>/ (about.json, the video,
 // trace.zip). Our checkout's own project first, else the main checkout's; never another worktree.
 // A saved `file:line` that moved is matched to our test by its title (the spec as it was when the
-// test ran); what matches no test is dropped and counted. Box last-screen-picture: the last
+// test ran); what matches no test is dropped and counted, and of two runs of one test the newer counts. Box last-screen-picture: the last
 // screencast frame of the run's trace, or the video's last frame with ffmpeg. Read-only on
 // Birdview's folder.
 
@@ -150,6 +150,8 @@ export interface SavedResults {
   used: number;
   /** Saved results that match no test now. */
   dropped: number;
+  /** Older runs of a test that also has a newer saved run (its line moved between them). */
+  older: number;
   oldest?: number;
   newest?: number;
   recordings: number;
@@ -218,6 +220,7 @@ export async function readSavedResults(o: ReadSavedOptions): Promise<SavedResult
     const cache = new Map<string, SpecTest[] | undefined>();
     const runs: Record<string, SavedRun> = {};
     let dropped = 0;
+    let older = 0;
     for (const [savedKey, value] of Object.entries(saved as Record<string, unknown>)) {
       if (!value || typeof value !== 'object') {
         dropped++;
@@ -252,10 +255,10 @@ export async function readSavedResults(o: ReadSavedOptions): Promise<SavedResult
       const key = `${target.file}:${target.line}`;
       const prev = runs[key];
       if (prev && (prev.result.at ?? 0) >= (result.at ?? 0)) {
-        dropped++;
+        older++;
         continue;
       }
-      if (prev) dropped++;
+      if (prev) older++;
       const recording = recordingOf(recordings, savedKey, result);
       runs[key] = { result, savedKey, ...(recording ? { recording } : {}) };
     }
@@ -267,6 +270,7 @@ export async function readSavedResults(o: ReadSavedOptions): Promise<SavedResult
       note: c.note,
       used: Object.keys(runs).length,
       dropped,
+      older,
       ...(ats.length > 0 ? { oldest: Math.min(...ats), newest: Math.max(...ats) } : {}),
       recordings: Object.values(runs).filter((r) => r.recording).length,
     };

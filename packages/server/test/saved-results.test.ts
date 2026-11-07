@@ -122,7 +122,7 @@ describe('readSavedResults', () => {
     expect(Object.keys(saved?.runs ?? {}).sort()).toEqual(['tests/shop.spec.ts:3', 'tests/shop.spec.ts:5']);
     expect(saved?.runs['tests/shop.spec.ts:3']).toMatchObject({ savedKey: 'tests/shop.spec.ts:2', result: { last: 'passed' } });
     expect(saved?.runs['tests/shop.spec.ts:5']).toMatchObject({ savedKey: 'tests/shop.spec.ts:3', result: { last: 'failed', failedStep: 'cart: the total is shown', reason: 'timeout' } });
-    expect(saved).toMatchObject({ used: 2, dropped: 3, oldest: T0, newest: T0 + 1000 });
+    expect(saved).toMatchObject({ used: 2, dropped: 3, older: 0, oldest: T0, newest: T0 + 1000 });
   });
 
   it('without git, a spec that changed after the run cannot be trusted: its keys are dropped', async () => {
@@ -133,17 +133,18 @@ describe('readSavedResults', () => {
     expect(saved).toMatchObject({ used: 0, dropped: 1 });
   });
 
-  it('two saved runs of one test (an old key and a moved key): the newer counts, the other is dropped', async () => {
+  it('two saved runs of one test (an old key and a moved key): the newer counts, the older is counted apart', async () => {
     const { data, worktree, tests } = fixture();
-    const file = join(worktree, 'tests', 'shop.spec.ts');
-    utimesSync(file, new Date(T0 - 1000), new Date(T0 - 1000));
+    // The test moved from line 2 to line 3 between the runs: the old run's title comes from git.
+    utimesSync(join(worktree, 'tests', 'shop.spec.ts'), new Date(T0 + 1000), new Date(T0 + 1000));
     saveResults(data, worktree, {
+      'tests/shop.spec.ts:2': { last: 'failed', at: T0 },
       'tests/shop.spec.ts:3': { last: 'passed', at: T0 + 5000 },
-      'tests/shop.spec.ts:30': { last: 'failed', at: T0 }, // line 30 has no test in the file as it is
+      'tests/shop.spec.ts:30': { last: 'failed', at: T0 + 5000 }, // line 30 has no test in the file as it is
     });
-    const saved = await readSavedResults({ data: { dir: data, how: 'x' }, testProject: worktree, tests });
-    expect(saved?.runs['tests/shop.spec.ts:3']?.result.last).toBe('passed');
-    expect(saved).toMatchObject({ used: 1, dropped: 1 });
+    const saved = await readSavedResults({ data: { dir: data, how: 'x' }, testProject: worktree, tests, specAt: specBefore });
+    expect(saved?.runs['tests/shop.spec.ts:3']).toMatchObject({ savedKey: 'tests/shop.spec.ts:3', result: { last: 'passed' } });
+    expect(saved).toMatchObject({ used: 1, dropped: 1, older: 1 });
   });
 
   it('links the recording made by the run: same key and outcome, saved while it ran', async () => {
