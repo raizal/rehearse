@@ -2,7 +2,7 @@
 // file and its limits, old approvals that stay valid, story hash rule 3, old rule-2 sign-offs that
 // stay valid, the gate, the brief, the preview and the start file.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse, stringify } from 'yaml';
@@ -169,6 +169,34 @@ describe('T62 the change file and its limits', () => {
     expect(record.flow!.root.boxes.find((b) => b.id === 'gift-card')).toMatchObject({ stories: ['S1'], change: 'C1', path: 'gift-card' });
   });
 
+  it('a change scenario with the id of an existing scenario is not merged: the old scenario keeps no change mark', () => {
+    const dir = signedEpic();
+    addChange(dir, { ...C1(), scenarios: [giftScenario('S1-buy')] });
+    const { record } = loadEpic(dir);
+    const buys = allScenarios(record).filter((s) => s.id === 'S1-buy');
+    expect(buys).toHaveLength(1);
+    expect(buys[0]).not.toHaveProperty('change');
+    expect(record.scenarioFiles.find((f) => f.file === 'changes/C1.yaml')?.scenarios).toEqual([]);
+  });
+
+  it('a later change may add an edge to a box of an earlier change', () => {
+    const dir = signedEpic();
+    const gift = { id: 'gift-card', kind: 'input', lane: 'buyer', title: 'Buyer enters a gift card', inputs: { code: 'string' }, outputs: { ok: 'boolean' } };
+    addChange(dir, { ...C1(), boxes: [gift], edges: [{ from: 'cart', to: 'gift-card' }, { from: 'gift-card', to: 'pay' }] });
+    const points = { id: 'points', kind: 'input', lane: 'buyer', title: 'Buyer uses points', inputs: { ok: 'boolean' }, outputs: { ok: 'boolean' } };
+    addChange(dir, { ...C1(), id: 'C2', title: 'The buyer pays with points.', criteria: [{ id: 'S1-A3', given: 'g', when: 'w', then: 't' }], scenarios: [giftScenario('S1-c2-points', 'S1-A3')], boxes: [points], edges: [{ from: 'gift-card', to: 'points' }, { from: 'points', to: 'pay' }] });
+    expect(reportToText(validateEpic(dir))).not.toContain('unknown');
+    expect(validateEpic(dir).ok).toBe(true);
+  });
+
+  it('a broken link in changes/ does not stop the loader', () => {
+    const dir = signedEpic();
+    addChange(dir, C1());
+    symlinkSync(join(dir, 'changes', 'missing.yaml'), join(dir, 'changes', 'C2.yaml'));
+    expect(storyChanges(loadEpic(dir).record, 'S1').map((c) => c.doc.id)).toEqual(['C1']);
+    expect(validateEpic(dir).ok).toBe(true);
+  });
+
   it('more than 8 scenarios with its changes gives information, not an error', () => {
     const dir = signedEpic();
     addChange(dir, { ...C1(), scenarios: [1, 2, 3, 4, 5].map((n) => giftScenario(`S1-c1-${n}`)) });
@@ -218,6 +246,26 @@ describe('T62 trust: old approvals stay valid, the change needs approvals and a 
     expect(CURRENT_HASH_RULE).toBe(3);
     expect(detectStale(loadEpic(dir).record)).toMatchObject({ epicStatus: 'signed', staleStories: [] });
     expect(gateEpic(dir).ok).toBe(true);
+  });
+
+  it('a hand-written change mark does not take a signed item out of the rule-3 hash', () => {
+    const dir = signedEpic();
+    addChange(dir, C1());
+    approveScenarios(dir, ['S1-c1-gift'], ME, { now: NOW, ...SIGNED });
+    signOff(dir, ['S1'], ME, { now: NOW, ...SIGNED });
+    expect(detectStale(loadEpic(dir).record).stories.find((s) => s.id === 'S1')?.status).toBe('signed');
+    editYaml(dir, 'prd.yaml', (doc) => {
+      const i = (doc.toJS() as { stories: { id: string }[] }).stories.findIndex((s) => s.id === 'S1');
+      doc.setIn(['stories', i, 'acceptance', 0, 'change'], 'C1');
+      doc.setIn(['stories', i, 'acceptance', 0, 'then'], 'the order is free');
+    });
+    const { record } = loadEpic(dir);
+    expect(record.prd!.stories.find((s) => s.id === 'S1')!.acceptance[0]).not.toHaveProperty('change');
+    const s1 = detectStale(record).stories.find((s) => s.id === 'S1');
+    expect(s1?.status).toBe('stale');
+    expect(s1).not.toHaveProperty('newChanges');
+    // The schema still reports the key in prd.yaml.
+    expect(validateEpic(dir).ok).toBe(false);
   });
 
   it('a later change C2 after a rule-3 sign-off of C1 names only C2', () => {

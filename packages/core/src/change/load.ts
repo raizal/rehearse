@@ -20,12 +20,21 @@ export function changeNumber(idOrFile: string): number {
   return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
 }
 
+/** True for a file. A broken link or an unreadable name is not a file. */
+function isFile(path: string): boolean {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
 /** The change files of an EPIC folder, relative to it, in change number order. */
 export function changeFileNames(dir: string): string[] {
   const cdir = join(dir, CHANGES_DIR);
   if (!existsSync(cdir) || !statSync(cdir).isDirectory()) return [];
   return readdirSync(cdir)
-    .filter((n) => CHANGE_FILE.test(n) && statSync(join(cdir, n)).isFile())
+    .filter((n) => CHANGE_FILE.test(n) && isFile(join(cdir, n)))
     .sort((a, b) => changeNumber(a) - changeNumber(b) || (a < b ? -1 : 1))
     .map((n) => `${CHANGES_DIR}/${n}`);
 }
@@ -52,6 +61,28 @@ export function changeOf(item: unknown): Id | undefined {
 }
 
 /**
+ * Remove a `change` key from each criterion, scenario and box that is not from a change file.
+ * Only the merge sets `change`. Without this, a hand-written `change` in prd.yaml, flow.yaml or
+ * scenarios/ takes a signed item out of the rule-3 hash. The raw documents keep the key, so the
+ * schema check still reports it.
+ */
+export function clearChangeMarks(record: EpicRecord): void {
+  const clear = (item: unknown): void => {
+    if (isObject(item)) delete item.change;
+  };
+  for (const story of asArray<Story>(record.prd?.stories)) if (isObject(story)) asArray(story.acceptance).forEach(clear);
+  for (const sf of record.scenarioFiles) if (!isChangeFile(sf.file)) sf.scenarios.forEach(clear);
+  const boxes = (diagram: unknown): void => {
+    if (!isObject(diagram)) return;
+    for (const box of asArray<Box>(diagram.boxes)) {
+      clear(box);
+      if (isObject(box)) boxes(box.children);
+    }
+  };
+  if (isObject(record.flow)) boxes(record.flow.root);
+}
+
+/**
  * Merge each change into the loaded record: its criteria into the story's acceptance, its
  * scenarios as a scenario file, its boxes and edges into the root diagram. Each merged item
  * gets `change: <id>`. An item with the id of an existing item is not merged: validate reports it.
@@ -59,6 +90,7 @@ export function changeOf(item: unknown): Id | undefined {
 export function mergeChanges(record: EpicRecord): void {
   const stories = asArray<Story>(record.prd?.stories).filter((s) => isObject(s) && typeof s.id === 'string');
   const root = isObject(record.flow) && isObject(record.flow.root) ? record.flow.root : undefined;
+  const knownScenarios = new Set(record.scenarioFiles.flatMap((sf) => sf.scenarios.flatMap((s) => (isObject(s) && typeof s.id === 'string' ? [s.id] : []))));
   for (const { file, doc: raw } of recordChanges(record)) {
     const doc = structuredClone(raw);
     const id = doc.id;
@@ -69,7 +101,10 @@ export function mergeChanges(record: EpicRecord): void {
       const added = asArray<AcceptanceCriterion>(doc.criteria).filter((c) => isObject(c) && typeof c.id === 'string' && !known.has(c.id));
       story.acceptance = [...acceptance, ...added.map((c) => ({ ...c, change: id }))];
     }
-    const scenarios = asArray<Scenario>(doc.scenarios).map((s) => (isObject(s) ? { ...s, story: doc.story, change: id } : s));
+    const scenarios = asArray<Scenario>(doc.scenarios)
+      .filter((s) => !isObject(s) || typeof s.id !== 'string' || !knownScenarios.has(s.id))
+      .map((s) => (isObject(s) ? { ...s, story: doc.story, change: id } : s));
+    for (const s of scenarios) if (isObject(s) && typeof s.id === 'string') knownScenarios.add(s.id);
     record.scenarioFiles.push({ file, story: doc.story, scenarios });
     if (!root) continue;
     root.boxes = asArray<Box>(root.boxes);

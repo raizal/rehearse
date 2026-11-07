@@ -102,7 +102,7 @@ export function checkChanges(record: EpicRecord): Finding[] {
         continue;
       }
       for (const end of [e.from, e.to]) {
-        if (!fresh.has(end) && !rootBoxes.has(end)) out.push({ kind: 'reference', file, path: at, message: `box ${String(end)} unknown (not a root box of flow.yaml and not a box of this change)`, refs: [] });
+        if (!boxes.has(end)) out.push({ kind: 'reference', file, path: at, message: `box ${String(end)} unknown (not a root box of flow.yaml and not a box of this change or of an earlier change)`, refs: [] });
       }
     }
   }
