@@ -48,10 +48,13 @@ Commands:
   progress <epic-dir-or-slug> <story> [--json]
                                          What rehearse sees of the work on a story: boxes with code (Flow-Box commits on
                                          every branch), e2e tests per scenario, gate findings, whether it is signed, its thread.
-  present <epic-dir-or-slug> [--out <file.html>] [--pdf <file.pdf>] [--committed-only]
+  present <epic-dir-or-slug> [--full] [--out <file.html>] [--pdf <file.pdf>] [--committed-only]
           [--with-recordings <dir>] [--unit-report <file.json>] [--birdview-data <dir>]
                                          The EPIC as a deck for a supervisor: one self-contained HTML file (default
                                          presentations/<slug>-<date>-<sha>.html), and a PDF with --pdf (Chromium from e2e/).
+                                         By default a short executive summary: where we are, what is done, what is not
+                                         and why, how we know, what is next. --full adds every story slide after it
+                                         (file <name>-full.html).
                                          It says what is done and what is not, with the proof: e2e results (the Birdview player,
                                          else its saved results), unit tests (--unit-report, default .rehearse/unit-report.json
                                          from pnpm test:report), signatures. --with-recordings writes the deck into <dir> and

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { PrinterUnavailable, NO_CHROMIUM, resultsFileOf } from '@rehearse/server';
 import { SHOP } from '../../core/test/helpers.js';
 import { approvedEpic } from '../../core/test/trust/helpers.js';
+import { makeZip } from '../../core/test/zip.js';
 import { runPresent } from '../src/commands/present.js';
 import { main, USAGE } from '../src/index.js';
 
@@ -125,7 +126,7 @@ describe('rehearse present', () => {
   it('--with-recordings <dir>: the deck and only the videos it links, in <dir>/<deck>-media/', async () => {
     const { top, data } = withRuns();
     const { out, io: x } = io(top);
-    expect(await runPresent(['2026-11-05-shop', '--with-recordings', 'share', '--out', 'share/deck.html', '--birdview-data', data], x, deps)).toBe(0);
+    expect(await runPresent(['2026-11-05-shop', '--full', '--with-recordings', 'share', '--out', 'share/deck.html', '--birdview-data', data], x, deps)).toBe(0);
     expect(readdirSync(join(top, 'share', 'deck-media')).sort()).toEqual(['1-buy-passed.webm', '2-empty-failed.mp4']);
     expect(readFileSync(join(top, 'share', 'deck-media', '2-empty-failed.mp4'), 'utf8')).toBe('video of 2-empty-failed');
     const html = readFileSync(join(top, 'share', 'deck.html'), 'utf8');
@@ -147,7 +148,7 @@ describe('rehearse present', () => {
   it('without --with-recordings the deck says who keeps the recording, and copies nothing', async () => {
     const { top, data } = withRuns();
     const { io: x } = io(top);
-    expect(await runPresent(['2026-11-05-shop', '--out', 'd.html', '--birdview-data', data], x, deps)).toBe(0);
+    expect(await runPresent(['2026-11-05-shop', '--full', '--out', 'd.html', '--birdview-data', data], x, deps)).toBe(0);
     expect(readFileSync(join(top, 'd.html'), 'utf8')).toMatch(/recording kept by/);
     expect(existsSync(join(top, 'd-media'))).toBe(false);
   });
@@ -156,13 +157,39 @@ describe('rehearse present', () => {
     const { top } = repo();
     writeFileSync(join(top, 'unit.json'), JSON.stringify({ startTime: Date.parse('2026-11-06T09:00:00Z'), testResults: [{ assertionResults: [{ fullName: 'S1-buy works', status: 'passed' }] }] }));
     const good = io(top);
-    expect(await runPresent(['2026-11-05-shop', '--out', 'a.html', '--unit-report', 'unit.json'], good.io, deps)).toBe(0);
+    expect(await runPresent(['2026-11-05-shop', '--full', '--out', 'a.html', '--unit-report', 'unit.json'], good.io, deps)).toBe(0);
     expect(readFileSync(join(top, 'a.html'), 'utf8')).toContain('unit.json');
     writeFileSync(join(top, 'bad.json'), 'not json');
     const bad = io(top);
     expect(await runPresent(['2026-11-05-shop', '--out', 'b.html', '--unit-report', 'bad.json'], bad.io, deps)).toBe(1);
     expect(bad.out.stderr).toMatch(/unit report missing or unreadable: .*bad\.json is not JSON/);
     expect(existsSync(join(top, 'b.html'))).toBe(true);
+  });
+
+  it('the summary by default; --full adds the details story by story and names the file -full', async () => {
+    const { top, sha, date } = repo();
+    const a = io(top);
+    expect(await runPresent(['2026-11-05-shop'], a.io, deps)).toBe(0);
+    const b = io(top);
+    expect(await runPresent(['2026-11-05-shop', '--full'], b.io, deps)).toBe(0);
+    const summary = readFileSync(join(top, 'presentations', `2026-11-05-shop-${date}-${sha}.html`), 'utf8');
+    const full = readFileSync(join(top, 'presentations', `2026-11-05-shop-${date}-${sha}-full.html`), 'utf8');
+    const count = (html: string) => html.match(/<section class="slide/g)!.length;
+    expect(count(summary)).toBeLessThanOrEqual(6);
+    expect(count(full)).toBeGreaterThan(count(summary));
+    expect(summary).not.toContain('Details, story by story');
+    expect(full).toContain('Details, story by story');
+    expect(b.out.stdout).toMatch(/-full\.html {2}\d+ slides/);
+  });
+
+  it('the summary with --with-recordings links the recordings of the passed runs it shows', async () => {
+    const { top, data } = withRuns();
+    writeFileSync(join(data, 'recordings', '1-buy-passed', 'trace.zip'), makeZip([{ name: 'resources/page@p-10.jpeg', data: 'jpeg bytes' }]));
+    const { io: x } = io(top);
+    expect(await runPresent(['2026-11-05-shop', '--with-recordings', 'share', '--out', 'share/deck.html', '--birdview-data', data], x, deps)).toBe(0);
+    const html = readFileSync(join(top, 'share', 'deck.html'), 'utf8');
+    expect(html).toContain('href="deck-media/1-buy-passed.webm"');
+    expect(readdirSync(join(top, 'share', 'deck-media'))).toEqual(['1-buy-passed.webm']);
   });
 
   it('usage errors exit 2', async () => {
@@ -174,7 +201,7 @@ describe('rehearse present', () => {
   });
 
   it('is a command of main and in the usage text', async () => {
-    expect(USAGE).toContain('present <epic-dir-or-slug> [--out <file.html>] [--pdf <file.pdf>] [--committed-only]');
+    expect(USAGE).toContain('present <epic-dir-or-slug> [--full] [--out <file.html>] [--pdf <file.pdf>] [--committed-only]');
     const { top } = repo();
     const { io: x } = io(top);
     expect(await main(['present'], x)).toBe(2);

@@ -17,7 +17,10 @@ export {
   type SignatureState,
   type StoryView,
   type TestRun,
+  type DeckBuildOptions,
   type GateFact,
+  type GroupCard,
+  type GroupLine,
   type ListItem,
   type MapColumn,
   type Mark,
@@ -36,6 +39,12 @@ export {
   DONE_RULE,
   DONE_WORDS,
   evidenceSlide,
+  LEVEL_WORDS,
+  levelWords,
+  proofLevel,
+  summarySentence,
+  viewProofLevel,
+  type ProofLevel,
   missingThings,
   NO_EVIDENCE,
   plainStep,
@@ -56,3 +65,4 @@ export {
   type Standing,
 } from './proof.js';
 export { escapeXml, storyFlowSvg, wrapText } from './svg.js';
+export { areaCard, detailsSlide, doneAreas, MAX_GROUPS, MAX_LINES, MAX_PICTURES, nextSteps, notDoneGroups, notDoneReason, proofPictures, REASON_ORDER, reasonCard, summarySlides, type Area, type Reason, type ReasonGroup, type SummaryInput } from './summary.js';

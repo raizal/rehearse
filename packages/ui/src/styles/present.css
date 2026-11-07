@@ -4,3 +4,4 @@
 .present-bar .muted { color: var(--muted); font-size: 13px; }
 .present-actions { margin-left: auto; display: flex; gap: var(--s-2); align-items: center; }
 .present-frame { flex: 1; width: 100%; border: 0; background: #0f172a; }
+.present-full { display: inline-flex; gap: var(--s-1, 4px); align-items: center; font-size: 0.9em; }

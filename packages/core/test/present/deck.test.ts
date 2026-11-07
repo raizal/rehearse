@@ -1,4 +1,6 @@
 // T52, presentation mode: the deck of an EPIC for a supervisor (boxes build-deck, render-deck-html).
+// T54: these read the full deck (`--full`), the summary followed by every story slide; the summary
+// alone is in summary.test.ts.
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,6 +41,9 @@ function facts(record: EpicRecord, over: Partial<DeckFacts> = {}): DeckFacts {
 
 const inputs = (over: Partial<PresentationInputs> = {}): PresentationInputs => ({ ...NO_INPUTS, ...over });
 
+/** The full deck: the summary, then the details of every story (T54). */
+const fullDeck = (record: EpicRecord, f: DeckFacts, i: PresentationInputs): Deck => presentationDeck(record, f, i, { full: true });
+
 const real = loadEpic(REAL_EPIC).record;
 const shop = () => loadEpic(makeEpic()).record;
 
@@ -54,13 +59,17 @@ function visibleText(html: string): string {
 }
 
 describe('presentationDeck: slide order', () => {
-  it('title, recap, why, requirements, big picture, progress, the stories, quality, risks, next, evidence, glossary', () => {
-    const deck = presentationDeck(real, facts(real), NO_INPUTS);
+  it('the summary, then "Details, story by story": recap, why, requirements, big picture, progress, the stories, quality, risks, evidence, glossary', () => {
+    const deck = fullDeck(real, facts(real), NO_INPUTS);
+    expect(deck.kind).toBe('full');
     const keys = deck.slides.map((s) => s.key);
-    expect(keys.slice(0, 6)).toEqual(['title', 'recap', 'why', 'requirements', 'big-picture', 'progress']);
-    expect(keys.slice(-5)).toEqual(['quality', 'risks', 'next', 'evidence', 'glossary']);
+    expect(keys.slice(0, 11)).toEqual(['title', 'done', 'not-done', 'how-we-know', 'next', 'details', 'recap', 'why', 'requirements', 'big-picture', 'progress']);
+    expect(deck.slides[5]!.title).toBe('Details, story by story');
+    expect(keys.slice(-4)).toEqual(['quality', 'risks', 'evidence', 'glossary']);
+    // The summary's slides are not repeated in the appendix.
+    expect(keys.filter((k) => k === 'title' || k === 'next')).toEqual(['title', 'next']);
     const stories = real.prd!.stories.map((s) => s.id);
-    const storyKeys = keys.slice(6, -5);
+    const storyKeys = keys.slice(11, -4);
     // Every story in record order, each with its own slide first and its checks after it.
     expect(storyKeys.filter((k) => stories.includes(k))).toEqual(stories);
     for (const k of storyKeys) expect(k).toMatch(/^S\d+(-checks(-\d+)?)?$/);
@@ -68,7 +77,7 @@ describe('presentationDeck: slide order', () => {
   });
 
   it('every slide has 1–3 sentences of narration', () => {
-    const deck = presentationDeck(real, facts(real), NO_INPUTS);
+    const deck = fullDeck(real, facts(real), NO_INPUTS);
     for (const s of deck.slides) {
       expect(s.narration.trim(), s.key).not.toBe('');
       const count = s.narration.split(/(?<=[.!?])\s+(?=[A-Z"])/).filter(Boolean).length;
@@ -77,16 +86,17 @@ describe('presentationDeck: slide order', () => {
   });
 
   it('progress shows the five steps and a summary line', () => {
-    const deck = presentationDeck(real, facts(real), NO_INPUTS);
+    const deck = fullDeck(real, facts(real), NO_INPUTS);
     const progress = deck.slides.find((s) => s.key === 'progress')!;
     const rows = progress.blocks.find((b) => b.type === 'progress');
     expect(rows?.type === 'progress' && rows.rows.length).toBe(real.prd!.stories.length);
     expect(rows?.type === 'progress' && rows.rows.every((r) => r.steps.length === PROGRESS_STEPS.length)).toBe(true);
     expect(progress.blocks.some((b) => b.type === 'text' && /of \d+ stories done/.test(b.text))).toBe(true);
+    expect(progress.narration).toMatch(/of \d+ stories done \(built and signed off, no test failing\), \d+ of them seen working/);
   });
 
   it('a story has "As a…", its criteria, the swimlanes and what was checked', () => {
-    const deck = presentationDeck(real, facts(real), NO_INPUTS);
+    const deck = fullDeck(real, facts(real), NO_INPUTS);
     const s1 = deck.slides.find((s) => s.key === 'S1')!;
     expect(s1.blocks[0]).toMatchObject({ type: 'lead' });
     expect((s1.blocks[0] as { text: string }).text).toMatch(/^As an? .+, I want to .+, so that .+\.$/);
@@ -124,7 +134,7 @@ describe('plain words', () => {
     for (const dir of [REAL_EPIC, join(REAL_EPIC, '..', '2026-11-05-code-graph')]) {
       const record = loadEpic(dir).record;
       const paths = record.prd!.stories.flatMap((s) => servingBoxes(record.flow, s.id));
-      const html = deckHtml(presentationDeck(record, facts(record), NO_INPUTS));
+      const html = deckHtml(fullDeck(record, facts(record), NO_INPUTS));
       expect(plainWordProblems(visibleText(html), paths), dir).toEqual([]);
     }
   });
@@ -137,7 +147,7 @@ describe('honesty', () => {
       stories: { S1: { built: 0, tests: {} } },
       gate: { ok: false, items: [{ check: 'signed-off', message: 'S1 is not signed off', stories: ['S1'] }] },
     });
-    const deck = presentationDeck(record, f, NO_INPUTS);
+    const deck = fullDeck(record, f, NO_INPUTS);
     const quality = deck.slides.find((s) => s.key === 'quality')!;
     expect(quality.blocks.some((b) => b.type === 'text' && /does not pass yet: 1 open item/.test(b.text))).toBe(true);
     expect(quality.blocks.some((b) => b.type === 'list' && b.items.some((i) => /not signed off yet/.test(i.text)))).toBe(true);
@@ -145,7 +155,8 @@ describe('honesty', () => {
     const riskText = JSON.stringify(risks.blocks);
     expect(riskText).toMatch(/not signed off yet/);
     const title = deck.slides[0]!;
-    expect(JSON.stringify(title.blocks)).toMatch(/0 of 2 stories are done\. (\d+ (is|are) in progress\. )?\d+ (is|are) not started\./);
+    expect(JSON.stringify(title.blocks)).toMatch(/None of the 2 parts of the plan is done yet\./);
+    expect(JSON.stringify(deck.slides.find((s) => s.key === 'recap')!.blocks)).toMatch(/0 of 2 stories are done\. (\d+ (is|are) in progress\. )?\d+ (is|are) not started\./);
     // Not signed off is "not yet" in progress, never "done".
     const rows = deck.slides.find((s) => s.key === 'progress')!.blocks.find((b) => b.type === 'progress');
     expect(rows?.type === 'progress' && rows.rows.every((r) => r.steps[4]!.state !== 'done')).toBe(true);
@@ -157,16 +168,16 @@ describe('honesty', () => {
     const approved = record.scenarioFiles.flatMap((f) => f.scenarios).find((s) => s.approval);
     expect(approved).toBeDefined();
     if (!approved) throw new Error('the real EPIC has an approved scenario');
-    const deck = presentationDeck(record, facts(record, { stories: { [approved.story]: { built: 0, tests: { [approved.id]: 'failed' } } } }), NO_INPUTS);
+    const deck = fullDeck(record, facts(record, { stories: { [approved.story]: { built: 0, tests: { [approved.id]: 'failed' } } } }), NO_INPUTS);
     const html = deckHtml(deck);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'risks')!.blocks)).toMatch(/e2e test fails/);
     expect(html).toMatch(/failing/);
   });
 
   it('progress says what done means; a story with nothing approved never reads "0 of 0"', () => {
-    const deck = presentationDeck(real, facts(real), NO_INPUTS);
+    const deck = fullDeck(real, facts(real), NO_INPUTS);
     const progress = deck.slides.find((s) => s.key === 'progress')!;
-    expect(progress.narration).toMatch(/done \(signed off, built, and every approved scenario passing its e2e test\)/);
+    expect(progress.narration).toMatch(/done \(built and signed off, no test failing\)/);
     const s18 = deck.slides.find((s) => s.key === 'S18')!;
     expect(JSON.stringify(s18.blocks)).toMatch(/no approved scenario yet/);
     expect(JSON.stringify(deck.slides)).not.toMatch(/0 of 0 approved/);
@@ -177,7 +188,7 @@ describe('honesty', () => {
     const record = loadEpic(REAL_EPIC).record;
     const ids = record.scenarioFiles.flatMap((f) => f.scenarios).filter((s) => s.story === 'S1' && s.approval).map((s) => s.id);
     expect(ids.length).toBeGreaterThan(1);
-    const deck = presentationDeck(record, facts(record, { stories: { S1: { built: 1, tests: { [ids[0]!]: 'not-run' } } } }), NO_INPUTS);
+    const deck = fullDeck(record, facts(record, { stories: { S1: { built: 1, tests: { [ids[0]!]: 'not-run' } } } }), NO_INPUTS);
     const rows = deck.slides.find((s) => s.key === 'progress')!.blocks.find((b) => b.type === 'progress');
     const s1 = rows?.type === 'progress' ? rows.rows.find((r) => r.id === 'S1') : undefined;
     expect(s1?.steps[3]!.note).toBe(`${ids.length - 1} not written, 1 not run`);
@@ -193,7 +204,7 @@ describe('honesty', () => {
         { check: 'sim-clean', message: 'state change not permitted', stories: ['S1'] },
       ],
     };
-    const quality = presentationDeck(record, facts(record, { gate }), NO_INPUTS).slides.find((s) => s.key === 'quality')!;
+    const quality = fullDeck(record, facts(record, { gate }), NO_INPUTS).slides.find((s) => s.key === 'quality')!;
     const list = quality.blocks.find((b) => b.type === 'list');
     expect(list?.type === 'list' && list.items.map((i) => [i.text, i.id])).toEqual([
       ['2 items: a path, often an error case, that no approved scenario walks yet (2 stories)', 'S1 S2'],
@@ -202,34 +213,35 @@ describe('honesty', () => {
   });
 
   it('the big picture has the legend of its marks', () => {
-    const html = deckHtml(presentationDeck(real, facts(real), NO_INPUTS));
+    const html = deckHtml(fullDeck(real, facts(real), NO_INPUTS));
     const map = html.slice(html.indexOf('data-key="big-picture"'), html.indexOf('data-key="progress"'));
     expect(map).toMatch(/class="legend"/);
   });
 
   it('test results that were not read say so on the quality slide', () => {
-    const deck = presentationDeck(real, facts(real, { testResults: false }), NO_INPUTS);
+    const deck = fullDeck(real, facts(real, { testResults: false }), NO_INPUTS);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'quality')!.blocks)).toMatch(/Test results were not available/);
   });
 
   it('coverage is one number when the code graph has it', () => {
-    const deck = presentationDeck(real, facts(real, { coverage: 71 }), NO_INPUTS);
+    const deck = fullDeck(real, facts(real, { coverage: 71 }), NO_INPUTS);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'quality')!.blocks)).toMatch(/"71%"/);
   });
 });
 
 describe('owner inputs (presentation.yaml)', () => {
   it('asks make the "What I need from you" slide; none leaves it out', () => {
-    const without = presentationDeck(real, facts(real), NO_INPUTS);
+    const without = fullDeck(real, facts(real), NO_INPUTS);
     expect(without.slides.some((s) => s.key === 'asks')).toBe(false);
-    const withAsks = presentationDeck(real, facts(real), inputs({ asks: ['Approve the budget.'] }));
+    const withAsks = fullDeck(real, facts(real), inputs({ asks: ['Approve the budget.'] }));
     const keys = withAsks.slides.map((s) => s.key);
-    expect(keys.indexOf('asks')).toBe(keys.indexOf('risks') + 1);
+    expect(keys.indexOf('asks')).toBe(keys.indexOf('how-we-know') + 1);
     expect(keys.indexOf('next')).toBe(keys.indexOf('asks') + 1);
+    expect(keys.indexOf('next')).toBeLessThan(keys.indexOf('details'));
   });
 
   it("the owner's next steps, risks and narration replace or join the generated ones", () => {
-    const deck = presentationDeck(real, facts(real), inputs({ next: ['Ship it.'], risks: ['A key person is away.'], narration: { title: 'Hello.', S1: 'The first story.' } }));
+    const deck = fullDeck(real, facts(real), inputs({ next: ['Ship it.'], risks: ['A key person is away.'], narration: { title: 'Hello.', S1: 'The first story.' } }));
     expect(deck.slides.find((s) => s.key === 'title')!.narration).toBe('Hello.');
     expect(deck.slides.find((s) => s.key === 'S1')!.narration).toBe('The first story.');
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'next')!.blocks)).toBe(JSON.stringify([{ type: 'list', items: [{ text: 'Ship it.' }] }]));
@@ -237,12 +249,12 @@ describe('owner inputs (presentation.yaml)', () => {
   });
 
   it('hidden stories leave a note and no slides, and the counts still cover them', () => {
-    const deck = presentationDeck(real, facts(real), inputs({ hide: ['S1', 'S2'] }));
+    const deck = fullDeck(real, facts(real), inputs({ hide: ['S1', 'S2'] }));
     expect(deck.hiddenStories).toBe(2);
     expect(deck.slides.some((s) => s.key === 'S1' || s.key === 'S2-checks')).toBe(false);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'big-picture')!.blocks)).toMatch(/2 stories not shown in this deck/);
     expect(JSON.stringify(deck.slides.find((s) => s.key === 'progress')!.blocks)).toMatch(/2 stories not shown/);
-    expect(JSON.stringify(deck.slides[0]!.blocks)).toMatch(new RegExp(`of ${real.prd!.stories.length} stories (is|are) done`));
+    expect(JSON.stringify(deck.slides[0]!.blocks)).toMatch(new RegExp(`of the ${real.prd!.stories.length} parts of the plan`));
   });
 
   it('parsePresentation: unknown slide keys and story ids are findings; good parts are kept', () => {
@@ -283,14 +295,14 @@ describe('owner inputs (presentation.yaml)', () => {
 
 describe('footer and notice', () => {
   it('every slide carries "<title> · as of <branch> @ <sha>, <date>"', () => {
-    const deck = presentationDeck(real, facts(real), NO_INPUTS);
+    const deck = fullDeck(real, facts(real), NO_INPUTS);
     expect(deck.footer).toBe(`${deck.title} · as of main @ abc1234, 2026-11-07`);
     const html = deckHtml(deck);
     expect(html.split('<span class="foot">').length - 1).toBe(deck.slides.length);
   });
 
   it('uncommitted changes show a notice on the title slide and in the footer', () => {
-    const deck = presentationDeck(real, facts(real, { uncommitted: true }), NO_INPUTS);
+    const deck = fullDeck(real, facts(real, { uncommitted: true }), NO_INPUTS);
     expect(deck.footer).toMatch(/includes uncommitted changes$/);
     expect(deck.notice).toBe(UNCOMMITTED_NOTICE);
     expect(deck.slides[0]!.blocks).toContainEqual({ type: 'notice', text: UNCOMMITTED_NOTICE });
@@ -298,7 +310,7 @@ describe('footer and notice', () => {
 });
 
 describe('deckHtml', () => {
-  const deck: Deck = presentationDeck(real, facts(real, { stories: { S1: { built: 0, tests: {}, design: { asset: 'design-S1', caption: 'Screen design' } } } }), NO_INPUTS);
+  const deck: Deck = fullDeck(real, facts(real, { stories: { S1: { built: 0, tests: {}, design: { asset: 'design-S1', caption: 'Screen design' } } } }), NO_INPUTS);
   const png = solidPng(4, 3, [10, 20, 30, 255]);
   const html = deckHtml(deck, { 'design-S1': { mime: 'image/png', data: png, width: 4, height: 3 } });
 
@@ -332,7 +344,7 @@ describe('deckHtml', () => {
   });
 
   it('escapes record text', () => {
-    const d = presentationDeck(real, facts(real), inputs({ narration: { title: '<b>"bold"</b> & more' } }));
+    const d = fullDeck(real, facts(real), inputs({ narration: { title: '<b>"bold"</b> & more' } }));
     expect(deckHtml(d)).toContain('&lt;b&gt;&quot;bold&quot;&lt;/b&gt; &amp; more');
   });
 });

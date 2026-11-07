@@ -12,7 +12,8 @@ import type { AcceptanceCriterion, EpicRecord, Id, Requirement, Role, Scenario, 
 import { asArray, isObject } from '../util.js';
 import type { PresentationInputs } from './inputs.js';
 import { plain, sentences } from './plain.js';
-import { DONE_WORDS, evidenceSlide, missingThings, NO_EVIDENCE, plainStep, proofRows, recapSlides, shortDate, standing, standingSentence, viewDoneState, type DoneState, type ProofContext } from './proof.js';
+import { DONE_WORDS, evidenceSlide, levelWords, missingThings, NO_EVIDENCE, plainStep, proofRows, recapSlides, shortDate, standing, standingSentence, viewDoneState, type DoneState, type ProofContext } from './proof.js';
+import { detailsSlide, summarySlides } from './summary.js';
 import { storyFlowSvg } from './svg.js';
 
 // ---------------------------------------------------------------- facts (gathered by the server)
@@ -133,8 +134,10 @@ export interface ProgressRow {
   id: Id;
   title: string;
   steps: ProgressStep[];
-  /** Done, in progress or not started, by the one done rule (T53). */
+  /** Done, in progress or not started, by the one done rule (T53, T54). */
   state: DoneState;
+  /** How strong the proof of a done story is: "seen working", "checked by automated tests". */
+  level?: string;
 }
 
 /** A link in the deck: relative (a copied recording), never fetched. */
@@ -186,6 +189,26 @@ export interface CheckRow {
   kept?: boolean;
 }
 
+/** One line of a group on the summary (T54): a story or a few, and its proof level or what it needs. */
+export interface GroupLine {
+  text: string;
+  /** Said after the text: "seen working, 7 Nov", "13 checks to approve". */
+  level?: string;
+  mark: Mark;
+  /** Record ids, shown small in the line's corner. */
+  ids?: string[];
+}
+
+/** A group on the summary: an area of what is done, or a reason something is not. */
+export interface GroupCard {
+  title: string;
+  tone: 'good' | 'warn' | 'bad';
+  lines: GroupLine[];
+  /** What it takes, and who acts (not-done groups). */
+  takes?: string;
+  who?: string;
+}
+
 export interface MapColumn {
   role: string;
   kind: string;
@@ -207,7 +230,10 @@ export type Block =
   | { type: 'checks'; rows: CheckRow[] }
   | { type: 'glossary'; items: { term: string; meaning: string }[] }
   | { type: 'recap'; done: RecapItem[]; notDone: RecapItem[]; compact: boolean; doneTotal: number; notDoneTotal: number }
-  | { type: 'proof'; title?: string; rows: ProofRow[] };
+  | { type: 'proof'; title?: string; rows: ProofRow[] }
+  | { type: 'bar'; segments: { label: string; count: number; tone: 'good' | 'ok' | 'todo' | 'bad' }[] }
+  | { type: 'groups'; items: GroupCard[] }
+  | { type: 'gallery'; items: { asset: string; caption: string; links?: Link[] }[] };
 
 export interface Slide {
   /** The narration key: a SLIDE_KEYS entry, a story id, or `<story id>-checks`; a continuation adds `-<n>`. */
@@ -224,6 +250,8 @@ export interface Slide {
 
 export interface Deck {
   slug: string;
+  /** The executive summary only (the default), or the summary and the details, story by story. */
+  kind: 'summary' | 'full';
   title: string;
   /** "<EPIC title> · as of <branch> @ <sha>, <date>" */
   footer: string;
@@ -416,12 +444,12 @@ function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInput
   const missing = missingThings(v);
   first.push({
     type: 'text',
-    text: state === 'done' ? 'Done: built, every check passes, signed off.' : `${DONE_WORDS[state]}: ${missing.slice(0, 3).join('; ')}${missing.length > 3 ? `; +${missing.length - 3} more` : ''}.`,
+    text: state === 'done' ? `Done, ${levelWords(v)}: built and signed off, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing.slice(0, 3).join('; ')}${missing.length > 3 ? `; +${missing.length - 3} more` : ''}.`,
     tone: state === 'done' ? 'good' : v.steps.some((s) => s.alarm) ? 'warn' : 'muted',
   });
   first.push({ type: 'list', title: 'It is done when', items: criteria, columns: criteria.length > 5 && !picture ? 2 : 1, legend: true });
   first.push({ type: 'proof', title: 'The proof', rows: proofRows(v, ctx) });
-  const made1 = `${v.title}. ${state === 'done' ? 'This story is done: built, every check passes, and it is signed off.' : `${DONE_WORDS[state]}: ${missing[0] ?? 'not proven yet'}; ${statusLine(v).split(' · ')[0]!.toLowerCase()}.`}`;
+  const made1 = `${v.title}. ${state === 'done' ? `This story is done (${levelWords(v)}): it is built and signed off, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing[0] ?? 'not proven yet'}; ${statusLine(v).split(' · ')[0]!.toLowerCase()}.`}`;
   const slides: Slide[] = [{ key: id, title: v.title, narration: narrate(inputs, id, made1), ids: [id, ...asArray<string>(v.story.requirements)], ...(picture ? { layout: 'split' as const } : {}), blocks: first }];
 
   if (v.scenarios.length === 0) return slides;
@@ -460,8 +488,18 @@ function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInput
   return slides;
 }
 
-/** The deck of one EPIC. `inputs` are the owner's (presentation.yaml), or none. */
-export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: PresentationInputs): Deck {
+export interface DeckBuildOptions {
+  /** The summary and, after it, the details story by story (`--full`). Default: the summary only. */
+  full?: boolean;
+  /** Whether the deck carries a picture (the assets given to deckHtml); default: none, so no slide is laid out around a missing picture. */
+  hasPicture?: (asset: string) => boolean;
+}
+
+/**
+ * The deck of one EPIC. `inputs` are the owner's (presentation.yaml), or none. By default the
+ * executive summary (T54); `full` adds the details story by story as an appendix.
+ */
+export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: PresentationInputs, opts: DeckBuildOptions = {}): Deck {
   const prd = record.prd;
   const epic = prd?.epic;
   const title = plain(epic?.title) || record.slug;
@@ -476,7 +514,6 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   // Counts over every story: hiding a story never makes the EPIC look further along.
   const signed = views.filter((v) => v.sign?.buildable).length;
   const stale = views.filter((v) => v.sign?.status === 'stale' || (v.sign?.status === 'signed' && !v.sign.buildable)).length;
-  const waiting = views.length - signed - stale;
   const failing = views.reduce((n, v) => n + v.tests.failed, 0);
   const passing = views.reduce((n, v) => n + v.tests.passed, 0);
   const approved = views.reduce((n, v) => n + v.approved, 0);
@@ -488,19 +525,29 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   const status = standingSentence(stand);
   const evidence = facts.evidence ?? NO_EVIDENCE;
   const ctx: ProofContext = { year: facts.commit.date.slice(0, 4), owner: facts.owner ?? 'the owner', evidence };
+  const footer = `${title} · as of ${facts.commit.branch} @ ${facts.commit.sha}, ${facts.commit.date}${facts.uncommitted ? ' · includes uncommitted changes' : ''}`;
+  const head = { slug: record.slug, title, footer, ...(facts.uncommitted ? { notice: UNCOMMITTED_NOTICE } : {}), hiddenStories: hidden.size };
 
-  // 1. Title
-  const titleBlocks: Block[] = [{ type: 'lead', text: stop(plain(epic?.goal)) }];
-  if (facts.uncommitted) titleBlocks.push({ type: 'notice', text: UNCOMMITTED_NOTICE });
-  titleBlocks.push({ type: 'text', text: failing > 0 ? `${status} ${plural(failing, 'test')} ${failing === 1 ? 'fails' : 'fail'}.` : status, tone: failing > 0 || stale > 0 ? 'warn' : stand.done === views.length ? 'good' : 'muted' });
-  titleBlocks.push({ type: 'text', text: `Presented by ${facts.owner ?? 'the owner'} · ${facts.commit.date}`, tone: 'muted' });
-  slides.push({
-    key: 'title',
-    title,
-    narration: narrate(inputs, 'title', `This deck shows where "${title}" stands, made from its plan as of ${facts.commit.date}. ${status}`),
-    ids: [record.slug],
-    blocks: titleBlocks,
-  });
+  // The executive summary (T54): where we are, done, not done and why, how we know, asks, next.
+  slides.push(
+    ...summarySlides({
+      title,
+      ...(epic?.goal ? { goal: epic.goal } : {}),
+      views,
+      shown,
+      ...(hiddenNote ? { hiddenNote } : {}),
+      facts,
+      evidence,
+      ctx,
+      inputs,
+      ...(facts.uncommitted ? { notice: UNCOMMITTED_NOTICE } : {}),
+      hasPicture: opts.hasPicture ?? (() => false),
+    }),
+  );
+  if (!opts.full) return { ...head, kind: 'summary', slides };
+
+  // The appendix: the details, story by story (T52, T53).
+  slides.push(detailsSlide(inputs.narration.details, shown.length));
 
   // 1b. Recap: what is done, what is not, each with its proof (T53)
   slides.push(...recapSlides(shown, views, ctx, (made) => narrate(inputs, 'recap', made), hiddenNote));
@@ -548,9 +595,12 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   });
 
   // 4. Progress
-  const rows: ProgressRow[] = shown.map((v) => ({ id: v.story.id, title: v.title, steps: v.steps, state: viewDoneState(v) }));
+  const rows: ProgressRow[] = shown.map((v) => {
+    const level = levelWords(v);
+    return { id: v.story.id, title: v.title, steps: v.steps, state: viewDoneState(v), ...(level ? { level } : {}) };
+  });
   const finished = shown.filter((v) => viewDoneState(v) === 'done').length;
-  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} done (signed off, built, and every approved scenario passing its e2e test). ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
+  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} done (built and signed off, no test failing), ${stand.seen} of them seen working on the real screens. ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
   slides.push({
     key: 'progress',
     title: 'Progress, story by story',
@@ -631,45 +681,6 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     blocks: risks.length > 0 ? [{ type: 'list', items: risks }] : [{ type: 'text', text: 'No open risks found in the plan or the tests.', tone: 'good' }],
   });
 
-  // 8. What I need from you (only when the owner asks something)
-  if (inputs.asks.length > 0)
-    slides.push({
-      key: 'asks',
-      title: 'What I need from you',
-      narration: narrate(inputs, 'asks', `I need ${plural(inputs.asks.length, 'thing')} from you to keep this moving.`),
-      ids: [],
-      blocks: [{ type: 'list', items: inputs.asks.map((a) => ({ text: a })) }],
-    });
-
-  // 9. What's next: the owner's, else what is left per story
-  const left: ListItem[] = [];
-  for (const v of shown) {
-    if (viewDoneState(v) === 'done') continue;
-    const todo: string[] = [];
-    const waitingScen = v.scenarios.length - v.approved;
-    if (v.scenarios.length === 0) todo.push('write its scenarios');
-    if (waitingScen > 0) todo.push(`approve ${plural(waitingScen, 'scenario')}`);
-    if (!v.sign?.buildable) todo.push(v.sign?.status === 'draft' ? 'sign it off' : 'sign it off again');
-    if (v.facts.built < v.boxes) todo.push(`build ${plural(v.boxes - v.facts.built, 'part')}`);
-    if (v.tests['not-written'] > 0) todo.push(`write ${plural(v.tests['not-written'], 'e2e test')}`);
-    if (v.tests.failed > 0) todo.push(`fix ${plural(v.tests.failed, 'failing test')}`);
-    if (v.tests['not-run'] > 0) todo.push(`run ${plural(v.tests['not-run'], 'test')}`);
-    if (todo.length === 0) todo.push(...missingThings(v));
-    if (todo.length > 0) left.push({ text: `${v.title}: ${todo.join(', ')}.`, id: v.story.id, mark: v.tests.failed > 0 ? 'failed' : 'not-yet' });
-  }
-  const nextItems: ListItem[] = inputs.next.length > 0 ? inputs.next.map((n) => ({ text: n })) : left.length > 10 ? [...left.slice(0, 9), { text: `And ${plural(left.length - 9, 'more story', 'more stories')}.` }] : left;
-  slides.push({
-    key: 'next',
-    title: "What's next",
-    narration: narrate(
-      inputs,
-      'next',
-      inputs.next.length > 0 ? `These are my next steps.` : left.length === 0 ? 'Nothing is left: every story shown is done.' : `${plural(left.length, 'story', 'stories')} ${left.length === 1 ? 'is' : 'are'} not done yet; this is what remains for each.`,
-    ),
-    ids: [],
-    blocks: nextItems.length > 0 ? [{ type: 'list', items: nextItems }] : [{ type: 'text', text: 'Every story shown is done.', tone: 'good' }],
-  });
-
   // 9b. Where the proof comes from (T53)
   slides.push(evidenceSlide(facts, evidence, ctx.owner, (made) => narrate(inputs, 'evidence', made)));
 
@@ -682,6 +693,5 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     blocks: [{ type: 'glossary', items: GLOSSARY }],
   });
 
-  const footer = `${title} · as of ${facts.commit.branch} @ ${facts.commit.sha}, ${facts.commit.date}${facts.uncommitted ? ' · includes uncommitted changes' : ''}`;
-  return { slug: record.slug, title, footer, ...(facts.uncommitted ? { notice: UNCOMMITTED_NOTICE } : {}), hiddenStories: hidden.size, slides };
+  return { ...head, kind: 'full', slides };
 }

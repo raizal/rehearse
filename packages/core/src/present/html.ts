@@ -3,7 +3,7 @@
 // (arrow keys, a counter) and shrinks text that would overflow a slide; with scripts off it reads
 // as one long page. Printing gives one landscape slide per page.
 
-import type { Block, CheckRow, Deck, Link, ListItem, Mark, ProgressStep, ProofRow, RecapItem, Slide, TestState } from './deck.js';
+import type { Block, CheckRow, Deck, GroupCard, Link, ListItem, Mark, ProgressStep, ProofRow, RecapItem, Slide, TestState } from './deck.js';
 import { PROGRESS_STEPS } from './deck.js';
 import { DONE_WORDS } from './proof.js';
 import { escapeXml as esc } from './svg.js';
@@ -122,6 +122,32 @@ a.media:hover{text-decoration:underline}
 dl.glossary{display:grid;grid-template-columns:200px 1fr;gap:12px 24px;margin:.4em 0}
 dl.glossary dt{font-weight:700}
 dl.glossary dd{margin:0;color:#334155}
+.bar{display:flex;height:30px;border-radius:7px;overflow:hidden;margin:1.1em 0 .4em;background:#f1f5f9}
+.bar .seg{min-width:4px}
+.seg-good{background:#059669}.seg-ok{background:#6ee7b7}.seg-todo{background:#cbd5e1}.seg-bad{background:#f87171}
+.bar-legend{display:flex;gap:20px;flex-wrap:wrap;font-size:.8em;color:#334155}
+.bar-legend span{display:inline-flex;gap:6px;align-items:center}
+.bar-legend i{display:inline-block;width:12px;height:12px;border-radius:3px}
+.groups{display:grid;gap:14px 22px;align-items:start}
+.groups.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.group{border:1px solid #e2e8f0;border-left:5px solid #94a3b8;border-radius:8px;padding:10px 14px;break-inside:avoid}
+.group.tone-good{border-left-color:#059669}.group.tone-warn{border-left-color:#f59e0b}.group.tone-bad{border-left-color:#dc2626}
+.group.tone-good,.group.tone-warn,.group.tone-bad{font-weight:400;color:inherit}
+.group h3{font-size:1.02em;margin:0 0 .4em;color:#0f172a}
+.group ul{list-style:none;margin:0;padding:0}
+.group li{display:flex;gap:8px;align-items:baseline;margin:0 0 .35em}
+.group li .t{flex:1;min-width:0}
+.group .level{font-weight:600}
+.group.tone-good .level{color:#047857}.group.tone-warn .level{color:#b45309}.group.tone-bad .level{color:#b91c1c}
+.group .takes{margin:.45em 0 0;font-size:.8em;color:#475569}
+.group .takes b{color:#334155}
+.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.gallery.one{grid-template-columns:1fr}
+.gallery figure{margin:0}
+.gallery img{display:block;width:100%;height:auto;max-height:210px;object-fit:cover;object-position:top;border:1px solid #e2e8f0;border-radius:6px}
+.gallery.one img{max-height:420px}
+.gallery figcaption{text-align:left;font-size:.75em;color:#475569;margin-top:4px}
+.divider-slide .content{margin-top:1em}
 .deck-nav{display:none}
 .js body{overflow:hidden;background:#0f172a;height:100vh}
 .js .deck{padding:0}
@@ -179,6 +205,16 @@ function proofRow(r: ProofRow): string {
   return `<tr><th>${esc(r.label)}</th><td class="tone-${r.tone ?? 'plain'}">${esc(r.text)}${r.links && r.links.length > 0 ? `${r.text ? ' ' : ''}${links(r.links)}` : ''}</td></tr>`;
 }
 
+function groupCard(g: GroupCard): string {
+  const lines = g.lines
+    .map((l) => `<li>${mark(l.mark)}<span class="t">${esc(l.text)}${l.level ? ` — <span class="level">${esc(l.level)}</span>` : ''}</span>${l.ids && l.ids.length > 0 ? `<span class="id">${esc(l.ids.join(' '))}</span>` : ''}</li>`)
+    .join('');
+  const takes = g.takes ? `<p class="takes"><b>What it takes:</b> ${esc(g.takes)}${g.who ? ` <b>Who acts:</b> ${esc(g.who)}.` : ''}</p>` : '';
+  return `<div class="group tone-${g.tone}"><h3>${esc(g.title)}</h3><ul>${lines}</ul>${takes}</div>`;
+}
+
+const BAR_COLOR: Record<string, string> = { good: '#059669', ok: '#6ee7b7', todo: '#cbd5e1', bad: '#f87171' };
+
 function picture(assets: DeckAssets, key: string | undefined, alt: string): string {
   const a = key ? assets[key] : undefined;
   if (!a) return '';
@@ -225,7 +261,7 @@ function block(b: Block, assets: DeckAssets): string {
       return `<div class="stats">${b.items.map((s) => `<div class="stat${s.tone ? ` tone-${s.tone}` : ''}"><div class="v">${esc(s.value)}</div><div class="l">${esc(s.label)}</div></div>`).join('')}</div>`;
     case 'progress':
       return `${legend()}<table class="progress"><thead><tr><th>Story</th>${PROGRESS_STEPS.map((p) => `<th>${esc(p)}</th>`).join('')}<th>Done / In progress / Not started</th></tr></thead><tbody>${b.rows
-        .map((r) => `<tr><td>${esc(r.title)} <span class="id">${esc(r.id)}</span></td>${r.steps.map(step).join('')}<td class="state state-${r.state}">${esc(DONE_WORDS[r.state])}</td></tr>`)
+        .map((r) => `<tr><td>${esc(r.title)} <span class="id">${esc(r.id)}</span></td>${r.steps.map(step).join('')}<td class="state state-${r.state}">${esc(DONE_WORDS[r.state])}${r.level ? `<span class="n"> · ${esc(r.level)}</span>` : ''}</td></tr>`)
         .join('')}</tbody></table>`;
     case 'map':
       return `${legend()}<div class="map">${b.columns
@@ -255,6 +291,19 @@ function block(b: Block, assets: DeckAssets): string {
       const style = `grid-template-columns:minmax(0,${Math.round(doneShare * 100)}fr) minmax(0,${Math.round((1 - doneShare) * 100)}fr)`;
       return `<div class="recap${b.compact ? ' compact' : ''}" style="${style}">${recapColumn('done', `Done (${b.doneTotal})`, b.done, doneCols, 'No story is done yet.')}${recapColumn('not-done', `Not done (${b.notDoneTotal})`, b.notDone, notCols, 'Nothing: every story is done.')}</div>`;
     }
+    case 'bar': {
+      const segs = b.segments.filter((x) => x.count > 0);
+      return `<div class="bar" role="img" aria-label="${esc(segs.map((x) => `${x.count} ${x.label}`).join(', '))}">${segs.map((x) => `<span class="seg seg-${x.tone}" style="flex:${x.count} ${x.count} 0" title="${esc(`${x.count} ${x.label}`)}"></span>`).join('')}</div><div class="bar-legend">${segs.map((x) => `<span><i style="background:${BAR_COLOR[x.tone]}"></i>${esc(`${x.count} ${x.label}`)}</span>`).join('')}</div>`;
+    }
+    case 'groups':
+      return `<div class="groups${b.items.length > 1 ? ' cols-2' : ''}">${b.items.map(groupCard).join('')}</div>`;
+    case 'gallery': {
+      const figs = b.items.flatMap((it) => {
+        const img = picture(assets, it.asset, it.caption);
+        return img ? [`<figure>${img}<figcaption>${esc(it.caption)}${it.links && it.links.length > 0 ? ` ${links(it.links)}` : ''}</figcaption></figure>`] : [];
+      });
+      return figs.length > 0 ? `<div class="gallery${figs.length === 1 ? ' one' : ''}">${figs.join('')}</div>` : '';
+    }
     case 'proof':
       return `<div class="proof">${b.title ? `<h3>${esc(b.title)}</h3>` : ''}<table>${b.rows.map(proofRow).join('')}</table></div>`;
   }
@@ -262,11 +311,12 @@ function block(b: Block, assets: DeckAssets): string {
 
 function slideHtml(deck: Deck, s: Slide, n: number, total: number, assets: DeckAssets): string {
   // An image block whose picture is missing leaves no empty box.
-  const blocks = s.blocks.filter((b) => b.type !== 'image' || assets[b.asset] !== undefined);
+  const blocks = s.blocks.filter((b) => (b.type !== 'image' || assets[b.asset] !== undefined) && (b.type !== 'gallery' || b.items.some((it) => assets[it.asset] !== undefined)));
   const split = s.layout === 'split' && blocks.length > 1;
   const body = split ? `<div class="col">${block(blocks[0]!, assets)}</div><div class="col">${blocks.slice(1).map((b) => block(b, assets)).join('')}</div>` : blocks.map((b) => block(b, assets)).join('');
-  const heading = s.key === 'title' ? `<h1>${esc(s.title)}</h1>` : `<h2>${esc(s.title)}</h2>`;
-  return `<section class="slide${split ? ' split' : ''}${s.key === 'title' ? ' title-slide' : ''}" id="slide-${n}" data-key="${esc(s.key)}" aria-label="Slide ${n} of ${total}: ${esc(s.title)}">
+  const big = s.key === 'title' || s.key === 'details';
+  const heading = big ? `<h1>${esc(s.title)}</h1>` : `<h2>${esc(s.title)}</h2>`;
+  return `<section class="slide${split ? ' split' : ''}${s.key === 'title' ? ' title-slide' : ''}${s.key === 'details' ? ' divider-slide' : ''}" id="slide-${n}" data-key="${esc(s.key)}" aria-label="Slide ${n} of ${total}: ${esc(s.title)}">
 ${s.ids.length > 0 ? `<div class="ids">${esc(s.ids.join(' · '))}</div>` : ''}${heading}
 <div class="content">${body}</div>
 <p class="narration">${esc(s.narration)}</p>

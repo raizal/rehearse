@@ -9,6 +9,8 @@
 // the deck into <dir> and copies only the videos it links into <dir>/<deck>-media/, linked
 // relatively. A source that cannot be read is said on stderr and the deck is still made; a named
 // --unit-report that cannot be read is exit 1 after the deck is written.
+// T54: an executive summary of about six slides by default; `--full` adds every story slide after
+// it as an appendix (file <name>-full.html).
 
 import { copyFileSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
@@ -40,6 +42,7 @@ export async function runPresent(args: string[], io: Io, deps: PresentDeps = {})
   let out: string | undefined;
   let pdf: string | undefined;
   let committedOnly = false;
+  let full = false;
   let withRecordings: string | undefined;
   let unitReport: string | undefined;
   let birdviewData: string | undefined;
@@ -47,6 +50,7 @@ export async function runPresent(args: string[], io: Io, deps: PresentDeps = {})
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === '--committed-only') committedOnly = true;
+    else if (a === '--full') full = true;
     else if (a === '--out' || a === '--pdf' || a === '--with-recordings' || a === '--unit-report' || a === '--birdview-data') {
       const value = args[++i];
       if (value === undefined || value === '' || value.startsWith('-')) return usage(io, `${a} needs a ${a === '--with-recordings' || a === '--birdview-data' ? 'folder' : 'file'} path`);
@@ -58,7 +62,7 @@ export async function runPresent(args: string[], io: Io, deps: PresentDeps = {})
     } else if (a.startsWith('-')) return usage(io, `unknown option ${a}`);
     else positional.push(a);
   }
-  if (positional.length !== 1) return usage(io, 'expected <epic-dir-or-slug> [--out <file.html>] [--pdf <file.pdf>] [--committed-only] [--with-recordings <dir>] [--unit-report <file.json>] [--birdview-data <dir>]');
+  if (positional.length !== 1) return usage(io, 'expected <epic-dir-or-slug> [--full] [--out <file.html>] [--pdf <file.pdf>] [--committed-only] [--with-recordings <dir>] [--unit-report <file.json>] [--birdview-data <dir>]');
   if (withRecordings && out && dirname(resolve(io.cwd, out)) !== withRecordings)
     return usage(io, '--with-recordings <dir> puts the deck and its videos in <dir>: --out must be a file in that folder, or leave --out out');
   const epic = positional[0]!;
@@ -92,6 +96,7 @@ export async function runPresent(args: string[], io: Io, deps: PresentDeps = {})
       repoTop: top,
       git: (a) => git(a, dir),
       committedOnly,
+      ...(full ? { full } : {}),
       ...(testProject ? { testProject } : {}),
       ...(deps.birdview === false
         ? {}
@@ -111,7 +116,7 @@ export async function runPresent(args: string[], io: Io, deps: PresentDeps = {})
     io.stderr(`rehearse present: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
   }
-  const name = deckFileName(built.deck.slug, built.facts);
+  const name = `${deckFileName(built.deck.slug, built.facts)}${full ? '-full' : ''}`;
   const htmlPath = out ? resolve(io.cwd, out) : withRecordings ? join(withRecordings, `${name}.html`) : join(top, 'presentations', `${name}.html`);
   mkdirSync(dirname(htmlPath), { recursive: true });
   writeFileSync(htmlPath, built.html);

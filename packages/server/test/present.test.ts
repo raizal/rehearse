@@ -121,7 +121,7 @@ describe('gatherDeckFacts', () => {
   it('without --with-recordings the deck links no video; a missing data folder is said, not fatal', async () => {
     const { dir, top } = committedShop(true);
     const { testProject, data } = savedRuns(top);
-    const kept = await buildDeckHtml({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, testProject, birdviewData: { dir: data, how: 'test' }, now: NOW });
+    const kept = await buildDeckHtml({ epicDir: dir, repoTop: top, git: gitIn(dir), verifier: VERIFIER, testProject, birdviewData: { dir: data, how: 'test' }, full: true, now: NOW });
     expect(kept.videos).toEqual([]);
     expect(kept.facts.stories.S1?.runs?.['S1-buy']?.video).toBeUndefined();
     expect(kept.html).toMatch(/recording kept by/);
@@ -184,6 +184,23 @@ describe('GET /api/present', () => {
     const html = await res.text();
     expect(html).toMatch(/^<!doctype html>/);
     expect(Number(res.headers.get('x-deck-slides'))).toBe(html.match(/<section class="slide/g)!.length);
+  });
+
+  it('full=1 returns the full deck: the summary, then the details story by story; the name ends in -full', async () => {
+    const { dir } = committedShop();
+    const { url, token, origin } = await serve(dir);
+    const headers = { 'x-rehearse-token': token, origin };
+    const summary = await fetch(new URL('api/present?epic=2026-11-05-shop', url), { headers });
+    const full = await fetch(new URL('api/present?epic=2026-11-05-shop&full=1', url), { headers });
+    expect(full.status).toBe(200);
+    expect(full.headers.get('content-disposition')).toMatch(/-full\.html"$/);
+    expect(summary.headers.get('content-disposition')).not.toMatch(/-full/);
+    const short = Number(summary.headers.get('x-deck-slides'));
+    expect(short).toBeLessThanOrEqual(6);
+    expect(Number(full.headers.get('x-deck-slides'))).toBeGreaterThan(short);
+    const html = await full.text();
+    expect(html).toContain('Details, story by story');
+    expect(await summary.text()).not.toContain('Details, story by story');
   });
 
   it('another EPIC is a 404; a bad format a 400', async () => {
