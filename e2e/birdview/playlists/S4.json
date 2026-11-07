@@ -14,16 +14,17 @@
     },
     {
       "file": "tests/S4.spec.ts",
-      "line": 24,
+      "line": 29,
       "name": "S4-drill",
       "about": "Builder drills into a box with children",
       "steps": {
-        "review/swimlanes: the builder opens a box with children": "review/swimlanes"
+        "review/drill: the builder opens a box with children in the drawer": "review/drill",
+        "review/drill: a step opens in the same drawer, and the breadcrumb goes back up": "review/drill"
       }
     },
     {
       "file": "tests/S4.spec.ts",
-      "line": 36,
+      "line": 52,
       "name": "S4-browser",
       "about": "Builder opens the served UI in a browser",
       "steps": {
@@ -32,7 +33,7 @@
     },
     {
       "file": "tests/S4.spec.ts",
-      "line": 46,
+      "line": 62,
       "name": "S4-big-picture",
       "about": "Builder sees the whole EPIC and the processes that features share",
       "steps": {
@@ -41,7 +42,7 @@
     },
     {
       "file": "tests/S4.spec.ts",
-      "line": 58,
+      "line": 74,
       "name": "S4-story-view",
       "about": "Builder opens one story and sees what, how and output",
       "steps": {
