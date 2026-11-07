@@ -106,8 +106,11 @@ export {
   type StoryProgress,
 } from './story-progress.js';
 export {
+  activeProject,
+  asProject,
   birdviewInfo,
   DEFAULT_BIRDVIEW_PORT,
+  defaultProject,
   defaultPlaylistsDir,
   findTestProject,
   httpPlayerClient,
@@ -116,14 +119,19 @@ export {
   PLAYER_HOST,
   playerView,
   readStoryPlaylist,
+  sameProject,
   testKey,
   type BirdviewInfo,
   type BirdviewSetup,
   type PlayerAction,
   type PlayerClient,
+  type PlayerProject,
+  type PlayerReply,
   type PlayerView,
   type TestResult,
 } from './birdview.js';
+export { BIRDVIEW_BUSY, BIRDVIEW_NOT_RUNNING, BirdviewError, playStory, pushPlaylists, useProject, type BirdviewFailure, type PlayOutcome } from './birdview-play.js';
+export { epicPlaylists, storyPlaylist } from './story-playlist.js';
 export { buildPlaylist, parsePlaylist, parseSpec, playlistJson, stepBox, storiesWithTests, type Playlist, type PlaylistBuild, type PlaylistTest, type SpecTest } from './playlist.js';
 export { parseCorrectionLog, parseDecisions, type Correction, type CorrectionNote, type Decision } from './record-docs.js';
 export { MAX_PREVIEW_STORIES, MAX_SIGNOFF_COMMITS, signOffPreview, type SignOffPreview, type SinceSignOff, type StorySignOffPreview } from './signoff-preview.js';

@@ -77,7 +77,10 @@ function fakeRunner(repo: string, fake: Fake): { run: Runner; calls: Call[] } {
 const offPlayer: PlayerClient = {
   state: () => Promise.reject(new Error('no player')),
   setup: () => Promise.reject(new Error('no player')),
-  action: () => Promise.reject(new Error('no player')),
+  projects: () => Promise.reject(new Error('no player')),
+  useProject: () => Promise.reject(new Error('no player')),
+  writePlaylist: () => Promise.reject(new Error('no player')),
+  play: () => Promise.reject(new Error('no player')),
 };
 
 /** An indexed graph that knows the coverage of one box. */
