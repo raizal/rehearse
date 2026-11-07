@@ -12,14 +12,18 @@ import { indexBoxes } from '../flow-index.js';
 import type { AcceptanceCriterion, Box, EntityDef, EpicRecord, Hash, Id, Requirement, Role, Scenario, ScenarioStep, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
 import { codeStartSection, MAX_CODE_SECTION_CHARS, type CodeStartOptions } from './code-start.js';
-import { howToWorkMarkdown } from './how-to-work.js';
+import { howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
 import { diffStoryContent, type ContentChange } from './signoff-preview.js';
 import { allScenarios, detectStale, scenarioTrust, signOffRule } from './stale.js';
 import { servingBoxes, storyContentV2, storyHashV2 } from './story-hash.js';
 import { CURRENT_HASH_RULE, type SignOffWithRule } from './types.js';
 
-/** The most a build brief holds: about 6k tokens at four characters a token (T44). */
-export const MAX_BRIEF_CHARS = 24_000;
+/**
+ * The most a build brief holds: about 6.5k tokens at four characters a token. T44 set 24_000; T49
+ * raised it by 2_000 because the largest brief (code-graph S9) with the repo's `pnpm rehearse`
+ * commands was 24_034 before any code, and the code section shrinks to what is left.
+ */
+export const MAX_BRIEF_CHARS = 26_000;
 
 /** `code`, `codeUnavailable` and `cli`: the "Code you start from" section (T49), gathered by the caller. */
 export interface BuildBriefOptions extends CodeStartOptions {
@@ -27,6 +31,8 @@ export interface BuildBriefOptions extends CodeStartOptions {
   allowUnsigned?: boolean;
   /** Decision id → text (`decisionTexts`). A cited id without text is listed by id. */
   decisions?: Record<string, string>;
+  /** How the commands are written in the repo (`repoCommands`). Default `rehearse`, a pnpm workspace. */
+  commands?: RepoCommands;
 }
 
 /** Where the story stands against its sign-off. */
@@ -104,7 +110,7 @@ export function storyBuildBrief(record: EpicRecord, storyId: Id, opts: BuildBrie
   if (!sign.buildable && !opts.allowUnsigned) return { ok: false, storyId, reason: sign.refusal ?? `story ${storyId} cannot be built yet`, sign };
   const content = storyContentV2(story, prd, record.flow, allScenarios(record));
   const before = [header(record, story, sign), storySection(record, story), scenarioSection(record, story), boxSection(record, story)];
-  const after = [decisionSection(record, story, opts.decisions ?? {}), entitySection(record, story), `## How to work in this repo\n\n${howToWorkMarkdown()}`];
+  const after = [decisionSection(record, story, opts.decisions ?? {}), entitySection(record, story), `## How to work in this repo\n\n${howToWorkMarkdown(opts.commands)}`];
   // The code section gets what the rest leaves under the budget (T49).
   const rest = [...before, ...after].filter((s) => s !== '').join('\n\n').length;
   const room = Math.min(MAX_CODE_SECTION_CHARS, MAX_BRIEF_CHARS - rest - 4);

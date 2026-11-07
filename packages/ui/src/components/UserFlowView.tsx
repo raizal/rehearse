@@ -4,13 +4,13 @@
 
 import { useMemo } from 'react';
 import type { DGraph } from '../model/graph.js';
-import { snakeLayout } from '../model/grid.js';
+import { userFlowLayout } from '../model/grid.js';
 import { userFlow } from '../model/userflow.js';
 import type { BigViewProps } from './BigPictureViews.js';
 import { GraphDiagram, LegendItem, useGraphLayout } from './GraphDiagram.js';
 
-/** Rows that snake left to right, then right to left, as wide as the page at most. */
-const layoutRows = async (g: DGraph) => snakeLayout(g).layout;
+/** Rows that snake left to right, then right to left, as wide as the page. */
+const layoutRows = async (g: DGraph) => userFlowLayout(g).layout;
 
 export function UserFlowView({ view, onOpenBox }: BigViewProps) {
   const uf = useMemo(() => userFlow(view.flow, view.prd), [view]);

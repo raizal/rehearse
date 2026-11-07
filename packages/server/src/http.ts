@@ -9,7 +9,8 @@
 // start or feed the test thread of a story, writing only .rehearse/story-threads.json. The code graph route (`/api/graph`, G20) answers show, near, find,
 // path and the code map's levels (T40) from @rehearse/graph, and a file watcher keeps the graph fresh (graph-route.ts). All of them need
 // the same token and Origin check. The sign-off preview (`GET /api/sign-off/preview`, T39) reads
-// git history too, with the same check.
+// git history too, with the same check. The thread merge routes (T48) read git and bb and, on the
+// owner's press only, run `git merge --no-ff` of a thread's branch in this checkout; same check.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -26,6 +27,7 @@ import { createSession, sessionInfo, tokenMatches, type ServerSession } from './
 import { MAX_PREVIEW_STORIES, signOffPreview } from './signoff-preview.js';
 import { bbProjectFrom } from './bb-project.js';
 import { createStoryThreads, processRunner, StoryThreadError, type Runner, type StoryThreadService } from './story-thread.js';
+import { createThreadMerge, MergeConflictError, type MergeKind, type ThreadMergeService } from './thread-merge.js';
 import { buildTrustedEpicView } from './trust-view.js';
 
 /** The only address `rehearse serve` listens on (R20). */
@@ -109,6 +111,8 @@ const ROUTES: Record<string, string> = {
   '/api/story-thread/open': 'POST',
   '/api/story-tests/thread': 'GET, HEAD, POST',
   '/api/story-tests/send': 'POST',
+  '/api/thread/merge': 'GET, POST',
+  '/api/thread/ask-rebase': 'POST',
   '/api/birdview': 'GET',
   ...Object.fromEntries(PLAYER_ACTIONS.map((a) => [`/api/birdview/${a}`, 'POST'])),
 };
@@ -129,9 +133,10 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
   const threadReasoning = opts.threadReasoning ?? (process.env.REHEARSE_THREAD_REASONING || undefined);
   const birdview = opts.birdview ?? { port: DEFAULT_BIRDVIEW_PORT, projectDir: findTestProject(opts.epicDir) };
   const graph = opts.graph ?? graphServiceFor(opts.epicDir);
+  const run = opts.run ?? processRunner();
   const threads = createStoryThreads({
     epicDir: opts.epicDir,
-    run: opts.run ?? processRunner(),
+    run,
     ...(bbProject ? { bbProject } : {}),
     ...(threadModel ? { threadModel } : {}),
     ...(threadReasoning ? { threadReasoning } : {}),
@@ -151,6 +156,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       return info.player.kind === 'ours' ? info.player.results : undefined;
     },
   });
+  const merges = createThreadMerge({ epicDir: opts.epicDir, run, threads, ...(birdview.projectDir ? { testProject: birdview.projectDir } : {}) });
   return (req, res) => {
     let path: string;
     let query: URLSearchParams;
@@ -285,6 +291,10 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
     }
     if (path.startsWith('/api/story-tests/')) {
       void storyTests(req, res, path, session, threads);
+      return;
+    }
+    if (path.startsWith('/api/thread/')) {
+      void threadMerge(req, res, path, session, merges);
       return;
     }
     if (path === '/api/story-progress') {
@@ -478,6 +488,61 @@ async function storyTests(req: IncomingMessage, res: ServerResponse, path: strin
   }
 }
 
+const MERGE_KINDS: readonly string[] = ['build', 'tests'];
+/** A file path the UI sends back from a conflict, for the rebase message. */
+const MAX_PATH = 500;
+
+/**
+ * Land a thread's work (T48): `GET /api/thread/merge?story=&kind=build|tests` says what the
+ * thread's branch brings; `POST /api/thread/merge {story, kind}` merges it with --no-ff into the
+ * checked-out branch; `POST /api/thread/ask-rebase {story, kind, files?}` tells the thread to rebase.
+ * Each needs the token and a same-origin Origin. Owner only: no CLI command calls these.
+ */
+async function threadMerge(req: IncomingMessage, res: ServerResponse, path: string, session: ServerSession, merges: ThreadMergeService): Promise<void> {
+  try {
+    if (req.method !== 'POST') {
+      const refused = checkRequest(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { ok: false, error: refused.error });
+        return;
+      }
+      const query = new URL(req.url ?? '/', 'http://localhost').searchParams;
+      const story = query.get('story') ?? '';
+      const kind = query.get('kind') ?? '';
+      if (!STORY_ID.test(story) || !MERGE_KINDS.includes(kind)) {
+        sendJson(res, 400, { ok: false, error: 'query must be ?story=<story id>&kind=build|tests' });
+        return;
+      }
+      sendJson(res, 200, await merges.summary(story, kind as MergeKind));
+      return;
+    }
+    const body = await readJsonPost(req, session);
+    if ('status' in body) {
+      sendJson(res, body.status, { ok: false, error: body.error });
+      return;
+    }
+    const { story, kind } = body.json;
+    if (typeof story !== 'string' || !STORY_ID.test(story) || typeof kind !== 'string' || !MERGE_KINDS.includes(kind)) {
+      sendJson(res, 400, { ok: false, error: 'body must be { "story": <story id>, "kind": "build" | "tests" }' });
+      return;
+    }
+    if (path === '/api/thread/merge') {
+      sendJson(res, 200, await merges.merge(story, kind as MergeKind));
+      return;
+    }
+    const files = body.json.files ?? [];
+    if (!(Array.isArray(files) && files.length <= 200 && files.every((f) => typeof f === 'string' && f !== '' && f.length <= MAX_PATH && !/[\n\r]/.test(f)))) {
+      sendJson(res, 400, { ok: false, error: '"files" must be a list of file paths' });
+      return;
+    }
+    sendJson(res, 200, await merges.askRebase(story, kind as MergeKind, files as string[]));
+  } catch (e) {
+    if (e instanceof MergeConflictError) sendJson(res, e.status, { ok: false, error: e.message, conflict: { files: e.files, canAskRebase: true }, ...(e.details ? { details: e.details } : {}) });
+    else if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message, ...(e.details ? { details: e.details } : {}) });
+    else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 /** Run approve or sign-off as the server's identity, with the server's key. */
 function write(res: ServerResponse, path: string, ids: Id[], epicDir: string, session: ServerSession, verifier: Verifier): void {
   if (!session.signer.ok) {
@@ -545,7 +610,7 @@ async function readPost(req: IncomingMessage, session: ServerSession, field: str
 /**
  * The Birdview actions of the Tests tab (T45). `play-story {story}` switches the player to this
  * repo's test project, writes the story playlist through it and plays it; `play-test {story, test}`
- * does the same for one test of the story; `use-project {to: "this" | "default"}` only switches.
+ * does the same for one test of the story, or a list of them; `use-project {to: "this" | "default"}` only switches.
  * A failure is a BirdviewError: 409 busy, 503 not running, 404, 400 or 502, in plain words.
  */
 async function playerAction(setup: BirdviewSetup, epicDir: string, action: PlayerAction, body: Record<string, unknown>): Promise<[number, unknown]> {
@@ -556,9 +621,13 @@ async function playerAction(setup: BirdviewSetup, epicDir: string, action: Playe
   const story = body.story;
   if (typeof story !== 'string' || !STORY_ID.test(story)) return [400, { ok: false, error: 'story must be a story id' }];
   if (action === 'play-story') return [200, { ok: true, ...(await playStory(setup, epicDir, story)) }];
+  // One key, or several: the new tests a merge brought (T48).
   const test = body.test;
-  if (typeof test !== 'string' || !TEST_KEY.test(test)) return [400, { ok: false, error: 'test must be a test key, <file>:<line>' }];
-  return [200, { ok: true, ...(await playStory(setup, epicDir, story, test)) }];
+  const keys = Array.isArray(test) ? test : [test];
+  if (keys.length === 0 || !keys.every((k) => typeof k === 'string' && TEST_KEY.test(k))) {
+    return [400, { ok: false, error: 'test must be a test key, <file>:<line>, or a list of them' }];
+  }
+  return [200, { ok: true, ...(await playStory(setup, epicDir, story, Array.isArray(test) ? (keys as string[]) : (test as string))) }];
 }
 
 /** Discard the body of a refused request, so the connection can answer. */

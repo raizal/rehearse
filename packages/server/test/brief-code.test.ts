@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { briefBoxPaths, loadEpic, storyBuildBrief } from '@rehearse/core';
-import { gatherBriefCode, guessWords, openGraphAccess, rehearseCommand, type GraphAccess } from '../src/index.js';
+import { gatherBriefCode, guessWords, openGraphAccess, type GraphAccess } from '../src/index.js';
 
 const SHOP_CODE = fileURLToPath(new URL('../../graph/test/fixtures/shop', import.meta.url));
 const SHOP_EPIC = fileURLToPath(new URL('../../core/test/fixtures/shop', import.meta.url));
@@ -88,16 +88,6 @@ describe('gatherBriefCode (T49, box gather-box-code)', () => {
     const facts = await gatherBriefCode({ epicDir, record: loadEpic(epicDir).record, boxes: ['pay'], root, graph: openGraphAccess(root) });
     expect(facts.code).toBeUndefined();
     expect(facts.codeUnavailable).toEqual(expect.any(String));
-  });
-
-  it('the rehearse command as it runs in the repo', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'rehearse-cmd-'));
-    expect(rehearseCommand(dir)).toBe('rehearse');
-    mkdirSync(join(dir, 'packages', 'cli', 'bin'), { recursive: true });
-    writeFileSync(join(dir, 'packages', 'cli', 'bin', 'rehearse.js'), '');
-    expect(rehearseCommand(dir)).toBe('node packages/cli/bin/rehearse.js');
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ scripts: { rehearse: 'node packages/cli/bin/rehearse.js' } }));
-    expect(rehearseCommand(dir)).toBe('pnpm rehearse');
   });
 
   it('guess words: the title and contract, short and common words left out', () => {

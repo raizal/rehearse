@@ -1,17 +1,18 @@
 // The test brief of a story's approved scenarios (T47, box `test-brief`): Markdown a coding agent
 // can write the missing e2e tests from on its own. Per scenario: the criterion it checks (given /
 // when / then), its steps with the boxes they walk (path, title, inputs / outputs, error exits),
-// the step examples and `expect`. Then where the test goes and its exact name (the rule the Tests
-// tab matches on, TEST_NAME_RULE), a spec to copy the style from, how to run it, "write only
-// tests", and how to work in a rehearse repo (HOW_TO_WORK). A draft or stale scenario is refused:
-// the owner approves it first. Pure: the paths come in as options.
+// the step examples and `expect`, where each expected result shows in the app, and the fixture to
+// start from (T48, box `work-rules`). Then where the test goes and its exact name (the rule the
+// Tests tab matches on, TEST_NAME_RULE), a spec to copy the style from, how to run it through
+// Birdview, "write only tests", and how to work in a rehearse repo (`howToWorkMarkdown`). A draft
+// or stale scenario is refused: the owner approves it first. Pure: the paths come in as options.
 
 import { indexBoxes } from '../flow-index.js';
 import type { AcceptanceCriterion, Box, EpicRecord, Hash, Id, Role, Scenario, ScenarioStep, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
 import { briefSignState } from './build-brief.js';
 import { testCodeSection, type TestCodeOptions } from './code-start.js';
-import { howToWorkMarkdown } from './how-to-work.js';
+import { DEFAULT_COMMANDS, howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
 import { scenarioTrust } from './stale.js';
 
 /** `code`, `codeUnavailable`, `cli` and `e2eHelpers`: the "Code you start from" section (T49). */
@@ -22,7 +23,21 @@ export interface TestBriefOptions extends TestCodeOptions {
   specFile?: string;
   /** An existing spec, relative to the repo root, to copy the style from. */
   exampleSpec?: string;
+  /** How the commands are written in the repo (`repoCommands`). Default `rehearse`, a pnpm workspace. */
+  commands?: RepoCommands;
+  /** The fixtures a test starts from: `ui` serves the app (UI scenarios), `cli` runs the CLI in a fresh repo. */
+  fixtures?: { ui?: TestFixture; cli?: TestFixture };
 }
+
+/** A fixture file of the test project and what it exports. */
+export interface TestFixture {
+  /** Relative to the repo root, e.g. `e2e/tests/serve.ts`. */
+  file: string;
+  exports: string[];
+}
+
+/** What the brief says of an expected result no UI box shows. */
+export const NOT_SHOWN = 'not shown in the UI, check the files';
 
 export type TestBrief =
   | {
@@ -107,14 +122,16 @@ export function scenarioTestBrief(record: EpicRecord, storyId: Id, scenarioIds: 
   const ids = picked.map((m) => m.s.id);
   /** A box is described once, at its first step in the brief; later steps name it only. */
   const seen = new Set<string>();
+  const cmds = opts.commands ?? DEFAULT_COMMANDS;
   const markdown = [
     header(record, story, ids),
-    ...picked.map((m) => scenarioSection(record, story, m.s, seen)),
+    ...picked.map((m) => scenarioSection(record, story, m.s, seen, opts.fixtures ?? {})),
     testCodeSection(picked.map((m) => ({ id: m.s.id, boxes: scenarioBoxes(m.s) })), opts),
     whereSection(testProject, specFile, ids, opts.exampleSpec),
-    runSection(record.slug, storyId, testProject, specFile, ids),
-    rulesSection(record.slug, storyId, ids),
-    `## How to work in this repo\n\n${howToWorkMarkdown()}`,
+    fixtureSection(testProject, opts.fixtures ?? {}),
+    runSection(cmds.cli, record.slug, storyId, testProject),
+    rulesSection(cmds.cli, record.slug, storyId, ids),
+    `## How to work in this repo\n\n${howToWorkMarkdown(cmds)}`,
   ]
     .filter((s) => s !== '')
     .join('\n\n');
@@ -165,7 +182,46 @@ function boxLine(path: string, box: Box | undefined): string[] {
   return lines;
 }
 
-function scenarioSection(record: EpicRecord, story: Story, s: Scenario, seen: Set<string>): string {
+/**
+ * Where an expected result shows in the app: the UI boxes (package `ui`) that read the entity
+ * field (`Entity.field`, or `Entity.*`), or that take or give a field of that name.
+ */
+export function whereShown(boxes: readonly Box[], key: string): string {
+  const dot = key.indexOf('.');
+  const entity = dot > 0 ? key.slice(0, dot) : undefined;
+  const field = dot > 0 ? key.slice(dot + 1) : key;
+  const shows = boxes.filter((b) => {
+    if (b.package !== 'ui') return false;
+    if (entity) return asArray<string>(b.reads).some((r) => r === key || r === `${entity}.*`);
+    return (isObject(b.outputs) && field in b.outputs) || (isObject(b.inputs) && field in b.inputs);
+  });
+  return shows.length > 0 ? `shows in ${shows.map((b) => `${oneLine(str(b.title))} (\`${b.path}\`)`).join(', ')}` : NOT_SHOWN;
+}
+
+/** A scenario that walks a UI box is tested in the app; any other through the CLI. */
+export function isUiScenario(record: EpicRecord, s: Scenario): boolean {
+  const index = indexBoxes(record.flow);
+  return asArray<ScenarioStep>(s.steps).some((st) => isObject(st) && index.get(st.name)?.box.package === 'ui');
+}
+
+/** The fixture a scenario starts from, by name; `fixtureSection` says what each one does. */
+function fixtureLine(ui: boolean, fixtures: { ui?: TestFixture; cli?: TestFixture }): string {
+  const f = ui ? fixtures.ui : fixtures.cli;
+  return `Start from: ${ui ? 'a UI scenario (it walks a box of the app)' : 'a CLI scenario (no box of the app)'}, ${f ? `\`${f.file}\`` : 'no fixture yet: copy the setup of an existing spec'}.`;
+}
+
+function fixtureSection(testProject: string, fixtures: { ui?: TestFixture; cli?: TestFixture }): string {
+  const line = (f: TestFixture | undefined, kind: string, what: string) =>
+    f ? `- ${kind}: \`${f.file}\` (${f.exports.map((e) => `\`${e}\``).join(', ')}) ${what}.` : `- ${kind}: no fixture in \`${testProject}/tests/\` ${what}; copy the setup of an existing spec.`;
+  return [
+    '## Fixtures to start from',
+    '',
+    line(fixtures.ui, 'UI scenario', 'serves the app on a copy of a record'),
+    line(fixtures.cli, 'CLI scenario', 'makes a fresh git repo and runs the CLI in it'),
+  ].join('\n');
+}
+
+function scenarioSection(record: EpicRecord, story: Story, s: Scenario, seen: Set<string>, fixtures: { ui?: TestFixture; cli?: TestFixture }): string {
   const index = indexBoxes(record.flow);
   const criterion = s.expect?.criterion ? asArray<AcceptanceCriterion>(story.acceptance).find((c) => isObject(c) && c.id === s.expect!.criterion) : undefined;
   const lines = [`## ${s.id}: ${oneLine(str(s.title))}`, ''];
@@ -184,6 +240,14 @@ function scenarioSection(record: EpicRecord, story: Story, s: Scenario, seen: Se
     }
   });
   if (isObject(s.expect)) lines.push('', `Expect (what the test checks at the end): ${compact(s.expect.state ?? {})}`);
+  const expected = isObject(s.expect) && isObject(s.expect.state) ? Object.keys(s.expect.state) : [];
+  if (expected.length > 0) {
+    const boxes = [...index.values()].map((e) => e.box);
+    const byPlace = new Map<string, string[]>();
+    for (const k of expected) byPlace.set(whereShown(boxes, k), [...(byPlace.get(whereShown(boxes, k)) ?? []), k]);
+    lines.push('', 'Where each expected result shows:', ...[...byPlace].map(([place, keys]) => `- ${keys.map((k) => `\`${k}\``).join(', ')}: ${place}`));
+  }
+  lines.push('', fixtureLine(isUiScenario(record, s), fixtures));
   return lines.join('\n');
 }
 
@@ -201,25 +265,24 @@ function whereSection(testProject: string, specFile: string, ids: Id[], example:
   ].join('\n');
 }
 
-function runSection(slug: string, storyId: Id, testProject: string, specFile: string, ids: Id[]): string {
-  const rel = specFile.startsWith(`${testProject}/`) ? specFile.slice(testProject.length + 1) : specFile;
+function runSection(cli: string, slug: string, storyId: Id, testProject: string): string {
   return [
     '## How to run it',
     '',
-    `- \`pnpm --filter ./${testProject} exec playwright test ${rel} -g '${ids[0]}'\` runs one test; without \`-g\`, the file.`,
-    `- \`rehearse playlists ${slug} --tests ${testProject}\` writes the story playlists again; the ${storyId} playlist then lists the new tests.`,
-    `- \`rehearse play ${slug} ${storyId} --test <file:line>\` plays one test in Birdview, where the owner watches it (the key is the file relative to \`${testProject}/\` and the line of \`test(\`).`,
+    `- \`${cli} play ${slug} ${storyId} --test <file:line> --wait\` plays one test in Birdview, where the owner watches it, waits for it and prints passed or failed (exit 0 or 1). The key is the file relative to \`${testProject}/\` and the line of \`test(\`, e.g. \`tests/${storyId}.spec.ts:12\`.`,
+    `- \`${cli} playlists ${slug} --tests ${testProject}\` writes the story playlists again; the ${storyId} playlist then lists the new tests.`,
+    '- Birdview runs the browser outside the sandbox: do not try to start Chromium or `playwright test` in the sandbox.',
   ].join('\n');
 }
 
-function rulesSection(slug: string, storyId: Id, ids: Id[]): string {
+function rulesSection(cli: string, slug: string, storyId: Id, ids: Id[]): string {
   return [
     '## Rules for this thread',
     '',
     '- Write only tests: do not change app code. If the app cannot do what a scenario says, stop and say so in the thread: which scenario, which step, what the app does instead.',
     '- Do not change a scenario to fit the app. A scenario that looks wrong is for the owner: say so in the thread.',
     '- A test builds no box: its commits carry no `Flow-Box:` trailer (the line on trailers below is for build threads), so rehearse does not count a box as built by them.',
-    `- Re-read this brief with \`rehearse brief ${slug} ${storyId} --tests ${ids.map((id) => `--scenario ${id}`).join(' ')}\`.`,
-    '- Run each test before you say done, and report per scenario: written, run, passed or failed (and where).',
+    `- Re-read this brief with \`${cli} brief ${slug} ${storyId} --tests ${ids.map((id) => `--scenario ${id}`).join(' ')}\`.`,
+    '- Run each test through Birdview before you say done, and report per scenario: written, run, passed or failed (and where).',
   ].join('\n');
 }

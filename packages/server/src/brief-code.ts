@@ -10,8 +10,7 @@
 // graph the CLI opens. When it cannot open or answer, the facts say so in one line and the brief
 // still builds. Nothing here runs tests: coverage is read from the lcov files already written.
 
-import { existsSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 import {
   indexBoxes,
   MAX_CODE_COMMITS,
@@ -19,6 +18,7 @@ import {
   MAX_CODE_GUESSES,
   MAX_CODE_NEIGHBOURS,
   MAX_E2E_HELPERS,
+  repoCommands,
   type BoxCode,
   type CodeCommit,
   type CodeCoverage,
@@ -73,18 +73,6 @@ export interface GatherOptions {
   root?: string;
 }
 
-/** The rehearse command as it runs in a repo: its `rehearse` script, the CLI of this monorepo, or the installed one. */
-export function rehearseCommand(root: string): string {
-  try {
-    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { scripts?: Record<string, string> };
-    if (pkg.scripts?.rehearse) return 'pnpm rehearse';
-  } catch {
-    // no package.json: the checks below
-  }
-  if (existsSync(join(root, 'packages', 'cli', 'bin', 'rehearse.js'))) return 'node packages/cli/bin/rehearse.js';
-  return 'rehearse';
-}
-
 /** A graph the caller opens for one gather (the CLI): update it, answer, close it. */
 export function openGraphAccess(root: string, opts: GraphOptions = {}): GraphAccess {
   return async (fn) => {
@@ -117,7 +105,7 @@ async function branchesOf(git: GitRunner, top: string, shas: string[]): Promise<
 export async function gatherBriefCode(o: GatherOptions): Promise<BriefCode> {
   const git = o.git ?? execGit;
   const root = o.root ?? repoRoot(o.epicDir);
-  const cli = rehearseCommand(root);
+  const cli = repoCommands(root).cli;
   const allPaths = [...indexBoxes(o.record.flow).keys()];
   const index = await codeIndex(git, o.epicDir, allPaths).catch(() => undefined);
   const summaries = index?.ok ? index.boxes : {};

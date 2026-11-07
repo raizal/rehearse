@@ -12,11 +12,17 @@
 // start the story's test thread through `rehearse serve`; while it works, they send the scenarios
 // to it instead. The rows it has show its status, last activity and `@thread:` link; a draft or
 // stale scenario says "approve this scenario first" and has no button.
+//
+// T48 (box merge-panel): the test thread commits on its branch; the merge panel says which rows its
+// commits fill and merges them on the owner's press. After the merge the rows say "not run" and one
+// button plays the new tests in Birdview.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Id, Scenario } from '@rehearse/core';
 import type { MouseEvent } from 'react';
 import { fetchBirdview, fetchTestThread, postBirdview, postTestThread, type BirdviewAction, type BirdviewInfo, type BirdviewOutcome, type TestThreadView, type ThreadOutcome } from '../api.js';
+import type { NewTest } from '@rehearse/server';
+import { HTTP_MERGE_API, MergePanel, type MergeApi } from './MergePanel.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 import { timeLabel, toneOf } from '../model/storythread.js';
 import { APPROVE_FIRST, birdviewStatus, embedUrl, testRows, testSummary, toSend, writeMissingLabel, type TestRow } from '../model/tests.js';
@@ -24,11 +30,13 @@ import { APPROVE_FIRST, birdviewStatus, embedUrl, testRows, testSummary, toSend,
 /** The calls the tab makes; they take the token from the shared session client. Tests replace `fetch`, not this. */
 export interface TestsApi {
   birdview: (storyId: Id) => Promise<BirdviewInfo>;
-  call: (action: BirdviewAction, body: Record<string, string>) => Promise<BirdviewOutcome>;
+  call: (action: BirdviewAction, body: Record<string, string | string[]>) => Promise<BirdviewOutcome>;
   /** The story's test thread (T47). */
   testThread?: (storyId: Id) => Promise<ThreadOutcome<TestThreadView>>;
   /** Start the test thread, or send scenarios to it (T47). */
   testCall?: (action: 'thread' | 'send', body: { story: Id; scenarios?: Id[] }) => Promise<ThreadOutcome<TestThreadView>>;
+  /** "Merge into <branch>" of the test thread (T48). */
+  merge?: MergeApi;
 }
 
 const HTTP_TESTS_API: TestsApi = {
@@ -36,6 +44,7 @@ const HTTP_TESTS_API: TestsApi = {
   call: (action, body) => postBirdview(action, body),
   testThread: (id) => fetchTestThread(id),
   testCall: (action, body) => postTestThread(action, body),
+  merge: HTTP_MERGE_API,
 };
 
 /** How often the tab reads the player again while it is open. */
@@ -69,6 +78,8 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
   const [msg, setMsg] = useState<Msg | undefined>();
   const [pending, setPending] = useState(false);
   const [tv, setTv] = useState<TestThreadView | undefined>();
+  /** The tests the last merge brought (T48): one button plays them. */
+  const [merged, setMerged] = useState<NewTest[]>([]);
 
   const refreshPlayer = useCallback(() => {
     api.birdview(storyId).then(
@@ -113,7 +124,7 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
     return () => clearInterval(timer);
   }, [refreshThread]);
 
-  const send = async (action: BirdviewAction, body: Record<string, string>, asking: string, done: string) => {
+  const send = async (action: BirdviewAction, body: Record<string, string | string[]>, asking: string, done: string) => {
     setPending(true);
     setMsg({ text: asking, warn: false });
     const out = await api.call(action, body);
@@ -223,6 +234,32 @@ export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API 
           <p className="small muted" data-testid="story-tests-summary">
             {load.kind === 'loading' ? 'Reading the player…' : testSummary(rows)}
           </p>
+          {api.merge && tv?.thread && (
+            <MergePanel
+              storyId={storyId}
+              kind="tests"
+              api={api.merge}
+              refreshKey={`${tv.thread.id}:${tv.thread.bb.ok ? tv.thread.bb.statusText : ''}`}
+              onMerged={(done) => {
+                setMerged(done.tests);
+                refresh();
+              }}
+            />
+          )}
+          {merged.length > 0 && (
+            <p className="story-tests-agent">
+              <button
+                type="button"
+                className="action small primary"
+                data-testid="story-tests-play-new"
+                disabled={!playerReachable || pending}
+                title={merged.map((t) => t.key).join(', ')}
+                onClick={() => void send('play-test', { story: storyId, test: merged.map((t) => t.key) }, 'Asking Birdview…', `Birdview plays ${merged.map((t) => t.scenario).join(', ')}.`)}
+              >
+                ▶ Play the new tests in Birdview
+              </button>
+            </p>
+          )}
           {api.testCall && (running ? sendable.length > 0 : missing.length > 0) && (
             <p className="story-tests-agent">
               <button type="button" className="action small" data-testid="story-tests-write-all" disabled={pending} onClick={() => void toAgent(running ? sendable : missing)}>

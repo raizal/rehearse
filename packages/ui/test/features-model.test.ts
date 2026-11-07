@@ -211,16 +211,24 @@ describe('big picture (S4-A4)', () => {
       { from: 'build-brief', to: 'watch-build', back: true },
       // T45 (S12): the Tests tab goes back to review; a play or a switch comes back to the tab.
       { from: 'story-playlist', to: 'review', back: true },
-      // T49 (S15): the build and the test thread share gather-box-code, which the build reaches
-      // first; so the test rows and their thread stand after it, and the edges into them go back.
-      { from: 'story-playlist', to: 'test-rows', back: true },
-      { from: 'play-story', to: 'story-playlist', back: true },
       { from: 'use-project', to: 'story-playlist', back: true },
-      { from: 'start-test-thread', to: 'test-brief', back: true },
+      // T47 (S13): the test rows go back to the Tests tab; a started or refused thread and its brief come back to the rows.
+      { from: 'test-rows', to: 'story-playlist', back: true },
+      // T48 (S14): the merge panel sits after the build panel, so the Tests tab reaches it going back.
+      { from: 'test-rows', to: 'merge-panel', back: true },
       { from: 'start-test-thread', to: 'test-rows', back: true },
-      { from: 'start-test-thread', to: 'gather-box-code', back: true },
+      // T48 (S14): the branch summary and a merge or refusal come back to the panel.
+      { from: 'thread-branch', to: 'merge-panel', back: true },
+      { from: 'merge-thread', to: 'merge-panel', back: true },
+      { from: 'play-story', to: 'story-playlist', back: true },
+      // T49 (S15): the code section feeds both briefs; the test thread reaches it after the build
+      // brief stands, so the section goes back to the build brief, and the test brief stands after it.
+      { from: 'code-start-section', to: 'build-brief', back: true },
+      { from: 'test-brief', to: 'test-rows', back: true },
+      // T48 (S14): the test brief's work rules come back to the panel.
+      { from: 'test-brief', to: 'work-rules', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 14, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 15, processes: main.length });
   });
 });
 

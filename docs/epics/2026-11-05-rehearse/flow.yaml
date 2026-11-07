@@ -496,6 +496,76 @@ root:
       # Default: the approved scenarios without a test. Exit 1 on a draft or stale scenario or
       # none missing, 2 on a bad argument.
 
+    # --- Agent threads land their work through the owner (S14, T48) ---
+    # New boxes only: watch-build, test-rows, play-story, build-brief and test-brief stay as they
+    # are; root edges join them.
+    - id: thread-branch
+      kind: process
+      lane: rehearse
+      package: server
+      title: What the thread's branch has that the current branch has not
+      stories: [S14]
+      inputs:  { storyId: string, kind: "enum[build, tests]" }
+      outputs: { storyId: string, branch: string, current: string, commits: "list string", files: "list string", scenarios: "list string" }
+      reads:   [Story.*, Scenario.*]
+      errorExits: ["nothing new"]
+      # The branch from `bb thread show --json` (environment.branchName); the commits are
+      # `git log <current>..<branch>`, the files `git diff --name-only <current>...<branch>`; for a
+      # test thread, the scenario rows its new tests fill. GET /api/thread/merge (token and Origin).
+
+    - id: merge-panel
+      kind: output
+      lane: builder
+      package: ui
+      title: The merge summary, Merge into <current branch>, and play after a test merge
+      stories: [S14]
+      inputs:  { storyId: string }
+      outputs: { storyId: string, kind: "enum[build, tests]", decision: "enum[merge, ask-rebase, play]" }
+      reads:   [Story.*, Scenario.*]
+      # On the story's thread panel (build) and its Tests tab (tests): "N commits in the thread, not
+      # in <current> yet", the subjects and files, the rows they fill; "Merge into <current>" with a
+      # confirm; a refusal in plain words; after a test merge "Play the new tests in Birdview".
+
+    - id: merge-thread
+      kind: input
+      lane: builder
+      package: server
+      title: Merge the thread's branch into serve's checkout
+      stories: [S14]
+      inputs:  { storyId: string, kind: "enum[build, tests]" }
+      outputs: { storyId: string, merged: string, commits: number, files: "list string", scenarios: "list string" }
+      reads:   [Story.*]
+      sideEffects: [git merge --no-ff <branch>, git merge --abort, bb thread tell (ask to rebase)]
+      errorExits: ["uncommitted changes", "merge conflict", "thread still working"]
+      # POST /api/thread/merge {story, kind} (token and Origin), an owner action: no CLI command,
+      # and the briefs say agents never call it. Message "Merge <thread title>" and the repo's
+      # Co-Authored-By line. Every refusal leaves HEAD, the index and the files as they were.
+
+    - id: work-rules
+      kind: process
+      lane: rehearse
+      package: core
+      title: How an agent lands its work, sets up and runs e2e tests, in every brief
+      stories: [S14]
+      inputs:  { brief: string }
+      outputs: { storyId: string, lines: "list string", whereShown: "list string", fixture: string }
+      reads:   [Box.*, Scenario.*]
+      # One "how to work" source for the build brief, the test brief and the skill: commit on the
+      # thread's branch and stop, set up first, play e2e tests with `pnpm rehearse play … --wait`.
+      # The test brief adds, per scenario, where each expected result shows and the fixture.
+
+    - id: play-wait
+      kind: input
+      lane: agent
+      package: cli
+      title: pnpm rehearse play --wait
+      stories: [S14]
+      inputs:  { story: string, test: "string?", timeout: "number?" }
+      outputs: { storyId: string, results: "list string", exitCode: number }
+      # The root script `pnpm rehearse` runs packages/cli/bin/rehearse.js. --wait waits for the
+      # run to end in Birdview and prints passed / failed (with the failed step): exit 0 / 1;
+      # no result before --timeout exits 1; a bad argument exits 2.
+
     # --- The brief hands the agent the code that already builds each box (S15, T49) ---
     # New boxes only: start-build, build-brief, start-test-thread, test-brief and test-brief-cli
     # stay as they are; root edges join them.
@@ -585,6 +655,22 @@ root:
     - { from: test-brief,        to: test-rows }
     - { from: draft-record,      to: test-brief-cli }
     - { from: test-brief-cli,    to: test-brief }
+    - { from: watch-build,     to: merge-panel }
+    - { from: test-rows,       to: merge-panel }
+    - { from: merge-panel,     to: thread-branch }
+    - { from: thread-branch,   to: merge-panel }
+    - { from: thread-branch,   to: merge-panel,  label: "nothing new",          kind: error }
+    - { from: merge-panel,     to: merge-thread }
+    - { from: merge-thread,    to: merge-panel }
+    - { from: merge-thread,    to: merge-panel,  label: "uncommitted changes",  kind: error }
+    - { from: merge-thread,    to: merge-panel,  label: "merge conflict",       kind: error }
+    - { from: merge-thread,    to: merge-panel,  label: "thread still working", kind: error }
+    - { from: merge-panel,     to: story-playlist }
+    - { from: build-brief,     to: work-rules }
+    - { from: test-brief,      to: work-rules }
+    - { from: work-rules,      to: merge-panel }
+    - { from: draft-record,    to: play-wait }
+    - { from: play-wait,       to: play-story }
     - { from: start-build,        to: gather-box-code }
     - { from: start-test-thread,  to: gather-box-code }
     - { from: test-brief-cli,     to: gather-box-code }

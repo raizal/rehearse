@@ -11,8 +11,9 @@
 // and asked for the code of the story's boxes; when it cannot open, the brief says so in one line.
 // `--json` holds the facts under `code`. No tests run.
 
-import { dirname, relative, sep } from 'node:path';
-import { briefBoxPaths, decisionTexts, loadEpic, storyBuildBrief, testBriefBoxPaths, type EpicRecord } from '@rehearse/core';
+import { existsSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
+import { briefBoxPaths, decisionTexts, loadEpic, repoCommands, storyBuildBrief, testBriefBoxPaths, type EpicRecord } from '@rehearse/core';
 import { findTestProject, gatherBriefCode, openGraphAccess, repoRoot, storyTestBrief, testsNeeded, type BriefCode } from '@rehearse/server';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
 
@@ -53,7 +54,7 @@ export async function runBrief(args: string[], io: Io): Promise<number> {
   try {
     const { record } = loadEpic(dir);
     code = await briefCode(dir, record, briefBoxPaths(record, storyId), findTestProject(dir));
-    made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir) });
+    made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(repoTop(dir)) });
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
@@ -66,6 +67,14 @@ export async function runBrief(args: string[], io: Io): Promise<number> {
   if (json) io.stdout(JSON.stringify({ ok: true, storyId, hash: made.hash, sign: made.sign, code, markdown: made.markdown }, null, 2) + '\n');
   else io.stdout(made.markdown.endsWith('\n') ? made.markdown : `${made.markdown}\n`);
   return EXIT.ok;
+}
+
+/** The git top-level above an EPIC folder (the folder holding `.git`), else the folder above docs/epics. */
+function repoTop(dir: string): string {
+  for (let d = dir; ; d = dirname(d)) {
+    if (existsSync(join(d, '.git'))) return d;
+    if (dirname(d) === d) return dirname(dirname(dir));
+  }
 }
 
 /** The test brief. Paths are relative to the folder that holds the test project (the repo top). */

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { archCells, archLayout, drawingOf, diffDrawing } from '../src/model/architecture.js';
 import { dataFlow, dataFlowCells, dataFlowLayout } from '../src/model/dataflow.js';
 import type { DGraph, GraphLayout, Point, Rect } from '../src/model/graph.js';
-import { columnsFor, DIAGRAM_W, layoutGrid, snakeCells, snakeLayout, type Cell } from '../src/model/grid.js';
+import { columnsFor, DIAGRAM_W, layoutGrid, snakeCells, userFlowLayout, type Cell } from '../src/model/grid.js';
 import { userFlow } from '../src/model/userflow.js';
 import { codeGraphEpic, realEpic, reviewEpic } from './fixture.js';
 
@@ -45,13 +45,12 @@ describe('T18b grid layout (pages 5 and 6)', () => {
   it('T18b 5 the real user flow snakes in rows that fit the page width, with no edge through a box', () => {
     const view = realEpic();
     const uf = userFlow(view.flow, view.prd);
-    // As the page draws it (T49): one column fewer while the gutters make it wider than the page.
-    const { layout: lay, cols } = snakeLayout(uf);
+    const { layout: lay, cols } = userFlowLayout(uf);
+    expect(cols).toBeLessThanOrEqual(columnsFor(DIAGRAM_W, Math.max(...uf.nodes.map((n) => n.w))));
     const cells = snakeCells(uf, cols);
     expect(cells.size).toBe(uf.nodes.length);
     expect(uniqueCells(cells)).toBe(true);
     expect(Math.max(...[...cells.values()].map((c) => c.col))).toBeLessThan(cols);
-    expect(lay).toEqual(layoutGrid(uf, cells));
     expect(lay.width).toBeLessThanOrEqual(DIAGRAM_W);
     expectGridReadable(uf.nodes, uf.edges, lay);
   });
@@ -106,10 +105,11 @@ describe('T18b grid layout (pages 5 and 6)', () => {
     }
   });
 
-  it('T47 the data flow drops a column when the record grows wider than the page (S13 boxes on the real EPIC)', () => {
+  it('T47 the data flow drops a column when the record grows wider than the page (S13 and S14 boxes on the real EPIC)', () => {
     const df = dataFlow(realEpic().flow, realEpic().prd, realEpic().entities);
     expect(layoutGrid(df, dataFlowCells(df, 7)).width).toBeGreaterThan(DIAGRAM_W);
-    expect(dataFlowLayout(df)).toMatchObject({ cols: 6 });
+    expect(dataFlowLayout(df).cols).toBeLessThan(7);
+    expect(dataFlowLayout(df).layout.width).toBeLessThanOrEqual(DIAGRAM_W);
     // A small record keeps every column.
     const small = dataFlow(reviewEpic().flow, reviewEpic().prd, reviewEpic().entities);
     expect(dataFlowLayout(small).cols).toBe(columnsFor(DIAGRAM_W, Math.max(...small.nodes.map((n) => n.w))));

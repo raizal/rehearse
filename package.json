@@ -10,7 +10,8 @@
     "typecheck": "pnpm -r typecheck",
     "coverage": "pnpm -r --no-bail coverage",
     "e2e": "pnpm --filter @rehearse/e2e e2e",
-    "e2e:playlists": "pnpm --filter @rehearse/e2e playlists"
+    "e2e:playlists": "pnpm --filter @rehearse/e2e playlists",
+    "rehearse": "node packages/cli/bin/rehearse.js"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

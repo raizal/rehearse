@@ -8,6 +8,8 @@
 // an agent"); otherwise the panel says why and offers a question thread. When the plan changes
 // after the thread started, a notice lists what changed and sends it. The progress block shows
 // what rehearse sees of the work.
+// T48: the thread commits on its branch and stops; the merge panel says what the branch brings and
+// the owner presses "Merge into <branch>" (MergePanel).
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { Id } from '@rehearse/core';
@@ -33,6 +35,7 @@ import {
   type ReadMarks,
 } from '../model/storythread.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
+import { HTTP_MERGE_API, MergePanel, type MergeApi } from './MergePanel.js';
 import { StoryProgressBlock } from './StoryProgress.js';
 
 /** The server calls, replaceable in tests. */
@@ -41,9 +44,11 @@ export interface StoryThreadApi {
   post: (action: StoryThreadAction, body: { story: Id } & Record<string, string>) => Promise<ThreadOutcome<unknown>>;
   /** The progress block (T44); without it the panel shows none. */
   progress?: (story: Id) => Promise<ThreadOutcome<StoryProgress>>;
+  /** "Merge into <branch>" of the build thread (T48); without it the panel shows none. */
+  merge?: MergeApi;
 }
 
-const HTTP: StoryThreadApi = { load: (story) => fetchStoryThread(story), post: (action, body) => postStoryThread(action, body), progress: (story) => fetchStoryProgress(story) };
+const HTTP: StoryThreadApi = { load: (story) => fetchStoryThread(story), post: (action, body) => postStoryThread(action, body), progress: (story) => fetchStoryProgress(story), merge: HTTP_MERGE_API };
 
 export interface StoryThreadProps {
   storyId: Id;
@@ -244,6 +249,7 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
       {view && <Brief view={view} />}
       {view?.planChanged && <PlanChanged changes={view.planChanged.changes} busy={busy} canSend={Boolean(bb?.ok)} onSend={() => void act('send-change')} />}
       {progress && <StoryProgressBlock progress={progress} now={now()} />}
+      {api.merge && threadId && bb?.ok && <MergePanel storyId={storyId} kind="build" api={api.merge} refreshKey={`${threadId}:${bb.statusText}:${seq}`} />}
       {data.kind === 'loading' && <p className="muted small thread-pad">Loading the story thread…</p>}
       {data.kind === 'error' &&
         (isServerRestarted(data.message) ? (

@@ -14,6 +14,7 @@ import {
   MAX_CODE_FUNCTIONS,
   MAX_CODE_GUESSES,
   MAX_CODE_NEIGHBOURS,
+  PNPM_SETUP,
   scenarioTestBrief,
   storyBuildBrief,
   testBriefBoxPaths,
@@ -151,7 +152,7 @@ describe('the build brief with code (T49)', () => {
           callees: Array.from({ length: MAX_CODE_NEIGHBOURS }, (_, i) => long(i, 'graph')),
           testedBy: Array.from({ length: MAX_CODE_NEIGHBOURS }, (_, i) => ({ name: 'storyBuildBrief (T44, box build-brief) > holds every sectio…', file: 'packages/core/test/trust/build-brief.test.ts', line: 22 + i })),
         }));
-        const r = storyBuildBrief(record, s.id, { allowUnsigned: true, decisions, code, cli: 'node packages/cli/bin/rehearse.js' });
+        const r = storyBuildBrief(record, s.id, { allowUnsigned: true, decisions, code, cli: 'pnpm rehearse', commands: { cli: 'pnpm rehearse', setup: PNPM_SETUP } });
         if (!r.ok) throw new Error(r.reason);
         if (r.markdown.length > largest.chars) largest = { id: `${record.slug} ${s.id}`, chars: r.markdown.length };
         expect(r.markdown.length, `${record.slug} ${s.id}`).toBeLessThan(MAX_BRIEF_CHARS);

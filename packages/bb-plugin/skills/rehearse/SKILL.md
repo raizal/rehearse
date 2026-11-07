@@ -43,19 +43,26 @@ bb rehearse progress <epic-dir-or-slug> <story> [--json]
 ## Working on a story
 
 A thread started from the panel ("Build with an agent") gets the build brief of
-a signed story. Work on it like this:
+a signed story; a thread started from the story Tests tab gets the test brief.
+Both end with these lines, with each command written as it runs in the repo
+(`pnpm rehearse …` where the root package.json has a `rehearse` script, the
+setup line of the repo's lockfile). Work on it like this:
 
+- Commit on your thread's branch. Do not merge, push or rebase onto main yourself, and never turn the sandbox off. When done, say so in the thread: the owner merges from rehearse.
+- Set up first: `pnpm install --frozen-lockfile && pnpm -r build` (the install needs network: if the sandbox blocks it, say so in the thread).
 - Every commit carries a `Flow-Box: <box path>` trailer for each box it builds: that is how rehearse links code to the plan. Add the `Co-Authored-By` line your own rules ask for.
-- Start from the section *Code you start from*; use `rehearse context <box path>` before reading files by hand, `rehearse find|show|near` for the rest; check unit test coverage with `rehearse coverage`.
+- Start from the section *Code you start from*; use `rehearse context <box path>` before reading files by hand, `rehearse find|show|near` for the rest, `rehearse coverage` for unit test coverage.
 - Re-read the plan any time with `rehearse brief <epic> <story>`; see what rehearse sees of your work with `rehearse progress <epic> <story>`.
-- Before you say done: `rehearse validate`, `rehearse simulate` and `rehearse gate check` on the EPIC, the repo's tests, and one e2e test per approved scenario, named after the scenario id.
+- Run e2e tests through Birdview: `rehearse play <epic> <story> --test <file:line> --wait` plays one, waits for it and exits 0 when it passed, 1 when it failed or timed out. Do not try to start Chromium in the sandbox.
+- Before you say done: `rehearse validate <epic>`, `rehearse simulate <epic>` and `rehearse gate check <epic>`, the repo's tests, and one e2e test per approved scenario, named after the scenario id.
 - Never approve a scenario or sign off a story. No command does it; only the owner, in the rehearse UI.
+- Never merge your branch: no command does it. Only the owner merges, with "Merge into <branch>" in the rehearse UI; an agent never calls `POST /api/thread/merge`.
 - Do not edit the record (`docs/epics/…`) without asking in the thread first: a change to a story, its scenarios or its boxes makes the owner's approvals and sign-off stale. If the plan is wrong, say so and propose the change. Something found after the build goes in `corrections.md`.
-- Report in the thread in plain words: what is done per box, what is not, and the test results.
+- Report in the thread in plain words: what is done per box, what is not, and the test results. Then stop: the owner merges.
 
 ## Writing a story's e2e tests
 
-A thread started from the story Tests tab ("Write this test with an agent", or "Write the K missing tests with an agent") gets the test brief of approved scenarios that have no e2e test yet; re-read it with `rehearse brief <epic> <story> --tests [--scenario <id>]…`. Name each test exactly after its scenario id (`test('S1-buy', async ({ page }) => {`) in the spec file the brief names, one `test.step` per scenario step titled `<box path>: …`. Write only tests: do not change app code, and do not change a scenario to fit the app; if the app cannot do what a scenario says, stop and say so in the thread. More scenarios may arrive in the same thread while you work. Run each test and report per scenario: written, run, passed or failed.
+A thread started from the story Tests tab ("Write this test with an agent", or "Write the K missing tests with an agent") gets the test brief of approved scenarios that have no e2e test yet; re-read it with `rehearse brief <epic> <story> --tests [--scenario <id>]…`. Name each test exactly after its scenario id (`test('S1-buy', async ({ page }) => {`) in the spec file the brief names, one `test.step` per scenario step titled `<box path>: …`. Write only tests: do not change app code, and do not change a scenario to fit the app; if the app cannot do what a scenario says, stop and say so in the thread. More scenarios may arrive in the same thread while you work. Each scenario of the brief says where its expected results show in the app and which fixture to start from (the test project's `tests/serve.ts` for a UI scenario, `tests/cli.ts` for a CLI one). Run each test through Birdview with `rehearse play <epic> <story> --test <file:line> --wait` and report per scenario: written, run, passed or failed. Commit on the thread's branch and stop: the owner merges.
 
 ## Panel
 

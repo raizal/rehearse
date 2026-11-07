@@ -301,6 +301,19 @@ describe('T45 one button plays a story in Birdview', () => {
     expect(fake.calls[2]!.body).toEqual({ keys: ['tests/S1.spec.ts:3'] });
   });
 
+  it('T48 play-test takes a list of keys, the new tests a merge brought; an empty list or a key of no test is refused before any call', async () => {
+    const { projectDir } = project();
+    const fake = fakePlayer(projectDir);
+    running = await serve({ port: 3298, projectDir, client: fake.client });
+    expect((await post('play-test', { story: 'S1', test: [] })).status).toBe(400);
+    expect((await post('play-test', { story: 'S1', test: ['tests/S1.spec.ts:3', 7] })).status).toBe(400);
+    expect((await post('play-test', { story: 'S1', test: ['tests/S1.spec.ts:3', 'tests/S1.spec.ts:99'] })).status).toBe(400);
+    expect(fake.calls).toEqual([]);
+    const res = await post('play-test', { story: 'S1', test: ['tests/S1.spec.ts:3', 'tests/S1.spec.ts:3'] });
+    expect(res.status).toBe(200);
+    expect(fake.calls[2]!.body).toEqual({ keys: ['tests/S1.spec.ts:3'] });
+  });
+
   it('T45 5 use-project switches to this repo, or back to the default project, and plays nothing', async () => {
     const { projectDir } = project();
     const fake = fakePlayer('/elsewhere/digital-audits');

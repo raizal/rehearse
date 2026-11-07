@@ -377,10 +377,10 @@ export function snakeCells(graph: DGraph, cols: number): Map<string, Cell> {
 export const DIAGRAM_W = 1780;
 
 /**
- * A flow snaking in rows as wide as the page at most: as many columns as the widest node allows,
- * one fewer while the lanes in the gutters make it wider than `maxW` (down to three).
+ * The snaking rows at the widest column count that fits `maxW`: start from what the widest box
+ * allows, and drop a column while long labels in the gaps still push the page wider.
  */
-export function snakeLayout(graph: DGraph, maxW: number = DIAGRAM_W): { layout: GraphLayout; cols: number } {
+export function userFlowLayout(graph: DGraph, maxW: number = DIAGRAM_W): { layout: GraphLayout; cols: number } {
   let cols = columnsFor(maxW, Math.max(...graph.nodes.map((n) => n.w)));
   let layout = layoutGrid(graph, snakeCells(graph, cols));
   while (layout.width > maxW && cols > 3) {

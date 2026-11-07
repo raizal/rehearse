@@ -5,7 +5,7 @@
 // no queue and no retry here. `rehearse serve` (POST /api/birdview/*) and `rehearse play` use it.
 
 import type { Id } from '@rehearse/core';
-import { activeProject, defaultProject, httpPlayerClient, testKey, type BirdviewInfo, type BirdviewSetup, type PlayerClient, type PlayerProject, type PlayerReply } from './birdview.js';
+import { activeProject, defaultProject, httpPlayerClient, sameProject, testKey, type BirdviewInfo, type BirdviewSetup, type PlayerClient, type PlayerProject, type PlayerReply } from './birdview.js';
 import type { Playlist } from './playlist.js';
 import { epicPlaylists, storyPlaylist } from './story-playlist.js';
 
@@ -91,23 +91,27 @@ async function write(client: PlayerClient, playlist: Playlist): Promise<{ id: st
 
 /**
  * The one button: switch the player to this repo's test project, write the story playlist through
- * it, and play the playlist, or only `test` (a `file:line` key of the playlist).
+ * it, and play the playlist, or only `test`: one `file:line` key of the playlist, or several (the
+ * tests a merge brought, T48).
  */
-export async function playStory(setup: BirdviewSetup, epicDir: string, storyId: Id, test?: string): Promise<PlayOutcome> {
+export async function playStory(setup: BirdviewSetup, epicDir: string, storyId: Id, test?: string | string[]): Promise<PlayOutcome> {
   const project = ourProject(setup);
   const { playlist, problems } = storyPlaylist(epicDir, project.projectDir, storyId);
   if (playlist.tests.length === 0) {
     throw new BirdviewError(404, 'not-found', `${storyId} has no e2e test yet: name a test in ${project.projectDir} after one of its scenario ids.`);
   }
-  if (test !== undefined && !playlist.tests.some((t) => testKey(t) === test)) {
-    throw new BirdviewError(400, 'bad-request', `${test} is not a test of ${storyId} (its tests: ${playlist.tests.map(testKey).join(', ')}).`);
+  const keys = test === undefined ? undefined : [...new Set(Array.isArray(test) ? test : [test])];
+  if (keys !== undefined && keys.length === 0) throw new BirdviewError(400, 'bad-request', `name at least one test of ${storyId}.`);
+  const unknown = (keys ?? []).filter((k) => !playlist.tests.some((t) => testKey(t) === k));
+  if (unknown.length > 0) {
+    throw new BirdviewError(400, 'bad-request', `${unknown.join(', ')} ${unknown.length === 1 ? 'is not a test' : 'are not tests'} of ${storyId} (its tests: ${playlist.tests.map(testKey).join(', ')}).`);
   }
   const client = clientOf(setup);
   await switchTo(client, project);
   const written = await write(client, playlist);
   // By id: the player takes an exact id first, so an older file with the same name is not played.
-  const played = test !== undefined ? { keys: [test] } : { playlist: written.id };
-  const state = await call(test !== undefined ? `the test ${test}` : `the playlist "${written.name}"`, () => client.play(played));
+  const played = keys !== undefined ? { keys } : { playlist: written.id };
+  const state = await call(keys !== undefined ? `the test ${keys.join(', ')}` : `the playlist "${written.name}"`, () => client.play(played));
   const active = activeProject(state);
   return { project, playlist: { ...written, tests: playlist.tests.length }, played, ...(active ? { active } : {}), problems };
 }
@@ -141,4 +145,91 @@ export async function pushPlaylists(
   const written = [];
   for (const { story, build } of stories) written.push({ story, ...(await write(client, build.playlist)), tests: build.playlist.tests.length });
   return { project, slug, written, problems: stories.flatMap((s) => s.build.problems) };
+}
+
+/** One test's end, as `rehearse play --wait` prints it. */
+export interface WaitResult {
+  key: string;
+  /** The scenario id the test is named after. */
+  name?: string;
+  /** `stopped`: the player went idle without a new result for it; `timeout`: the wait ran out first. */
+  last: 'passed' | 'failed' | 'stopped' | 'timeout';
+  failedStep?: string;
+  reason?: string;
+}
+
+export interface WaitOptions {
+  /** Give up after this long. */
+  timeoutMs: number;
+  /** Time between two looks at the player. Default 1 s. */
+  pollMs?: number;
+  /** For tests: the clock and the pause. */
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const resultsOf = (state: unknown): Record<string, unknown> => (isObject(state) && isObject(state.results) ? state.results : {});
+const atOf = (r: unknown): number | undefined => (isObject(r) && typeof r.at === 'number' ? r.at : undefined);
+
+/**
+ * `rehearse play … --wait` (T48, box play-wait): play like `playStory`, then look at the player's
+ * state until each played test has a result newer than the one before the play. It stops early when
+ * the player plays another project, or stands idle three looks in a row with results still missing; it
+ * gives up at the timeout. Read only: it never plays again.
+ */
+export async function playAndWait(
+  setup: BirdviewSetup,
+  epicDir: string,
+  storyId: Id,
+  test: string | string[] | undefined,
+  opts: WaitOptions,
+): Promise<{ outcome: PlayOutcome; results: WaitResult[] }> {
+  const client = clientOf(setup);
+  const now = opts.now ?? Date.now;
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((done) => setTimeout(done, ms)));
+  const before = resultsOf(await client.state().catch(() => undefined));
+  const outcome = await playStory({ ...setup, client }, epicDir, storyId, test);
+  const { playlist } = storyPlaylist(epicDir, outcome.project.projectDir, storyId);
+  const keys = 'keys' in outcome.played ? outcome.played.keys : playlist.tests.map(testKey);
+  const nameOf = new Map(playlist.tests.map((t) => [testKey(t), t.name]));
+  const done = new Map<string, WaitResult>();
+  const end = now() + opts.timeoutMs;
+  let idle = 0;
+  for (;;) {
+    let state: unknown;
+    try {
+      state = await client.state();
+    } catch {
+      throw new BirdviewError(503, 'off', BIRDVIEW_NOT_RUNNING);
+    }
+    const playing = activeProject(state)?.projectDir;
+    if (playing !== undefined && !sameProject(playing, outcome.project.projectDir)) {
+      throw new BirdviewError(409, 'busy', `Birdview switched to another project (${playing}) before the tests ended; play them again.`);
+    }
+    const results = resultsOf(state);
+    for (const key of keys) {
+      const r = results[key];
+      const at = atOf(r);
+      const was = atOf(before[key]);
+      if (done.has(key) || !isObject(r) || at === undefined || (was !== undefined && at <= was)) continue;
+      if (r.last !== 'passed' && r.last !== 'failed') continue;
+      done.set(key, {
+        key,
+        ...(nameOf.has(key) ? { name: nameOf.get(key)! } : {}),
+        last: r.last,
+        ...(typeof r.failedStep === 'string' && r.failedStep !== '' ? { failedStep: r.failedStep } : {}),
+        ...(typeof r.reason === 'string' && r.reason !== '' ? { reason: r.reason } : {}),
+      });
+    }
+    const missing = keys.filter((k) => !done.has(k));
+    if (missing.length === 0) break;
+    idle = isObject(state) && state.status === 'idle' ? idle + 1 : 0;
+    const why = idle >= 3 ? 'stopped' : now() >= end ? 'timeout' : undefined;
+    if (why) {
+      for (const key of missing) done.set(key, { key, ...(nameOf.has(key) ? { name: nameOf.get(key)! } : {}), last: why });
+      break;
+    }
+    await sleep(Math.min(opts.pollMs ?? 1000, Math.max(0, end - now())));
+  }
+  return { outcome, results: keys.map((k) => done.get(k)!) };
 }

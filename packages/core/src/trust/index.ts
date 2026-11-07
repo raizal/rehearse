@@ -69,7 +69,7 @@ export {
   type StoryPreviewContent,
   type WordPart,
 } from './signoff-preview.js';
-export { HOW_TO_WORK, howToWorkMarkdown } from './how-to-work.js';
+export { DEFAULT_COMMANDS, HOW_TO_WORK, howToWorkLines, howToWorkMarkdown, PNPM_SETUP, repoCommands, type RepoCommands } from './how-to-work.js';
 export {
   briefBoxPaths,
   briefSignState,
@@ -81,7 +81,7 @@ export {
   type BuildBrief,
   type BuildBriefOptions,
 } from './build-brief.js';
-export { APPROVE_FIRST, scenarioBoxes, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testBriefBoxPaths, testTitleLine, type TestBrief, type TestBriefOptions } from './test-brief.js';
+export { APPROVE_FIRST, isUiScenario, NOT_SHOWN, scenarioBoxes, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testBriefBoxPaths, testTitleLine, whereShown, type TestBrief, type TestBriefOptions, type TestFixture } from './test-brief.js';
 export {
   CODE_START_HEADING,
   codeStartSection,

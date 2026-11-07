@@ -3,9 +3,10 @@
 // Birdview playlist maps steps to boxes (`rehearse playlists`).
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
+import type { Page } from '@playwright/test';
 import { CLI, expect, serve, stop, test } from './serve.js';
 
 const SLUG = '2026-11-05-demo';
@@ -70,5 +71,81 @@ test('S1-new', async ({ page }) => {
     });
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+/** Every file and folder below `dir` with its mtime and content: what "no file changed" compares. */
+function snapshot(dir: string): Map<string, string> {
+  const files = new Map<string, string>();
+  const walk = (d: string) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      const key = relative(dir, p);
+      if (key === '.git' || key.startsWith(`.git${sep}`)) continue;
+      const mtime = statSync(p).mtimeMs;
+      if (e.isDirectory()) {
+        files.set(`${key}/`, `dir@${mtime}`);
+        walk(p);
+      } else {
+        files.set(key, `${mtime}:${readFileSync(p, 'base64')}`);
+      }
+    }
+  };
+  walk(dir);
+  return files;
+}
+
+/** Show the commands so far as a terminal, so Birdview has something to show for a CLI step. */
+async function terminal(page: Page, runs: { cmd: string; code: number | null; out: string; err: string }[], note = '') {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const blocks = runs
+    .map((r) => `<div data-testid="run"><b>$ ${esc(r.cmd)}</b>\n${esc(r.out)}<span style="color:#f87171">${esc(r.err)}</span><i data-testid="exit">exit ${r.code}</i></div>`)
+    .join('\n');
+  await page.setContent(
+    `<body style="margin:0;background:#111;color:#ddd;font:14px ui-monospace,monospace">` +
+      `<pre data-testid="terminal" style="padding:16px;white-space:pre-wrap">${blocks}</pre>` +
+      `<p data-testid="note" style="padding:0 16px;color:#9ca3af">${esc(note)}</p></body>`,
+  );
+}
+
+test('S1-exists', async ({ page }) => {
+  const repo = mkdtempSync(join(tmpdir(), 'rehearse-e2e-s1-'));
+  const cmd = `rehearse new ${SLUG} --title Demo`;
+  const runs: { cmd: string; code: number | null; out: string; err: string }[] = [];
+  try {
+    let before = new Map<string, string>();
+    await test.step('start: the EPIC 2026-11-05-demo exists', async () => {
+      git(repo, 'init', '-q');
+      const first = { cmd, ...rehearse(repo, 'new', SLUG, '--title', 'Demo') };
+      runs.push(first);
+      expect(first.code, first.err).toBe(0);
+      expect(existsSync(join(repo, EPIC_DIR))).toBe(true);
+      before = snapshot(repo);
+      await terminal(page, runs, `${before.size} files and folders in the repo`);
+      await expect(page.getByTestId('run')).toHaveCount(1);
+    });
+
+    await test.step('new-epic: the builder runs the same command again, it exits epic-exists and names the folder', async () => {
+      const again = { cmd, ...rehearse(repo, 'new', SLUG, '--title', 'Demo') };
+      runs.push(again);
+      await terminal(page, runs);
+      expect(again.code).not.toBe(0);
+      expect(again.out).toBe('');
+      expect(again.err).toContain('epic-exists');
+      expect(again.err).toContain(EPIC_DIR);
+      await expect(page.getByTestId('run').nth(1)).toContainText('epic-exists');
+      await expect(page.getByTestId('exit').nth(1)).not.toHaveText('exit 0');
+    });
+
+    await test.step('rejected: the command failed and changed no file', async () => {
+      const after = snapshot(repo);
+      const keys = new Set([...before.keys(), ...after.keys()]);
+      const filesChanged = [...keys].filter((k) => before.get(k) !== after.get(k)).sort();
+      await terminal(page, runs, `filesChanged: ${filesChanged.length}`);
+      expect(filesChanged).toEqual([]);
+      await expect(page.getByTestId('note')).toHaveText('filesChanged: 0');
+    });
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
   }
 });
