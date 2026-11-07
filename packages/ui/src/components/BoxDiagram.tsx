@@ -8,6 +8,7 @@ import { KIND_ICON } from '../model/boxdrawer.js';
 import { diagramAt, lanesFor } from '../model/diagram.js';
 import { toFlowElements, type BoxNode, type LaneNode } from '../model/elements.js';
 import { layoutDiagram, type SwimlaneLayout } from '../model/layout.js';
+import { BoxCoverageBadge } from './CoverageBadge.js';
 
 export function LaneView({ data }: NodeProps<LaneNode>) {
   const { lane, width, height } = data;
@@ -41,6 +42,7 @@ function BoxView({ data }: NodeProps<BoxNode>) {
           {KIND_ICON[box.kind] ?? '▭'} {box.kind}
         </span>
         <span className="box-id">{box.id}</span>
+        <BoxCoverageBadge path={path} testId={`box-coverage-${path}`} compact />
       </div>
       <div className="box-title">{box.title}</div>
       {(hasChildren || (box.errorExits?.length ?? 0) > 0) && (

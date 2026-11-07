@@ -11,6 +11,7 @@ import { chartZoom, compareElements, detourPath, flowCompareChart, type CompareB
 import { layoutDiagram, type SwimlaneLayout } from '../model/layout.js';
 import { Side, StatusBadge } from './ArchitectureView.js';
 import { LaneView } from './BoxDiagram.js';
+import { BoxCoverageBadge } from './CoverageBadge.js';
 
 function CompareBoxView({ data }: NodeProps<CompareBoxNode>) {
   const { item, status, lit } = data;
@@ -31,6 +32,7 @@ function CompareBoxView({ data }: NodeProps<CompareBoxNode>) {
           {KIND_ICON[box.kind] ?? '▭'} {box.kind}
         </span>
         <StatusBadge status={status === 'same' ? undefined : status} />
+        {opens && <BoxCoverageBadge path={path} testId={`ba-coverage-${path}`} compact />}
       </div>
       <div className="box-title">{box.title}</div>
       {steps > 0 && (
