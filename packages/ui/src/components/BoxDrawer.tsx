@@ -12,6 +12,7 @@ import { NO_CODE_KINDS } from '../model/code.js';
 import type { Place } from '../model/links.js';
 import type { StoryTabId } from '../model/nav.js';
 import { BoxDiagram } from './BoxDiagram.js';
+import { BoxCoverageBadge, BoxCoverageHint } from './CoverageBadge.js';
 import { IdLink } from './IdLink.js';
 import { useCodeIndex } from './StoryCode.js';
 import { KeyValues, Tags } from './Values.js';
@@ -107,8 +108,10 @@ export function BoxDrawer({ view, path, onOpenBox, onClose, onGo, onOpenStory }:
                 {d.lane.label} lane
               </span>
               {d.box.package && <span className="pill">package {d.box.package}</span>}
+              <BoxCoverageBadge path={path} testId="drawer-coverage" always />
             </div>
           )}
+          {d && <BoxCoverageHint testId="drawer-coverage-hint" />}
         </header>
         {!d ? (
           <p className="muted" data-testid="drawer-missing">

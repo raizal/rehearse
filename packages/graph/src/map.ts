@@ -15,6 +15,7 @@
 // part of the outer one. A file of no package belongs to the package around it, else to its top folder.
 
 import { posix } from 'node:path';
+import type { CoverageInfo, CoverageStats } from './coverage.js';
 import type { Store } from './store.js';
 import type { EdgeKind, GraphEdge, GraphNode, NodeKind, Trust } from './types.js';
 
@@ -73,6 +74,8 @@ export interface MapNode {
   members?: MapMember[];
   /** The calls between the file and an other file node, both ways. */
   calls?: number;
+  /** Unit test coverage of the code in it (T43): packages, files and code nodes, when the repo has lcov files. */
+  coverage?: CoverageStats;
 }
 
 /** Code in an other file, linked to the shown file. `to`: calls from the file to it; `from`: calls from it to the file. */
@@ -135,6 +138,8 @@ export interface CodeMap {
   /** How many tests the filter left out: test files (packages and package level), tests (file level). */
   hiddenTests: number;
   notes: string[];
+  /** The lcov files read, or the line that says how to make one (T43). */
+  coverage?: CoverageInfo;
 }
 
 /** Where a code node is on the map: its package and its file. */
@@ -233,6 +238,16 @@ export class MapIndex {
 
   static fromStore(store: Store): MapIndex {
     return new MapIndex(store.allNodes(), store.allEdges());
+  }
+
+  /** The files of a package that are not test files: the code its coverage adds up (T43). */
+  unitFiles(key: string): string[] {
+    const files = new Set<string>();
+    for (const id of this.units.get(key)?.ids ?? []) {
+      const c = this.code.get(id)!;
+      if (!c.test && !c.node.targetOnly && c.node.file !== undefined) files.add(c.node.file);
+    }
+    return [...files].sort();
   }
 
   /** The package and file of a code node; undefined for a node the map does not draw. */

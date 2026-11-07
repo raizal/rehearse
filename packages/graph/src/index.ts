@@ -23,3 +23,10 @@ export type {
 } from './extend.js';
 export * from './types.js';
 export { MapIndex, MAP_LEVELS, MAP_LIMIT, MAP_EDGE_KINDS, OUTSIDE_LIMIT, isTestPath, packageOf, type CodeMap, type MapBox, type MapEdge, type MapLevel, type MapMember, type MapNode, type MapNodeKind, type MapPlace, type MapQuery, type MapTotals } from './map.js';
+export {
+  parseLcov, sourcePath, mergeCoverage, findLcovFiles, loadCoverage, coverageKey, coverageHint, coverageInfo, lineRanges, sumStats, boxCode, boxCoverage,
+  CoverageIndex, EMPTY_COVERAGE, NO_STATS, LCOV_HINT, BOX_CODE_KINDS,
+  type LcovRecord, type FileCoverage, type CoverageReport, type CoverageData, type CoverageStats, type LineMark, type TestRef, type NodeCoverage,
+  type CoverageInfo, type CodePart, type BoxCodeInput,
+} from './coverage.js';
+export { coverageIndexOf, coverageOf, boxesCoverage, boxBuilds, withCoverage, type CoverageAnswer, type CoverageEntry, type BoxOptions } from './coverage-query.js';

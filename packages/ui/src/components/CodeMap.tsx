@@ -10,13 +10,15 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeProps, type NodeTypes } from '@xyflow/react';
 import { CodeMapApiContext, type CodeMap as CodeMapAnswer, type FindAnswer, type GraphStatus, type MapBox, type MapMember, type MapNode, type MapOutcome } from '../codemap-api.js';
-import { GraphApiContext, type GraphOutcome } from '../graph-api.js';
+import { GraphApiContext, type GraphOutcome, type PanelAnswer } from '../graph-api.js';
 import { callGraph, nodePlace, type CallLink } from '../model/codegraph.js';
 import {
   callsWord, fileLoc, focusNode, layoutCodeMap, mapClick, mapKindWord, mapNodeLabel, mapNodeTitle, mapView, mapViewport, OUTSIDE_GROUP, placeLoc, plainWords, shortTestName, upLoc,
   type MapLayout, type MapView, type Viewport,
 } from '../model/codemap.js';
 import type { CodeLoc } from '../model/nav.js';
+import { sumStats, type CoverageStats } from '../model/coverage.js';
+import { CoverageBadge, CoverageHint, CoverageSummary, TestedBy } from './CoverageBadge.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 import type { AnswerNode, QueryAnswer } from '@rehearse/server';
 
@@ -31,6 +33,8 @@ interface FrameData extends Record<string, unknown> {
   title: string;
   kind: 'folder' | 'outside';
   onClose?: () => void;
+  /** A folder: the unit test coverage of its files added up (T43). */
+  coverage?: CoverageStats;
 }
 
 type MapFlowNode = Node<MapData, 'map'>;
@@ -42,6 +46,7 @@ function FrameView({ data }: NodeProps<FrameFlowNode>) {
     <div className={`cm-frame is-${data.kind}`} data-testid={`code-map-frame-${data.title}`}>
       <span className="cm-frame-title">
         {data.title}
+        {data.coverage && <CoverageBadge stats={data.coverage} testId={`code-map-frame-coverage-${data.title}`} />}
         {data.onClose && (
           <button type="button" className="link small nopan nodrag" data-testid="code-map-outside-close" onClick={data.onClose}>
             fold
@@ -80,6 +85,7 @@ function MapNodeView({ data }: NodeProps<MapFlowNode>) {
           ▣ {node.boxes.length}
         </span>
       )}
+      {node.coverage && <CoverageBadge stats={node.coverage} testId={`code-map-coverage-${node.id}`} />}
     </>
   );
   const common = { className: cls, title, 'data-testid': `code-map-node-${node.id}`, 'data-kind': node.kind };
@@ -118,7 +124,7 @@ export function mapElements(
   const frames: FrameFlowNode[] = layout.frames.map((f) => ({
     id: f.id, type: 'frame' as const, position: { x: f.rect.x, y: f.rect.y }, width: f.rect.w, height: f.rect.h, zIndex: -1,
     draggable: false, selectable: false, focusable: false,
-    data: { title: f.title, kind: f.kind, ...(f.kind === 'outside' && onCloseOutside ? { onClose: onCloseOutside } : {}) },
+    data: { title: f.title, kind: f.kind, ...(f.kind === 'outside' && onCloseOutside ? { onClose: onCloseOutside } : {}), ...folderCoverage(view, f) },
   }));
   const nodes: MapFlowNode[] = view.nodes.flatMap((n) => {
     const r = layout.nodes[n.id];
@@ -146,6 +152,14 @@ export function mapElements(
     };
   });
   return { nodes: [...frames, ...nodes], edges };
+}
+
+/** A folder's badge: the coverage of its files and of its folders' files added up; none when none has any. */
+function folderCoverage(view: MapView, f: { id: string; kind: string }): { coverage?: CoverageStats } {
+  if (f.kind !== 'folder') return {};
+  const within = (g: string | undefined) => g !== undefined && (g === f.id || g.startsWith(`${f.id}/`));
+  const sum = sumStats(view.nodes.filter((n) => within(view.folderOf[n.id])).map((n) => n.coverage));
+  return sum ? { coverage: sum } : {};
 }
 
 export interface CodeMapProps {
@@ -307,8 +321,10 @@ export function CodeMap({ loc, onLoc, epic, onOpenBox }: CodeMapProps) {
             <li><span className="cg-dot kind-test" /> test</li>
             <li><span className="cg-dot is-outside" /> outside</li>
             <li><span className="cm-badge">▣</span> serves a plan box</li>
+            {map?.coverage?.found && <li><span className="cov-badge cov-good">%</span> unit test coverage: lines run · tests</li>}
           </ul>
         </div>
+        <CoverageHint info={map?.coverage} testId="code-map-coverage-hint" />
       </header>
       <div className="cm-body">
         <div className="cm-canvas-wrap">
@@ -672,6 +688,7 @@ function SidePanel({ id, mapNode, epic, onOpenBox, onLoc, onClose }: { id: strin
       ) : (
         lists && (
           <div className="drawer-body cm-panel-body">
+            <PanelCoverage answer={near.answer} onLoc={onLoc} />
             <Links title="Called by" testId="code-map-panel-callers" links={lists.callers.filter((l) => l.kind !== 'http-calls')} nodeOf={nodeOf} onLoc={onLoc} empty="Nothing in the repo calls it." />
             <Links title="Calls" testId="code-map-panel-callees" links={lists.callees.filter((l) => l.kind !== 'http-calls')} nodeOf={nodeOf} onLoc={onLoc} empty="It calls nothing the graph knows." />
             <Links title="Tests" testId="code-map-panel-tests" links={lists.tests} nodeOf={nodeOf} onLoc={onLoc} empty="No test covers it." tests />
@@ -739,4 +756,27 @@ function boxesOf(answer: { edges: { from: string; to: string; kind: string; from
       const parts = e.from.split(' ');
       return { id: e.from, path: e.fromName, ...(parts[1] === 'record' && parts[2] ? { epic: parts[2] } : {}) };
     });
+}
+
+/** The selected code's unit test coverage in the side panel: badge, lines not run, tested by (T43). */
+function PanelCoverage({ answer, onLoc }: { answer: PanelAnswer; onLoc: (l: CodeLoc) => void }) {
+  const cov = answer.coverage;
+  if (!cov && !answer.coverageInfo) return null;
+  const open = (id: string) => {
+    const t = cov?.testedBy.find((x) => x.id === id);
+    const to = t ? fileLoc(t) : undefined;
+    if (to) onLoc(to);
+  };
+  return (
+    <section className="cm-panel-coverage" data-testid="code-map-panel-coverage">
+      <h4>Unit test coverage</h4>
+      <CoverageSummary coverage={cov} info={answer.coverageInfo} testId="code-map-panel-cov" />
+      {cov && cov.stats.percent !== null && (
+        <p className="small" data-testid="code-map-panel-uncovered">
+          {cov.uncovered.length === 0 ? 'Every line of it runs in a test.' : `Lines not run: ${cov.uncovered.join(', ')}`}
+        </p>
+      )}
+      {cov && <TestedBy tests={cov.testedBy} onOpen={open} testId="code-map-tested-by" />}
+    </section>
+  );
 }

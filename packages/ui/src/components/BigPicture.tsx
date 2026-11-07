@@ -10,6 +10,7 @@ import type { Id } from '@rehearse/core';
 import type { ReviewEpicView } from '../contract.js';
 import { bigPicture, bigPictureStats, boxTitleLines, featureMapLayout, FM, KIND_LINE, laneTint, scenarioCounts, type FeatureStory } from '../model/features.js';
 import { roleName } from '../model/diagram.js';
+import { SvgBoxCoverageBadge } from './CoverageBadge.js';
 import { svgButton } from './svg.js';
 
 export interface BigPictureProps {
@@ -132,6 +133,7 @@ export function BigPicture({ view, onOpenStory, onOpenBox }: BigPictureProps) {
                     <text x={b.x + 10} y={b.y + b.h - 10} className="fm-kind">
                       {KIND_LINE[p.kind] ?? p.kind}
                     </text>
+                    <SvgBoxCoverageBadge path={p.id} x={b.x + b.w - 6} y={b.y + b.h - 6} testId={`bp-coverage-${p.id}`} />
                     {p.shared && (
                       <g data-testid={`bp-shared-${p.id}`} className="fm-shared">
                         <title>{`shared: ${p.stories.join(', ')}`}</title>

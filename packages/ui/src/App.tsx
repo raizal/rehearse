@@ -29,6 +29,7 @@ import { approveReason, storiesOf } from './model/review.js';
 import { allSeen, browserStorage, loadSeen, markSeen, saveSeen, type SeenState } from './model/seen.js';
 import { nextToApprove, reviewQueue } from './model/storyboard.js';
 import { shortKey } from './model/text.js';
+import { BoxCoverageContext, useBoxesCoverage } from './coverage-api.js';
 
 const TABS = [
   { id: 'prd', label: 'PRD' },
@@ -318,148 +319,152 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
   };
 
   const report = view?.report;
+  // The boxes' unit test coverage (T43), read once per EPIC and again when the view reloads.
+  const boxCoverage = useBoxesCoverage(view?.slug, view);
   return (
-    <div className="app" data-testid="app">
-      <header className="topbar">
-        <div className="brand">
-          <span className="logo">rehearse</span>
-          <span className="epic-title sr-only" data-testid="epic-title">{view?.prd?.epic?.title ?? view?.slug ?? ''}</span>
-          {view && (
-            <span className="epic-slug" data-testid="epic-slug" title={view.prd?.epic?.title}>
-              {view.slug}
-              {view.prd?.epic?.status && ` · ${view.prd.epic.status}`}
-            </span>
-          )}
-        </div>
-        <nav className="tabs" data-testid="nav" aria-label="Views">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={t.id === tab ? 'tab is-active' : 'tab'}
-              data-testid={`nav-${t.id}`}
-              aria-current={t.id === tab ? 'page' : undefined}
-              onClick={() => {
-                // Stories opens on the story page, on WHAT (the list is the "Stories" crumb).
-                if (t.id === 'stories' && tab !== 'stories') {
-                  setStoryTab('what');
-                  setList(false);
-                }
-                setBox(undefined);
-                setTab(t.id);
-              }}
-            >
-              {t.label}
+    <BoxCoverageContext.Provider value={boxCoverage}>
+      <div className="app" data-testid="app">
+        <header className="topbar">
+          <div className="brand">
+            <span className="logo">rehearse</span>
+            <span className="epic-title sr-only" data-testid="epic-title">{view?.prd?.epic?.title ?? view?.slug ?? ''}</span>
+            {view && (
+              <span className="epic-slug" data-testid="epic-slug" title={view.prd?.epic?.title}>
+                {view.slug}
+                {view.prd?.epic?.status && ` · ${view.prd.epic.status}`}
+              </span>
+            )}
+          </div>
+          <nav className="tabs" data-testid="nav" aria-label="Views">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={t.id === tab ? 'tab is-active' : 'tab'}
+                data-testid={`nav-${t.id}`}
+                aria-current={t.id === tab ? 'page' : undefined}
+                onClick={() => {
+                  // Stories opens on the story page, on WHAT (the list is the "Stories" crumb).
+                  if (t.id === 'stories' && tab !== 'stories') {
+                    setStoryTab('what');
+                    setList(false);
+                  }
+                  setBox(undefined);
+                  setTab(t.id);
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
+          <div className="topbar-right">
+            {session.kind === 'ready' && (
+              <span
+                className={`badge signing-chip ${session.session.signing.ok ? 'status-approved' : 'status-unsigned'}`}
+                data-testid="signing-chip"
+                title={session.session.signing.ok ? `Signing with key ${session.session.signing.keyFingerprint}` : session.session.signing.reason}
+              >
+                {session.session.signing.ok ? `Signing: key ${shortKey(session.session.signing.keyFingerprint)}` : 'Signing: off'}
+              </span>
+            )}
+            {report && (
+              <span className={`badge ${report.ok ? 'status-approved' : 'status-stale'}`} data-testid="report-status" title={report.findings.map((f) => `${f.file}: ${f.path}: ${f.message}`).join('\n')}>
+                validate: {report.ok ? 'OK' : `${report.findings.length} findings`}
+              </span>
+            )}
+            <button type="button" className="link" data-testid="reload" onClick={reload} title="Read the record files again">
+              Reload
             </button>
-          ))}
-        </nav>
-        <div className="topbar-right">
-          {session.kind === 'ready' && (
-            <span
-              className={`badge signing-chip ${session.session.signing.ok ? 'status-approved' : 'status-unsigned'}`}
-              data-testid="signing-chip"
-              title={session.session.signing.ok ? `Signing with key ${session.session.signing.keyFingerprint}` : session.session.signing.reason}
-            >
-              {session.session.signing.ok ? `Signing: key ${shortKey(session.session.signing.keyFingerprint)}` : 'Signing: off'}
-            </span>
-          )}
-          {report && (
-            <span className={`badge ${report.ok ? 'status-approved' : 'status-stale'}`} data-testid="report-status" title={report.findings.map((f) => `${f.file}: ${f.path}: ${f.message}`).join('\n')}>
-              validate: {report.ok ? 'OK' : `${report.findings.length} findings`}
-            </span>
-          )}
-          <button type="button" className="link" data-testid="reload" onClick={reload} title="Read the record files again">
-            Reload
-          </button>
-        </div>
-      </header>
+          </div>
+        </header>
 
-      {state.kind === 'loading' && <div className="status-msg" data-testid="loading">Loading the EPIC record…</div>}
-      {state.kind === 'error' && (
-        <div className="status-msg error" data-testid="load-error">
-          Could not load the EPIC record: {state.message}
-        </div>
-      )}
-      {view && tab === 'prd' && (
-        <main className="page-wrap">
-          <PrdView view={view} focus={docFocus} onGo={go} />
-        </main>
-      )}
-      {view && tab === 'techspec' && (
-        <main className="page-wrap">
-          <TechSpecView view={view} focus={docFocus} onGo={go} />
-        </main>
-      )}
-      {view && tab === 'bigpicture' && (
-        <main className="page-wrap">
-          <BigPictureViews
-            active={bigView}
-            onPick={setBigView}
+        {state.kind === 'loading' && <div className="status-msg" data-testid="loading">Loading the EPIC record…</div>}
+        {state.kind === 'error' && (
+          <div className="status-msg error" data-testid="load-error">
+            Could not load the EPIC record: {state.message}
+          </div>
+        )}
+        {view && tab === 'prd' && (
+          <main className="page-wrap">
+            <PrdView view={view} focus={docFocus} onGo={go} />
+          </main>
+        )}
+        {view && tab === 'techspec' && (
+          <main className="page-wrap">
+            <TechSpecView view={view} focus={docFocus} onGo={go} />
+          </main>
+        )}
+        {view && tab === 'bigpicture' && (
+          <main className="page-wrap">
+            <BigPictureViews
+              active={bigView}
+              onPick={setBigView}
+              view={view}
+              onOpenStory={openStory}
+              onOpenBox={openBox}
+            />
+          </main>
+        )}
+        {view && tab === 'code' && (
+          <main className="page-wrap code-map-page">
+            <CodeMap loc={codeLoc} onLoc={setCodeLoc} epic={view.slug} onOpenBox={openBox} />
+          </main>
+        )}
+        {view && approveControls && tab === 'stories' && (
+          <Storyboard
             view={view}
-            onOpenStory={openStory}
+            session={session}
+            scenarioId={storyId === undefined || card?.scenario.story === storyId ? card?.scenario.id : undefined}
+            storyId={storyId ?? card?.scenario.story ?? storiesOf(view.prd)[0]?.id}
+            board={board}
+            onBack={() => {
+              setBoard(false);
+              setStoryTab('what');
+            }}
+            onBigPicture={() => setTab('bigpicture')}
+            onStories={() => setList(true)}
+            onOpenStory={(id) => pickStory(id, 'what')}
+            list={list || storyShown === undefined}
+            storyTab={storyTab}
+            onStoryTab={setStoryTab}
+            back={back}
+            onPick={pickCard}
+            onPickStory={(id) => pickStory(id)}
             onOpenBox={openBox}
+            seen={seenState}
+            onSeen={markStep}
+            approve={approveControls}
+            onSelectMany={(ids) => setPicked((old) => new Set([...old, ...ids]))}
+            busy={busy === 'approve'}
+            outcome={approveOutcome}
           />
-        </main>
-      )}
-      {view && tab === 'code' && (
-        <main className="page-wrap code-map-page">
-          <CodeMap loc={codeLoc} onLoc={setCodeLoc} epic={view.slug} onOpenBox={openBox} />
-        </main>
-      )}
-      {view && approveControls && tab === 'stories' && (
-        <Storyboard
-          view={view}
-          session={session}
-          scenarioId={storyId === undefined || card?.scenario.story === storyId ? card?.scenario.id : undefined}
-          storyId={storyId ?? card?.scenario.story ?? storiesOf(view.prd)[0]?.id}
-          board={board}
-          onBack={() => {
-            setBoard(false);
-            setStoryTab('what');
-          }}
-          onBigPicture={() => setTab('bigpicture')}
-          onStories={() => setList(true)}
-          onOpenStory={(id) => pickStory(id, 'what')}
-          list={list || storyShown === undefined}
-          storyTab={storyTab}
-          onStoryTab={setStoryTab}
-          back={back}
-          onPick={pickCard}
-          onPickStory={(id) => pickStory(id)}
-          onOpenBox={openBox}
-          seen={seenState}
-          onSeen={markStep}
-          approve={approveControls}
-          onSelectMany={(ids) => setPicked((old) => new Set([...old, ...ids]))}
-          busy={busy === 'approve'}
-          outcome={approveOutcome}
-        />
-      )}
-      {view && tab === 'usecases' && (
-        <main className="page-wrap">
-          <UseCaseView simulation={view.simulation} flow={view.flow} prd={view.prd} entities={view.entities} onOpenBox={openBox} />
-        </main>
-      )}
-      {view && tab === 'readiness' && (
-        <main className="page-wrap">
-          <ReadinessView view={view} onOpenBox={openBox} onOpenStory={openStory} />
-        </main>
-      )}
-      {view && tab === 'signoff' && (
-        <main className="page-wrap">
-          <SignOffView view={view} session={session} busy={busy !== undefined} outcome={signOffOutcome} onSignOff={(ids) => void signOff(ids)} onOpenBox={openBox} />
-        </main>
-      )}
-      {view && box !== undefined && (
-        <BoxDrawer
-          view={view}
-          path={box}
-          onOpenBox={openBox}
-          onClose={() => setBox(undefined)}
-          onGo={go}
-          onOpenStory={(id: Id, onTab: StoryTabId) => openStory(id, onTab)}
-        />
-      )}
-    </div>
+        )}
+        {view && tab === 'usecases' && (
+          <main className="page-wrap">
+            <UseCaseView simulation={view.simulation} flow={view.flow} prd={view.prd} entities={view.entities} onOpenBox={openBox} />
+          </main>
+        )}
+        {view && tab === 'readiness' && (
+          <main className="page-wrap">
+            <ReadinessView view={view} onOpenBox={openBox} onOpenStory={openStory} />
+          </main>
+        )}
+        {view && tab === 'signoff' && (
+          <main className="page-wrap">
+            <SignOffView view={view} session={session} busy={busy !== undefined} outcome={signOffOutcome} onSignOff={(ids) => void signOff(ids)} onOpenBox={openBox} />
+          </main>
+        )}
+        {view && box !== undefined && (
+          <BoxDrawer
+            view={view}
+            path={box}
+            onOpenBox={openBox}
+            onClose={() => setBox(undefined)}
+            onGo={go}
+            onOpenStory={(id: Id, onTab: StoryTabId) => openStory(id, onTab)}
+          />
+        )}
+      </div>
+    </BoxCoverageContext.Provider>
   );
 }

@@ -276,3 +276,57 @@ describe('S9 httpGraphApi: GET api/graph with the session token', () => {
     expect(await api.show('charge')).toEqual({ ok: false, notFound: false, error: 'Origin does not match Host' });
   });
 });
+
+describe('S12 unit test coverage in the function view under a leaf box', () => {
+  const TEST_ID = 'x/test charge';
+  const withCoverage = (stale: boolean): PanelAnswer => ({
+    ...SHOW_CHARGE,
+    coverageInfo: { found: true, reports: [{ path: 'coverage/lcov.info', mtimeMs: 1, files: 1 }] },
+    coverage: {
+      id: CHARGE, file: 'src/pay.ts', range: '10-12', uncovered: ['11'],
+      stats: { lines: 2, covered: 1, branches: 2, branchesCovered: 1, percent: 50, tests: 1, stale },
+      lines: [{ n: 10, state: 'run', hits: 3, branch: 'partial', branches: { found: 2, hit: 1 } }, { n: 11, state: 'missed' }, { n: 12, state: 'none' }],
+      testedBy: [{ id: TEST_ID, name: 'charges a card', file: 'test/pay.test.ts', range: '3-9', trust: 'exact', direct: true }],
+    },
+  });
+
+  it('S12-A2 each line has its mark: run green, not run red, not code none; a partly taken branch has ◐', async () => {
+    await openBox(fakeGraph({ 'box cart': BOX_CART, [CHARGE]: withCoverage(false) }), 'cart');
+    const code = await screen.findByTestId('code-graph-code');
+    expect(within(code).getByTestId('code-coverage-badge')).toHaveTextContent('50% · 1 test');
+    expect(within(code).getByTestId('code-coverage-badge')).toHaveAttribute('data-tone', 'fair');
+    expect(screen.getByTestId('code-line-10')).toHaveClass('cov-run', 'cov-branch');
+    expect(screen.getByTestId('code-line-10')).toHaveAttribute('title', 'run 3× · branches partly taken (1 of 2)');
+    expect(screen.getByTestId('code-line-10')).toHaveTextContent('◐');
+    expect(screen.getByTestId('code-line-11')).toHaveClass('cov-missed');
+    expect(screen.getByTestId('code-line-11')).toHaveAttribute('title', 'not run');
+    expect(screen.getByTestId('code-line-12')).not.toHaveClass('cov-run');
+    expect(screen.getByTestId('code-line-12')).not.toHaveClass('cov-missed');
+    expect(screen.queryByTestId('code-coverage-stale')).toBeNull();
+  });
+
+  it('S12-A3 tested by lists the test that calls it; a click opens the test code', async () => {
+    const graph = fakeGraph({ 'box cart': BOX_CART, [CHARGE]: withCoverage(false), [TEST_ID]: answer([node(TEST_ID, 'charges a card', { kind: 'test', file: 'test/pay.test.ts', range: '3-9', code: "it('charges a card', () => {})" })], []) });
+    const user = await openBox(graph, 'cart');
+    const tested = await screen.findByTestId('tested-by');
+    expect(tested).toHaveTextContent('charges a card');
+    expect(tested).toHaveTextContent('test/pay.test.ts:3-9');
+    expect(tested).toHaveTextContent('calls it');
+    await user.click(within(tested).getByTestId('tested-by-charges a card'));
+    await waitFor(() => expect(screen.getByTestId('code-graph-code')).toHaveTextContent("it('charges a card', () => {})"));
+  });
+
+  it('S12-A4 coverage older than the code says so on the function', async () => {
+    await openBox(fakeGraph({ 'box cart': BOX_CART, [CHARGE]: withCoverage(true) }), 'cart');
+    expect(await screen.findByTestId('code-coverage-stale')).toHaveTextContent('coverage is older than this code; run the tests again');
+    expect(screen.getByTestId('code-coverage-badge')).toHaveTextContent('⟳');
+  });
+
+  it('S12-A5 no coverage file: one plain line, no marks', async () => {
+    const none = { ...SHOW_CHARGE, coverageInfo: { found: false, reports: [], hint: 'No coverage file yet. Run `pnpm coverage` to write coverage/lcov.info in each package.' } };
+    await openBox(fakeGraph({ 'box cart': BOX_CART, [CHARGE]: none }), 'cart');
+    expect(await screen.findByTestId('code-coverage-hint')).toHaveTextContent('No coverage file yet.');
+    expect(screen.queryByTestId('code-coverage-badge')).toBeNull();
+    expect(screen.getByTestId('code-line-11').className).toBe('code-graph-line');
+  });
+});

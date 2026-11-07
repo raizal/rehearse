@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, useReactFlow, useStore, type Edge, type Node, type NodeProps, type NodeTypes } from '@xyflow/react';
+import { BoxCoverageBadge } from './CoverageBadge.js';
 import { SF, type SfGhost, type SfLaidLane, type SfLayout, type SfStep, type StoryFlow } from '../model/storyflow.js';
 
 interface StepData extends Record<string, unknown> {
@@ -70,6 +71,7 @@ function StepView({ data }: NodeProps<StepNode>) {
         <span className="sf-node-body">
           <span className="sf-node-top">
             <span className="sf-badge">{n}</span>
+            <BoxCoverageBadge path={step.path} testId={`card-coverage-${n}`} compact />
             {seen && (
               <span className="sf-seen" aria-hidden="true">
                 ✓

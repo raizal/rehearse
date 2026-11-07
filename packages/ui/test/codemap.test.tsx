@@ -143,12 +143,12 @@ function fakeMap(answers: Answers = BASE, more: Partial<CodeMapApi> = {}): CodeM
   };
 }
 
-function fakeGraph(): GraphApi & { asked: string[] } {
+function fakeGraph(nearCharge: PanelAnswer = NEAR_CHARGE): GraphApi & { asked: string[] } {
   const asked: string[] = [];
   return {
     asked,
     show: async () => ({ ok: false, notFound: true, error: 'not found' }),
-    near: async (t) => (asked.push(t), t === CHARGE ? { ok: true, answer: NEAR_CHARGE } : { ok: true, answer: { ...NEAR_CHARGE, nodes: [an(t, t.split('/').pop()!, { distance: 0 })], edges: [] } }),
+    near: async (t) => (asked.push(t), t === CHARGE ? { ok: true, answer: nearCharge } : { ok: true, answer: { ...NEAR_CHARGE, nodes: [an(t, t.split('/').pop()!, { distance: 0 })], edges: [] } }),
   };
 }
 
@@ -157,11 +157,10 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-async function start(hash = '#/code', api: CodeMapApi = fakeMap()) {
+async function start(hash = '#/code', api: CodeMapApi = fakeMap(), graph = fakeGraph()) {
   window.history.replaceState(null, '', hash);
   mockServer({ epic: () => reviewEpic() });
   const user = userEvent.setup();
-  const graph = fakeGraph();
   render(
     <CodeApiContext.Provider value={codeApi}>
       <CodeMapApiContext.Provider value={api}>
@@ -623,5 +622,68 @@ describe('T40 the code map client', () => {
     // find answers 200 even with no hits.
     expect(await api.find('zzz')).toMatchObject({ ok: true, value: { nodes: [] } });
     expect(await api.status()).toEqual({ ok: true, value: { ok: true, indexed: true, busy: false } });
+  });
+});
+
+describe('S12 unit test coverage on the Code map', () => {
+  const st = (covered: number, lines: number, tests: number, stale = false) => ({ lines, covered, branches: 0, branchesCovered: 0, percent: Math.floor((covered * 100) / lines), tests, stale });
+  const FOUND = { found: true, reports: [{ path: 'packages/b/coverage/lcov.info', mtimeMs: 1, files: 2 }] };
+  const COVERED: Answers = {
+    ...BASE,
+    packages: ok({ ...PACKAGES, coverage: FOUND, nodes: PACKAGES.nodes.map((n) => (n.id === '@m/b' ? { ...n, coverage: st(72, 100, 3) } : n)) }),
+    'package @m/b': ok({
+      ...FOLDERS,
+      coverage: FOUND,
+      nodes: FOLDERS.nodes.map((n) => (n.id === 'src/index.ts' ? { ...n, coverage: st(9, 10, 1) } : n.id === 'src/model/cart.ts' ? { ...n, coverage: st(1, 10, 0, true) } : n)),
+    }),
+    'file src/pay.ts': ok({ ...FILE_PAY, coverage: FOUND, nodes: FILE_PAY.nodes.map((n) => (n.id === CHARGE ? { ...n, coverage: st(2, 3, 1) } : n)) }),
+  };
+
+  it('S12-A1 a package and a file carry a badge "72% · 3 tests" in its colour; a folder adds up its files', async () => {
+    await start('#/code', fakeMap(COVERED));
+    const b = await screen.findByTestId('code-map-coverage-@m/b');
+    expect(b).toHaveTextContent('72% · 3 tests');
+    expect(b).toHaveAttribute('data-tone', 'fair');
+    expect(screen.queryByTestId('code-map-coverage-@m/a')).toBeNull();
+  });
+
+  it('S12-A1 the folders of a package: src/ sums its files (10 of 20 lines), src/model/ is red and stale', async () => {
+    await start('#/code/package/%40m%2Fb', fakeMap(COVERED));
+    expect(await screen.findByTestId('code-map-coverage-src/index.ts')).toHaveTextContent('90% · 1 test');
+    expect(screen.getByTestId('code-map-coverage-src/index.ts')).toHaveAttribute('data-tone', 'good');
+    const model = screen.getByTestId('code-map-coverage-src/model/cart.ts');
+    expect(model).toHaveAttribute('data-tone', 'poor');
+    expect(model).toHaveTextContent('⟳');
+    expect(model.getAttribute('title')).toContain('coverage is older than this code; run the tests again');
+    expect(screen.getByTestId('code-map-frame-coverage-src/')).toHaveTextContent('50% · 1 test');
+  });
+
+  it('S12-A2 S12-A3 the side panel of a function: its badge, the lines not run and the tests that call it', async () => {
+    const near: PanelAnswer = {
+      ...NEAR_CHARGE,
+      coverageInfo: FOUND,
+      coverage: {
+        id: CHARGE, file: 'src/pay.ts', range: '10-12', stats: st(2, 3, 1), uncovered: ['11'],
+        lines: [{ n: 10, state: 'run', hits: 2 }, { n: 11, state: 'missed' }, { n: 12, state: 'run', hits: 2 }],
+        testedBy: [{ id: TEST, name: 'charges a card', file: 'test/pay.test.ts', range: '3-9', trust: 'exact', direct: true }],
+      },
+    };
+    const { user } = await start(`#/code/file/src%2Fpay.ts/node/${encodeURIComponent(CHARGE)}`, fakeMap(COVERED), fakeGraph(near));
+    const panel = await screen.findByTestId('code-map-panel-coverage');
+    expect(within(panel).getByTestId('code-map-panel-cov-badge')).toHaveTextContent('66% · 1 test');
+    expect(within(panel).getByTestId('code-map-panel-uncovered')).toHaveTextContent('Lines not run: 11');
+    const tests = within(panel).getByTestId('code-map-tested-by');
+    expect(tests).toHaveTextContent('charges a card');
+    expect(tests).toHaveTextContent('test/pay.test.ts:3-9');
+    expect(tests).toHaveTextContent('calls it');
+    await user.click(within(tests).getByTestId('code-map-tested-by-charges a card'));
+    await waitFor(() => expect(window.location.hash).toContain(encodeURIComponent('test/pay.test.ts')));
+  });
+
+  it('S12-A5 no coverage file: one plain line on how to make one, and no badges', async () => {
+    const none = { found: false, reports: [], hint: 'No coverage file yet. Run `pnpm coverage` to write coverage/lcov.info in each package.' };
+    await start('#/code', fakeMap({ ...BASE, packages: ok({ ...PACKAGES, coverage: none }) }));
+    expect(await screen.findByTestId('code-map-coverage-hint')).toHaveTextContent('No coverage file yet. Run `pnpm coverage`');
+    expect(screen.queryByTestId('code-map-coverage-@m/b')).toBeNull();
   });
 });

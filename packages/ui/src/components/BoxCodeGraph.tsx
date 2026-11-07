@@ -7,7 +7,9 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { GraphApiContext, type GraphOutcome, type PanelAnswer } from '../graph-api.js';
 import { boxTarget, builtNodes, codeLines, definedNodes, isTestFile, nodePlace, NO_CODE_YET, outlineRows, type BoxCode, type BuiltNode } from '../model/codegraph.js';
+import { lineMark } from '../model/coverage.js';
 import { CallGraphView } from './CallGraphView.js';
+import { CoverageSummary, TestedBy } from './CoverageBadge.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 
 /** Files of the Flow-Box fallback that are read at most. */
@@ -158,6 +160,8 @@ function NodePanes({ answer, trust, depth, onDepth, onCenter }: { answer: PanelA
   const node = answer.nodes[0]!;
   const lines = codeLines(node);
   const rows = outlineRows(answer.outline?.root);
+  const cov = answer.coverage;
+  const marks = new Map((cov?.lines ?? []).map((m) => [m.n, m]));
   return (
     <div className="code-graph-body" data-testid="code-graph-node">
       <section className="code-graph-pane is-code" aria-label={`Code of ${node.name}, read only`} data-testid="code-graph-code">
@@ -166,19 +170,29 @@ function NodePanes({ answer, trust, depth, onDepth, onCenter }: { answer: PanelA
           <span className="pill">{node.kind}</span>
           {trust && <span className={`trust-mark is-${trust}`} title="trust of the builds edge">builds · {trust}</span>}
         </div>
+        <CoverageSummary coverage={cov} info={answer.coverageInfo} testId="code-coverage" />
         {lines.length === 0 ? (
           <p className="muted small">No code to show: the node is outside the repo.</p>
         ) : (
           <pre className="code-graph-src" tabIndex={0} aria-readonly="true">
-            {lines.map((l) => (
-              <span key={l.n} className="code-graph-line">
-                <span className="ln" aria-hidden="true">
-                  {l.n}
+            {lines.map((l) => {
+              const mark = lineMark(marks.get(l.n));
+              return (
+                <span key={l.n} className={`code-graph-line${mark ? ` ${mark.cls}` : ''}`} data-testid={`code-line-${l.n}`} data-cov={marks.get(l.n)?.state ?? ''} title={mark?.label}>
+                  {cov && <span className="cov-gutter" aria-hidden="true" />}
+                  <span className="ln" aria-hidden="true">
+                    {l.n}
+                  </span>
+                  {cov && (
+                    <span className="cov-br" aria-label={mark?.label}>
+                      {mark?.cls.includes('cov-branch') ? '◐' : ''}
+                    </span>
+                  )}
+                  <span className="code">{l.text}</span>
+                  {'\n'}
                 </span>
-                <span className="code">{l.text}</span>
-                {'\n'}
-              </span>
-            ))}
+              );
+            })}
           </pre>
         )}
       </section>
@@ -198,6 +212,7 @@ function NodePanes({ answer, trust, depth, onDepth, onCenter }: { answer: PanelA
           </ol>
         )}
         {answer.outline?.cut && <p className="muted small">The tree is cut at {answer.outline.nodes} nodes.</p>}
+        {cov && <TestedBy tests={cov.testedBy} onOpen={onCenter} testId="tested-by" />}
       </section>
       <section className="code-graph-pane is-calls" aria-label={`Call graph of ${node.name}`} data-testid="code-graph-calls">
         <CallGraphView id={node.id} name={node.name} depth={depth} onDepth={onDepth} onCenter={onCenter} />

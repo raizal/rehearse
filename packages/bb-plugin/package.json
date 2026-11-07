@@ -22,7 +22,8 @@
     "build": "tsc -p tsconfig.json --noEmit",
     "bundle": "bb plugin build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "coverage": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary"
   },
   "dependencies": {
     "zod": "^4.6.5"

@@ -87,3 +87,8 @@ entities:
   - { id: QueryAnswer, why: [G1, G7], stories: [S1, S2, S3] }
   - { id: ContextBundle, why: [G6, G14], stories: [S4] }
   - { id: ContextItem, what: 'node, role, distance, code, tokens', why: [G6], stories: [S4] }
+# Note (S12, T43): unit test coverage adds no component, link or entity. The graph package reads
+# every coverage/lcov.info in the repo (lcov from vitest --coverage, c8, or Python's
+# `coverage lcov`) with the files of the repo component, and serve answers verb=coverage on the
+# same graph route. The boxes read-coverage, no-coverage, coverage-asker and show-coverage are
+# in flow.yaml; they are not listed here so that no hash of this file's items changes.

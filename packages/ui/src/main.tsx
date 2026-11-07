@@ -7,6 +7,7 @@ import './styles/codemap.css';
 import './styles/diagrams.css';
 import './styles/docs.css';
 import './styles/featuremap.css';
+import './styles/coverage.css';
 import { App } from './App.js';
 
 createRoot(document.getElementById('root')!).render(

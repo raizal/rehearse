@@ -168,7 +168,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
         sendJson(res, refused.status, { ok: false, error: refused.error });
         return;
       }
-      void readGraph(query, graph).then(
+      void readGraph(query, graph, opts.epicDir, git).then(
         ([status, body]) => sendJson(res, status, body),
         (e: unknown) => sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }),
       );
@@ -264,12 +264,17 @@ async function readCode(path: string, query: URLSearchParams, epicDir: string, g
  *   map&level=packages|package|file[&target=…][&tests=hide][&outside=hide][&epic=<folder>]
  *                                     one level of the code map (T40)
  *   status                            indexed? busy? Answers at once, no update (T40)
+ *   coverage[&target=<file|symbol|box <path>>]
+ *                                     unit test coverage of one target, or of every box of the EPIC (T43)
+ * The map and show answers carry coverage too (T43): the badges and line marks come with the nodes
+ * the UI already asks for, so only the boxes, which are not graph answers, need `verb=coverage`.
  */
-async function readGraph(query: URLSearchParams, graph: GraphService): Promise<[number, unknown]> {
+async function readGraph(query: URLSearchParams, graph: GraphService, epicDir: string, git: GitRunner): Promise<[number, unknown]> {
   const verb = query.get('verb');
   if (verb === 'status') return [200, { ok: true, ...graph.status() }];
   if (verb === 'map') return readMap(query, graph);
-  if (verb !== 'show' && verb !== 'near' && verb !== 'find' && verb !== 'path') return [400, { ok: false, error: 'verb must be show, near, find, path, map or status' }];
+  if (verb === 'coverage') return readCoverage(query, graph, epicDir, git);
+  if (verb !== 'show' && verb !== 'near' && verb !== 'find' && verb !== 'path') return [400, { ok: false, error: 'verb must be show, near, find, path, map, coverage or status' }];
   const target = query.get('target') ?? '';
   if (target.trim() === '' || target.length > MAX_TARGET) return [400, { ok: false, error: `target is required, at most ${MAX_TARGET} characters` }];
   if (verb === 'find') return [200, await graph.find(target)];
@@ -284,6 +289,21 @@ async function readGraph(query: URLSearchParams, graph: GraphService): Promise<[
   if (verb === 'near' && !(Number.isInteger(depth) && depth >= 1 && depth <= 3)) return [400, { ok: false, error: 'depth must be 1, 2 or 3' }];
   const answer = await graph.answer({ verb, target, depth });
   return [answer.ok ? 200 : 404, answer];
+}
+
+/** `verb=coverage`: one target (404 when not found), or every box of the served EPIC with code. */
+async function readCoverage(query: URLSearchParams, graph: GraphService, epicDir: string, git: GitRunner): Promise<[number, unknown]> {
+  const target = query.get('target');
+  if (target !== null) {
+    if (target.trim() === '' || target.length > MAX_TARGET) return [400, { ok: false, error: `target is at most ${MAX_TARGET} characters, not empty` }];
+    const answer = await graph.coverage({ target });
+    return [answer.ok ? 200 : 404, answer];
+  }
+  const boxes = epicBoxPaths(epicDir);
+  // A box with no builds edge: the code of the files of its Flow-Box commits, as the drill-down does.
+  const index = await codeIndex(git, epicDir, boxes);
+  const flowBoxFiles = new Map(index.ok ? Object.entries(index.boxes).map(([box, c]) => [box, c.files] as const) : []);
+  return [200, await graph.coverage({ boxes, flowBoxFiles })];
 }
 
 const EPIC_FOLDER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;

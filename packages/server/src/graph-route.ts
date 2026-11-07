@@ -4,6 +4,10 @@
 // http.ts checks the session token and the Origin first. Box `watch`: while serve
 // runs, a file watcher brings the graph up to date on save, as an update with trigger `watch` (G5).
 //
+// Unit test coverage (T43, S12): the lcov files of the repo, read on each request (parsed again only
+// when one changed) and laid on the graph by `@rehearse/graph`'s coverage index. The map's nodes and
+// the shown node of `show` carry their numbers; `coverage()` answers one target or every box.
+//
 // The graph opens on the first request, and the watcher starts then: a serve that never shows code
 // never indexes. Every graph call runs one after the other, because one store connection cannot hold
 // two write transactions. The watcher and the clock are injectable, so tests use fakes.
@@ -11,8 +15,9 @@
 import { existsSync, watch as fsWatch } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import {
-  find, MapIndex, near, openGraph, outlineNode, path, show, updateGraph,
-  type AstOutline, type CodeMap, type Graph, type GraphNode, type GraphOptions, type IndexRun, type MapPlace, type MapQuery, type NodeKind, type QueryAnswer,
+  boxesCoverage, coverageIndexOf, coverageInfo, coverageKey, coverageOf, find, loadCoverage, MapIndex, near, openGraph, outlineNode, path, show, updateGraph, withCoverage,
+  type AnswerNode, type AstOutline, type CodeMap, type CoverageAnswer, type CoverageIndex, type CoverageInfo, type CoverageStats, type Graph, type GraphNode, type GraphOptions,
+  type IndexRun, type MapPlace, type MapQuery, type NodeCoverage, type NodeKind, type QueryAnswer,
 } from '@rehearse/graph';
 
 /** The kind and place of a node at the other end of an edge of a show answer. */
@@ -27,7 +32,30 @@ export interface EdgeEnd {
  * its edges (which built nodes are functions, which are tests), and the AST outline of the shown
  * code node (S9-A1).
  */
-export type PanelAnswer = QueryAnswer & { ends?: Record<string, EdgeEnd>; outline?: AstOutline };
+export type PanelAnswer = QueryAnswer & {
+  ends?: Record<string, EdgeEnd>;
+  outline?: AstOutline;
+  /** The shown code node's unit test coverage: numbers, a mark per line, its tests (T43). */
+  coverage?: NodeCoverage;
+  /** The lcov files read, or how to make one (T43). */
+  coverageInfo?: CoverageInfo;
+};
+
+/** `verb=coverage` without a target: every box of the served EPIC that has code (T43). */
+export interface BoxesCoverage {
+  ok: true;
+  boxes: Record<string, CoverageStats>;
+  info: CoverageInfo;
+}
+
+export interface CoverageQuery {
+  /** A file, a code node, or `box <path>`; none: every box in `boxes`. */
+  target?: string;
+  /** The box paths of the served EPIC. */
+  boxes?: readonly string[];
+  /** Box path → the files of its Flow-Box commits (boxes with no builds edge). */
+  flowBoxFiles?: ReadonlyMap<string, readonly string[]>;
+}
 
 export interface PanelQuery {
   verb: 'show' | 'near';
@@ -75,6 +103,8 @@ export interface GraphServiceOptions {
   clock?: Clock;
   /** Quiet time after the last save before the update; default 150 ms. */
   debounceMs?: number;
+  /** lcov files to read besides every `coverage/lcov.info` of the repo (T43). */
+  lcov?: readonly string[];
 }
 
 /** One update the watcher made. */
@@ -93,6 +123,8 @@ export interface GraphService {
   find(words: string, limit?: number): Promise<FindAnswer>;
   /** Update, then the shortest chain of edges from one node to another. */
   path(from: string, to: string): Promise<QueryAnswer>;
+  /** Update, then the unit test coverage of a target, or of every box (T43). */
+  coverage(q: CoverageQuery): Promise<CoverageAnswer | BoxesCoverage>;
   /** Is the repo indexed, and is a graph call running? Answers at once: it neither waits nor updates. */
   status(): GraphStatus;
   /** Resolves when every pending graph call and watcher update is done. */
@@ -156,6 +188,15 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
   // The map's view of the store, made again after an index run that wrote (T40).
   let mapIndex: MapIndex | undefined;
   let busy = 0;
+  // The coverage index, made again after a written index run or when an lcov file changed (T43).
+  let written = 0;
+  let cov: { key: string; index: CoverageIndex } | undefined;
+  const coverage = (g: Graph): CoverageIndex => {
+    const data = loadCoverage(g.root, opts.lcov ?? []);
+    const key = `${written}#${coverageKey(data)}`;
+    if (cov?.key !== key) cov = { key, index: coverageIndexOf(g.store, g.root, data) };
+    return cov.index;
+  };
 
   /** Run `fn` after every earlier graph call. */
   const serial = <T>(fn: () => Promise<T>): Promise<T> => {
@@ -170,7 +211,10 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
     if (closed) throw new Error('the graph service is closed');
     const g = open();
     const run = await g.update();
-    if (run.status === 'written') mapIndex = undefined;
+    if (run.status === 'written') {
+      mapIndex = undefined;
+      written++;
+    }
     return g;
   };
 
@@ -194,7 +238,10 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
       void serial(async () => {
         if (closed || !graph) return;
         const run = await updateGraph(graph.root, graph.store, { ...opts.graph, trigger: 'watch' });
-        if (run.status === 'written') mapIndex = undefined;
+        if (run.status === 'written') {
+          mapIndex = undefined;
+          written++;
+        }
         last = { changed, run };
       });
     }, debounce);
@@ -205,7 +252,20 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
       serial(async () => {
         const g = await fresh();
         const id = targetId(g, q.target, opts.epic);
-        if (q.verb === 'near') return near(g.store, id, q.depth ?? 1);
+        // The centre of near and the shown node carry their unit test coverage (the Code map's side
+        // panel reads near, the drill-down reads show).
+        const withNodeCoverage = (answer: PanelAnswer, shown: AnswerNode | undefined): PanelAnswer => {
+          if (shown?.file === undefined || shown.targetOnly || shown.language === 'record') return answer;
+          const index = coverage(g);
+          answer.coverageInfo = coverageInfo(index.data, g.root);
+          const nc = index.nodeCoverage(shown.id);
+          if (nc) answer.coverage = nc;
+          return answer;
+        };
+        if (q.verb === 'near') {
+          const answer: PanelAnswer = near(g.store, id, q.depth ?? 1);
+          return withNodeCoverage(answer, answer.nodes.find((n) => n.distance === 0));
+        }
         const answer: PanelAnswer = show(g.store, g.root, id);
         const shown = answer.nodes[0];
         if (!shown) return answer;
@@ -214,13 +274,13 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
           const outline = await outlineNode(g.root, shown);
           if (outline) answer.outline = outline;
         }
-        return answer;
+        return withNodeCoverage(answer, shown);
       }),
     map: (q) =>
       serial(async () => {
         const g = await fresh();
         mapIndex ??= MapIndex.fromStore(g.store);
-        return mapIndex.level(q);
+        return withCoverage(mapIndex.level(q), mapIndex, coverage(g), g.root);
       }),
     find: (words, limit) =>
       serial(async () => {
@@ -238,6 +298,14 @@ export function createGraphService(opts: GraphServiceOptions): GraphService {
       serial(async () => {
         const g = await fresh();
         return path(g.store, from, to);
+      }),
+    coverage: (q) =>
+      serial(async () => {
+        const g = await fresh();
+        const index = coverage(g);
+        const box = { ...(opts.epic !== undefined ? { epic: opts.epic.split(sep).pop()! } : {}), ...(q.flowBoxFiles ? { flowBoxFiles: q.flowBoxFiles } : {}) };
+        if (q.target !== undefined) return coverageOf(g.store, index, g.root, q.target, box);
+        return { ok: true as const, boxes: boxesCoverage(g.store, index, q.boxes ?? [], box), info: coverageInfo(index.data, g.root) };
       }),
     status: () => {
       if (closed) return { indexed: false, busy: false };

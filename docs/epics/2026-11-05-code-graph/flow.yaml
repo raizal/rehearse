@@ -503,6 +503,63 @@ root:
       # level is capped at about 150 nodes. Trust (exact, name-match, unresolved) is kept on level
       # file only. not-found: the package or file is not in the graph (404).
 
+    # --- Unit test coverage on the code (S12, T43) ---
+    # New boxes only: a coverage question reuses ask, drill-code, code-map, serve-query,
+    # update-graph, asked, got-it and seen as they are.
+    - id: read-coverage
+      kind: process
+      lane: rehearse
+      package: graph
+      title: Read the lcov files and add up the coverage of the code asked about
+      stories: [S12]
+      inputs:  { query: GraphQuery }
+      outputs: { answer: QueryAnswer }
+      reads:   [GraphNode.*, GraphEdge.*]
+      errorExits: [no-coverage]
+      # Every coverage/lcov.info under the repo (not node_modules), plus the paths given with
+      # `rehearse coverage --lcov`; there is no rehearse config for them yet. Python's
+      # `coverage lcov` writes the same format. Parsed and cached by file mtime (DA, BRDA, FN).
+      # Lines map onto code nodes by file and range; a file is the sum of its lines, a package
+      # of its source files, a box of its builds edges (else the files of its Flow-Box commits),
+      # a box with children of its children. Tested by: the tests with a calls edge to the node,
+      # directly or one hop through a helper. Stale: the lcov is older than a source file.
+      # The graph route: GET /api/graph?verb=coverage[&target=…], read only, the token and
+      # Origin check of serve-query; an empty or too long target gets 400, one not found 404.
+      # verb map, show and near carry the same numbers on their nodes.
+
+    - id: no-coverage
+      kind: output
+      lane: rehearse
+      package: graph
+      title: 'One plain line: no coverage file yet, and how to make one'
+      stories: [S12]
+      inputs:  { answer: QueryAnswer }
+      outputs: { answer: QueryAnswer }
+      # "No coverage file yet. Run `pnpm coverage` …" when the repo has the script, and the
+      # lcov writers (vitest --coverage, c8, `coverage lcov`). No badge pretends to be 0%.
+
+    - id: coverage-asker
+      kind: decision
+      lane: rehearse
+      package: graph
+      title: Who asked for the coverage?
+      inputs: { answer: QueryAnswer }
+
+    - id: show-coverage
+      kind: output
+      lane: builder
+      package: ui
+      title: Coverage badges, line marks and the tests of a function
+      stories: [S12]
+      inputs:  { answer: QueryAnswer }
+      outputs: { view: "list string" }
+      # Badge "72% · 3 tests": 80% or more green, 50-79% orange, below 50% red, grey "no
+      # coverage data". On the drawer header, the nested diagram, the Before / after flow
+      # chart, the swimlanes, and the package, folder, file and function nodes of the Code map.
+      # In the Code view: a green mark on lines run, red on lines not run, ◐ on branches partly
+      # taken; a "Tested by" list that opens each test; and "coverage is older than this code;
+      # run the tests again" when stale. The CLI prints the same answer as text or JSON.
+
   edges:
     - { from: start,        to: ask }
     - { from: ask,          to: update-graph }
@@ -529,3 +586,10 @@ root:
     - { from: map-level,    to: code-map }
     - { from: map-level,    to: code-map,      label: not-found, kind: error }
     - { from: asker,        to: code-map,      label: map,   kind: branch }
+    - { from: asked,          to: read-coverage,  label: coverage,    kind: branch }
+    - { from: read-coverage,  to: coverage-asker }
+    - { from: read-coverage,  to: no-coverage,    label: no-coverage, kind: error }
+    - { from: no-coverage,    to: coverage-asker }
+    - { from: coverage-asker, to: got-it,         label: cli,         kind: branch }
+    - { from: coverage-asker, to: show-coverage,  label: panel,       kind: branch }
+    - { from: show-coverage,  to: seen }

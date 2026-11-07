@@ -1,0 +1,49 @@
+/* Unit test coverage (T43, S12): the badge, the gutter marks, the tested-by list, the no-data line. */
+
+.cov-badge { display: inline-flex; align-items: center; gap: 2px; padding: 1px 7px; border-radius: 999px; border: 1px solid; font-size: var(--fs-xs); font-weight: 600; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cov-badge.cov-good { color: #166534; background: #f0fdf4; border-color: #86efac; }
+.cov-badge.cov-fair { color: #9a3412; background: #fff7ed; border-color: #fdba74; }
+.cov-badge.cov-poor { color: #991b1b; background: #fef2f2; border-color: #fca5a5; }
+.cov-badge.cov-none { color: var(--muted); background: var(--subtle); border-color: var(--line-strong); font-weight: 500; }
+.cov-badge.cov-compact { padding: 0 5px; font-size: 10px; }
+.cov-stale { font-weight: 700; }
+
+/* On a diagram box: the badge sits at the top right, over nothing else. */
+.box-top .cov-badge { margin-left: auto; }
+.sf-node-top .cov-badge { margin-top: 2px; }
+/* On a Code map node: as wide as its text, under the name. */
+.cm-node .cov-badge { align-self: flex-start; margin-top: 2px; }
+
+/* The gutter: a 4px bar left of the line number, green when run, red when not; a ◐ for branches partly taken. */
+.code-graph-line .cov-gutter { display: inline-block; width: 4px; height: 1.4em; margin-right: 4px; vertical-align: top; border-radius: 1px; }
+.code-graph-line.cov-run .cov-gutter { background: #22c55e; }
+.code-graph-line.cov-missed .cov-gutter { background: #ef4444; }
+.code-graph-line.cov-missed { background: #fef2f2; }
+.code-graph-line .cov-br { display: inline-block; width: 14px; color: #c2410c; text-align: center; user-select: none; }
+
+.cov-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin: var(--s-2) 0; }
+.cov-stale-line { color: var(--note-ink); background: var(--note-tint); border: 1px solid var(--note-line); border-radius: 6px; padding: 2px 8px; font-size: var(--fs-xs); }
+.cov-hint { color: var(--muted); font-size: var(--fs-xs); margin: var(--s-2) 0; }
+.cov-legend { color: var(--muted); font-size: var(--fs-xs); display: inline-flex; gap: var(--s-3); }
+.cov-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.cov-legend .lg-run { background: #22c55e; }
+.cov-legend .lg-missed { background: #ef4444; }
+
+.tested-by { margin: var(--s-2) 0; }
+.tested-by h4 { margin: 0 0 var(--s-1); font-size: var(--fs-xs); color: var(--ink-2); }
+.tested-by ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+/* The test name on its own line (names are long), its file and how it reaches the code under it. */
+.tested-by li { font-size: var(--fs-xs); line-height: 1.4; }
+.tested-by .tb-where { display: flex; flex-wrap: wrap; gap: 0 var(--s-2); color: var(--muted); }
+.tested-by .tb-where code { font-size: 11px; overflow-wrap: anywhere; }
+.tested-by button { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; text-align: left; font: inherit; }
+.tested-by button:hover { text-decoration: underline; }
+.tested-by .tb-via { color: var(--faint); }
+
+/* The badge on a process of the Big picture feature map (SVG). */
+.cov-svg rect { stroke-width: 1; }
+.cov-svg text { font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cov-svg.cov-good rect { fill: #f0fdf4; stroke: #86efac; } .cov-svg.cov-good text { fill: #166534; }
+.cov-svg.cov-fair rect { fill: #fff7ed; stroke: #fdba74; } .cov-svg.cov-fair text { fill: #9a3412; }
+.cov-svg.cov-poor rect { fill: #fef2f2; stroke: #fca5a5; } .cov-svg.cov-poor text { fill: #991b1b; }
+.cov-svg.cov-none rect { fill: var(--subtle); stroke: var(--line-strong); } .cov-svg.cov-none text { fill: var(--muted); }
