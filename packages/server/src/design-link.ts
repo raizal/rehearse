@@ -117,7 +117,7 @@ export function linkDesign(epicDir: string, top: string, body: Record<string, un
 
   const linksPath = join(top, DESIGN_LINKS_FILE);
   const root = designRoot(top);
-  if (!root) return refuse(403, 'outside design', 'design/ is missing or leads outside the repo; links.yaml is not written');
+  if (!root) return refuse(403, 'outside design', 'design/ is not there or leads outside the repo; links.yaml is not written');
   let text: string | undefined;
   if (existsSync(linksPath)) {
     const real = realpathSync(linksPath);

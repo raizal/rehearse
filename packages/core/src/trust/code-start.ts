@@ -135,7 +135,7 @@ export function codeStartSection(boxes: readonly string[], opts: CodeStartOption
   if (!opts.code) return '';
   const blocks = inOrder(boxes, opts.code);
   if (blocks.length === 0) return '';
-  const intro = `From the code graph: the code that builds each box already (its builds edges, else the files of its \`Flow-Box\` commits), its earlier commits, what calls it, what it calls, and the unit tests that call it. Read these first.`;
+  const intro = `This comes from the code graph. For each box, it gives the code that builds the box already, and the earlier commits of the box. That code comes from its builds edges, else from the files of its \`Flow-Box\` commits. It also gives what calls the code, what the code calls, and the unit tests that call it. Read these first.`;
   const less = `Many boxes, so each lists less: \`${cli} context <box>\` lists the rest.`;
   for (const [i, detail] of DETAILS.entries()) {
     const out = [...lines, intro, ...(i > 0 ? [less] : [])];

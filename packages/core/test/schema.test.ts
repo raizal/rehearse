@@ -68,7 +68,7 @@ describe('schema (R2)', () => {
   it('a missing record file is a finding', () => {
     const dir = makeEpic();
     rmSync(`${dir}/entities.yaml`);
-    expect(brief(validateEpic(dir).findings)).toEqual(['schema entities.yaml : file missing']);
+    expect(brief(validateEpic(dir).findings)).toEqual(['schema entities.yaml : file not found']);
   });
 });
 

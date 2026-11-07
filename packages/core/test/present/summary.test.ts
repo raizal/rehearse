@@ -167,7 +167,7 @@ describe('the summary (summary-deck)', () => {
     expect(deck.slides.some((s) => s.key === 'asks')).toBe(false);
     const next = slide(deck, 'next').blocks[0]!;
     expect(next.type === 'list' && next.items.length).toBeLessThanOrEqual(3);
-    expect(next.type === 'list' && next.items[0]!.text).toMatch(/^The builders fix the failing test of /);
+    expect(next.type === 'list' && next.items[0]!.text).toMatch(/^The builders fix the test that fails in /);
     const own = presentationDeck(real, facts(), inputs({ next: ['Ship it.'] }));
     expect(slide(own, 'next').blocks).toEqual([{ type: 'list', items: [{ text: 'Ship it.' }] }]);
   });

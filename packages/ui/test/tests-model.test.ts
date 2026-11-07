@@ -45,7 +45,7 @@ describe('T13 3 tests tab: rows', () => {
       reason: 'boom',
     });
     expect(testRows(S1, info(ours({ results: { [KEY]: { last: 'failed' } } })))[0]!.words).toBe('failed');
-    expect(testRows(S1, info(ours({ status: 'running', current: KEY, results: { [KEY]: { last: 'passed' } } })))[0]).toMatchObject({ status: 'running', words: 'running' });
+    expect(testRows(S1, info(ours({ status: 'running', current: KEY, results: { [KEY]: { last: 'passed' } } })))[0]).toMatchObject({ status: 'running', words: 'in progress' });
     expect(testRows(S1, info(ours({ status: 'held', current: KEY, results: { [KEY]: { last: 'failed', failedStep: 'cart: Buyer checks out' } } })))[0]).toMatchObject({
       status: 'failed',
       words: 'failed · held',

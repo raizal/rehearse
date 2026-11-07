@@ -70,7 +70,7 @@ export type TestBrief =
  * whose title is exactly the scenario id is the scenario's test.
  */
 export const TEST_NAME_RULE =
-  'The Tests tab finds a scenario\'s test in any `*.spec.ts` under the test project: a line that starts with `test(` and a quoted title (`test.describe` and `test.step` lines do not count), whose title is exactly the scenario id. Any other title leaves the row on "no test".';
+  'The Tests tab finds a scenario\'s test in any `*.spec.ts` under the test project. It finds a line that starts with `test(` and has a quoted title that is exactly the scenario id. `test.describe` and `test.step` lines do not count. Any other title leaves the row on "no test".';
 
 /** The first line of a scenario's test, as the Tests tab matches it. */
 export function testTitleLine(scenarioId: Id): string {
@@ -257,12 +257,12 @@ export function isUiScenario(record: EpicRecord, s: Scenario): boolean {
 /** The fixture a scenario starts from, by name; `fixtureSection` says what each one does. */
 function fixtureLine(ui: boolean, fixtures: { ui?: TestFixture; cli?: TestFixture }): string {
   const f = ui ? fixtures.ui : fixtures.cli;
-  return `Start from: ${ui ? 'a UI scenario (it walks a box of the app)' : 'a CLI scenario (no box of the app)'}, ${f ? `\`${f.file}\`` : 'no fixture yet: copy the setup of an existing spec'}.`;
+  return `Start from: ${ui ? 'a UI scenario (it walks a box of the app)' : 'a CLI scenario (no box of the app)'}, ${f ? `\`${f.file}\`` : 'no fixture yet: copy the setup of another spec'}.`;
 }
 
 function fixtureSection(testProject: string, fixtures: { ui?: TestFixture; cli?: TestFixture }): string {
   const line = (f: TestFixture | undefined, kind: string, what: string) =>
-    f ? `- ${kind}: \`${f.file}\` (${f.exports.map((e) => `\`${e}\``).join(', ')}) ${what}.` : `- ${kind}: no fixture in \`${testProject}/tests/\` ${what}; copy the setup of an existing spec.`;
+    f ? `- ${kind}: \`${f.file}\` (${f.exports.map((e) => `\`${e}\``).join(', ')}) ${what}.` : `- ${kind}: no fixture in \`${testProject}/tests/\` ${what}; copy the setup of another spec.`;
   return [
     '## Fixtures to start from',
     '',
@@ -279,7 +279,7 @@ function scenarioSection(record: EpicRecord, story: Story, s: Scenario, seen: Se
   lines.push('Steps (one `test.step` each, its title starts with the box path; a box is described at its first step in this brief):');
   asArray<ScenarioStep>(s.steps).forEach((st, i) => {
     if (!isObject(st)) return;
-    lines.push(`${i + 1}. \`${st.name}\`${st.branch ? ` taking "${st.branch}"` : ''}`);
+    lines.push(`${i + 1}. \`${st.name}\`${st.branch ? `, branch "${st.branch}"` : ''}`);
     if (isObject(st.example)) {
       const ex = st.example;
       const text = `given ${compact(ex.given ?? {})} → then ${compact(ex.then ?? {})}${ex.stateAfter ? `; state after ${compact(ex.stateAfter)}` : ''}`;
@@ -322,7 +322,7 @@ function runSection(cli: string, slug: string, storyId: Id, testProject: string)
   return [
     '## How to run it',
     '',
-    `- \`${cli} play ${slug} ${storyId} --test <file:line> --wait\` plays one test in Birdview, where the owner watches it, waits for it and prints passed or failed (exit 0 or 1). The key is the file relative to \`${testProject}/\` and the line of \`test(\`, e.g. \`tests/${storyId}.spec.ts:12\`.`,
+    `- \`${cli} play ${slug} ${storyId} --test <file:line> --wait\` plays one test in Birdview, where the owner watches it, waits for it and prints passed or failed (exit 0 or 1). The key is the file relative to \`${testProject}/\` and the line of \`test(\`, for example \`tests/${storyId}.spec.ts:12\`.`,
     `- \`${cli} playlists ${slug} --tests ${testProject}\` writes the story playlists again; the ${storyId} playlist then lists the new tests.`,
     '- Birdview runs the browser outside the sandbox: do not try to start Chromium or `playwright test` in the sandbox.',
   ].join('\n');
@@ -332,9 +332,9 @@ function rulesSection(cli: string, slug: string, storyId: Id, ids: Id[]): string
   return [
     '## Rules for this thread',
     '',
-    '- Write only tests: do not change app code. If the app cannot do what a scenario says, stop and say so in the thread: which scenario, which step, what the app does instead.',
+    '- Write only tests: do not change app code. If the app cannot do what a scenario says, stop and say so in the thread. Give the scenario, the step and what the app does instead.',
     '- Do not change a scenario to fit the app. A scenario that looks wrong is for the owner: say so in the thread.',
-    '- A test builds no box: its commits carry no `Flow-Box:` trailer (the line on trailers below is for build threads), so rehearse does not count a box as built by them.',
+    '- A test builds no box. Its commits carry no `Flow-Box:` trailer, so rehearse does not count a box as built by them. The line on trailers below is for build threads.',
     `- Re-read this brief with \`${cli} brief ${slug} ${storyId} --tests ${ids.map((id) => `--scenario ${id}`).join(' ')}\`.`,
     '- Run each test through Birdview before you say done, and report per scenario: written, run, passed or failed (and where).',
   ].join('\n');

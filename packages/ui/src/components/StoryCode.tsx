@@ -29,7 +29,7 @@ export function useCodeIndex(): CodeIndex | undefined {
 /** `Code: N of M boxes have code`. */
 export function CodeChip({ d, index }: { d: StoryDetail; index: CodeIndex | undefined }) {
   const strip = useMemo(() => codeStrip(d.how, index), [d, index]);
-  const text = index === undefined ? 'Code: loading…' : index.ok ? codeChipText(strip) : 'Code: not available';
+  const text = index === undefined ? 'Code: not loaded yet' : index.ok ? codeChipText(strip) : 'Code: not available';
   return (
     <span className="code-chip" data-testid="story-code-chip" title={index && !index.ok ? index.reason : undefined}>
       <span aria-hidden="true">{'</> '}</span>
@@ -148,7 +148,7 @@ function BoxPanel({ b, leaf, files, onLoaded }: { b: CodeStripBox; leaf: boolean
           No commit names this box in a <code>Flow-Box:</code> trailer.
         </p>
       ) : outcome === undefined ? (
-        <p className="muted">Loading the code of {b.path}…</p>
+        <p className="muted">rehearse loads the code of {b.path}…</p>
       ) : !outcome.ok ? (
         isServerRestarted(outcome.error) ? (
           <ServerRestarted testId="code-error" />

@@ -392,7 +392,7 @@ function How({
 }) {
   const f = useMemo(() => howFlow(view, d), [view, d]);
   const titles = new Map(f.steps.map((s) => [s.path, s.title]));
-  const linkText = (l: HowLink) => [l.label, l.via.length ? `via ${l.via.join(', ')}` : undefined].filter(Boolean).join(' · ');
+  const linkText = (l: HowLink) => [l.label, l.via.length ? `through ${l.via.join(', ')}` : undefined].filter(Boolean).join(' · ');
   return (
     <section id={id} className={`story-panel story-how${focus ? ' is-focus' : ''}`} data-testid="story-how" aria-labelledby={`${id}-h`}>
       <PanelHead n={2} kicker="HOW" title="How it works: the processes it runs" id={`${id}-h`} />

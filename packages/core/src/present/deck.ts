@@ -345,12 +345,12 @@ export function storyView(record: EpicRecord, facts: DeckFacts, story: Story): S
   const designed: ProgressStep = boxes > 0 ? { state: 'done', note: f.design ? 'plan and screen picture' : 'plan drawn' } : { state: 'not-yet', note: 'no plan yet' };
   const total = scenarios.length;
   const scen: ProgressStep =
-    total === 0 ? { state: 'not-yet', note: 'none written' } : approved === total ? { state: 'done', note: `all ${total}` } : approved > 0 ? { state: 'partly', note: `${approved} of ${total}` } : { state: 'not-yet', note: `${total} waiting` };
+    total === 0 ? { state: 'not-yet', note: 'none written' } : approved === total ? { state: 'done', note: `all ${total}` } : approved > 0 ? { state: 'partly', note: `${approved} of ${total}` } : { state: 'not-yet', note: `${total} not approved yet` };
   const built: ProgressStep =
     boxes === 0 ? { state: 'not-yet', note: 'nothing planned' } : f.built >= boxes ? { state: 'done', note: `all ${boxes} parts` } : f.built > 0 ? { state: 'partly', note: `${f.built} of ${boxes} parts` } : { state: 'not-yet', note: `0 of ${boxes} parts` };
   let tested: ProgressStep;
   if (approved === 0) tested = { state: 'not-yet', note: 'nothing approved' };
-  else if (tests.failed > 0) tested = { state: 'partly', note: `${tests.failed} failing`, alarm: true };
+  else if (tests.failed > 0) tested = { state: 'partly', note: `${tests.failed} failed`, alarm: true };
   else if (tests.passed === approved) tested = { state: 'done', note: `all ${approved} pass` };
   else if (tests.passed > 0) tested = { state: 'partly', note: `${tests.passed} of ${approved} pass` };
   else if (tests['not-written'] === approved) tested = { state: 'not-yet', note: 'no tests yet' };
@@ -390,9 +390,9 @@ function statusLine(v: StoryView): string {
   if (v.scenarios.length === 0) parts.push('no scenarios yet');
   else {
     const t = v.tests;
-    const bits = [v.approved === 0 ? 'no approved scenario yet' : `${t.passed} of ${v.approved} approved ${v.approved === 1 ? 'scenario' : 'scenarios'} tested and passing`];
-    if (t.failed > 0) bits.push(`${t.failed} failing`);
-    if (waiting > 0) bits.push(`${waiting} waiting for approval`);
+    const bits = [v.approved === 0 ? 'no approved scenario yet' : `${t.passed} of ${v.approved} approved ${v.approved === 1 ? 'scenario' : 'scenarios'} tested and passed`];
+    if (t.failed > 0) bits.push(`${t.failed} failed`);
+    if (waiting > 0) bits.push(`${waiting} not approved yet`);
     parts.push(bits.join(', '));
   }
   return `${parts.join(' · ')}.`;
@@ -400,7 +400,7 @@ function statusLine(v: StoryView): string {
 
 function checkRow(v: StoryView, x: { s: Scenario; approved: boolean }, year: string): CheckRow {
   const c = isObject(x.s.expect) ? v.story.acceptance.find((a) => a.id === x.s.expect!.criterion) : undefined;
-  const approval = x.approved && x.s.approval ? `Approved by ${person(x.s.approval.by)} on ${day(x.s.approval.at)}` : x.s.approval ? 'Changed since it was approved: waiting for a new approval' : 'Waiting for approval';
+  const approval = x.approved && x.s.approval ? `Approved by ${person(x.s.approval.by)} on ${day(x.s.approval.at)}` : x.s.approval ? 'Changed since it was approved: it needs a new approval' : 'Not approved yet';
   const test = x.approved ? (v.facts.tests[x.s.id] ?? 'not-written') : 'not approved';
   const run = x.approved && (test === 'passed' || test === 'failed') ? v.facts.runs?.[x.s.id] : undefined;
   const step = test === 'failed' ? plainStep(run?.failedStep) : '';
@@ -465,11 +465,11 @@ function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInput
   const rows = v.scenarios.map((x) => checkRow(v, x, ctx.year));
   const t = v.tests;
   const made2 =
-    `The drawing follows one scenario, "${cap(plain(pick.s.title))}", step by step, in the lane of who does each step. ` +
+    `The diagram follows one scenario, "${cap(plain(pick.s.title))}", step by step, in the lane of who does each step. ` +
     (v.approved === 0
-      ? `This story has ${plural(rows.length, 'scenario')}, all waiting for approval, so none is tested yet.`
-      : `We checked ${plural(rows.length, 'scenario')}: ${v.approved} approved, ${t.passed} passing ${t.passed === 1 ? 'its' : 'their'} e2e test` +
-    `${t.failed > 0 ? `, ${t.failed} failing` : ''}${t['not-written'] > 0 ? `, ${t['not-written']} without a test yet` : ''}${t['not-run'] > 0 ? `, ${t['not-run']} not run` : ''}.`);
+      ? `This story has ${plural(rows.length, 'scenario')}. None is approved yet, so none is tested yet.`
+      : `We checked ${plural(rows.length, 'scenario')}: ${v.approved} approved, ${t.passed} passed ${t.passed === 1 ? 'its' : 'their'} e2e test` +
+    `${t.failed > 0 ? `, ${t.failed} failed` : ''}${t['not-written'] > 0 ? `, ${t['not-written']} without a test yet` : ''}${t['not-run'] > 0 ? `, ${t['not-run']} not run` : ''}.`);
   const [head, ...rest] = [rows.slice(0, 4), ...chunks(rows.slice(4), 7)];
   slides.push({
     key: `${id}-checks`,
@@ -566,7 +566,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   if (epic?.successMeasure) whyBlocks.push({ type: 'text', text: `Success looks like this: ${sentences(epic.successMeasure, 260)}`, tone: 'muted' });
   slides.push({
     key: 'why',
-    title: 'Why we are doing this',
+    title: 'Why we do this',
     narration: narrate(inputs, 'why', `${sentences(facts.idea ?? epic?.goal ?? '', 200)} It is for ${people.map((r) => r.name).join(', ') || 'its users'}.`),
     ids: [],
     blocks: whyBlocks,
@@ -606,7 +606,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     return { id: v.story.id, title: v.title, steps: v.steps, state: viewDoneState(v), ...(level ? { level } : {}) };
   });
   const finished = shown.filter((v) => viewDoneState(v) === 'done').length;
-  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} done (built and signed off, no test failing), ${stand.seen} of them seen working on the real screens. ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
+  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} done (built and signed off, no test fails), ${stand.seen} of them seen working on the real screens. ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
   slides.push({
     key: 'progress',
     title: 'Progress, story by story',
@@ -629,10 +629,10 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     { value: `${stand.done} / ${views.length}`, label: 'stories done', tone: stand.done === views.length ? 'good' : 'warn' },
     { value: `${signed} / ${views.length}`, label: 'stories signed off', tone: signed === views.length ? 'good' : 'warn' },
     { value: `${approved} / ${scenarioCount}`, label: 'scenarios approved', tone: approved === scenarioCount ? 'good' : 'warn' },
-    { value: `${passing} / ${approved}`, label: 'approved scenarios passing their e2e test', tone: failing > 0 ? 'bad' : passing === approved ? 'good' : 'warn' },
+    { value: `${passing} / ${approved}`, label: 'approved scenarios that pass their e2e test', tone: failing > 0 ? 'bad' : passing === approved ? 'good' : 'warn' },
     { value: `${builtTotal} / ${boxTotal}`, label: `planned parts with code (${boxPaths.size} distinct)`, tone: builtTotal === boxTotal ? 'good' : 'warn' },
   ];
-  if (unitStories.length > 0) stats.push({ value: `${unitTests - unitFailed} / ${unitTests}`, label: "automated tests that name a story's scenario, passing", tone: unitFailed > 0 ? 'bad' : 'good' });
+  if (unitStories.length > 0) stats.push({ value: `${unitTests - unitFailed} / ${unitTests}`, label: "automated tests that name a story's scenario and pass", tone: unitFailed > 0 ? 'bad' : 'good' });
   if (facts.coverage !== undefined) stats.push({ value: `${facts.coverage}%`, label: 'of the code is run by unit tests' });
   const byCheck = new Map<string, Set<string>>();
   // A rehearsal finding that only says no approved scenario walks a path reads as a gap, not a problem.
@@ -670,7 +670,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   if (staleIds.length > 0) risks.push({ text: `${plural(staleIds.length, 'story', 'stories')} changed after sign-off; ${staleIds.length === 1 ? 'it needs' : 'they need'} a new sign-off before more work.`, id: staleIds.join(' '), mark: 'failed' });
   const draftIds = views.filter((v) => v.sign?.status === 'draft' || !v.sign).map((v) => v.story.id);
   if (draftIds.length > 0) risks.push({ text: `${plural(draftIds.length, 'story', 'stories')} ${draftIds.length === 1 ? 'is' : 'are'} not signed off yet, so agents may not build ${draftIds.length === 1 ? 'it' : 'them'}.`, id: draftIds.join(' '), mark: 'not-yet' });
-  if (notWritten > 0) risks.push({ text: `${plural(notWritten, 'approved scenario')} ${notWritten === 1 ? 'has' : 'have'} no e2e test yet: nothing proves ${notWritten === 1 ? 'it' : 'them'} in the running product.`, mark: 'not-yet' });
+  if (notWritten > 0) risks.push({ text: `${plural(notWritten, 'approved scenario')} ${notWritten === 1 ? 'has' : 'have'} no e2e test yet: nothing proves ${notWritten === 1 ? 'it' : 'them'} in the live product.`, mark: 'not-yet' });
   if (notRun > 0) risks.push({ text: `${plural(notRun, 'e2e test')} ${notRun === 1 ? 'was' : 'were'} not run for this deck.`, mark: 'not-yet' });
   const unbuilt = boxTotal - builtTotal;
   if (unbuilt > 0) risks.push({ text: `${plural(unbuilt, 'planned part')} ${unbuilt === 1 ? 'has' : 'have'} no code yet.`, mark: 'not-yet' });
@@ -681,7 +681,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     narration: narrate(
       inputs,
       'risks',
-      risks.length === 0 ? 'The record shows no open risk: every story is signed off, built and passing its tests.' : `${plural(risks.length, 'risk')} to know about${inputs.risks.length > 0 ? `, ${inputs.risks.length} of them from the owner` : ''}. The rest come straight from the plan and the tests.`,
+      risks.length === 0 ? 'The record shows no open risk: every story is signed off and built, and its tests pass.' : `${plural(risks.length, 'risk')} to know about${inputs.risks.length > 0 ? `, ${inputs.risks.length} of them from the owner` : ''}. The rest come straight from the plan and the tests.`,
     ),
     ids: [],
     blocks: risks.length > 0 ? [{ type: 'list', items: risks }] : [{ type: 'text', text: 'No open risks found in the plan or the tests.', tone: 'good' }],
@@ -694,7 +694,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
   slides.push({
     key: 'glossary',
     title: 'Words used in this deck',
-    narration: narrate(inputs, 'glossary', 'A few words have a fixed meaning here. This is what each one means.'),
+    narration: narrate(inputs, 'glossary', 'Some words have one fixed definition here. This is what each one means.'),
     ids: [],
     blocks: [{ type: 'glossary', items: GLOSSARY }],
   });

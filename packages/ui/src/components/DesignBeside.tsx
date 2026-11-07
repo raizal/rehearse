@@ -49,7 +49,7 @@ function Beside({ view, storyId, link }: { view: ReviewEpicView; storyId: Id; li
       <div data-testid={`design-beside-run-${storyId}`}>
         <h4>Latest test run</h4>
         {!read ? (
-          <p className="muted small">Reading the player…</p>
+          <p className="muted small">rehearse reads the player…</p>
         ) : !run.ran ? (
           <p className="muted small">{run.text}: no test of {storyId} has run in Birdview.</p>
         ) : (

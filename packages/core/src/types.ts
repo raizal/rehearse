@@ -20,12 +20,12 @@ export type BoxKind = 'start' | 'end' | 'process' | 'decision' | 'input' | 'outp
 export type EdgeKind = 'normal' | 'branch' | 'error';
 export type ScenarioStatus = 'draft' | 'approved' | 'stale';
 export type CorrectionTag = 'caught-in-simulation' | 'caught-after-build';
-export type FindingKind = 'schema' | 'reference' | 'structure' | 'contract' | 'coverage' | 'lifecycle' | 'acceptance' | 'gate';
+export type FindingKind = 'schema' | 'reference' | 'structure' | 'contract' | 'coverage' | 'lifecycle' | 'acceptance' | 'gate' | 'ste';
 export type ReportCommand = 'validate' | 'simulate' | 'gate';
 
 export const BOX_KINDS: readonly BoxKind[] = ['start', 'end', 'process', 'decision', 'input', 'output', 'external'];
 export const EDGE_KINDS: readonly EdgeKind[] = ['normal', 'branch', 'error'];
-export const FINDING_KINDS: readonly FindingKind[] = ['schema', 'reference', 'structure', 'contract', 'coverage', 'lifecycle', 'acceptance', 'gate'];
+export const FINDING_KINDS: readonly FindingKind[] = ['schema', 'reference', 'structure', 'contract', 'coverage', 'lifecycle', 'acceptance', 'gate', 'ste'];
 
 /** Identifier fields hold the `id` of the referenced item (`ref <Entity>` in entities.yaml). */
 export type Id = string;
@@ -291,6 +291,11 @@ export interface Report {
   ok: boolean;
   findings: Finding[];
   permissionMatrix?: PermissionMatrix;
+  /**
+   * Information, not findings: `ok` does not look at it (T60). Only `validate` gives it: the STE
+   * notes on draft stories and draft scenarios. Not there when it is empty.
+   */
+  information?: Finding[];
 }
 
 // ---------------------------------------------------------------- loaded record

@@ -36,7 +36,7 @@ export function loadEpic(dir: string): LoadResult {
   const read = (file: string, required: boolean): unknown => {
     const full = join(abs, file);
     if (!existsSync(full)) {
-      if (required) findings.push({ kind: 'schema', file, path: '', message: 'file missing', refs: [] });
+      if (required) findings.push({ kind: 'schema', file, path: '', message: 'file not found', refs: [] });
       return undefined;
     }
     let text: string;

@@ -251,7 +251,7 @@ describe('T48 Merge into main (box merge-thread)', () => {
     const tells = s.calls.filter((c) => c.command === 'bb' && c.args[1] === 'tell');
     expect(tells.map((c) => c.args)).toEqual([['thread', 'tell', 'thr_tests1', '--message-file', '-', '--json']]);
     expect(tells[0]!.input).toContain('The owner could not merge your branch bb/conflict into main: it conflicts in README.md. Nothing was merged.');
-    expect(tells[0]!.input).toContain('Please rebase your branch onto main');
+    expect(tells[0]!.input).toContain('Rebase your branch onto main');
   });
 
   it('a branch with nothing new has nothing to merge: no merge runs', async () => {

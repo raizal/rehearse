@@ -37,14 +37,19 @@ export function reportToJson(report: Report): string {
   return `${JSON.stringify(report, null, 2)}\n`;
 }
 
-/** Human text: one line per finding with the file, the path and the reason. */
+const findingLine = (f: Finding, kind: string): string => `${f.path === '' ? f.file : `${f.file}: ${f.path}`}: ${kind}: ${f.message}`;
+
+/**
+ * Human text: one line per finding with the file, the path and the reason. Then one line per
+ * information note (T60), and a count of the notes on the summary line.
+ */
 export function reportToText(report: Report): string {
-  if (report.ok) return `${report.command}: OK, no findings\n`;
-  const lines = report.findings.map((f) => {
-    const where = f.path === '' ? f.file : `${f.file}: ${f.path}`;
-    return `${where}: ${f.kind}: ${f.message}`;
-  });
+  const info = report.information ?? [];
+  const lines = report.findings.map((f) => findingLine(f, f.kind));
+  lines.push(...info.map((f) => findingLine(f, 'information')));
   const n = report.findings.length;
-  lines.push(`${report.command}: ${n} finding${n === 1 ? '' : 's'}`);
+  const summary = report.ok ? `${report.command}: OK, no findings` : `${report.command}: ${n} finding${n === 1 ? '' : 's'}`;
+  const i = info.length;
+  lines.push(i === 0 ? summary : `${summary} (${i} STE note${i === 1 ? '' : 's'} on draft text: information only)`);
   return `${lines.join('\n')}\n`;
 }

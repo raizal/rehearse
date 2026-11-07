@@ -92,7 +92,7 @@ describe('T48 the merge panel (box merge-panel)', () => {
     // The button opens a confirm with the summary; Cancel merges nothing.
     await userEvent.click(screen.getByRole('button', { name: 'Merge into main' }));
     const confirm = screen.getByTestId('merge-build-confirm');
-    expect(confirm).toHaveTextContent('Merge 2 commits of bb/build-s4 into main with git merge --no-ff, touching 2 files. The commit says “Merge Build S4”.');
+    expect(confirm).toHaveTextContent('Merge 2 commits of bb/build-s4 into main with git merge --no-ff. The merge changes 2 files. The commit says “Merge Build S4”.');
     await userEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByTestId('merge-build-confirm')).toBeNull();
     expect(fake.merges()).toEqual([]);
@@ -222,7 +222,7 @@ describe('T48 the merge panel in the story column and the Tests tab', () => {
     expect(await screen.findByTestId('merge-tests-scenarios')).toHaveTextContent('Fills the rows of S1-new.');
     expect(screen.getByTestId('story-test-status-S1-new')).toHaveTextContent('no test');
     await userEvent.click(screen.getByRole('button', { name: 'Merge into main' }));
-    expect(screen.getByTestId('merge-tests-confirm')).toHaveTextContent('and adding the tests of S1-new');
+    expect(screen.getByTestId('merge-tests-confirm')).toHaveTextContent('and adds the tests of S1-new');
     await userEvent.click(within(screen.getByTestId('merge-tests-confirm')).getByRole('button', { name: 'Merge into main' }));
     await waitFor(() => expect(screen.getByTestId('story-test-status-S1-new')).toHaveTextContent('not run'));
     await userEvent.click(screen.getByRole('button', { name: '▶ Play the new tests in Birdview' }));

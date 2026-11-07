@@ -261,7 +261,7 @@ function DrawerCode({ path, kind, stories, onOpenStory }: { path: string; kind: 
   const commits = own?.commits ?? [];
   let words: string;
   if (NO_CODE_KINDS.includes(kind)) words = `A ${kind} box has no code: it is a choice or an end, not work.`;
-  else if (index === undefined) words = 'Reading the code…';
+  else if (index === undefined) words = 'rehearse reads the code…';
   else if (!index.ok) words = `No code: ${index.reason}.`;
   else if (commits.length === 0) words = 'This box has no code yet.';
   else words = `${commits.length} ${commits.length === 1 ? 'commit names' : 'commits name'} this box in a Flow-Box trailer, ${own!.files.length} ${own!.files.length === 1 ? 'file' : 'files'}.`;

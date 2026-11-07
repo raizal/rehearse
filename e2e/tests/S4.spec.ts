@@ -84,6 +84,6 @@ test('S4-story-view', async ({ page, shopUrl }) => {
   await test.step('review/swimlanes: the Tests tab lists the story scenarios', async () => {
     await page.getByTestId('story-tab-tests').click();
     await expect(page.getByTestId('story-tests')).toBeVisible();
-    await expect(page.getByTestId('story-tests-summary')).not.toHaveText('Reading the player…');
+    await expect(page.getByTestId('story-tests-summary')).not.toHaveText('rehearse reads the player…');
   });
 });

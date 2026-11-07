@@ -156,7 +156,7 @@ export function CallGraphView({ id, name, depth, onDepth, onCenter }: CallGraphV
         </ul>
       </div>
       {outcome === undefined || outcome.depth !== depth ? (
-        <p className="muted small">Asking the code graph what calls {name}…</p>
+        <p className="muted small">rehearse asks the code graph what calls {name}…</p>
       ) : !outcome.outcome.ok ? (
         isServerRestarted(outcome.outcome.error) ? (
           <ServerRestarted testId="call-graph-error" />

@@ -224,7 +224,7 @@ function scenarioSection(record: EpicRecord, story: Story, short?: ShortScenario
   const shown = new Map<string, string>();
   const lines = ['## Approved scenarios', ''];
   if (approved.length === 0) lines.push('None yet. Build nothing to a scenario the owner has not approved.');
-  else lines.push('Build to these. Write one e2e test per scenario, named after its id; each step of the test starts with the box it walks.');
+  else lines.push('Build to these. Write one e2e test per scenario, named after its id. Each step of the test starts with the box it walks.');
   if (short && full.length > 0) lines.push('Each one names the criterion it checks (see Acceptance criteria above); a step example shown before reads "as in" the first scenario that has it.');
   for (const s of full) {
     lines.push('', `### ${s.id}: ${oneLine(str(s.title))}`, '');

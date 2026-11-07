@@ -436,7 +436,7 @@ export function evidenceSlide(facts: DeckFacts, ev: DeckEvidence, owner: string,
   const older = e.older ? ` ${plural(e.older, 'older run')} of a test ${e.older === 1 ? 'was' : 'were'} replaced by its newer run.` : '';
   if (e.source === 'saved')
     items.push({ text: `E2E test results: Birdview's saved results, the file ${e.file ?? 'of the project'}${e.project ? `, for the test project ${e.project}` : ''}${e.note ? ` (${e.note})` : ''}. ${plural(e.used, 'result')} used${span}.${dropped}${older}` });
-  else if (e.source === 'player') items.push({ text: `E2E test results: the running Birdview player${e.project ? `, test project ${e.project}` : ''}. ${plural(e.used, 'result')} used${span}.${dropped}` });
+  else if (e.source === 'player') items.push({ text: `E2E test results: the live Birdview player${e.project ? `, test project ${e.project}` : ''}. ${plural(e.used, 'result')} used${span}.${dropped}` });
   else items.push({ text: `E2E test results: none were found${e.why ? ` (${e.why})` : ''}, so every written test shows as "not run".`, mark: 'not-yet' });
 
   const r = ev.recordings;

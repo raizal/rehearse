@@ -107,7 +107,7 @@ export function resolveFrameTags(index: DesignIndex, epics: EpicFacts[], links: 
             if (preferred.length !== 1) {
               say(
                 having.map((e) => e.slug),
-                `the tag [${tag.raw}]: ${having.map((e) => e.slug).join(' and ')} both have ${tag.storyId}; name the EPIC, e.g. [${having[0]!.slug}:${tag.raw}]`,
+                `the tag [${tag.raw}]: ${having.map((e) => e.slug).join(' and ')} both have ${tag.storyId}; name the EPIC, for example [${having[0]!.slug}:${tag.raw}]`,
                 [tag.storyId],
               );
               continue;

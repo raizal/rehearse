@@ -97,7 +97,7 @@ export function checkArchitectureChange(record: EpicRecord): Finding[] {
 
   const asIsLinks = new Set(asArray<ArchLink>(asIs?.links).filter(isObject).map(linkKey));
   const linkChanges = asArray<ArchLink & { change?: string }>(ch.links).filter((l) => isObject(l) && typeof l.from === 'string' && typeof l.to === 'string');
-  for (const d of duplicates(linkChanges.map(linkKey))) out.push(ref(CHANGE, `link ${d.replace('\u0000', ' -> ')}`, 'link is changed more than once'));
+  for (const d of duplicates(linkChanges.map(linkKey))) out.push(ref(CHANGE, `link ${d.replace('\u0000', ' -> ')}`, 'more than one change names this link'));
   for (const l of linkChanges) {
     const where = `link ${l.from} -> ${l.to}`;
     if (l.change === 'added' && asIsLinks.has(linkKey(l))) out.push(ref(CHANGE, where, `link is already in ${ARCH}; use change: changed`));

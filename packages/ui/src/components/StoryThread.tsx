@@ -250,7 +250,7 @@ export function StoryThread({ storyId, context, api = HTTP, storage = browserLoc
       {view?.planChanged && <PlanChanged changes={view.planChanged.changes} busy={busy} canSend={Boolean(bb?.ok)} onSend={() => void act('send-change')} />}
       {progress && <StoryProgressBlock progress={progress} now={now()} />}
       {api.merge && threadId && bb?.ok && <MergePanel storyId={storyId} kind="build" api={api.merge} refreshKey={`${threadId}:${bb.statusText}:${seq}`} />}
-      {data.kind === 'loading' && <p className="muted small thread-pad">Loading the story thread…</p>}
+      {data.kind === 'loading' && <p className="muted small thread-pad">rehearse loads the story thread…</p>}
       {data.kind === 'error' &&
         (isServerRestarted(data.message) ? (
           <ServerRestarted className="warn thread-pad" testId="story-thread-error" />

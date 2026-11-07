@@ -30,7 +30,7 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
     expect(md).toMatch(/2\. `cart`\n  - example: given \{"items":\["a"\]\} → then \{"orderId":"o1"\}\n  - box `cart`: /);
     expect(md).toMatch(/    - inputs: /);
     expect(md).toMatch(/    - error exits: empty-cart/);
-    expect(md).toContain('`cart` taking "empty-cart"');
+    expect(md).toContain('`cart`, branch "empty-cart"');
     expect(md).toContain('`ship/pack`');
     expect(md).toContain('Expect (what the test checks at the end): {"Order.status":"shipped"}');
     // Where and the name rule, quoted.
@@ -45,7 +45,7 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
     expect(md).not.toContain('exec playwright test');
     // Only tests.
     expect(md).toContain('Write only tests: do not change app code. If the app cannot do what a scenario says, stop and say so in the thread');
-    expect(md).toContain('its commits carry no `Flow-Box:` trailer');
+    expect(md).toContain('Its commits carry no `Flow-Box:` trailer');
     expect(md).toContain('Re-read this brief with `rehearse brief 2026-11-05-shop S1 --tests --scenario S1-buy --scenario S1-empty`.');
     for (const line of HOW_TO_WORK) expect(md).toContain(line);
     expect(r.scenarios).toEqual(['S1-buy', 'S1-empty']);
@@ -74,8 +74,8 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
     expect(r.markdown).toContain('- CLI scenario: `e2e/tests/cli.ts` (`freshRepo`, `rehearse`, `git`) makes a fresh git repo and runs the CLI in it.');
     // Without the fixture it says so.
     const bare = scenarioTestBrief(loadEpic(approvedEpic()).record, 'S1', ['S1-buy']);
-    expect(bare.ok && bare.markdown).toContain('Start from: a CLI scenario (no box of the app), no fixture yet: copy the setup of an existing spec.');
-    expect(bare.ok && bare.markdown).toContain('- CLI scenario: no fixture in `e2e/tests/` makes a fresh git repo and runs the CLI in it; copy the setup of an existing spec.');
+    expect(bare.ok && bare.markdown).toContain('Start from: a CLI scenario (no box of the app), no fixture yet: copy the setup of another spec.');
+    expect(bare.ok && bare.markdown).toContain('- CLI scenario: no fixture in `e2e/tests/` makes a fresh git repo and runs the CLI in it; copy the setup of another spec.');
   });
 
   it('T48 where it shows: a UI box that reads the entity field or takes the field; else check the files', () => {

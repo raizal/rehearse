@@ -34,7 +34,7 @@ export function StatusPage({ slug, onOpenStory, api = HTTP, now = Date.now() }: 
     };
   }, [api, slug, round]);
 
-  if (table.kind === 'loading') return <div className="status-msg" data-testid="status-loading">Reading signatures, commits, the code graph and test results…</div>;
+  if (table.kind === 'loading') return <div className="status-msg" data-testid="status-loading">rehearse reads signatures, commits, the code graph and test results…</div>;
   if (table.kind === 'error')
     return (
       <div className="status-msg error" data-testid="status-error">
@@ -179,7 +179,7 @@ function StatusDetail({ story, onOpenStory, api, now }: { story: string; onOpenS
   }, [api, story]);
   return (
     <div className="status-detail" data-testid={`status-detail-${story}`}>
-      {p.kind === 'loading' && <p className="small muted">Reading the progress of {story}…</p>}
+      {p.kind === 'loading' && <p className="small muted">rehearse reads the progress of {story}…</p>}
       {p.kind === 'error' && <p className="small warn">The progress of {story} could not be read: {p.message}</p>}
       {p.kind === 'ready' && <StoryProgressBlock progress={p.body} now={now} />}
       <button type="button" className="link" data-testid={`status-open-${story}`} onClick={() => onOpenStory(story)}>

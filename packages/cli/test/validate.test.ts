@@ -67,10 +67,17 @@ describe('story S2: validate tells the agent exactly what is wrong', () => {
   });
 });
 
+/** The report is OK: no findings, and each other line is an STE note on draft text (T60). */
+function validateOk(out: string): boolean {
+  const lines = out.trimEnd().split('\n');
+  const last = lines.pop()!;
+  return /^validate: OK, no findings( \(\d+ STE notes on draft text: information only\))?$/.test(last) && lines.every((l) => l.includes(': information: STE '));
+}
+
 describe('dogfood (D24)', () => {
   it('rehearse validate docs/epics/2026-11-05-rehearse exits 0 on the real record', () => {
     const { code, out } = cli(['validate', 'docs/epics/2026-11-05-rehearse']);
-    expect(out).toBe('validate: OK, no findings\n');
+    expect(validateOk(out)).toBe(true);
     expect(code).toBe(0);
   });
 

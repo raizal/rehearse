@@ -151,7 +151,7 @@ describe('story view (S4-A5)', () => {
     // The decision in-stock serves no story: the edge passes through it, dashed, and says so.
     const edge = within(how).getByTestId('story-how-edge-pay-ship');
     expect(edge).toHaveClass('is-via');
-    expect(edge).toHaveTextContent('via Item in stock?');
+    expect(edge).toHaveTextContent('through Item in stock?');
     screen.getByTestId('story-how-box-ship/pack').focus();
     await user.keyboard('{Enter}');
     expect(screen.getByTestId('box-drawer')).toHaveAttribute('data-box', 'ship/pack');

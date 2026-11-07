@@ -254,6 +254,8 @@ describe('big picture (S4-A4)', () => {
       // T57 (S22): the owner's pick of a main path goes back to finding it; a refused pick goes back to the map.
       { from: 'pick-main-path', to: 'main-path', back: true },
       { from: 'pick-main-path', to: 'story-map', back: true },
+      // T60 (S25): after a rewrite, the text goes back to the STE word check.
+      { from: 'ste-rewrite', to: 'ste-words', back: true },
     ]);
     expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: view.prd!.stories.length, processes: main.length });
   });

@@ -34,7 +34,7 @@ export function SystemFlowchartView({ view, onOpenBox }: BigViewProps) {
           </p>
         ) : (
           <div className="bp-map-wrap gd-canvas">
-            {lay.kind === 'busy' && <p className="muted gd-status">Laying out the system flowchart…</p>}
+            {lay.kind === 'busy' && <p className="muted gd-status">rehearse draws the system flowchart…</p>}
             {lay.kind === 'error' && <p className="warn gd-status">Could not lay out the system flowchart: {lay.message}</p>}
             {lay.kind === 'ready' && <GraphDiagram prefix="sf" label="System flowchart: one column per system lane" graph={sf} layout={lay.layout} onOpenBox={onOpenBox} />}
           </div>

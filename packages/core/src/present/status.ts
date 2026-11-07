@@ -61,7 +61,7 @@ function e2eOf(v: StoryView, facts: DeckFacts): StatusRow['e2e'] {
   const t = v.tests;
   const base = { approved: v.approved, passed: t.passed, failed: t.failed, notRun: t['not-run'], notWritten: t['not-written'] };
   if (v.approved === 0) return { ...base, text: v.scenarios.length === 0 ? 'no scenarios yet' : 'no approved scenario yet', tone: 'muted' };
-  if (t.failed > 0) return { ...base, text: `${t.failed} failing${t.passed > 0 ? `, ${t.passed} of ${v.approved} passed` : ''}`, tone: 'bad' };
+  if (t.failed > 0) return { ...base, text: `${t.failed} failed${t.passed > 0 ? `, ${t.passed} of ${v.approved} passed` : ''}`, tone: 'bad' };
   if (t.passed > 0) return { ...base, text: `${t.passed} of ${v.approved} passed`, tone: t.passed >= v.approved ? 'good' : 'warn' };
   if (t['not-written'] === v.approved) return { ...base, text: 'none yet', tone: 'muted' };
   // Written, never seen run: say whether the results could be read at all.
@@ -74,7 +74,7 @@ function unitOf(v: StoryView): StatusRow['unit'] {
   // No unit report was read: the sources line says why.
   if (!u) return { text: 'not run', tone: 'muted' };
   if (u.tests === 0) return { text: 'no test names it', tone: 'muted', tests: 0, passed: 0, failed: 0 };
-  if (u.failed > 0) return { text: `${u.failed} failing, ${u.passed} of ${u.tests} passed`, tone: 'bad', ...u };
+  if (u.failed > 0) return { text: `${u.failed} failed, ${u.passed} of ${u.tests} passed`, tone: 'bad', ...u };
   return { text: `${u.passed} of ${u.tests} passed`, tone: u.passed >= u.tests ? 'good' : 'warn', ...u };
 }
 
@@ -114,7 +114,7 @@ export function statusSources(facts: DeckFacts): StatusSources {
   const e2e = !ev
     ? 'not looked up'
     : ev.e2e.source === 'player'
-      ? `the running Birdview player${ev.e2e.newest ? `, last run ${day(ev.e2e.newest)}` : ''}`
+      ? `the live Birdview player${ev.e2e.newest ? `, last run ${day(ev.e2e.newest)}` : ''}`
       : ev.e2e.source === 'saved'
         ? `Birdview's saved results${ev.e2e.file ? ` (${ev.e2e.file})` : ''}${ev.e2e.newest ? `, newest run ${day(ev.e2e.newest)}` : ''}`
         : `Birdview results not found: ${ev.e2e.why ?? 'nothing to read'}`;

@@ -257,7 +257,7 @@ function howWeKnow(views: StoryView[], facts: DeckFacts, ev: DeckEvidence, ctx: 
   const birdview = e.newest ? `; Birdview test results of ${shortDate(e.newest, year)}` : '';
   const sources = `Where it comes from: the plan as committed at ${facts.commit.sha} on ${facts.commit.branch}, ${shortDate(facts.commit.date, year)}${facts.uncommitted ? ' (with changes not committed yet)' : ''}${birdview}.`;
 
-  const meaning = `${DONE_RULE} "Seen working" means its tests used the product on the real screens, step by step, and passed; "checked by automated tests" means the tests of the code pass but no run on the real screens yet.`;
+  const meaning = `${DONE_RULE} "Seen working" means its tests used the product on the real screens, step by step, and passed. "Checked by automated tests" means the tests of the code pass, but the tests did not run on the real screens yet.`;
   const noPicture =
     ev.recordings.found === 0 ? 'No picture of a test run: Birdview kept no recording of these tests.' : 'No picture of a passed test run is available.';
   const right: Block[] = [
@@ -302,12 +302,12 @@ export function nextSteps(groups: ReasonGroup[], s: ReturnType<typeof standing>,
   const out: string[] = [];
   for (const g of groups) {
     const titles = names(g.stories.map((v) => `"${v.title}"`), 2);
-    if (g.reason === 'test-fails') out.push(`The builders fix the failing ${g.stories.reduce((n, v) => n + v.tests.failed, 0) === 1 ? 'test' : 'tests'} of ${titles}.`);
+    if (g.reason === 'test-fails') out.push(`The builders fix the ${g.stories.reduce((n, v) => n + v.tests.failed, 0) === 1 ? 'test that fails' : 'tests that fail'} in ${titles}.`);
     else if (g.reason === 'check-fails') out.push(`The builders fix what the automated checks find in ${titles}.`);
     else if (g.reason === 'stale') out.push(`I read what changed in ${titles} and sign off again.`);
     else if (g.reason === 'approval') {
       const n = g.stories.reduce((k, v) => k + waitingChecks(v), 0);
-      out.push(n > 0 ? `I approve the ${plural(n, 'check')} waiting for ${titles}, and sign ${g.stories.length === 1 ? 'it' : 'them'} off.` : `I sign off ${titles}.`);
+      out.push(n > 0 ? `I approve the ${plural(n, 'open check')} of ${titles}, and sign ${g.stories.length === 1 ? 'it' : 'them'} off.` : `I sign off ${titles}.`);
     } else if (g.reason === 'building') out.push(`The builders build the ${plural(g.stories.reduce((n, v) => n + unbuilt(v), 0), 'piece')} left of ${titles}.`);
     else out.push(`I write the plan of ${titles}.`);
   }
@@ -385,7 +385,7 @@ export function summarySlides(x: SummaryInput): Slide[] {
     slides.push({
       key: 'asks',
       title: 'What I need from you',
-      narration: narrate('asks', `I need ${plural(inputs.asks.length, 'thing')} from you to keep this moving.`),
+      narration: narrate('asks', `I need ${plural(inputs.asks.length, 'thing')} from you so that the work can continue.`),
       ids: [],
       blocks: [{ type: 'list', items: inputs.asks.map((a) => ({ text: a })) }],
     });
@@ -408,7 +408,7 @@ export function detailsSlide(narration: string | undefined, stories: number): Sl
     narration: narration ?? 'The rest of this deck is the detail behind the summary: every part of the plan, one by one, with its checks and its proof.',
     ids: [],
     blocks: [
-      { type: 'lead', text: `The slides after this one show each of the ${plural(stories, 'part')} of the plan on its own: what it is for, how it works, what was checked, and the proof.` },
+      { type: 'lead', text: `The slides after this one show each of the ${plural(stories, 'part')} of the plan on its own. They show what it is for, how it works, what was checked, and the proof.` },
       { type: 'text', text: 'In these slides a part of the plan is called a story, and a check is called a scenario.', tone: 'muted' },
     ],
   };

@@ -58,7 +58,7 @@ export function BoxCodeGraph({ box, files }: { box: string; files: readonly stri
         )}
       </h5>
       {load.state === 'loading' ? (
-        <p className="muted small">Asking the code graph about box {box}…</p>
+        <p className="muted small">rehearse asks the code graph about box {box}…</p>
       ) : load.state === 'error' ? (
         isServerRestarted(load.error) ? (
           <ServerRestarted testId="code-graph-error" />
@@ -143,7 +143,7 @@ function NodeView({ id, built, ...calls }: { id: string; built: BuiltNode | unde
       live = false;
     };
   }, [api, id]);
-  if (outcome === undefined) return <p className="muted small">Loading the code of {built?.name ?? id}…</p>;
+  if (outcome === undefined) return <p className="muted small">rehearse loads the code of {built?.name ?? id}…</p>;
   if (!outcome.ok) {
     return isServerRestarted(outcome.error) ? (
       <ServerRestarted testId="code-graph-error" />

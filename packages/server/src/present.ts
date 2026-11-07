@@ -60,7 +60,7 @@ export class UncommittedError extends Error {}
 export class PrinterUnavailable extends Error {}
 
 export const NO_CHROMIUM =
-  'Chromium is not available here, so rehearse cannot make the PDF. Open the HTML deck in a browser and print it to PDF (one landscape slide per page), or install the e2e browsers with `pnpm --filter @rehearse/e2e exec playwright install chromium`.';
+  'Chromium is not available here, so rehearse cannot make the PDF. Open the HTML deck in a browser and print it to PDF, one landscape slide per page. Or install the e2e browsers with `pnpm --filter @rehearse/e2e exec playwright install chromium`.';
 
 /** Prints an HTML document to PDF bytes. */
 export type Printer = (html: string) => Promise<Uint8Array>;

@@ -51,7 +51,7 @@ const TABLE: StatusTable = {
     }),
     row('S5', {
       signed: { state: 'changed', text: 'changed since signed' },
-      unit: { text: '1 failing, 2 of 3 passed', tone: 'bad', tests: 3, passed: 2, failed: 1 },
+      unit: { text: '1 failed, 2 of 3 passed', tone: 'bad', tests: 3, passed: 2, failed: 1 },
       done: { state: 'in-progress', text: 'not done' },
       seenWorking: false,
       missing: [{ text: 'an automated test fails', who: 'builders', blocking: true }],
@@ -98,7 +98,7 @@ describe('StatusPage', () => {
   it('shows the header, the seven columns, not done first, and who acts', async () => {
     const api = fakeApi();
     render(<StatusPage slug="2026-11-05-shop" onOpenStory={() => {}} api={api} now={NOW} />);
-    expect(screen.getByTestId('status-loading')).toHaveTextContent('Reading signatures, commits, the code graph and test results');
+    expect(screen.getByTestId('status-loading')).toHaveTextContent('rehearse reads signatures, commits, the code graph and test results');
     expect(await screen.findByTestId('status-header')).toHaveTextContent('2 of 4 stories done · 1 seen working on the real screens · 2 not done');
     expect(api.status).toHaveBeenCalledWith('2026-11-05-shop');
     const heads = within(screen.getByTestId('status-table')).getAllByRole('columnheader').map((h) => h.textContent);
@@ -107,7 +107,7 @@ describe('StatusPage', () => {
     expect(screen.getByTestId('status-signed-S2')).toHaveTextContent('no');
     expect(screen.getByTestId('status-built-S2')).toHaveTextContent('2 of 3 — 1 left');
     expect(screen.getByTestId('status-e2e-S2')).toHaveTextContent('none yet');
-    expect(screen.getByTestId('status-unit-S5')).toHaveTextContent('1 failing, 2 of 3 passed');
+    expect(screen.getByTestId('status-unit-S5')).toHaveTextContent('1 failed, 2 of 3 passed');
     expect(screen.getByTestId('status-done-S2')).toHaveTextContent('not done');
     expect(within(screen.getByTestId('status-missing-S2')).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['1 box not built (checkout/pay): builders', 'sign off: you']);
     expect(screen.getByTestId('status-missing-S3')).toHaveTextContent('no real-screen test yet: test thread');

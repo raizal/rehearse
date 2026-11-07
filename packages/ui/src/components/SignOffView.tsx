@@ -51,7 +51,7 @@ export function SignOffView({ view, session, busy, outcome, onSignOff, onOpenBox
     : ids.length === 0 ? 'select at least one story'
     : blocking.length > 0 ? `${blocking.length} gate finding${blocking.length === 1 ? '' : 's'} for the selected stories`
     : blockedBy ? 'signing is not available'
-    : busy ? 'a request is running'
+    : busy ? 'a request is not complete yet'
     : undefined;
   const identity = session.kind === 'ready' ? session.session : undefined;
 

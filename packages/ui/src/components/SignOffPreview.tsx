@@ -48,7 +48,7 @@ export function SignOffPreview({ view, storyIds, me, onOpenBox }: SignOffPreview
       </p>
       {load.kind === 'loading' && (
         <p className="muted" data-testid="signoff-preview-loading">
-          Loading what you agree to…
+          rehearse loads what you agree to…
         </p>
       )}
       {load.kind === 'error' && (
@@ -239,7 +239,7 @@ function Since({ id, since, me }: { id: Id; since: SinceSignOff; me?: string }) 
       )}
       {!since.exact && (
         <p className="muted small" data-testid={`signoff-preview-inexact-${id}`}>
-          The files of commit {since.commit.short} do not match the signed fingerprint exactly (the record was not committed together with the sign-off), so this list may miss or add a change.
+          The files of commit {since.commit.short} do not match the signed fingerprint exactly. The commit of the record is not the commit of the sign-off. Thus this list can miss or add a change.
         </p>
       )}
     </div>

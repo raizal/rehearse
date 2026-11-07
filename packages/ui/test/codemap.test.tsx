@@ -535,7 +535,7 @@ describe('T40 search and the path from A to B', () => {
 });
 
 describe('T40 filters', () => {
-  it('hide tests, hide outside packages, and only code serving the boxes of one EPIC', async () => {
+  it('hide tests, hide outside packages, and only code for the boxes of one EPIC', async () => {
     const api = fakeMap();
     const { user } = await start('#/code/file/src%2Fpay.ts', api);
     await node(PAY_TESTS);
@@ -574,7 +574,7 @@ describe('T40 empty, not indexed and indexing', () => {
     let answer: (o: MapOutcome<CodeMap>) => void = () => undefined;
     const api = fakeMap(BASE, { status: async () => ({ ok: true, value: { indexed: false, busy: true } }), map: () => new Promise((r) => (answer = r)) });
     await start('#/code', api);
-    expect(await screen.findByTestId('code-map-loading')).toHaveTextContent('Indexing your repo for the first time');
+    expect(await screen.findByTestId('code-map-loading')).toHaveTextContent('rehearse indexes your repo for the first time');
     await act(async () => answer(ok(PACKAGES)));
     expect(await node('@m/a')).toBeInTheDocument();
   });

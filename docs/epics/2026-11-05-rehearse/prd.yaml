@@ -337,6 +337,23 @@ requirements:
       and the evidence says what was looked for. No unit report, no Birdview results or no code
       graph is said in plain words, never hidden. Sources and dates are shown. Read-only. (T58)
 
+  # T60: product text and new plan text in Simplified Technical English, with a checker.
+  - id: R36
+    kind: functional
+    text: >-
+      The product text and the new plan text use ASD-STE100 Simplified Technical English (STE). A
+      checker in core reads a text and gives findings. Each finding has the rule and a suggestion.
+      The rules are: a sentence longer than 20 words (instruction) or 25 words (description); a
+      paragraph with more than 6 sentences; a passive verb in an instruction; an "-ing" verb form; a
+      cluster of more than 3 nouns; and a word that STE does not approve, with the approved word.
+      The words are in one data file that says its source and its size. The checker does not read
+      code spans, ids, box ids, file paths, commands and quoted UI labels. The plan terms are
+      technical names. A repo test checks all product text sources: the UI, the CLI, the finding
+      messages, the deck, the briefs, the skill and docs. A new finding fails the test. An old
+      finding with no STE fix goes into a short allow list with a reason. `rehearse validate`
+      gives STE notes on draft stories and draft scenarios only, as information. A note is never a
+      finding, an error or a gate item. Signed text is not checked. (T60)
+
 stories:
   - id: S1
     role: builder
@@ -1323,6 +1340,43 @@ stories:
         then: >-
           the Automated tests column says "not run", the real-screens column says "Birdview results
           not found", or "built" counts Flow-Box commits only, and the sources say so in plain words
+
+  # T60: product text and new plan text in STE, with a checker.
+  - id: S25
+    role: builder
+    want: the product text and new plan text in Simplified Technical English, with a checker
+    soThat: every reader gets one clear meaning
+    requirements: [R36]
+    acceptance:
+      - id: S25-A1
+        given: a text with a long sentence, a long paragraph, a passive verb in an instruction, an -ing form, a noun cluster and an unapproved word
+        when: the STE checker reads the text
+        then: >-
+          it gives one finding for each rule, with the rule and a suggestion. A finding for an
+          unapproved word gives the approved word from the word list. The checker does not read
+          code spans, ids, box ids, file paths, commands and quoted UI labels
+      - id: S25-A2
+        given: the UI, the CLI usage and output, the finding messages, the deck, the briefs, the skill and docs
+        when: the STE checker reads them
+        then: >-
+          they have no finding that is not on the allow list. The text keeps its meaning, and the
+          plan terms stay as technical names
+      - id: S25-A3
+        given: the repo tests
+        when: a builder adds product text with a new STE finding
+        then: >-
+          the repo test fails and names the file, the line, the rule and the suggestion. A finding
+          with no STE fix passes only when the allow list has it with a reason
+      - id: S25-A4
+        given: an EPIC with draft stories and draft scenarios
+        when: the builder runs `rehearse validate`
+        then: >-
+          it gives the STE notes on the draft text as information. The report stays OK, the exit
+          code does not change, and the gate does not show the notes
+      - id: S25-A5
+        given: a signed story or an approved scenario
+        when: the builder runs `rehearse validate`
+        then: it gives no STE note on that text, because a change to signed text makes the approvals stale
 
 resolvedQuestions:
   - question: Who is "the builder" in records?
