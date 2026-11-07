@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { archCells, archLayout, drawingOf, diffDrawing } from '../src/model/architecture.js';
-import { dataFlow, dataFlowCells } from '../src/model/dataflow.js';
+import { dataFlow, dataFlowCells, dataFlowLayout } from '../src/model/dataflow.js';
 import type { DGraph, GraphLayout, Point, Rect } from '../src/model/graph.js';
 import { columnsFor, DIAGRAM_W, layoutGrid, snakeCells, type Cell } from '../src/model/grid.js';
 import { userFlow } from '../src/model/userflow.js';
@@ -96,10 +96,22 @@ describe('T18b grid layout (pages 5 and 6)', () => {
         if (n.shape === 'process') expect(c.row % 2, n.id).toBe(0);
         if (n.shape === 'store') expect(c.row % 2, n.id).toBe(1);
       }
-      const lay = layoutGrid(df, cells);
-      expect(lay.width).toBeLessThanOrEqual(DIAGRAM_W);
-      expectGridReadable(df.nodes, df.edges, lay);
+      expectGridReadable(df.nodes, df.edges, layoutGrid(df, cells));
+      // As the page draws it: one column fewer while the gutters make it wider than the page.
+      const { layout, cols } = dataFlowLayout(df);
+      expect(layout.width).toBeLessThanOrEqual(DIAGRAM_W);
+      expect(layout).toEqual(layoutGrid(df, dataFlowCells(df, cols)));
+      expectGridReadable(df.nodes, df.edges, layout);
     }
+  });
+
+  it('T47 the data flow drops a column when the record grows wider than the page (S13 boxes on the real EPIC)', () => {
+    const df = dataFlow(realEpic().flow, realEpic().prd, realEpic().entities);
+    expect(layoutGrid(df, dataFlowCells(df, 7)).width).toBeGreaterThan(DIAGRAM_W);
+    expect(dataFlowLayout(df)).toMatchObject({ cols: 6 });
+    // A small record keeps every column.
+    const small = dataFlow(reviewEpic().flow, reviewEpic().prd, reviewEpic().entities);
+    expect(dataFlowLayout(small).cols).toBe(columnsFor(DIAGRAM_W, Math.max(...small.nodes.map((n) => n.w))));
   });
 });
 

@@ -1,13 +1,13 @@
 // `rehearse brief` and `rehearse progress` (T44): the build brief a thread gets, and what rehearse
 // sees of the work on a story. Progress reads git through a fake runner: no real repo, no bb.
 
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Runner } from '@rehearse/server';
 import { makeEpic } from '../../core/test/helpers.js';
-import { editYaml, signedEpic } from '../../core/test/trust/helpers.js';
+import { approvedEpic, editYaml, signedEpic } from '../../core/test/trust/helpers.js';
 import { runProgress } from '../src/commands/progress.js';
 import { main, run, USAGE } from '../src/index.js';
 
@@ -17,6 +17,55 @@ function cli(args: string[], cwd = tmpdir()): { code: number; out: string; err: 
   const code = run(args, { cwd, stdout: (t) => (out += t), stderr: (t) => (err += t) });
   return { code, out, err };
 }
+
+/** The shop, approved, with an e2e project beside it whose spec has the test of S1-buy. */
+function shopWithTests(): string {
+  const dir = approvedEpic();
+  const e2e = join(dirname(dir), 'e2e');
+  mkdirSync(join(e2e, 'specs'), { recursive: true });
+  writeFileSync(join(e2e, 'playwright.config.ts'), 'export default {};\n');
+  writeFileSync(join(e2e, 'specs', 'S1.spec.ts'), "test('S1-buy', async ({ page }) => {\n});\n");
+  return dir;
+}
+
+describe('rehearse brief --tests (T47, box test-brief)', () => {
+  it('without --scenario: the approved scenarios of the story that have no test, exit 0', () => {
+    const r = cli(['brief', shopWithTests(), 'S1', '--tests']);
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/^# Test brief: e2e tests for S1-empty \(story S1 of the EPIC 2026-11-05-shop\)\n/);
+    expect(r.out).toContain('- File: `e2e/specs/S1.spec.ts`');
+    expect(r.out).toContain('from `e2e/specs/S1.spec.ts`');
+    expect(r.out).toContain("`test('S1-empty', async ({ page }) => {`");
+    expect(r.out).toContain('Write only tests');
+  });
+
+  it('--scenario names them; --json has the scenarios, the spec file, the hash and the markdown', () => {
+    const r = cli(['brief', approvedEpic(), 'S1', '--tests', '--scenario', 'S1-buy', '--scenario', 'S1-empty', '--json']);
+    expect(r.code).toBe(0);
+    const j = JSON.parse(r.out);
+    expect(j).toMatchObject({ ok: true, storyId: 'S1', scenarios: ['S1-buy', 'S1-empty'], specFile: 'e2e/tests/S1.spec.ts' });
+    expect(j.hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(j.markdown).toContain('## S1-buy:');
+  });
+
+  it('exit 1: a draft scenario (approve it first), no missing test, an unknown story or scenario', () => {
+    const draft = cli(['brief', makeEpic(), 'S1', '--tests', '--scenario', 'S1-buy']);
+    expect(draft).toMatchObject({ code: 1, out: '', err: 'rehearse brief: S1-buy (draft): approve this scenario first; an agent writes tests for approved scenarios only\n' });
+    expect(JSON.parse(cli(['brief', makeEpic(), 'S1', '--tests', '--scenario', 'S1-buy', '--json']).out)).toMatchObject({ ok: false, notApproved: [{ id: 'S1-buy', status: 'draft' }] });
+    // Every scenario is a draft: none is missing a test yet, and the drafts are named.
+    expect(cli(['brief', makeEpic(), 'S1', '--tests'])).toMatchObject({ code: 1, err: 'rehearse brief: no approved scenario of S1 is without an e2e test; not approved yet: S1-buy (draft), S1-empty (draft), approve them first; name one with --scenario <id>\n' });
+    expect(cli(['brief', approvedEpic(), 'S9', '--tests'])).toMatchObject({ code: 1, err: 'rehearse brief: no story S9 in prd.yaml\n' });
+    expect(cli(['brief', approvedEpic(), 'S1', '--tests', '--scenario', 'S2-out-of-stock']).code).toBe(1);
+  });
+
+  it('usage errors exit 2: --scenario without --tests or a value, --tests with --allow-unsigned', () => {
+    const dir = approvedEpic();
+    for (const args of [[dir, 'S1', '--scenario', 'S1-buy'], [dir, 'S1', '--tests', '--scenario'], [dir, 'S1', '--tests', '--allow-unsigned']]) {
+      expect(cli(['brief', ...args]).code, args.join(' ')).toBe(2);
+    }
+    expect(USAGE).toContain('brief <epic-dir-or-slug> <story> --tests [--scenario <id>]…');
+  });
+});
 
 describe('rehearse brief', () => {
   it('prints the build brief of a signed story, exit 0', () => {

@@ -3,9 +3,14 @@
 // shows, a notice when it plays another project (Play switches it), and where "Switch back" goes.
 // Status comes from the player's results when it plays this EPIC's test project; otherwise every
 // test is "not run".
+//
+// T47: a `no test` row of an approved scenario can go to an agent ("Write this test with an
+// agent"); a draft or stale one says "approve this scenario first". Rows the story's test thread
+// works on show the thread until the test is played; a test it wrote that has not run yet reads
+// "test written, not run yet".
 
 import type { Id, Scenario } from '@rehearse/core';
-import type { BirdviewInfo, PlaylistTest } from '@rehearse/server';
+import type { BirdviewInfo, PlaylistTest, TestThreadView } from '@rehearse/server';
 
 export type TestStatus = 'passed' | 'failed' | 'running' | 'not run' | 'no test';
 
@@ -21,12 +26,49 @@ export interface TestRow {
   failedBox?: string;
   failedStep?: string;
   reason?: string;
+  /** The scenario is draft or stale: the owner approves it before an agent writes its test. */
+  approveFirst?: boolean;
+  /** The story's test thread has this scenario, and the test has not been played yet. */
+  withThread?: boolean;
 }
+
+/** The scenario trust per id, and the story's test thread, for the T47 parts of the rows. */
+export interface TestRowExtra {
+  statuses?: Record<Id, 'approved' | 'draft' | 'stale'>;
+  thread?: TestThreadView['thread'];
+}
+
+/** What the row of a scenario that is not approved says, instead of a button. */
+export const APPROVE_FIRST = 'approve this scenario first';
+export const WRITTEN_NOT_RUN = 'test written, not run yet';
 
 const ACTIVE = new Set(['running', 'paused', 'held', 'waiting']);
 
 /** One row per scenario of the story, in record order. */
-export function testRows(scenarios: Scenario[], info: BirdviewInfo | undefined): TestRow[] {
+export function testRows(scenarios: Scenario[], info: BirdviewInfo | undefined, extra: TestRowExtra = {}): TestRow[] {
+  const mine = new Set(extra.thread?.scenarios ?? []);
+  return baseRows(scenarios, info).map((r) => {
+    const status = extra.statuses?.[r.scenarioId];
+    if (r.status === 'no test' && status !== undefined && status !== 'approved') return { ...r, approveFirst: true };
+    if (!mine.has(r.scenarioId)) return r;
+    if (r.status === 'no test') return { ...r, withThread: true };
+    if (r.status === 'not run') return { ...r, words: WRITTEN_NOT_RUN, withThread: true };
+    return r;
+  });
+}
+
+/** The approved scenarios without a test that the running test thread does not have yet. */
+export function toSend(rows: TestRow[], view: TestThreadView | undefined): Id[] {
+  const has = new Set(view?.thread?.scenarios ?? []);
+  return (view?.missing ?? []).filter((id) => !has.has(id) && rows.some((r) => r.scenarioId === id && r.status === 'no test'));
+}
+
+/** "Write the 2 missing tests with an agent". */
+export function writeMissingLabel(k: number): string {
+  return k === 1 ? 'Write the missing test with an agent' : `Write the ${k} missing tests with an agent`;
+}
+
+function baseRows(scenarios: Scenario[], info: BirdviewInfo | undefined): TestRow[] {
   const tests = new Map<Id, PlaylistTest>((info?.playlist?.tests ?? []).map((t) => [t.name, t]));
   const player = info?.player;
   return scenarios.map((sc) => {

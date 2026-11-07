@@ -5,7 +5,8 @@
 // the session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
 // key are the server process's, never the request's. The code reads (`/api/code-index`,
 // `/api/box-code`) and the story-thread reads run git or bb; the Birdview routes read the e2e player and, for the actions in
-// PLAYER_ACTIONS only (switch the player to this repo, write a story playlist, play it; T45), call it on 127.0.0.1. The code graph route (`/api/graph`, G20) answers show, near, find,
+// PLAYER_ACTIONS only (switch the player to this repo, write a story playlist, play it; T45), call it on 127.0.0.1. The story-tests routes (T47)
+// start or feed the test thread of a story, writing only .rehearse/story-threads.json. The code graph route (`/api/graph`, G20) answers show, near, find,
 // path and the code map's levels (T40) from @rehearse/graph, and a file watcher keeps the graph fresh (graph-route.ts). All of them need
 // the same token and Origin check. The sign-off preview (`GET /api/sign-off/preview`, T39) reads
 // git history too, with the same check.
@@ -105,6 +106,8 @@ const ROUTES: Record<string, string> = {
   '/api/story-progress': 'GET, HEAD',
   '/api/story-thread/send': 'POST',
   '/api/story-thread/open': 'POST',
+  '/api/story-tests/thread': 'GET, HEAD, POST',
+  '/api/story-tests/send': 'POST',
   '/api/birdview': 'GET',
   ...Object.fromEntries(PLAYER_ACTIONS.map((a) => [`/api/birdview/${a}`, 'POST'])),
 };
@@ -275,6 +278,10 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       void storyThread(req, res, path, session, threads);
       return;
     }
+    if (path.startsWith('/api/story-tests/')) {
+      void storyTests(req, res, path, session, threads);
+      return;
+    }
     if (path === '/api/story-progress') {
       // Box watch-build: the token and the Origin before any git or bb call.
       const refused = checkRequest(req, session);
@@ -421,6 +428,45 @@ async function storyThread(req: IncomingMessage, res: ServerResponse, path: stri
       await threads.open(story);
       sendJson(res, 200, { ok: true });
     }
+  } catch (e) {
+    if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message, ...(e.details ? { details: e.details } : {}) });
+    else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+/**
+ * The story's test thread (T47, box start-test-thread): read it, start one for approved scenarios
+ * without a test, or send more scenarios to it. Each needs the token and a same-origin Origin.
+ */
+async function storyTests(req: IncomingMessage, res: ServerResponse, path: string, session: ServerSession, threads: StoryThreadService): Promise<void> {
+  try {
+    if (req.method !== 'POST') {
+      const refused = checkRequest(req, session);
+      if (refused) {
+        sendJson(res, refused.status, { ok: false, error: refused.error });
+        return;
+      }
+      const story = new URL(req.url ?? '/', 'http://localhost').searchParams.get('story') ?? '';
+      sendJson(res, 200, await threads.testView(story));
+      return;
+    }
+    const body = await readJsonPost(req, session);
+    if ('status' in body) {
+      sendJson(res, body.status, { ok: false, error: body.error });
+      return;
+    }
+    const story = body.json.story;
+    if (typeof story !== 'string') {
+      sendJson(res, 400, { ok: false, error: 'body must have "story": string' });
+      return;
+    }
+    const list = body.json.scenarios;
+    if (list !== undefined && !(Array.isArray(list) && list.length <= 200 && list.every((id) => typeof id === 'string' && STORY_ID.test(id)))) {
+      sendJson(res, 400, { ok: false, error: '"scenarios" must be a list of scenario ids' });
+      return;
+    }
+    const scenarios = list as string[] | undefined;
+    sendJson(res, 200, path === '/api/story-tests/thread' ? await threads.startTests(story, scenarios) : await threads.sendTests(story, scenarios));
   } catch (e) {
     if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message, ...(e.details ? { details: e.details } : {}) });
     else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });

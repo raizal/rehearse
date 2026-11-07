@@ -3,15 +3,14 @@
 // or write data), numbered data stores (entities) and the flows between them.
 
 import { useMemo } from 'react';
-import { dataFlow, dataFlowCells, type DataFlow } from '../model/dataflow.js';
+import { dataFlow, dataFlowLayout, type DataFlow } from '../model/dataflow.js';
 import type { DGraph } from '../model/graph.js';
-import { columnsFor, DIAGRAM_W, layoutGrid } from '../model/grid.js';
 import type { BigViewProps } from './BigPictureViews.js';
 import { GraphDiagram, LegendItem, useGraphLayout } from './GraphDiagram.js';
 import { BoxList } from './UserFlowView.js';
 
-/** Rows of processes with their data stores under them, as wide as the page. */
-const layoutRows = async (g: DGraph) => layoutGrid(g, dataFlowCells(g as DataFlow, columnsFor(DIAGRAM_W, Math.max(...g.nodes.map((n) => n.w)))));
+/** Rows of processes with their data stores under them, as wide as the page at most. */
+const layoutRows = async (g: DGraph) => dataFlowLayout(g as DataFlow).layout;
 
 export function DataFlowView({ view, onOpenBox }: BigViewProps) {
   const df = useMemo(() => dataFlow(view.flow, view.prd, view.entities), [view]);

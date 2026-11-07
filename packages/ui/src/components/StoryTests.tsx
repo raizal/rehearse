@@ -6,20 +6,37 @@
 // running are said in plain words; nothing is queued or retried. Every call goes to
 // `rehearse serve`, which talks to the player on 127.0.0.1. The player is embedded while it plays
 // this repo; the tab reads it again every few seconds, every second while a test runs.
+//
+// T47 (box start-test-thread): a `no test` row of an approved scenario has "Write this test with an
+// agent", the summary line "Write the K missing tests with an agent" (one thread for all). Both
+// start the story's test thread through `rehearse serve`; while it works, they send the scenarios
+// to it instead. The rows it has show its status, last activity and `@thread:` link; a draft or
+// stale scenario says "approve this scenario first" and has no button.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Id, Scenario } from '@rehearse/core';
-import { fetchBirdview, postBirdview, type BirdviewAction, type BirdviewInfo, type BirdviewOutcome } from '../api.js';
+import type { MouseEvent } from 'react';
+import { fetchBirdview, fetchTestThread, postBirdview, postTestThread, type BirdviewAction, type BirdviewInfo, type BirdviewOutcome, type TestThreadView, type ThreadOutcome } from '../api.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
-import { birdviewStatus, embedUrl, testRows, testSummary, type TestRow } from '../model/tests.js';
+import { timeLabel, toneOf } from '../model/storythread.js';
+import { APPROVE_FIRST, birdviewStatus, embedUrl, testRows, testSummary, toSend, writeMissingLabel, type TestRow } from '../model/tests.js';
 
 /** The calls the tab makes; they take the token from the shared session client. Tests replace `fetch`, not this. */
 export interface TestsApi {
   birdview: (storyId: Id) => Promise<BirdviewInfo>;
   call: (action: BirdviewAction, body: Record<string, string>) => Promise<BirdviewOutcome>;
+  /** The story's test thread (T47). */
+  testThread?: (storyId: Id) => Promise<ThreadOutcome<TestThreadView>>;
+  /** Start the test thread, or send scenarios to it (T47). */
+  testCall?: (action: 'thread' | 'send', body: { story: Id; scenarios?: Id[] }) => Promise<ThreadOutcome<TestThreadView>>;
 }
 
-const HTTP_TESTS_API: TestsApi = { birdview: (id) => fetchBirdview(id), call: (action, body) => postBirdview(action, body) };
+const HTTP_TESTS_API: TestsApi = {
+  birdview: (id) => fetchBirdview(id),
+  call: (action, body) => postBirdview(action, body),
+  testThread: (id) => fetchTestThread(id),
+  testCall: (action, body) => postTestThread(action, body),
+};
 
 /** How often the tab reads the player again while it is open. */
 export const POLL_MS = 5000;
@@ -42,23 +59,43 @@ type Msg = { text: string; warn: boolean };
 export interface StoryTestsProps {
   storyId: Id;
   scenarios: Scenario[];
+  /** Each scenario's trust: only approved ones go to an agent (T47). */
+  statuses?: Record<Id, 'approved' | 'draft' | 'stale'>;
   api?: TestsApi;
 }
 
-export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTestsProps) {
+export function StoryTests({ storyId, scenarios, statuses, api = HTTP_TESTS_API }: StoryTestsProps) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [msg, setMsg] = useState<Msg | undefined>();
   const [pending, setPending] = useState(false);
+  const [tv, setTv] = useState<TestThreadView | undefined>();
 
-  const refresh = useCallback(() => {
+  const refreshPlayer = useCallback(() => {
     api.birdview(storyId).then(
       (info) => setLoad({ kind: 'ready', info }),
       (e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }),
     );
   }, [api, storyId]);
+  // The test thread asks bb each time: polled on its own, never at the live rate of a playing test.
+  // A server without the test thread API leaves the rows as they were (no agent buttons).
+  const refreshThread = useCallback(() => {
+    api.testThread?.(storyId).then(
+      (out) => setTv(out.kind === 'ok' ? out.body : undefined),
+      () => setTv(undefined),
+    );
+  }, [api, storyId]);
+  const refresh = useCallback(() => {
+    refreshPlayer();
+    refreshThread();
+  }, [refreshPlayer, refreshThread]);
 
   const info = load.kind === 'ready' ? load.info : undefined;
-  const rows = useMemo(() => testRows(scenarios, info), [scenarios, info]);
+  // The trust of each scenario: from the record the page has, else from the server's test thread view.
+  const trust = useMemo(() => statuses ?? (tv ? Object.fromEntries(tv.notApproved.map((n) => [n.id, n.status])) : undefined), [statuses, tv]);
+  const rows = useMemo(() => testRows(scenarios, info, { ...(trust ? { statuses: trust } : {}), thread: tv?.thread ?? null }), [scenarios, info, trust, tv]);
+  const running = tv?.thread?.running === true;
+  const sendable = toSend(rows, tv);
+  const missing = (tv?.missing ?? []).filter((id) => rows.some((r) => r.scenarioId === id && r.status === 'no test'));
   const status = info ? birdviewStatus(info) : undefined;
   const live = rows.some((r) => r.status === 'running');
 
@@ -68,15 +105,35 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
     refresh();
   }, [refresh]);
   useEffect(() => {
-    const timer = setInterval(refresh, live ? LIVE_POLL_MS : POLL_MS);
+    const timer = setInterval(refreshPlayer, live ? LIVE_POLL_MS : POLL_MS);
     return () => clearInterval(timer);
-  }, [refresh, live]);
+  }, [refreshPlayer, live]);
+  useEffect(() => {
+    const timer = setInterval(refreshThread, POLL_MS);
+    return () => clearInterval(timer);
+  }, [refreshThread]);
 
   const send = async (action: BirdviewAction, body: Record<string, string>, asking: string, done: string) => {
     setPending(true);
     setMsg({ text: asking, warn: false });
     const out = await api.call(action, body);
     setMsg(out.ok ? { text: done, warn: false } : { text: out.error, warn: true });
+    setPending(false);
+    refresh();
+  };
+
+  /** Start the story's test thread, or, while it works, send the scenarios to it. */
+  const toAgent = async (ids: Id[]) => {
+    if (!api.testCall || ids.length === 0) return;
+    setPending(true);
+    const sending = running;
+    setMsg({ text: sending ? 'Sending to the test thread…' : 'Starting a test thread…', warn: false });
+    const out = await api.testCall(sending ? 'send' : 'thread', { story: storyId, scenarios: ids });
+    if (out.kind === 'ok') {
+      setTv(out.body);
+      const id = out.body.thread?.id;
+      setMsg({ text: sending ? `Sent ${ids.join(', ')} to @thread:${id}.` : `A test thread writes ${ids.join(', ')}: @thread:${id}.`, warn: false });
+    } else setMsg({ text: out.details ? `${out.message} (${out.details})` : out.message, warn: true });
     setPending(false);
     refresh();
   };
@@ -166,6 +223,13 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
           <p className="small muted" data-testid="story-tests-summary">
             {load.kind === 'loading' ? 'Reading the player…' : testSummary(rows)}
           </p>
+          {api.testCall && (running ? sendable.length > 0 : missing.length > 0) && (
+            <p className="story-tests-agent">
+              <button type="button" className="action small" data-testid="story-tests-write-all" disabled={pending} onClick={() => void toAgent(running ? sendable : missing)}>
+                {running ? 'Send these scenarios to the running thread' : writeMissingLabel(missing.length)}
+              </button>
+            </p>
+          )}
           <ul data-testid="story-tests-rows">
             {rows.map((r) => (
               <li key={r.scenarioId} className={`story-test is-${r.status.replace(' ', '-')}`} data-testid={`story-test-${r.scenarioId}`}>
@@ -192,6 +256,17 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
                 <div>{r.title}</div>
                 {r.key && <div className="small muted mono">{r.key}</div>}
                 {r.reason && <div className="small warn">{r.reason}</div>}
+                {r.approveFirst && (
+                  <div className="small muted" data-testid={`story-test-approve-first-${r.scenarioId}`}>
+                    {APPROVE_FIRST[0]!.toUpperCase() + APPROVE_FIRST.slice(1)}: an agent writes tests for approved scenarios only.
+                  </div>
+                )}
+                {r.withThread && tv?.thread && <ThreadLine thread={tv.thread} scenarioId={r.scenarioId} />}
+                {api.testCall && r.status === 'no test' && !r.approveFirst && !r.withThread && tv?.missing.includes(r.scenarioId) && (
+                  <button type="button" className="action small story-test-agent" data-testid={`story-test-agent-${r.scenarioId}`} disabled={pending} onClick={() => void toAgent([r.scenarioId])}>
+                    {running ? 'Send this scenario to the running thread' : 'Write this test with an agent'}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -221,6 +296,27 @@ export function StoryTests({ storyId, scenarios, api = HTTP_TESTS_API }: StoryTe
       </div>
     </section>
   );
+}
+
+/** The test thread on a row: status words, last activity, and the `@thread:` link (a click copies it). */
+function ThreadLine({ thread, scenarioId }: { thread: NonNullable<TestThreadView['thread']>; scenarioId: Id }) {
+  const words = thread.bb.ok ? thread.bb.statusText : 'bb cannot be asked';
+  const at = thread.bb.ok ? thread.bb.updatedAt : null;
+  return (
+    <div className={`small story-test-thread tone-${toneOf(thread.bb.ok ? thread.bb.statusText : undefined)}`} data-testid={`story-test-thread-${scenarioId}`}>
+      Agent thread {words}
+      {typeof at === 'number' && <>, last activity {timeLabel(at, Date.now())}</>}
+      {' · '}
+      <a className="thread-link" href={`#thread=${thread.id}`} aria-label={`@thread:${thread.id}: copy the reference to paste in bb`} title={`bb thread ${thread.id}; click to copy`} onClick={(e) => copyRef(e, thread.id)}>
+        @thread:{thread.id}
+      </a>
+    </div>
+  );
+}
+
+function copyRef(e: MouseEvent, id: string) {
+  e.preventDefault();
+  void navigator.clipboard?.writeText(`@thread:${id}`).catch(() => undefined);
 }
 
 function SwitchBack({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {

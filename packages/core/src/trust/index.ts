@@ -79,3 +79,4 @@ export {
   type BuildBrief,
   type BuildBriefOptions,
 } from './build-brief.js';
+export { APPROVE_FIRST, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testTitleLine, type TestBrief, type TestBriefOptions } from './test-brief.js';
