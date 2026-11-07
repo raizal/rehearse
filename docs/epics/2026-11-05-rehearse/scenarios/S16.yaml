@@ -2,17 +2,28 @@ story: S16
 scenarios:
   - id: S16-links
     title: Good design links give no finding, and validate stays OK
-    status: draft
+    status: approved
     steps:
       - { name: validate/report }
       - name: design-links
         example: { id: good-links, given: { links: "S12: { file: design/rehearse-review.figcraft, page: 14, png: design/14-story-tests.png }" }, then: { findings: [] } }
       - { name: valid }
     expect: { criterion: S16-A1, state: { validate: OK, recordEdited: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:12:01Z'
+      hash: 'sha256:365d0ac5910372b31a1464a3cf7a4503fda81c7c9375f5ec831624d621b13e75'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABALcaEJgO+Ig2yMqtSaYINhXSfaMF1vyrCHHfv7c1M/YQo5BH3wk05bQ16T3
+        SCMXF7tgE6mnkLKv52G4au+pQ7DQ==
+        -----END SSH SIGNATURE-----
 
   - id: S16-bad-link
     title: A link to a missing file, story or box is a finding, never a crash
-    status: draft
+    status: approved
     steps:
       - { name: validate/report }
       - name: design-links
@@ -20,20 +31,42 @@ scenarios:
         example: { id: missing-png, given: { links: "S12: { file: design/rehearse-review.figcraft, page: 14, png: design/99-gone.png }" }, then: { exit: bad link, finding: "design/99-gone.png does not exist" } }
       - { name: draft-record }
     expect: { criterion: S16-A1, state: { findings: 1, crash: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:12:12Z'
+      hash: 'sha256:5255c73ea11bb8d1e778c7623e46f203ea072e2e57bd8758d10f3a760b730835'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAI96KnODqWHbKg2XZc5L+x5sF6Gqn/WvAS7/hWT3B/bg8GhX64k6i3qVjIB
+        xdbvPbAPbrYMW/adjz/7RjBPPdBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S16-fetch
     title: rehearse figcraft fetch downloads the web build, checks its hash and unpacks it
-    status: draft
+    status: approved
     steps:
       - { name: draft-record }
       - name: fetch-figcraft-web
         example: { id: fetch, given: { version: 0.16.0 }, then: { version: 0.16.0, dir: .rehearse/figcraft-web/0.16.0 } }
       - { name: host-figcraft }
     expect: { criterion: S16-A2, state: { hashChecked: true, gitignored: true, exitCode: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:12:20Z'
+      hash: 'sha256:5f20c2eabf646a70f7b062efe5690c598f00cdfd098d9e41ead86dbd3da209fe'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAeORQcFY0xhP0erVU+fvia1SOdq6mcDxOTw/wiEl0ODsFzZncUa16LMDwug
+        mw7BCGPYtAgoM8WGz/jMKEW9UnBA==
+        -----END SSH SIGNATURE-----
 
   - id: S16-hash-mismatch
     title: A hash mismatch exits 1 and changes nothing
-    status: draft
+    status: approved
     steps:
       - { name: draft-record }
       - name: fetch-figcraft-web
@@ -41,10 +74,21 @@ scenarios:
         example: { id: bad-hash, given: { version: 0.16.0, sha256: not the zip's }, then: { exit: hash mismatch } }
       - { name: rejected }
     expect: { criterion: S16-A2, state: { exitCode: 1, filesChanged: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:13:02Z'
+      hash: 'sha256:abd7b656ea998560f767bd06f93bb93e88d6a1c4ebea4c31adb1e50e28af8613'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA0cLaXhCiFvsLhcXkFYmejpAqgux7XMeBQGDQ4tQSiV6tcCjAY2Z1lJciP2
+        msSTtEIJvnDOJkgFUjuAjOI0ctBg==
+        -----END SSH SIGNATURE-----
 
   - id: S16-host
     title: Serve hosts FigCraft web under /figcraft/ on its own origin, framed by its own pages only
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: design-links }
@@ -53,10 +97,21 @@ scenarios:
         example: { id: wasm, given: { file: /figcraft/figcraft-web-abc_bg.wasm }, then: { url: /figcraft/, version: 0.16.0, contentType: application/wasm, csp: "frame-ancestors 'self'" } }
       - { name: design-tab }
     expect: { criterion: S16-A3, state: { sameOrigin: true, xFrameOptionsDeny: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:13:52Z'
+      hash: 'sha256:20c255d74ec84db032b00a9715080a0b0e6c75bf828bfd80d3ba0bf8a449e6fb'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABADgVEBzl1iTfHLQNIVAxvUU5/hwBSkWdl/zKWxaIAKmwgKM9FJmUqQKwx6K
+        zfzUK2FQ3kjEzDfAH+0Hdu2w4QDw==
+        -----END SSH SIGNATURE-----
 
   - id: S16-not-fetched
     title: Not fetched, the Design tab says so with the command and fetches it with a button
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: design-links }
@@ -66,10 +121,21 @@ scenarios:
       - { name: fetch-figcraft-web }
       - { name: host-figcraft }
     expect: { criterion: S16-A3, state: { button: Fetch FigCraft web } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:14:17Z'
+      hash: 'sha256:f4df20965601bf31fd306691cf7de57aec14ddf562691ea1fedd00806c4288ee'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAp98O52dlPQA2O1J291P57C2DsE2dbSuixGTDxlGaZmEM73DkXGXn/9n4sD
+        eYlfnzGy5khzWWt83ErbX6d7+cCg==
+        -----END SSH SIGNATURE-----
 
   - id: S16-picture
     title: The Design tab shows the linked page's picture; no link says how to add one
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - name: design-links
@@ -77,10 +143,21 @@ scenarios:
       - name: design-tab
         example: { id: picture, given: { storyId: S12 }, then: { picture: design/14-story-tests.png, caption: "design/rehearse-review.figcraft · page 14" } }
     expect: { criterion: S16-A4, state: { noLinkText: No design linked, boxDrawerPicture: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:14:53Z'
+      hash: 'sha256:0d8c86a2246ae414dbee72712182c10e0a239ce123f1c4ef542466c00b102de6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAnds6JznmBQKXrCj/Y12mw9G9KcPxBPipe9c9wyeXCGcPuCkH6XJOwiVR+v
+        sZ3CH9kra//Z3O/zfH5UUDCGScBg==
+        -----END SSH SIGNATURE-----
 
   - id: S16-edit-save
     title: Edit in FigCraft opens the linked file, and Save writes it back
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - name: host-figcraft
@@ -90,10 +167,21 @@ scenarios:
         example: { id: save, given: { file: design/rehearse-review.figcraft, bytes: base64 }, then: { file: design/rehearse-review.figcraft, size: 249097 } }
       - { name: design-tab }
     expect: { criterion: S16-A5, state: { text: "Saved to design/rehearse-review.figcraft — commit it when you are happy", dirtyGuard: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:15:09Z'
+      hash: 'sha256:8fd05df187fbab59ce0f7160f766ac3fcd6d44f3736ef809c046049cf9c52043'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAdhn9ntrU7afmTBqh3iQF5ZwvZy7U3UFowYDIHfUvt4X50ydAI0NP+Zb9cb
+        E5gCQsc2Po2Rme025fsqW4hrmSAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S16-save-refused
     title: A save of a file links.yaml does not name is refused, nothing written
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - name: save-design
@@ -101,10 +189,21 @@ scenarios:
         example: { id: not-linked, given: { file: design/other.figcraft, bytes: base64 }, then: { exit: file not linked } }
       - { name: design-tab }
     expect: { criterion: S16-A6, state: { written: 0, saveAsIsDownload: true, cliWrites: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:15:21Z'
+      hash: 'sha256:16fc0033fc5ad91b4f66a258209d0579e9d7c20e17d703d9639e782f46b1cfb3'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAgu/ZCakefbzhzUAHWYYqTrjBbnK0DTqw0xK0zzubgYIkPDJkx+oqCbBtMp
+        4TX9vAYk+VSZA67GThc7qbLmu8Bg==
+        -----END SSH SIGNATURE-----
 
   - id: S16-brief
     title: The build brief names the design to build to
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - { name: design-links }
@@ -112,10 +211,21 @@ scenarios:
         example: { id: design-section, given: { storyId: S12 }, then: { storyId: S12, section: "## Design: design/rehearse-review.figcraft, page 14, picture design/14-story-tests.png" } }
       - { name: build-brief }
     expect: { criterion: S16-A7, state: { json: design, neverWrite: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:15:31Z'
+      hash: 'sha256:3857d54ed3f331ba288d119df8ba75c300ca75a746617cfe94cdc55cf2e981a9'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAW2bJpmGGLu5s88iCd/Pzur/htXx2GeTJYaKHIz08YecsWuQq5SS+P+S9sQ
+        pKALf5SHMP1WwgJexB6PpCWhxiBg==
+        -----END SSH SIGNATURE-----
 
   - id: S16-brief-no-link
     title: A story with no design link gets one line in its brief
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - { name: design-links }
@@ -123,10 +233,21 @@ scenarios:
         example: { id: no-link, given: { storyId: S9 }, then: { storyId: S9, section: No design linked for this story. } }
       - { name: build-brief }
     expect: { criterion: S16-A7, state: { lines: 1 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:16:07Z'
+      hash: 'sha256:17f64430801b119de2cc720ad3ecf314959e0e80c9c8690246a3168773a3edbe'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAprDQE4XK2h7lL7rICkufxK1/yyjQpyNjUUvN4zQ0A+Vkt7QM2z8bTDO9HJ
+        4lobVt7fL/2hB/TK0awuT/yC6EAg==
+        -----END SSH SIGNATURE-----
 
   - id: S16-beside
     title: Where the owner approves and signs off, the design shows beside the latest test result
-    status: draft
+    status: approved
     steps:
       - { name: review/readiness }
       - { name: design-links }
@@ -134,3 +255,14 @@ scenarios:
         example: { id: beside, given: { storyId: S12, lastRun: passed }, then: { decision: approve } }
       - { name: happy }
     expect: { criterion: S16-A8, state: { readOnly: true, noRun: no run yet } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:16:24Z'
+      hash: 'sha256:6c6adc70cf6e6fd5a83d2d4fdaad6468250306b50bd74fc9752d7e69bc82fcfe'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAj1dbLhr/XfhpsrLJSeHdLHY3cJu/0gGWAYJ9QihD657afCifcooFx0XE57
+        LXxRbXx8EWGnTE0ZAczvepM2E5BA==
+        -----END SSH SIGNATURE-----

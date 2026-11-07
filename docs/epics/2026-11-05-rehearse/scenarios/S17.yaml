@@ -2,17 +2,28 @@ story: S17
 scenarios:
   - id: S17-index
     title: The design index lists each file's pages and top-level frames with their pictures
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - name: design-index
         example: { id: review-file, given: { storyId: S12 }, then: { storyId: S12, files: [ design/rehearse-review.figcraft ], findings: [] } }
       - { name: design-tab }
     expect: { criterion: S17-A1, state: { pages: 15, framesPerPage: 1, pictureFallback: file thumbnail, tooLarge: finding } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:20:44Z'
+      hash: 'sha256:b06469ae79cb3301219218162d31116ada18200b8d4e8ca0c175d011f7673dd2'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABANTQjJtWnlW9JxbE+K13RYucozLDCaJX3iytTdgBwOnVQ2KyqHRghz8gHpw
+        m5EeWtfuoFjfI4tMDaHY/Ijq0uBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S17-pick
     title: Link a design picks a file, a page and a frame, and one click links it
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - { name: design-index }
@@ -20,10 +31,21 @@ scenarios:
         example: { id: pick-frame, given: { epic: 2026-11-05-rehearse, storyId: S12, file: design/rehearse-review.figcraft, page: 14, frame: Story tests }, then: { storyId: S12, link: "design/rehearse-review.figcraft page 14 frame Story tests" } }
       - { name: design-tab }
     expect: { criterion: S17-A2, state: { linksYamlCommentsKept: true, changeAndUnlink: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:20:55Z'
+      hash: 'sha256:16ad48576b09e772ad69d03884218d21727150e5e71aaf39ea3de0029824f225'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAjiprVpp98SJSDVfxC5bcBEjalJuApNcLeYXfO5nBrkAoTZxQ26cTv0QZEq
+        Q5BuG4ZP4xHZOZ5TCtGp++n9aGCw==
+        -----END SSH SIGNATURE-----
 
   - id: S17-file-not-in-design
     title: A file outside design/ or not in the index is refused and nothing is written
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - { name: design-index }
@@ -32,10 +54,21 @@ scenarios:
         example: { id: outside, given: { epic: 2026-11-05-rehearse, storyId: S12, file: ../secret.figcraft, page: 1 }, then: { exit: file not in design/ } }
       - { name: design-tab }
     expect: { criterion: S17-A2, state: { status: 400, linksYamlWritten: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:21:04Z'
+      hash: 'sha256:1f4fc124c5e7c8f94f16973904808859c478043e06802d5f0108d1cbe1175335'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA7cF60PKL7DNwIOwDcJTjY9YBfcJnZPVhPcEzOnTJzWVJ66Tgyh8mIQ1f7p
+        ebN/bKJAS0WAU23rG0Lr2wRxgDDw==
+        -----END SSH SIGNATURE-----
 
   - id: S17-suggest
     title: An unlinked story shows the top 3 suggested pages and frames with their reason
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - { name: design-index }
@@ -44,10 +77,21 @@ scenarios:
       - { name: link-design }
       - { name: design-tab }
     expect: { criterion: S17-A3, state: { shown: 3, linkedByThemselves: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:21:15Z'
+      hash: 'sha256:36d0d7ee3c3116d39e838cf2a6708b98081ea271cecfe738c5b29e7a44e515ae'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAkAiA0NZIkfC1GvvYRcucvbmlUKrZskXk7DaKlNQs4C/3XOlKxLUe9REHnF
+        x0SXOuSgTO65jqwUwpyLbiBxiGCQ==
+        -----END SSH SIGNATURE-----
 
   - id: S17-frame-tag
     title: A frame named [S17] links the story by itself; a links.yaml entry wins over it
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - { name: design-index }
@@ -55,10 +99,21 @@ scenarios:
         example: { id: tagged, given: { files: [ design/rehearse-review.figcraft ] }, then: { storyId: S17, links: [ "[S17] Link a design" ], findings: [] } }
       - { name: design-tab }
     expect: { criterion: S17-A4, state: { source: frame name, linksYamlWins: true, winsOverSuggestion: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:22:40Z'
+      hash: 'sha256:69050e3019486508437ec4643aeca016f93009a4337b2b46dd287c380542cc7d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABACNJ+yP+X7ASSC26BkUIslielYXRh0paLK/FQMAnROAE8qJzULTZlnsAArx
+        E8/aYCq3QbfOrgglcS9pwP5MIMBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S17-tag-findings
     title: validate stays OK when every frame tag names a story or box that exists
-    status: draft
+    status: approved
     steps:
       - { name: validate/report }
       - { name: design-index }
@@ -66,10 +121,21 @@ scenarios:
         example: { id: good-tags, given: { files: [ design/rehearse-review.figcraft ] }, then: { links: [ "[S17/link-design] Picker" ], findings: [] } }
       - { name: valid }
     expect: { criterion: S17-A5, state: { validate: OK } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:22:49Z'
+      hash: 'sha256:824091ac9b85c3d1cafa063b5ae00d3a11efcd83dd684d505941654b80cfcc08'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAvVvMQEOnhQdgvYRvgO3+4QXkh0s4HpOWpbBOFvSrjnm2w38Va3W3dZkDVE
+        CtmexDwU29zY6SrGwehqp8G57VAA==
+        -----END SSH SIGNATURE-----
 
   - id: S17-unknown-story-in-tag
     title: A tag naming a story or box that does not exist is a finding and links nothing
-    status: draft
+    status: approved
     steps:
       - { name: validate/report }
       - { name: design-index }
@@ -78,20 +144,42 @@ scenarios:
         example: { id: no-such-story, given: { files: [ design/rehearse-review.figcraft ] }, then: { exit: unknown story in tag, finding: "frame \"[S99] Old\" names S99, which is not a story of any EPIC" } }
       - { name: draft-record }
     expect: { criterion: S17-A5, state: { findings: 1, crash: false, linked: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:22:58Z'
+      hash: 'sha256:60b7aff3f2080c6eb138275611fbd073fc01651cf353a046995efafad1f4b5dd'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAPVeIBc2U2Cl7Ar0wbjm6c7aEGWCQthS0kxS0vWZPncvDGAwYs5pYOy2KBW
+        Q6hnBmJz2ujC7xpODwYBdN79knAw==
+        -----END SSH SIGNATURE-----
 
   - id: S17-refresh
     title: Refresh pictures renders the linked frames of the active tab and says what it wrote
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - name: refresh-design-pictures
         example: { id: active, given: { storyId: S12 }, then: { storyId: S12, wrote: [ design/14-story-tests.png ] } }
       - { name: design-tab }
     expect: { criterion: S17-A6, state: { commandsSent: [ doc.list, ui.render ], documentChanged: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:23:08Z'
+      hash: 'sha256:1880fdc0ea83f11cdfb20f4640f3e4239466567b6131ad54cf9e2f05890ea782'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAsItur77+0HCsWyYAMUNNQMrhqgOs0S05sFBMT/1f9Z2kQxEiflS3eAx1F+
+        BmC+4nzoOWoRxNvyDmZHAgI/y3Bw==
+        -----END SSH SIGNATURE-----
 
   - id: S17-figcraft-not-running
     title: FigCraft not running says to open the file in FigCraft, and nothing is written
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - name: refresh-design-pictures
@@ -99,10 +187,21 @@ scenarios:
         example: { id: closed-port, given: { storyId: S12 }, then: { exit: FigCraft not running, text: "Open the file in FigCraft (port 4800) to refresh pictures" } }
       - { name: design-tab }
     expect: { criterion: S17-A6, state: { status: 503, filesWritten: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:23:15Z'
+      hash: 'sha256:23e6e9794efefea484abac63d0d13fd15fd8778f0475bc5f5f1da12dd1f87063'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAtW0ZPCk9ZNHTCnSr8DLIllI+Ze94B7BKVAciA/bzJ/nkCugp5JobuWOWWw
+        KdqNA/jdpgUcGdMiWdr5zFqpRKDQ==
+        -----END SSH SIGNATURE-----
 
   - id: S17-not-active-tab
     title: Another active tab in FigCraft is said, and nothing is rendered
-    status: draft
+    status: approved
     steps:
       - { name: design-tab }
       - name: refresh-design-pictures
@@ -110,10 +209,21 @@ scenarios:
         example: { id: other-tab, given: { storyId: S12 }, then: { exit: file not the active tab, text: "design/rehearse-review.figcraft is not the active tab in FigCraft" } }
       - { name: design-tab }
     expect: { criterion: S17-A6, state: { status: 409, renderSent: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:23:28Z'
+      hash: 'sha256:4176d672d4052cf80739064a507ae8889ed79ba6fa8c56a8b8d65be66d1c38a1'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAHdCJhWCFyjCViLczshxnz5zcA54XLL1ln++bSFSbhaKJyH76mfo80j2DNs
+        G+/wXLQdopnp2fG/ehYa5HbizPAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S17-brief-line
     title: The build brief and the skill say how a new frame links itself
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - { name: design-index }
@@ -122,10 +232,21 @@ scenarios:
         example: { id: tag-line, given: { storyId: S17 }, then: { storyId: S17, section: "If you design a new screen in FigCraft, name its top frame `[<story id>] <what it shows>` so it links itself." } }
       - { name: build-brief }
     expect: { criterion: S17-A7, state: { skillSaysIt: true, skillNamesSuggest: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:23:55Z'
+      hash: 'sha256:e48a236ff9353f64cbb620d5d7a26bc242fdcbc92ddc01657648fe810cd52577'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAf4V1P+GtoWDrRMrApZKNeHOZshppLi/yKP0Gr15D0sOKT31tsjDavwvC4L
+        3hX0dykDuqCHEQA+0bz0e+iVEqAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S17-cli-suggest
     title: rehearse design suggest lists the suggestions of every unlinked story and writes nothing
-    status: draft
+    status: approved
     steps:
       - { name: draft-record }
       - { name: design-index }
@@ -133,3 +254,14 @@ scenarios:
         example: { id: cli, given: { files: [ design/rehearse-review.figcraft ] }, then: { suggestions: [ "S14: 12 Story before after (matches: before, after)" ] } }
       - { name: design-tab }
     expect: { criterion: S17-A8, state: { exitCode: 0, filesWritten: 0, noDesignFileExit: 1, usageExit: 2 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T11:24:15Z'
+      hash: 'sha256:a4623a0a9109c36c6da22c437f8d3a5a374f2cbde9cf5a66aad4336385101d43'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA9MjxIclLD9RZW6vX5pelmI1/xlZlt132p73/TThA+D9paL+5fgCZuYyx62
+        jzq5q8LwNrM+HN0HT0FiEOo23PDA==
+        -----END SSH SIGNATURE-----

@@ -3,7 +3,7 @@ scenarios:
 
   - id: S19-recap
     title: The slide after the title is a recap of every story, done or not, with one sentence on top
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -23,11 +23,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
-    expect: { criterion: S19-A1, state: { secondSlide: recap, sentence: "12 of 19 stories are done", rows: 19, states: [done, in progress, not started] } }
+    expect: { criterion: S19-A1, state: { secondSlide: recap, sentence: "12 of 19 stories are done", rows: 19, states: [ done, in progress, not started ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:00:03Z'
+      hash: 'sha256:ebc1d141772b630e8572df79114344350cea51c8a198c0fc50c6ecd17f80498b'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABArA7tri5mMk6xwx8PioxoFX8HG6uagLcUyaFHOj3DiQ/ryg5vTp1TRD29Ds
+        882rskF7UT393pNrNp6ha1KWsKCg==
+        -----END SSH SIGNATURE-----
 
   - id: S19-done-rule
     title: One rule decides done, in progress and not started everywhere in the deck
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -46,11 +57,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
-    expect: { criterion: S19-A2, state: { done: [signed off, not stale, approved tests passed in last run, every box has code], notStarted: [not signed off, no box has code], inProgress: any other, sameStateOnEverySlide: true } }
+    expect: { criterion: S19-A2, state: { done: [ signed off, not stale, approved tests passed in last run, every box has code ], notStarted: [ not signed off, no box has code ], inProgress: any other, sameStateOnEverySlide: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T14:50:51Z'
+      hash: 'sha256:e372c1066e9c68ef5e3e7b1a5f97e608649c491cda57fb113331b4256b9e9acf'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAi1IFUjhNLlfif9qAbst9+b1U6+NK36uXVLIPa+YDR7TpbatpfxXLPcQaFX
+        UrfGYrgM55qv/IBGvRkkuIsAaJBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S19-proof-lines
     title: Every story slide has one proof line per source
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -69,11 +91,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
-    expect: { criterion: S19-A3, state: { sources: [e2e results, last screen picture, recording link, unit tests, simulation, built parts and commits, signature], oneLinePerSource: true } }
+    expect: { criterion: S19-A3, state: { sources: [ e2e results, last screen picture, recording link, unit tests, simulation, built parts and commits, signature ], oneLinePerSource: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:00:21Z'
+      hash: 'sha256:91f6e64c50b750c4bb67c4a8bf541adac322dfec4ed8e16c51a2b013fc201c87'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAnzOOJUgvwlDfVcwEOU5ALrcF8uVb3YVnRxbSuu40sR+KQXW/GEfIpzi0ul
+        xe8JXW6D+ooIa6TT+N1ZYuSVDCAg==
+        -----END SSH SIGNATURE-----
 
   - id: S19-saved-results
     title: When the player does not have the project, the results Birdview saved are read and matched
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -93,10 +126,21 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
     expect: { criterion: S19-A4, state: { source: saved results, matchedByLine: 35, matchedByTitle: 3, leftOut: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:00:51Z'
+      hash: 'sha256:71b1ee19eca91756ce258c6f3f3af31e3a9e7a298bf9a8726ed0c599b85ca38b'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAZDJr1b5u6U5RwicCUWpcpRUmXUAQzwVKiO5vA/SAy4i8KVAE+S4252HVcL
+        vmuQiZ8KFlRAnCoCs9pW34rd2ZCg==
+        -----END SSH SIGNATURE-----
 
   - id: S19-unmatched-result
     title: A saved result that matches no test is left out and counted
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -117,10 +161,21 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
     expect: { criterion: S19-A4, state: { leftOut: 2, said: "2 saved results matched no test and were left out" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:01:14Z'
+      hash: 'sha256:45f4f8f959037ebf72191f5cfc82948e9ef264614818c5d97e14631e7185953e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA0zZBpE4JERlLSLXeJlVst6oR1SSnD98L502yOm5wXJW1gwuW2dOtR3c/Bm
+        XcT0Q+thDB9MHOq6tevI+EI9ZyAw==
+        -----END SSH SIGNATURE-----
 
   - id: S19-no-birdview-data
     title: With no Birdview player and no saved results, the e2e proof says it is missing
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -141,10 +196,21 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
     expect: { criterion: S19-A9, state: { e2eProof: missing, evidence: "Birdview data not found", storiesDoneWithoutProof: 0, deck: written } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:01:42Z'
+      hash: 'sha256:009ef2c2ccd9f393395d68cc3e91010d043761035edf11ba01bea78a8a227898'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABApBbzT+K9c+jTpzDVQ0ngR/gIbbWb4jz45CgHJEpa/sXiRxA75j16VVCZOd
+        876yhxFfl2OoB3JX2e7FYDeS8pAg==
+        -----END SSH SIGNATURE-----
 
   - id: S19-last-screen
     title: A scenario shows a still of the last screen of its recording and a link to the video
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -164,10 +230,21 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
     expect: { criterion: S19-A5, state: { picture: last frame, maxWidth: 1600, link: recording video } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:02:03Z'
+      hash: 'sha256:98970967da28cc91647935eea2cadc4d542dc6032e6337887ecc8c1a3099d351'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAidKZ7+HK9v/zbKolCnTR4/eSGrQL+4841vEWBq6s44q3GVusg2FiqHEDX5
+        ZKgF0P+K4h9+d4mfqSgNBZ5EVWCg==
+        -----END SSH SIGNATURE-----
 
   - id: S19-with-recordings
     title: With --with-recordings the linked videos are copied next to the deck
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -188,10 +265,21 @@ scenarios:
         example: { id: copy, given: { html: deck.html, withRecordings: test-results }, then: { html: deck.html, media: deck-media, copied: 12 } }
       - { name: deck-file }
     expect: { criterion: S19-A6, state: { media: <deck>-media/, copied: 12, linksPointTo: media folder, missingNamed: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:02:28Z'
+      hash: 'sha256:705f9bade8488278fa6aa37046c9a777b9b4504c575e5506ffc4fa31b8d05940'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAi8cgbkshwGdpZwJbmNOADvvvc9sPgNdcOYG9QcISGgCoW9tRF1t5xOpN/V
+        s/T3Oh9NaBIN30LT4YWQevTu+WAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S19-zip-download
     title: The EPIC page downloads the deck and its recordings in one zip
-    status: draft
+    status: approved
     steps:
       - { name: present-view }
       - name: download-with-recordings
@@ -210,11 +298,22 @@ scenarios:
         example: { id: copy, given: { html: deck.html, withRecordings: test-results }, then: { html: deck.html, media: deck-media, copied: 12 } }
       - { name: deck-file }
       - { name: download-with-recordings }
-    expect: { criterion: S19-A6, state: { zip: [deck.html, deck-media/], tokenAndOrigin: required } }
+    expect: { criterion: S19-A6, state: { zip: [ deck.html, deck-media/ ], tokenAndOrigin: required } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:03:14Z'
+      hash: 'sha256:ee3b14ba08d1b4300df26c09b941d08212561166ac9407a38129c4d90febce0e'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAjIJfAsihnlFYfgvls26TS9I6ccR5CTjMWA11JEj82zU+ofhRY7pOllGg+1
+        xdlTdklZGh1CdTt52l48jgHpQoBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S19-unit-report
     title: A vitest JSON report gives each story its unit tests that passed and failed
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -233,11 +332,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
-    expect: { criterion: S19-A7, state: { perStory: [passed, failed], source: vitest JSON report } }
+    expect: { criterion: S19-A7, state: { perStory: [ passed, failed ], source: vitest JSON report } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:03:36Z'
+      hash: 'sha256:e1d1be409e98886fc06f834d363751b1bc9c3c5ac943b606c90dc0ff360eb5be'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAlnk8dyeo9B42ENMC9M7Q1SNxWsrIj0URceXMI1b/6HZi1nfCFUJCnJSuKj
+        3BPuh+kwMF/5yqr9G9KswNsvhTAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S19-unit-report-unreadable
     title: A unit report that is missing or unreadable is said plainly and the deck is still made
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -258,10 +368,21 @@ scenarios:
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
     expect: { criterion: S19-A7, state: { message: "the unit report missing.json could not be read", deck: written } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:03:56Z'
+      hash: 'sha256:4e65a0dbdab310e450d3282cd0dcecac8b3bbd7f093e5393269e66dbeda996dc'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAOGukCLXAYTw2mmZxq3l9HMyCTc//5dP1irkI1Z9bsN1PXDdk2OB5lg+mmL
+        aLFC0JcO0pz1smwNTzEKYE2JAIAw==
+        -----END SSH SIGNATURE-----
 
   - id: S19-evidence-page
     title: An evidence page before the glossary says where each proof comes from
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -280,11 +401,22 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
-    expect: { criterion: S19-A8, state: { before: glossary, sources: [Birdview player or saved results, recordings, unit report, simulation, git commits, signatures], foundOrNot: true } }
+    expect: { criterion: S19-A8, state: { before: glossary, sources: [ Birdview player or saved results, recordings, unit report, simulation, git commits, signatures ], foundOrNot: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:04:09Z'
+      hash: 'sha256:33973785598aece507745048348117d13e5f0c27948489d30b08bbfc967812ec'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAAKplsMWFFAiykRs072EM5s/8LDyGaJUJalFttnbzqzWRE5Y0k4GFX4sVVT
+        XaAbQny/DTpKz33zHH48SIO3KRAw==
+        -----END SSH SIGNATURE-----
 
   - id: S19-missing-sources
     title: Every missing source shows as missing on the story slides and the evidence page
-    status: draft
+    status: approved
     steps:
       - name: present-cli
         example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -303,4 +435,15 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
-    expect: { criterion: S19-A9, state: { missingShown: [story slides, evidence page], storiesDoneWithoutProof: 0, leftOut: 0 } }
+    expect: { criterion: S19-A9, state: { missingShown: [ story slides, evidence page ], storiesDoneWithoutProof: 0, leftOut: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T15:04:21Z'
+      hash: 'sha256:523b0c9ac129b9c4cd5ffac65964ad358c480d333c8c4e2d2f1647d8c4fde220'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAc2HR8bpzoBZ3Nf0zFO5kWZd6gIISYZMoe/Tct2jTRxH53Lo6IeV/rKmE8f
+        x6L1bmpieevmTM3/9A1EOu/RaQCw==
+        -----END SSH SIGNATURE-----
