@@ -7,8 +7,9 @@
 // scenario of the story that has no e2e test yet. Exit 1 when a scenario is not approved, or none
 // is missing a test.
 
-import { dirname } from 'node:path';
-import { decisionTexts, loadEpic, storyBuildBrief } from '@rehearse/core';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { decisionTexts, loadEpic, repoCommands, storyBuildBrief } from '@rehearse/core';
 import { findTestProject, storyTestBrief, testsNeeded } from '@rehearse/server';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
 
@@ -46,7 +47,7 @@ export function runBrief(args: string[], io: Io): number {
   if (tests) return testBrief(dir, storyId, scenarios, json, io);
   let made;
   try {
-    made = storyBuildBrief(loadEpic(dir).record, storyId, { allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir) });
+    made = storyBuildBrief(loadEpic(dir).record, storyId, { allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(repoTop(dir)) });
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
@@ -59,6 +60,14 @@ export function runBrief(args: string[], io: Io): number {
   if (json) io.stdout(JSON.stringify({ ok: true, storyId, hash: made.hash, sign: made.sign, markdown: made.markdown }, null, 2) + '\n');
   else io.stdout(made.markdown.endsWith('\n') ? made.markdown : `${made.markdown}\n`);
   return EXIT.ok;
+}
+
+/** The git top-level above an EPIC folder (the folder holding `.git`), else the folder above docs/epics. */
+function repoTop(dir: string): string {
+  for (let d = dir; ; d = dirname(d)) {
+    if (existsSync(join(d, '.git'))) return d;
+    if (dirname(d) === d) return dirname(dirname(dir));
+  }
 }
 
 /** The test brief. Paths are relative to the folder that holds the test project (the repo top). */

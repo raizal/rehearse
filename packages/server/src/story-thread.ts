@@ -28,6 +28,7 @@ import {
   decisionTexts,
   diffStoryContent,
   loadEpic,
+  repoCommands,
   storyBuildBrief,
   storyChangeMessage,
   type BriefSignState,
@@ -35,6 +36,7 @@ import {
   type Diagram,
   type EpicRecord,
   type TestBrief,
+  type TestFixture,
   type Id,
 } from '@rehearse/core';
 import type { CoverageStats } from '@rehearse/graph';
@@ -341,11 +343,46 @@ export function storyTestBrief(record: EpicRecord, storyId: Id, ids: Id[], testP
   const project = testProject ? rel(testProject) : 'e2e';
   const example = specTests(testProject)[0];
   const specDir = example ? dirname(`${project}/${example.file}`) : `${project}/tests`;
+  const fixtures = testFixtures(testProject);
+  const relFixture = (f: TestFixture | undefined) => (f ? { file: rel(f.file), exports: f.exports } : undefined);
+  const ui = relFixture(fixtures.ui);
+  const cli = relFixture(fixtures.cli);
   return scenarioTestBrief(record, storyId, ids, {
     testProject: project,
     specFile: `${specDir}/${storyId}.spec.ts`,
     ...(example ? { exampleSpec: `${project}/${example.file}` } : {}),
+    commands: repoCommands(top),
+    fixtures: { ...(ui ? { ui } : {}), ...(cli ? { cli } : {}) },
   });
+}
+
+/** The names a TypeScript file exports: `export function|const|class X` and `export { X, Y }`. */
+export function exportNames(text: string): string[] {
+  const names: string[] = [];
+  for (const m of text.matchAll(/^export\s+(?:async\s+)?(?:function\*?|const|let|class)\s+([A-Za-z_$][\w$]*)/gm)) names.push(m[1]!);
+  for (const m of text.matchAll(/^export\s*\{([^}]*)\}/gm)) {
+    for (const part of m[1]!.split(',')) {
+      const name = part.trim().split(/\s+as\s+/).pop()!.trim();
+      if (name && !name.startsWith('type ')) names.push(name);
+    }
+  }
+  return [...new Set(names)];
+}
+
+/**
+ * The fixtures of the test project (T48): `tests/serve.ts` serves the app (UI scenarios),
+ * `tests/cli.ts` runs the CLI in a fresh repo (CLI scenarios). Absolute paths and their exports.
+ */
+export function testFixtures(testProject: string | undefined): { ui?: TestFixture; cli?: TestFixture } {
+  if (!testProject) return {};
+  const read = (name: string): TestFixture | undefined => {
+    const file = join(testProject, 'tests', name);
+    if (!existsSync(file)) return undefined;
+    return { file, exports: exportNames(readFileSync(file, 'utf8')) };
+  };
+  const ui = read('serve.ts');
+  const cli = read('cli.ts');
+  return { ...(ui ? { ui } : {}), ...(cli ? { cli } : {}) };
 }
 
 /** The first message of a test thread: one line on top, then the test brief. */
@@ -830,7 +867,7 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       if (starting.has(key)) throw new StoryThreadError(409, `a thread for ${storyId} is starting`);
       starting.add(key);
       try {
-        const made = storyBuildBrief(record(), storyId, { decisions: decisionTexts(epicDir) });
+        const made = storyBuildBrief(record(), storyId, { decisions: decisionTexts(epicDir), commands: repoCommands(await topLevel()) });
         if (!made.ok) throw new StoryThreadError(409, made.reason);
         const thread = await spawnThread(
           {

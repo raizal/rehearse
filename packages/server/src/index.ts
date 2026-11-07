@@ -77,6 +77,8 @@ export {
   storyBrief,
   storyTestBrief,
   storyThreadsJson,
+  exportNames,
+  testFixtures,
   testsNeeded,
   testPrompt,
   testSendMessage,
