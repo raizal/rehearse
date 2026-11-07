@@ -11,8 +11,12 @@ import { parseYaml } from '../yaml.js';
 
 export const PRESENTATION_FILE = 'presentation.yaml';
 
-/** The slide keys `narration` may name; a story's own slides are `<story id>` and `<story id>-checks`. */
-export const SLIDE_KEYS = ['title', 'recap', 'why', 'requirements', 'big-picture', 'progress', 'quality', 'risks', 'asks', 'next', 'evidence', 'glossary'] as const;
+/**
+ * The slide keys `narration` may name; a story's own slides are `<story id>` and `<story id>-checks`.
+ * The summary (T54): title, done, not-done, how-we-know, asks, next; the full deck's appendix:
+ * details and the rest.
+ */
+export const SLIDE_KEYS = ['title', 'done', 'not-done', 'how-we-know', 'details', 'recap', 'why', 'requirements', 'big-picture', 'progress', 'quality', 'risks', 'asks', 'next', 'evidence', 'glossary'] as const;
 export type SlideKey = (typeof SLIDE_KEYS)[number];
 
 export interface PresentationInputs {
@@ -26,11 +30,13 @@ export interface PresentationInputs {
   narration: Record<string, string>;
   /** Stories left out of the deck; it says how many. */
   hide: Id[];
+  /** The areas of the EPIC, in the owner's words, that group what is done on the summary (T54). */
+  areas: { title: string; stories: Id[] }[];
 }
 
-export const NO_INPUTS: PresentationInputs = { asks: [], next: [], risks: [], narration: {}, hide: [] };
+export const NO_INPUTS: PresentationInputs = { asks: [], next: [], risks: [], narration: {}, hide: [], areas: [] };
 
-const KEYS = ['asks', 'next', 'risks', 'narration', 'hide'] as const;
+const KEYS = ['asks', 'next', 'risks', 'narration', 'hide', 'areas'] as const;
 
 const finding = (path: string, message: string, refs: string[] = []): Finding => ({ kind: 'schema', file: PRESENTATION_FILE, path, message, refs });
 
@@ -54,7 +60,7 @@ export function parsePresentation(text: string, record: EpicRecord): { inputs: P
   if (!isObject(doc)) return { inputs: NO_INPUTS, findings: [finding('', `${PRESENTATION_FILE} must be a map with ${KEYS.join(', ')}`)] };
   const findings: Finding[] = [];
   const stories = storyIds(record);
-  const inputs: PresentationInputs = { asks: [], next: [], risks: [], narration: {}, hide: [] };
+  const inputs: PresentationInputs = { asks: [], next: [], risks: [], narration: {}, hide: [], areas: [] };
   for (const key of Object.keys(doc)) if (!(KEYS as readonly string[]).includes(key)) findings.push(finding(key, `unknown key ${key}; ${PRESENTATION_FILE} has ${KEYS.join(', ')}`));
   for (const key of ['asks', 'next', 'risks'] as const) {
     const v = doc[key];
@@ -83,6 +89,24 @@ export function parsePresentation(text: string, record: EpicRecord): { inputs: P
       doc.hide.forEach((id, i) => {
         if (typeof id === 'string' && stories.has(id)) inputs.hide.push(id);
         else findings.push(finding(`hide[${i}]`, `unknown story ${String(id)} in hide`, typeof id === 'string' ? [id] : []));
+      });
+  }
+  if (doc.areas !== undefined && doc.areas !== null) {
+    if (!Array.isArray(doc.areas)) findings.push(finding('areas', 'areas must be a list of { title, stories }'));
+    else
+      doc.areas.forEach((a, i) => {
+        const title = isObject(a) && typeof a.title === 'string' ? a.title.trim() : '';
+        const list = isObject(a) ? a.stories : undefined;
+        if (title === '' || !Array.isArray(list)) {
+          findings.push(finding(`areas[${i}]`, `areas[${i}] must have a title and a list of stories`));
+          return;
+        }
+        const ids: Id[] = [];
+        list.forEach((id, k) => {
+          if (typeof id === 'string' && stories.has(id)) ids.push(id);
+          else findings.push(finding(`areas[${i}].stories[${k}]`, `unknown story ${String(id)} in areas`, typeof id === 'string' ? [id] : []));
+        });
+        inputs.areas.push({ title, stories: ids });
       });
   }
   return { inputs, findings };

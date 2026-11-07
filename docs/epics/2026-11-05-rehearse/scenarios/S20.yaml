@@ -1,0 +1,210 @@
+story: S20
+scenarios:
+
+  - id: S20-summary
+    title: "The deck is a short summary by default: where we are, done, not done and why, how we know, next"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - { name: group-done-by-area }
+      - { name: group-not-done-by-reason }
+      - { name: how-we-know }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "where we are: 15 of 20 parts of the plan are done; 2 of them are seen working on the real screens. 5 are not done yet.; what's done; what's not done yet, and why; how we know; what's next" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A1, state: { slides: [where we are, "what's done", "what's not done yet, and why", how we know, "what's next"], atMost: 6, asksSlide: only with asks, bar: [seen working, done checked by automated tests, not done yet] } }
+
+  - id: S20-done-rule
+    title: "One rule decides done, and a done story says how strong its proof is"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - name: done-rule
+        example: { id: rule, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests", doneStates: "15 done, 1 in progress, 4 not started", proofLevels: "2 seen working, 13 checked by automated tests" } }
+      - { name: group-done-by-area }
+      - { name: group-not-done-by-reason }
+      - { name: how-we-know }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "S1 done, seen working; S3 done, partly seen working (5 of 6); S12 done, checked by automated tests; S6 not done: a test fails" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A2, state: { done: [built, signed off and not stale, no test fails], levels: [seen working, "partly seen working (5 of 6)", checked by automated tests], sameRuleEverywhere: true } }
+
+  - id: S20-done-by-area
+    title: "The done slide groups the done stories by area, each line with its proof level"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - name: group-done-by-area
+        example: { id: areas, given: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests", doneStates: "15 done, 1 in progress, 4 not started", proofLevels: "2 seen working, 13 checked by automated tests", areas: "presentation.yaml: Making a record, Checking it, Showing it" }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests", doneStates: "15 done, 1 in progress, 4 not started", proofLevels: "2 seen working, 13 checked by automated tests", doneGroups: "Making a record: Create an EPIC record with one command — checked by automated tests" } }
+      - { name: group-not-done-by-reason }
+      - { name: how-we-know }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "what's done: 3 areas, 1 to 3 lines each" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A3, state: { groups: { atMost: 6, from: [presentation.yaml areas, else role] }, linesPerGroup: { atMost: 3 }, lineEndsWith: proof level and date } }
+
+  - id: S20-not-done-by-reason
+    title: "The not-done slide groups the stories by reason, with what it takes and who acts"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - { name: group-done-by-area }
+      - name: group-not-done-by-reason
+        example: { id: reasons, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests", notDoneGroups: "Waiting for my approval: 52 checks — who acts: me; Being built: 6 pieces not built yet — who acts: the builders (AI agents); Changed after it was signed off; needs a new sign-off" } }
+      - { name: how-we-know }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "what's not done yet, and why: 3 reasons" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A4, state: { reasons: [a test fails, an automated check fails, changed after it was signed off; needs a new sign-off, waiting for my approval, being built, not planned yet], eachSays: [what it takes, who acts] } }
+
+  - id: S20-how-we-know
+    title: "The how-we-know slide shows what done means, pictures of passed tests, the numbers and their sources"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - { name: group-done-by-area }
+      - { name: group-not-done-by-reason }
+      - name: how-we-know
+        example: { id: proof, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests", howWeKnow: "4 pictures of passed tests, 7 Nov; automated tests 1200 of 1200 passed (run 7 Nov); the plan simulates clean; 15 of 15 signatures check out" } }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "how we know: done means, 4 pictures, the numbers, where it comes from, made by rehearse from the record and the test runs, not written by hand" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A5, state: { pictures: { atMost: 4, each: [what the screen shows, date, recording link with --with-recordings] }, numbers: [tests on the real screens, automated tests with report date, plan check, signatures], sources: [commit, Birdview results date], line: "made by rehearse from the record and the test runs, not written by hand" } }
+
+  - id: S20-full-deck
+    title: "With --full the summary comes first, then every story slide as an appendix"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - { name: group-done-by-area }
+      - { name: group-not-done-by-reason }
+      - { name: how-we-know }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "the summary, 5 slides" } }
+      - name: full-deck-appendix
+        example: { id: full, given: { epic: 2026-11-05-rehearse, slides: 5, deck: "the summary, 5 slides" }, then: { epic: 2026-11-05-rehearse, slides: 74, deck: "the summary; Details, story by story; recap, why, requirements, big picture, progress, the stories, quality, risks, evidence, glossary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d-full.html, bytes: 4300000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A6, state: { order: [summary, "Details, story by story", story slides], fileName: "<name>-full.html", worksWith: [--with-recordings, --pdf, --committed-only, --unit-report], ui: Full deck } }
+
+  - id: S20-plain-words
+    title: "Every slide of the summary is in plain words"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - { name: group-done-by-area }
+      - { name: group-not-done-by-reason }
+      - { name: how-we-know }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "no record ids, YAML keys or code in any slide of the summary" } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A7, state: { recordIds: none, yamlKeys: none, codeMarks: none, idsOnlyIn: corner of the full deck story slides } }
+
+  - id: S20-no-story-done
+    title: "With no story done yet, the done slide says so plainly"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - name: group-done-by-area
+        branch: "no story done yet"
+        example: { id: none-done, given: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests", doneStates: "0 done, 5 in progress, 15 not started", proofLevels: none }, then: { exit: no story done yet } }
+      - { name: group-not-done-by-reason }
+      - { name: how-we-know }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "what's done: Nothing is done yet: no part of the plan is both built and signed off." } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A3, state: { doneSlide: "Nothing is done yet: no part of the plan is both built and signed off.", titleSentence: "None of the 20 parts of the plan is done yet." } }
+
+  - id: S20-no-picture
+    title: "With no picture of a passed test, the how-we-know slide says so and shows no empty box"
+    status: draft
+    steps:
+      - name: present-cli
+        example: { id: cli, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: gather-deck-facts
+        example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" } }
+      - { name: read-saved-test-results }
+      - { name: read-unit-report }
+      - { name: last-screen-picture }
+      - { name: done-rule }
+      - { name: group-done-by-area }
+      - { name: group-not-done-by-reason }
+      - name: how-we-know
+        branch: "no proof picture available"
+        example: { id: no-picture, given: { epic: 2026-11-05-rehearse, commit: "main @ 40c1f9d, 2026-11-07", uncommitted: false, facts: "20 stories, 5 designs, 40 tests" }, then: { exit: no proof picture available } }
+      - name: summary-deck
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 5, deck: "how we know: No picture of a test run: Birdview kept no recording of these tests." } }
+      - name: render-deck-html
+        example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-40c1f9d.html, bytes: 900000 } }
+      - { name: deck-file }
+    expect: { criterion: S20-A5, state: { message: "No picture of a test run: Birdview kept no recording of these tests.", emptyPictureBox: false, numbersStillShown: true } }

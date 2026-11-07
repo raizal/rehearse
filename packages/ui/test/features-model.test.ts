@@ -244,7 +244,7 @@ describe('big picture (S4-A4)', () => {
       // T53 (S19): the zip download asks the server for the deck's facts again, with the recordings.
       { from: 'download-with-recordings', to: 'gather-deck-facts', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 19, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 20, processes: main.length });
   });
 });
 

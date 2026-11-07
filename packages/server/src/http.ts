@@ -627,7 +627,7 @@ async function threadMerge(req: IncomingMessage, res: ServerResponse, path: stri
 }
 
 /**
- * `GET /api/present?epic=<slug>[&format=pdf|zip]` (T52, box present-view): the served EPIC's deck as
+ * `GET /api/present?epic=<slug>[&format=pdf|zip][&full=1]` (T52, box present-view): the served EPIC's deck as
  * one HTML file, or printed to PDF, or (T53, box download-with-recordings) a zip of the HTML and
  * `<name>-media/` with the videos it links. The token and a same-origin Origin first; no Chromium
  * is a 503 in plain words.
@@ -650,8 +650,10 @@ async function present(req: IncomingMessage, res: ServerResponse, query: URLSear
       sendJson(res, 404, { ok: false, error: `this server shows the EPIC ${slug}, not ${epic}` });
       return;
     }
-    const built = await buildDeckHtml(format === 'zip' ? { ...deckOptions, media: {} } : deckOptions);
-    const name = deckFileName(slug, built.facts);
+    // T54: the executive summary by default; `full=1` adds every story slide as an appendix.
+    const full = query.get('full') === '1';
+    const built = await buildDeckHtml({ ...deckOptions, ...(format === 'zip' ? { media: {} } : {}), ...(full ? { full } : {}) });
+    const name = `${deckFileName(slug, built.facts)}${full ? '-full' : ''}`;
     if (format === 'zip') {
       const entries = [{ name: `${name}.html`, data: Buffer.from(built.html) }];
       const missing: string[] = [];

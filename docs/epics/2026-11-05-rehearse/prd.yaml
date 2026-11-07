@@ -275,6 +275,20 @@ requirements:
       zip. An evidence page says where each proof comes from, and a source that is missing says
       so instead of being left out. (T53)
 
+  - id: R31
+    kind: functional
+    text: >-
+      `rehearse present` makes an executive summary by default, about five or six slides a
+      supervisor reads in a few minutes: where we are (the goal, one status sentence and a done
+      / not-yet bar), what is done (grouped by area or by role, each line with how strong its
+      proof is), what is not done yet and why (grouped by reason, each with what it takes and who
+      acts), how we know (what "done" means, pictures of the last screen of passed tests, the
+      numbers and where they come from), and what I need from you and what is next. One rule
+      decides "done" for the whole deck: built, signed off and not stale, and no test of it
+      fails; how strong the proof is (seen working, partly seen working, or checked by automated
+      tests) is said apart from it. `--full` and "Full deck" on the EPIC page add every story
+      slide after the summary as an appendix. (T54)
+
 stories:
   - id: S1
     role: builder
@@ -1020,6 +1034,70 @@ stories:
         then: >-
           each missing source shows as missing on the story slides and on the evidence page, in
           plain words, and no story is called done without the proof that the rule asks for
+
+  - id: S20
+    role: builder
+    want: >-
+      the deck to be a short executive summary — where we are, what is done, what is not and
+      why, and the proof
+    soThat: my supervisor gets the picture in a few minutes
+    requirements: [R31]
+    acceptance:
+      - id: S20-A1
+        given: any EPIC
+        when: the builder runs `pnpm rehearse present <epic>`, or presses Present on the EPIC page
+        then: >-
+          the deck is a summary of at most six slides, in this order: where we are (the goal,
+          one status sentence such as "15 of 19 parts of the plan are done; 2 of them are seen
+          working on the real screens. 4 are not done yet." and a done / not-yet bar), what is
+          done, what is not done yet and why, how we know, what I need from you (only when the
+          owner asks something) and what is next (the owner's next steps, else the top three the
+          record suggests)
+      - id: S20-A2
+        given: stories at every stage
+        when: the builder makes the deck
+        then: >-
+          one rule decides done everywhere in the deck: built, signed off and not stale, and no
+          test of it fails; a done story shows how strong its proof is: seen working (every
+          approved e2e test passed), partly seen working ("5 of 6") or checked by automated
+          tests
+      - id: S20-A3
+        given: an EPIC with done stories
+        when: the builder makes the deck
+        then: >-
+          the done slide groups them by the owner's areas in presentation.yaml, else by role,
+          at most six groups of one to three short lines, each line ending with its proof level
+          and the date it was last seen working
+      - id: S20-A4
+        given: an EPIC with stories not done
+        when: the builder makes the deck
+        then: >-
+          the not-done slide groups them by reason (a test fails, an automated check fails,
+          changed after it was signed off and needs a new sign-off, waiting for my approval,
+          being built, not planned yet), each with what it takes and who acts
+      - id: S20-A5
+        given: passed e2e tests with recordings, a unit report and signatures
+        when: the builder makes the deck
+        then: >-
+          the how-we-know slide says what "done" means here, shows up to four pictures of the
+          last screen of passed tests with what they show and the date (linked to the recording
+          with `--with-recordings`), the numbers (tests on the real screens, automated tests
+          with the report date, the plan check, the signatures), where they come from (the
+          commit and the date of the Birdview results), and the line "made by rehearse from the
+          record and the test runs, not written by hand"
+      - id: S20-A6
+        given: any EPIC
+        when: the builder runs `pnpm rehearse present <epic> --full`, or ticks "Full deck" on the EPIC page
+        then: >-
+          the deck is the same summary, then a slide "Details, story by story", then every story
+          slide as before; `--with-recordings`, `--pdf`, `--committed-only` and `--unit-report`
+          work with both decks
+      - id: S20-A7
+        given: any EPIC
+        when: the builder makes the summary
+        then: >-
+          every slide of the summary is in plain words: no record ids, YAML keys or code in the
+          text, ids only in the corner of the full deck's story slides
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

@@ -18,6 +18,7 @@ import {
   defaultVerifier,
   deckHtml,
   downscalePng,
+  escapeXml,
   findingStories,
   gateEpic,
   loadEpic,
@@ -77,6 +78,8 @@ export interface DeckOptions {
   /** Signature checks for the gate. Default: the repo's allowed_signers. */
   verifier?: Verifier;
   committedOnly?: boolean;
+  /** T54: the summary first, then every story slide as an appendix. Default: the summary alone. */
+  full?: boolean;
   /** Today, for a deck with uncommitted changes. */
   now?: () => Date;
   /** Birdview's data folder, read when the player has no results of our project (T53); null: not found. */
@@ -391,9 +394,11 @@ export async function deckSources(o: DeckSourceOptions): Promise<DeckSources> {
 export async function buildDeckHtml(opts: DeckOptions): Promise<BuiltDeck> {
   const { record, facts, assets, videos, mediaFolder, warnings } = await gatherDeckFacts(opts);
   const { inputs, findings } = readPresentation(record);
-  const deck = presentationDeck(record, facts, inputs);
+  const deck = presentationDeck(record, facts, inputs, { full: opts.full === true, hasPicture: (a) => assets[a] !== undefined });
   const html = deckHtml(deck, assets);
-  return { deck, html, bytes: Buffer.byteLength(html), facts, inputFindings: findings, videos, ...(mediaFolder ? { mediaFolder } : {}), warnings };
+  // The summary links fewer recordings than the full deck: copy only the videos this deck links.
+  const linked = videos.filter((v) => html.includes(`href="${escapeXml(`${mediaFolder}/${v.name}`)}"`));
+  return { deck, html, bytes: Buffer.byteLength(html), facts, inputFindings: findings, videos: linked, ...(mediaFolder ? { mediaFolder } : {}), warnings };
 }
 
 /** The record as loaded, for callers that only need the slug. */

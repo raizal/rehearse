@@ -1,5 +1,6 @@
 // T53: what is done, what is not, and the proof (boxes story-done-state, build-recap, proof-lines,
-// evidence-page).
+// evidence-page). T54 (box done-rule): done is built, signed off and no failing test; how strong the
+// proof is became the proof level. The recap, proof lines and evidence page are in the full deck.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,6 +10,7 @@ import {
   NO_INPUTS,
   plainWordProblems,
   presentationDeck,
+  proofLevel,
   RECAP_MAX,
   servingBoxes,
   solidPng,
@@ -26,6 +28,9 @@ import { REAL_EPIC } from '../helpers.js';
 
 const COMMIT = { branch: 'main', sha: 'abc1234', date: '2026-11-07' };
 const real = loadEpic(REAL_EPIC).record;
+
+/** The full deck (T54): the summary, then the recap, proof lines and evidence page of T53. */
+const fullDeck = (record: EpicRecord, f: DeckFacts, i: typeof NO_INPUTS): Deck => presentationDeck(record, f, i, { full: true });
 
 function facts(over: Partial<DeckFacts> = {}): DeckFacts {
   return { commit: COMMIT, uncommitted: false, owner: 'Ada', stories: {}, gate: { ok: true, items: [] }, testResults: true, ...over };
@@ -72,47 +77,58 @@ const proofOf = (deck: Deck, story: string): ProofRow[] => {
 };
 const row = (rows: ProofRow[], label: string) => rows.find((r) => r.label === label);
 
-describe('the done rule (story-done-state)', () => {
+describe('the done rule (story-done-state) and the proof level', () => {
   const base = { signedOff: true, signStatus: 'signed' as const, approved: 3, passed: 3, boxes: 2, built: 2 };
-  it('done only when signed off, every approved test passed, and every part has code', () => {
+  it('done when signed off, not stale, and every part has code', () => {
     expect(storyDoneState(base)).toBe('done');
   });
   it('stale: changed after sign-off is not done', () => {
     expect(storyDoneState({ ...base, signedOff: false, signStatus: 'stale' })).toBe('in-progress');
   });
-  it('a failing or missing test is not done', () => {
-    expect(storyDoneState({ ...base, passed: 2 })).toBe('in-progress');
-    expect(storyDoneState({ ...base, passed: 0 })).toBe('in-progress');
+  it('a failing e2e test makes it not done; a test not run yet does not', () => {
+    expect(storyDoneState({ ...base, passed: 2, failed: 1 })).toBe('in-progress');
+    expect(storyDoneState({ ...base, passed: 2 })).toBe('done');
+    expect(storyDoneState({ ...base, passed: 0 })).toBe('done');
   });
-  it('nothing approved proves nothing, and a part without code is not done', () => {
-    expect(storyDoneState({ ...base, approved: 0, passed: 0 })).toBe('in-progress');
+  it('a failing automated test or a problem in the plan makes it not done', () => {
+    expect(storyDoneState({ ...base, unitFailed: 1 })).toBe('in-progress');
+    expect(storyDoneState({ ...base, simProblems: 2 })).toBe('in-progress');
+  });
+  it('a part without code is not done; nothing approved is still done when built and signed off', () => {
     expect(storyDoneState({ ...base, built: 1 })).toBe('in-progress');
     expect(storyDoneState({ ...base, boxes: 0, built: 0 })).toBe('in-progress');
+    expect(storyDoneState({ ...base, approved: 0, passed: 0 })).toBe('done');
   });
   it('not started: never signed off and no part has code', () => {
     expect(storyDoneState({ signedOff: false, approved: 0, passed: 0, boxes: 4, built: 0 })).toBe('not-started');
     expect(storyDoneState({ signedOff: false, signStatus: 'draft', approved: 0, passed: 0, boxes: 4, built: 0 })).toBe('not-started');
     expect(storyDoneState({ signedOff: false, signStatus: 'draft', approved: 0, passed: 0, boxes: 4, built: 1 })).toBe('in-progress');
   });
+  it('proof level: every approved e2e test passed is seen working, some is partly, none is automated tests only', () => {
+    expect(proofLevel({ approved: 3, passed: 3 })).toBe('seen-working');
+    expect(proofLevel({ approved: 6, passed: 5 })).toBe('partly-seen');
+    expect(proofLevel({ approved: 3, passed: 0 })).toBe('automated');
+    expect(proofLevel({ approved: 0, passed: 0 })).toBe('automated');
+  });
 });
 
 describe('the recap (build-recap)', () => {
-  const deck = presentationDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
+  const deck = fullDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
 
-  it('comes right after the title, with the standing sentence the title uses too', () => {
-    expect(deck.slides.map((s) => s.key).slice(0, 2)).toEqual(['title', 'recap']);
+  it('opens the appendix, right after "Details, story by story", with the standing sentence', () => {
+    const keys = deck.slides.map((s) => s.key);
+    expect(keys.indexOf('recap')).toBe(keys.indexOf('details') + 1);
     const total = real.prd!.stories.length;
-    const sentence = `1 of ${total} stories is done.`;
     const recap = slide(deck, 'recap');
-    expect(JSON.stringify(recap.blocks[0])).toContain(sentence);
-    expect(JSON.stringify(deck.slides[0]!.blocks)).toContain(sentence);
+    expect(JSON.stringify(recap.blocks[0])).toContain(`1 of ${total} stories is done.`);
+    expect(JSON.stringify(deck.slides[0]!.blocks)).toContain(`1 of ${total} parts of the plan is done; it is seen working on the real screens. ${total - 1} are not done yet.`);
     expect(recap.blocks.some((b) => b.type === 'text' && b.text === DONE_RULE && b.tone === 'small')).toBe(true);
   });
 
-  it('a done story says when and by whom it was signed off, how many checks pass, and links its recording', () => {
+  it('a done story says its proof level, when and by whom it was signed off, how many e2e tests pass, and links its recording', () => {
     const r = recapOf(deck);
     expect(r.done.map((i) => i.id)).toEqual(['S1']);
-    expect(r.done[0]!.text).toMatch(/— signed off 6 Nov by raizal\.pregnanta · 3 of 3 checks pass$/);
+    expect(r.done[0]!.text).toMatch(/— seen working · signed off 6 Nov by raizal\.pregnanta · 3 of 3 e2e tests pass$/);
     expect(r.done[0]!.links).toEqual([{ href: 'deck-media/s1.mp4', text: '▶ recording' }]);
   });
 
@@ -134,7 +150,7 @@ describe('the recap (build-recap)', () => {
     const big = structuredClone(real);
     const extra = RECAP_MAX + 5 - big.prd!.stories.length;
     for (let i = 0; i < extra; i++) big.prd!.stories.push({ ...big.prd!.stories[0]!, id: `S${100 + i}` });
-    const split = presentationDeck(big, facts(), NO_INPUTS);
+    const split = fullDeck(big, facts(), NO_INPUTS);
     const recaps = split.slides.filter((s) => s.key.startsWith('recap'));
     expect(recaps.map((s) => s.key)).toEqual(['recap', 'recap-2']);
     expect(recaps.map((s) => s.title)).toEqual(['What is done, what is not (1/2)', 'What is done, what is not (2/2)']);
@@ -152,7 +168,7 @@ describe('the recap (build-recap)', () => {
 
 describe('the proof on every story slide (proof-lines)', () => {
   it('with every source: e2e with dates, recording, unit tests, simulation, built, signed', () => {
-    const deck = presentationDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
+    const deck = fullDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
     const rows = proofOf(deck, 'S1');
     expect(rows.map((r) => r.label)).toEqual(['E2E tests', 'Recording', 'Unit tests', 'Simulation', 'Built', 'Signed']);
     expect(row(rows, 'E2E tests')!.text).toBe('3 of 3 passed · runs from 5 Nov to 6 Nov');
@@ -161,27 +177,28 @@ describe('the proof on every story slide (proof-lines)', () => {
     expect(row(rows, 'Simulation')!.text).toBe('the plan simulates clean');
     expect(row(rows, 'Built')!.text).toBe('1 of 1 part has code (3 commits)');
     expect(row(rows, 'Signed')!.text).toBe('signed off by raizal.pregnanta on 6 Nov, signature checked');
-    expect(JSON.stringify(slide(deck, 'S1').blocks)).toMatch(/Done: built, every check passes, signed off\./);
+    expect(JSON.stringify(slide(deck, 'S1').blocks)).toMatch(/Done, seen working: built and signed off, and no test of it fails\./);
   });
 
-  it('without the sources: each one says it is missing, and nothing is called done', () => {
+  it('without the sources: each one says it is missing, and a done story is only "checked by automated tests"', () => {
     const notRun = Object.fromEntries(approvedOf(real, 'S1').map((id) => [id, 'not-run' as const]));
-    const deck = presentationDeck(real, facts({ stories: { S1: { built: 1, tests: notRun } }, testResults: false }), NO_INPUTS);
+    const deck = fullDeck(real, facts({ stories: { S1: { built: 1, tests: notRun } }, testResults: false }), NO_INPUTS);
     const rows = proofOf(deck, 'S1');
     expect(row(rows, 'E2E tests')!.text).toMatch(/3 not run \(no test results found\)/);
     expect(row(rows, 'Recording')!.text).toBe('Birdview kept no recording of these tests');
     expect(row(rows, 'Unit tests')!.text).toBe('not counted for this deck');
     expect(row(rows, 'Simulation')!.text).toBe('not run for this deck');
     expect(row(rows, 'Signed')!.text).toMatch(/signature not checked$/);
-    expect(recapOf(deck).done).toEqual([]);
-    expect(deckHtml(deck)).toContain('No story is done yet.');
+    // Built and signed off with no failing test is done (T54), but nothing was seen working.
+    expect(recapOf(deck).done.map((i) => [i.id, i.text.replace(/^.*? — /, '').split(' · ')[0]])).toEqual([['S1', 'checked by automated tests']]);
+    expect(JSON.stringify(slide(deck, 'title').blocks)).toMatch(/1 of \d+ parts of the plan is done; none of them is seen working on the real screens yet/);
   });
 
   it('a recorded run that was not copied is "kept by" the owner; a failing step is named', () => {
     const s = doneS1();
     const s1 = approvedOf(real, 'S1');
     s.S1!.runs = Object.fromEntries(s1.map((id) => [id, { at: '2026-11-06T10:00:00Z', recorded: true }]));
-    const deck = presentationDeck(real, facts({ stories: s }), NO_INPUTS);
+    const deck = fullDeck(real, facts({ stories: s }), NO_INPUTS);
     expect(row(proofOf(deck, 'S1'), 'Recording')!.text).toBe('3 recordings kept by Ada');
     expect(recapOf(deck).done[0]!.text).toMatch(/· recording kept by Ada$/);
     expect(row(proofOf(deck, 'S2'), 'E2E tests')!.text).toMatch(/1 failed at "the error is shown"/);
@@ -189,7 +206,7 @@ describe('the proof on every story slide (proof-lines)', () => {
   });
 
   it('stale, a signature that does not match, unit failures and plan problems are said plainly', () => {
-    const deck = presentationDeck(real, facts({ stories: doneS1({ signature: 'invalid', unit: { tests: 2, passed: 1, failed: 1 }, simulation: { problems: 2, uncovered: 0 } }) }), NO_INPUTS);
+    const deck = fullDeck(real, facts({ stories: doneS1({ signature: 'invalid', unit: { tests: 2, passed: 1, failed: 1 }, simulation: { problems: 2, uncovered: 0 } }) }), NO_INPUTS);
     const rows = proofOf(deck, 'S1');
     expect(row(rows, 'Signed')!.text).toMatch(/but the signature does not match$/);
     expect(row(rows, 'Unit tests')!.text).toMatch(/1 pass, 1 fail$/);
@@ -201,12 +218,12 @@ describe('the proof on every story slide (proof-lines)', () => {
 
   it('a check row shows when it ran, the still of its last screen and the recording link', () => {
     const png = solidPng(4, 3, [10, 20, 30, 255]);
-    const deck = presentationDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
+    const deck = fullDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
     const html = deckHtml(deck, { 'run-S1': { mime: 'image/png', data: png, width: 4, height: 3 } });
     expect(html).toMatch(/<a class="media" href="deck-media\/s1\.mp4">▶ recording<\/a>/);
     expect(html).toMatch(/alt="Last screen of the test/);
     // No still when there is no recording: no empty picture box.
-    const none = deckHtml(presentationDeck(real, facts({ stories: { S1: { built: 1, tests: {} } } }), NO_INPUTS));
+    const none = deckHtml(fullDeck(real, facts({ stories: { S1: { built: 1, tests: {} } } }), NO_INPUTS));
     expect(none).not.toMatch(/class="pic"/);
   });
 });
@@ -220,7 +237,7 @@ describe('the evidence page (evidence-page)', () => {
   };
 
   it('comes before the glossary and names every source, with the trust sentence', () => {
-    const deck = presentationDeck(real, facts({ evidence, stories: doneS1() }), NO_INPUTS);
+    const deck = fullDeck(real, facts({ evidence, stories: doneS1() }), NO_INPUTS);
     expect(deck.slides.map((s) => s.key).slice(-2)).toEqual(['evidence', 'glossary']);
     const text = JSON.stringify(slide(deck, 'evidence').blocks);
     expect(text).toContain('abc1234');
@@ -234,7 +251,7 @@ describe('the evidence page (evidence-page)', () => {
   });
 
   it('missing sources say so', () => {
-    const deck = presentationDeck(real, facts(), NO_INPUTS);
+    const deck = fullDeck(real, facts(), NO_INPUTS);
     const text = JSON.stringify(slide(deck, 'evidence').blocks);
     expect(text).toMatch(/E2E test results: none were found/);
     expect(text).toMatch(/Unit tests: not used for this deck/);
@@ -242,7 +259,7 @@ describe('the evidence page (evidence-page)', () => {
   });
 
   it('the owner can narrate the recap and the evidence page', () => {
-    const deck = presentationDeck(real, facts(), { ...NO_INPUTS, narration: { recap: 'Here is where we stand.', evidence: 'All from the record.' } });
+    const deck = fullDeck(real, facts(), { ...NO_INPUTS, narration: { recap: 'Here is where we stand.', evidence: 'All from the record.' } });
     expect(slide(deck, 'recap').narration).toBe('Here is where we stand.');
     expect(slide(deck, 'evidence').narration).toBe('All from the record.');
   });
@@ -250,7 +267,7 @@ describe('the evidence page (evidence-page)', () => {
 
 describe('plain words and one file', () => {
   it('the recap, proof and evidence use no record ids, YAML keys or code marks', () => {
-    const deck = presentationDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
+    const deck = fullDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
     const boxPaths = real.prd!.stories.flatMap((s) => servingBoxes(real.flow, s.id));
     const recap = slide(deck, 'recap');
     const texts = [
@@ -263,7 +280,7 @@ describe('plain words and one file', () => {
   });
 
   it('the HTML is self-contained: media links are relative, nothing is fetched', () => {
-    const html = deckHtml(presentationDeck(real, facts({ stories: doneS1() }), NO_INPUTS));
+    const html = deckHtml(fullDeck(real, facts({ stories: doneS1() }), NO_INPUTS));
     const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
     expect(hrefs.length).toBeGreaterThan(0);
     for (const h of hrefs) expect(h).not.toMatch(/^(https?:|\/|file:)/);

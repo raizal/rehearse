@@ -967,6 +967,75 @@ root:
       # `--with-recordings <dir>` copies each linked video into <deck>-media/ next to the HTML
       # and points the links there. A video that cannot be found is named as missing.
 
+    # T54, S20: the executive summary, the default deck.
+    - id: done-rule
+      kind: process
+      lane: rehearse
+      package: core
+      title: Decide if each story is done, and how strong its proof is
+      stories: [S20]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string, proofLevels: string }
+      # Pure, one rule for the deck, the summary and the progress table. Done: built, signed off
+      # and not stale, and no test fails. The proof level of a done story: seen working,
+      # partly seen working or checked by automated tests.
+
+    - id: group-done-by-area
+      kind: process
+      lane: rehearse
+      package: core
+      title: Group the done stories by area
+      stories: [S20]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string, proofLevels: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string, proofLevels: string, doneGroups: string }
+      errorExits: ["no story done yet"]
+      # The owner's areas in presentation.yaml, else by role; at most six groups of one to three
+      # lines, each line with its proof level.
+
+    - id: group-not-done-by-reason
+      kind: process
+      lane: rehearse
+      package: core
+      title: Group the stories not done by reason
+      stories: [S20]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string, doneStates: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, notDoneGroups: string }
+      # A test fails, a check fails, changed after sign-off, waiting for my approval, being built,
+      # not planned yet; each with what it takes and who acts.
+
+    - id: how-we-know
+      kind: process
+      lane: rehearse
+      package: core
+      title: Show how we know, with pictures of passed tests
+      stories: [S20]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, commit: string, uncommitted: boolean, facts: string, howWeKnow: string }
+      errorExits: ["no proof picture available"]
+      # What done means here, up to four last-screen pictures of passed runs, the numbers and
+      # where they come from, and the trust sentence.
+
+    - id: summary-deck
+      kind: process
+      lane: rehearse
+      package: core
+      title: Build the executive summary slides
+      stories: [S20]
+      inputs:  { epic: string, commit: string, uncommitted: boolean, facts: string }
+      outputs: { epic: string, slides: number, deck: string }
+      # Where we are, what's done, what's not and why, how we know, what I need (only with asks),
+      # what's next. At most six slides.
+
+    - id: full-deck-appendix
+      kind: process
+      lane: rehearse
+      package: core
+      title: Add every story slide after the summary
+      stories: [S20]
+      inputs:  { epic: string, slides: number, deck: string }
+      outputs: { epic: string, slides: number, deck: string }
+      # `--full` and "Full deck": "Details, story by story", then the story slides of T52 and T53.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -1114,3 +1183,13 @@ root:
     - { from: render-deck-html,         to: copy-recordings }
     - { from: copy-recordings,          to: deck-file }
     - { from: deck-file,                to: download-with-recordings }
+    - { from: last-screen-picture,      to: done-rule }
+    - { from: done-rule,                to: group-done-by-area }
+    - { from: group-done-by-area,       to: group-not-done-by-reason }
+    - { from: group-done-by-area,       to: group-not-done-by-reason, label: "no story done yet",          kind: error }
+    - { from: group-not-done-by-reason, to: how-we-know }
+    - { from: how-we-know,              to: summary-deck }
+    - { from: how-we-know,              to: summary-deck,             label: "no proof picture available", kind: error }
+    - { from: summary-deck,             to: render-deck-html }
+    - { from: summary-deck,             to: full-deck-appendix }
+    - { from: full-deck-appendix,       to: render-deck-html }

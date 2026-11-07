@@ -1,7 +1,8 @@
 // The Present button of the EPIC page (T52, box present-view): the deck for a supervisor, made by
 // the server from the record, previewed in a frame (← → move between slides) and downloaded as the
 // HTML file or a PDF, or (T53, box download-with-recordings) a zip of the HTML and the recordings it
-// links. The frame runs the deck's own script only: it has no access to this page.
+// links. T54: the executive summary by default; Full deck shows (and downloads) the summary followed
+// by every story slide. The frame runs the deck's own script only: it has no access to this page.
 
 import { useEffect, useRef, useState } from 'react';
 import { HTTP_PRESENT_API, type DeckHtml, type PresentApi } from '../present-api.js';
@@ -23,13 +24,16 @@ export function download(data: Blob, name: string): void {
 export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slug: string; api?: PresentApi; save?: (data: Blob, name: string) => void }) {
   const [state, setState] = useState<State>({ kind: 'closed' });
   const [file, setFile] = useState<{ busy?: 'pdf' | 'zip'; error?: string; note?: string }>({});
+  const [full, setFull] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
 
-  const open = () => {
+  const load = (asFull: boolean) => {
+    setFull(asFull);
     setState({ kind: 'loading' });
     setFile({});
-    void api.html(slug).then((r) => setState(r.ok ? { kind: 'ready', deck: r.body } : { kind: 'error', error: r.error }));
+    void api.html(slug, { full: asFull }).then((r) => setState(r.ok ? { kind: 'ready', deck: r.body } : { kind: 'error', error: r.error }));
   };
+  const open = () => load(false);
   const close = () => setState({ kind: 'closed' });
 
   useEffect(() => {
@@ -43,7 +47,7 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
 
   const downloadPdf = () => {
     setFile({ busy: 'pdf' });
-    void api.pdf(slug).then((r) => {
+    void api.pdf(slug, { full }).then((r) => {
       if (r.ok) {
         save(r.body.data, r.body.name);
         setFile({});
@@ -53,7 +57,7 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
 
   const downloadZip = () => {
     setFile({ busy: 'zip' });
-    void api.zip(slug).then((r) => {
+    void api.zip(slug, { full }).then((r) => {
       if (!r.ok) return setFile({ error: r.error });
       save(r.body.data, r.body.name);
       const n = r.body.videos;
@@ -80,6 +84,9 @@ export function Present({ slug, api = HTTP_PRESENT_API, save = download }: { slu
             <span className="present-actions">
               {state.kind === 'ready' && (
                 <>
+                  <label className="present-full" title="The summary, then every story slide as an appendix">
+                    <input type="checkbox" data-testid="present-full" checked={full} disabled={file.busy !== undefined} onChange={(e) => load(e.target.checked)} /> Full deck
+                  </label>
                   <button type="button" data-testid="present-download-html" onClick={() => save(new Blob([state.deck.data], { type: 'text/html' }), state.deck.name)}>
                     Download HTML
                   </button>

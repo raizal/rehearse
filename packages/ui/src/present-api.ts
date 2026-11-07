@@ -1,6 +1,7 @@
 // The deck calls (T52): `GET api/present?epic=<slug>` (the EPIC as one self-contained HTML file) and
 // `&format=pdf` (the same deck printed by Chromium); T53 `&format=zip` (the HTML and a media folder
-// with the recordings it links). All send the session token; the file name comes from the server's
+// with the recordings it links). T54: the executive summary by default; `{ full: true }` adds
+// `&full=1`, every story slide after the summary. All send the session token; the file name comes from the server's
 // content-disposition. No Chromium is a 503 with the server's plain words.
 
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient } from './session-client.js';
@@ -22,11 +23,19 @@ export interface DeckZip extends DeckFile<Blob> {
 
 export type PresentOutcome<T> = { ok: true; body: T } | { ok: false; error: string };
 
-export interface PresentApi {
-  html: (slug: string) => Promise<PresentOutcome<DeckHtml>>;
-  pdf: (slug: string) => Promise<PresentOutcome<DeckFile<Blob>>>;
-  zip: (slug: string) => Promise<PresentOutcome<DeckZip>>;
+export interface DeckChoice {
+  /** The summary and then every story slide (T54). Default: the summary alone. */
+  full?: boolean;
 }
+
+export interface PresentApi {
+  html: (slug: string, choice?: DeckChoice) => Promise<PresentOutcome<DeckHtml>>;
+  pdf: (slug: string, choice?: DeckChoice) => Promise<PresentOutcome<DeckFile<Blob>>>;
+  zip: (slug: string, choice?: DeckChoice) => Promise<PresentOutcome<DeckZip>>;
+}
+
+const deckUrl = (slug: string, choice: DeckChoice | undefined, format?: 'pdf' | 'zip'): string =>
+  `api/present?epic=${encodeURIComponent(slug)}${format ? `&format=${format}` : ''}${choice?.full ? '&full=1' : ''}`;
 
 const fileName = (res: Response, fallback: string): string => /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? fallback;
 
@@ -49,15 +58,15 @@ export function httpPresentApi(client: SessionClient = sessionClient): PresentAp
     }
   }
   return {
-    html: (slug) =>
-      get(`api/present?epic=${encodeURIComponent(slug)}`, async (res) => ({
+    html: (slug, choice) =>
+      get(deckUrl(slug, choice), async (res) => ({
         data: await res.text(),
         name: fileName(res, `${slug}.html`),
         slides: Number(res.headers.get('x-deck-slides') ?? 0),
       })),
-    pdf: (slug) => get(`api/present?epic=${encodeURIComponent(slug)}&format=pdf`, async (res) => ({ data: await res.blob(), name: fileName(res, `${slug}.pdf`) })),
-    zip: (slug) =>
-      get(`api/present?epic=${encodeURIComponent(slug)}&format=zip`, async (res) => ({
+    pdf: (slug, choice) => get(deckUrl(slug, choice, 'pdf'), async (res) => ({ data: await res.blob(), name: fileName(res, `${slug}.pdf`) })),
+    zip: (slug, choice) =>
+      get(deckUrl(slug, choice, 'zip'), async (res) => ({
         data: await res.blob(),
         name: fileName(res, `${slug}.zip`),
         videos: Number(res.headers.get('x-deck-videos') ?? 0),

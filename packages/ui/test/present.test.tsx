@@ -1,6 +1,7 @@
 // T52: the Present button of the EPIC page. It asks the server for the deck (token sent), shows it
 // in a sandboxed frame focused for the arrow keys, and downloads the HTML and the PDF; no Chromium
 // shows the server's plain words. T53: the third download, the HTML and its recordings as one zip.
+// T54: the summary by default; the Full deck option asks for the full deck, and its downloads too.
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -108,6 +109,29 @@ describe('T52 Present', () => {
     await user.click(screen.getByTestId('present-download-zip'));
     expect((await screen.findByTestId('present-file-error')).textContent).toMatch(/too big/);
     expect(screen.queryByTestId('present-zip-note')).toBeNull();
+  });
+
+  it('the summary by default; Full deck reloads the full deck, and the PDF and zip ask for it too', async () => {
+    const { server, user, saved } = await setup((format, _epic, full) =>
+      format === 'html'
+        ? { status: 200, data: full ? `${DECK}<!-- full -->` : DECK, headers: { 'content-disposition': `inline; filename="shop${full ? '-full' : ''}.html"`, 'x-deck-slides': full ? '40' : '5' } }
+        : { status: 200, data: 'x', headers: { 'content-disposition': `attachment; filename="shop${full ? '-full' : ''}.${format}"`, 'x-deck-videos': '0' } },
+    );
+    await user.click(screen.getByTestId('present'));
+    await screen.findByTestId('present-frame');
+    const box = screen.getByTestId('present-full') as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect(screen.getByTestId('present-count').textContent).toContain('5 slides');
+    await user.click(box);
+    await waitFor(() => expect(screen.getByTestId('present-count').textContent).toContain('40 slides'));
+    expect(screen.getByTestId('present-frame').getAttribute('srcdoc')).toContain('<!-- full -->');
+    expect(server.calls.some((c) => /^api\/present\?epic=[^&]+&full=1$/.test(c.url))).toBe(true);
+    await user.click(screen.getByTestId('present-download-pdf'));
+    await waitFor(() => expect(saved.map((f) => f.name)).toContain('shop-full.pdf'));
+    await user.click(screen.getByTestId('present-download-zip'));
+    await waitFor(() => expect(saved.map((f) => f.name)).toContain('shop-full.zip'));
+    expect(server.calls.some((c) => /&format=pdf&full=1$/.test(c.url))).toBe(true);
+    expect(server.calls.some((c) => /&format=zip&full=1$/.test(c.url))).toBe(true);
   });
 
   it('a deck that cannot be made says why; Close and Escape close the preview', async () => {
