@@ -10,6 +10,7 @@ import { scenarioTrust } from '../trust/stale.js';
 import { servingBoxes } from '../trust/story-hash.js';
 import type { AcceptanceCriterion, EpicRecord, Id, Requirement, Role, Scenario, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
+import type { BoxEvidence } from './built.js';
 import type { PresentationInputs } from './inputs.js';
 import { plain, sentences } from './plain.js';
 import { DONE_WORDS, evidenceSlide, levelWords, missingThings, NO_EVIDENCE, plainStep, proofRows, recapSlides, shortDate, standing, standingSentence, viewDoneState, type DoneState, type ProofContext } from './proof.js';
@@ -37,8 +38,10 @@ export interface TestRun {
 export type SignatureState = 'valid' | 'missing' | 'invalid' | 'unknown-signer';
 
 export interface StoryFacts {
-  /** Boxes of the story with a Flow-Box commit reachable from the deck's commit. */
+  /** Boxes of the story that are built or need no code of their own (T58, box-evidence). */
   built: number;
+  /** Each box's built state and its evidence (T58). */
+  boxes?: BoxEvidence[];
   /** Test state of each approved scenario, by scenario id. */
   tests: Record<Id, TestState>;
   /** The story's design picture, as an asset key of deckHtml's assets. */
@@ -113,6 +116,8 @@ export interface DeckFacts {
   coverage?: number;
   /** Where the proof came from (T53). Default: nothing looked up. */
   evidence?: DeckEvidence;
+  /** The code graph "built" read (T58): when it was built, or why it could not be read. */
+  codeGraph?: { ok: boolean; at?: string; why?: string };
 }
 
 // ---------------------------------------------------------------- the deck
@@ -269,7 +274,7 @@ export const GLOSSARY: { term: string; meaning: string }[] = [
   { term: 'Approval', meaning: 'The owner reads a scenario and approves it. Only approved scenarios count as proof.' },
   { term: 'Sign-off', meaning: 'The owner agrees that a story, its plan and its scenarios are right. Agents may build only signed-off stories.' },
   { term: 'E2E test', meaning: 'An end-to-end test: a program that uses the product the way a person would, for one scenario, and passes or fails.' },
-  { term: 'Part', meaning: 'One step of the plan, such as a screen, a check or a command. A part counts as built when a commit says it builds that part.' },
+  { term: 'Part', meaning: 'One step of the plan, such as a screen, a check or a command. A part counts as built when a commit says it builds that part or the code graph links code to it. A start, an end, or a decision whose branch a built neighbour holds needs no code of its own.' },
   { term: 'Gate', meaning: 'The final check before the work counts as done: everything traced, rehearsed without problems, unchanged since sign-off and signed off.' },
 ];
 
@@ -322,7 +327,7 @@ export interface StoryView {
   facts: StoryFacts;
 }
 
-function storyView(record: EpicRecord, facts: DeckFacts, story: Story): StoryView {
+export function storyView(record: EpicRecord, facts: DeckFacts, story: Story): StoryView {
   const role = asArray<Role>(record.prd?.roles).find((r) => isObject(r) && r.id === story.role);
   const scenarios = record.scenarioFiles.flatMap((f) =>
     asArray<Scenario>(f.scenarios)

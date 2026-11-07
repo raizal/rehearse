@@ -42,7 +42,7 @@ describe('big picture (S4-A4)', () => {
   it('S4-A4: the review opens on the big picture: roles in rows, processes, one line per story, a legend', async () => {
     await start();
     expect(screen.getByTestId('nav-bigpicture')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getAllByTestId(/^nav-/).map((el) => el.textContent)).toEqual(['PRD', 'Tech spec', 'Big picture', 'Code map', 'Stories', 'Use cases', 'Readiness', 'Sign off']);
+    expect(screen.getAllByTestId(/^nav-/).map((el) => el.textContent)).toEqual(['PRD', 'Tech spec', 'Big picture', 'Code map', 'Stories', 'Use cases', 'Readiness', 'Sign off', 'Status']);
     const builder = screen.getByTestId('bp-role-builder');
     expect(builder).toHaveTextContent('Builder');
     expect(builder).toHaveTextContent('human');

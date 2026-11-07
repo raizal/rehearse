@@ -8,11 +8,17 @@ type Scenario = StoryProgress['scenarios'][number];
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** "built · 3 commits, 2 on the thread's branch" or "not yet". */
+/** "built · 3 commits, 2 on the thread's branch", "no code of its own" or "not built" (T58). */
 export function boxProgressText(b: Box, threadBranch: string | null): string {
-  if (!b.built) return 'not yet';
+  if (b.state === 'no-code') return 'no code of its own';
+  if (b.state === 'not-built') return 'not built';
   const on = threadBranch ? `, ${b.onThreadBranch} on ${threadBranch}` : '';
-  return `built · ${plural(b.commits, 'commit')}${on}`;
+  return b.commits > 0 ? `built · ${plural(b.commits, 'commit')}${on}` : 'built · code the code graph maps to it';
+}
+
+/** The evidence of a box, or what was looked for, in plain words (T58, box box-evidence). */
+export function boxEvidenceText(b: Box): string {
+  return b.evidence.text;
 }
 
 /** The e2e state of a scenario in words: "not run yet" is said as it is. */

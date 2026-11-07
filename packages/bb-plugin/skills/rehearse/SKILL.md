@@ -1,6 +1,6 @@
 ---
 name: rehearse
-description: Use the rehearse bb plugin. Open an EPIC record in the rehearse panel, or run the read-only rehearse commands (validate, simulate, gate check, new, brief, progress) through `bb rehearse`, or work on a signed story handed to a thread.
+description: Use the rehearse bb plugin. Open an EPIC record in the rehearse panel, or run the read-only rehearse commands (validate, simulate, gate check, new, brief, progress, status) through `bb rehearse`, or work on a signed story handed to a thread.
 ---
 
 # rehearse in bb
@@ -20,9 +20,10 @@ bb rehearse new <slug> --title "<title>"
 bb rehearse brief <epic-dir-or-slug> <story> [--scenario <id>]… [--allow-unsigned] [--json]
 bb rehearse brief <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]
 bb rehearse progress <epic-dir-or-slug> <story> [--json]
+bb rehearse status <epic-dir-or-slug> [--json] [--not-done]
 ```
 
-- `validate`, `simulate`, `gate check`, `new`, `brief` and `progress` run the rehearse CLI in the
+- `validate`, `simulate`, `gate check`, `new`, `brief`, `progress` and `status` run the rehearse CLI in the
   thread's checkout (the caller's folder when it is inside it). Output and exit
   codes are the CLI's: 0 OK, 1 findings, 2 usage error, 3 internal error.
 - `simulate --drafts` counts draft and stale scenarios as if approved, so a
@@ -34,8 +35,15 @@ bb rehearse progress <epic-dir-or-slug> <story> [--json]
   the test brief of the story's approved scenarios without an e2e test (or the
   `--scenario` ones); a draft or stale scenario is refused (exit 1).
 - `progress` prints what rehearse sees of the work on a story: per box, built
-  or not yet from `Flow-Box:` commits on every branch; per approved scenario,
-  whether an e2e test is found and its result; the gate findings; the sign-off.
+  (`Flow-Box:` commits on every branch, and code the code graph maps to it), no
+  code of its own (a start or end box, or a decision a built neighbour branches
+  on, with the file and line), or not built (and what was looked for); per
+  approved scenario, whether an e2e test is found and its result; the gate
+  findings; the sign-off.
+- `status` prints what is not done yet: per story, signed, built, tests on the
+  real screens, automated tests, done, and what is missing and who acts, not
+  done first (`--not-done` for those only). The panel's Status page and the
+  EPIC picker's "Status" button show the same table. Exit 0.
 - There is no approve and no sign-off command, and there never will be (R13,
   R14). The builder approves and signs off in the panel, which signs with their
   SSH key (D41). An agent cannot approve.

@@ -10,15 +10,21 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import {
+  boxEvidence,
   briefSignState,
+  BUILT_WORDS,
+  countsBuilt,
   gateItems,
   loadEpic,
   scenarioTrust,
   servingBoxes,
   simulateRecord,
   simulationFindings,
+  type BoxEvidence,
+  type BuiltState,
   type EpicRecord,
   type GateItem,
+  type GraphBuilds,
   type Id,
   type Scenario,
 } from '@rehearse/core';
@@ -33,6 +39,8 @@ export interface BranchCommit {
   boxes: string[];
   /** Branch name (`refs/heads/` and `refs/remotes/` cut), or the ref as git prints it. */
   branch: string;
+  /** The files the commit touched, when read (commitFiles). */
+  files?: string[];
 }
 
 /** The story thread as the progress block shows it. */
@@ -53,7 +61,12 @@ export interface ProgressThread {
 export interface BoxProgress {
   path: string;
   title: string;
+  /** Counts as built for the done rule: built, or no code of its own (T58). */
   built: boolean;
+  /** Built, no code of its own, or not built (T58, box box-evidence). */
+  state: BuiltState;
+  /** The evidence, or what was looked for, in plain words. */
+  evidence: BoxEvidence;
   /** Flow-Box commits that name the box or a box inside it, on any branch. */
   commits: number;
   /** Of them, on the story thread's branch. */
@@ -105,6 +118,10 @@ export interface ProgressInputs {
   results?: Record<string, TestResult>;
   coverage?: Record<string, CoverageStats>;
   gate: GateItem[];
+  /** What the code graph maps to each box (T58); unset: not looked up, Flow-Box commits only. */
+  graph?: GraphBuilds;
+  /** A repo file as text, for the decision check (T58). */
+  readFile?: (file: string) => string | undefined;
 }
 
 const isObject = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -138,17 +155,25 @@ export function storyProgress(input: ProgressInputs): StoryProgress {
   };
   walk(record.flow?.root?.boxes, '');
 
-  const boxes: BoxProgress[] = servingBoxes(record.flow, storyId).map((path) => {
-    const mine = input.commits.filter((c) => c.boxes.some((b) => b === path || b.startsWith(`${path}/`)));
+  const evidence = boxEvidence({
+    record,
+    paths: servingBoxes(record.flow, storyId),
+    commits: input.commits,
+    graph: input.graph ?? { ok: false, why: 'the code graph was not looked up, so only Flow-Box commits were looked at' },
+    ...(input.readFile ? { readFile: input.readFile } : {}),
+  });
+  const boxes: BoxProgress[] = evidence.map((ev) => {
     const box: BoxProgress = {
-      path,
-      title: titles.get(path) ?? path,
-      built: mine.length > 0,
-      commits: mine.length,
-      onThreadBranch: input.threadShas ? mine.filter((c) => input.threadShas!.has(c.sha)).length : 0,
-      branches: [...new Set(mine.map((c) => c.branch).filter((b) => b !== ''))].sort(),
+      path: ev.path,
+      title: titles.get(ev.path) ?? ev.title,
+      built: countsBuilt(ev),
+      state: ev.state,
+      evidence: ev,
+      commits: ev.commits.length,
+      onThreadBranch: input.threadShas ? ev.commits.filter((c) => input.threadShas!.has(c.sha)).length : 0,
+      branches: [...new Set(ev.commits.map((c) => c.branch).filter((b) => b !== ''))].sort(),
     };
-    const cov = input.coverage?.[path];
+    const cov = input.coverage?.[ev.path];
     if (cov) box.coverage = cov;
     return box;
   });
@@ -205,7 +230,7 @@ export function storyProgress(input: ProgressInputs): StoryProgress {
 }
 
 export function progressSummary(c: StoryProgress['counts']): string {
-  return `${c.boxesWithCode} of ${plural(c.boxes, 'box', 'boxes')} ${c.boxesWithCode === 1 && c.boxes === 1 ? 'has' : 'have'} code · ${c.scenariosTested} of ${plural(c.scenarios, 'scenario')} tested`;
+  return `${c.boxesWithCode} of ${plural(c.boxes, 'box', 'boxes')} built · ${c.scenariosTested} of ${plural(c.scenarios, 'scenario')} tested`;
 }
 
 const SCENARIO_WORDS: Record<ScenarioTestState, string> = {
@@ -227,9 +252,11 @@ export function progressText(p: StoryProgress): string {
   if (p.planChanged) lines.push('The plan changed since the thread started.');
   lines.push('', 'Boxes:');
   for (const b of p.boxes) {
-    const work = b.built ? `built, ${plural(b.commits, 'commit')}${p.thread?.branch ? `, ${b.onThreadBranch} on the thread branch` : ''}` : 'not yet';
+    const branch = b.state === 'built' && p.thread?.branch ? `, ${b.onThreadBranch} on the thread branch` : '';
     const cov = b.coverage ? (b.coverage.percent === null ? ', no coverage data' : `, ${b.coverage.percent}% covered`) : '';
-    lines.push(`  ${b.path}: ${work}${cov}`);
+    lines.push(`  ${b.path}: ${BUILT_WORDS[b.state]}${branch}${cov}`);
+    lines.push(`      ${b.evidence.text}`);
+    if (b.evidence.branch) lines.push(`      ${b.evidence.branch.text}`);
   }
   lines.push('', 'Approved scenarios:');
   if (p.scenarios.length === 0) lines.push('  none approved yet');
@@ -253,6 +280,23 @@ const LOG_FORMAT = '--format=%H%x1f%S%x1f%s%x1f%B%x1e';
 export async function branchCommits(git: GitCall): Promise<BranchCommit[]> {
   const r = await git(['log', '--all', '--source', '-n', String(MAX_COMMITS), '--grep=^Flow-Box:', LOG_FORMAT]);
   return r.ok ? parseBranchLog(r.stdout) : [];
+}
+
+/** The files each Flow-Box commit touched, on every branch: sha → paths. */
+export async function commitFiles(git: GitCall): Promise<Map<string, string[]>> {
+  const r = await git(['log', '--all', '-n', String(MAX_COMMITS), '--grep=^Flow-Box:', '--name-only', '--format=%x1e%H']);
+  const out = new Map<string, string[]>();
+  if (!r.ok) return out;
+  for (const rec of r.stdout.split('\x1e')) {
+    const [sha, ...files] = rec.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (sha && /^[0-9a-f]{7,64}$/.test(sha)) out.set(sha, files);
+  }
+  return out;
+}
+
+/** The commits with the files each touched. */
+export function withFiles(commits: BranchCommit[], files: ReadonlyMap<string, string[]>): BranchCommit[] {
+  return commits.map((c) => (files.has(c.sha) ? { ...c, files: files.get(c.sha)! } : c));
 }
 
 /** Shas of the Flow-Box commits on one branch; empty when git cannot read it. */

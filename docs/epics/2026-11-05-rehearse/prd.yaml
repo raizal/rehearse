@@ -322,6 +322,20 @@ requirements:
       owner saw that same step on the main path's storyboard in this browser. The review queue, the
       story page and Next scenario follow the map: main path first, then the branches in the order
       they leave it. (T57)
+  - id: R34
+    kind: functional
+    text: >-
+      One Status page in the UI (a top-level "Status" item, also reachable from the EPIC picker)
+      and `rehearse status <epic> [--json] [--not-done]` say per story whether it is signed,
+      built, tested on the real screens and done, and what is missing and who acts. A header
+      says "18 of 21 stories done · 2 seen working on the real screens · 3 not done"; the rows
+      are not done first; filters show all, not done, or done but not seen working; a row opens
+      the story's progress. "Built" is honest and has one rule for progress, the deck, the page
+      and the CLI: a box is built when a Flow-Box commit names it or the code graph maps code to
+      it; it needs no code of its own when it is a start or end box, or a decision whose branch
+      is in the code of a built neighbour (named, with file and line); otherwise it is not built,
+      and the evidence says what was looked for. No unit report, no Birdview results or no code
+      graph is said in plain words, never hidden. Sources and dates are shown. Read-only. (T58)
 
 stories:
   - id: S1
@@ -1250,6 +1264,65 @@ stories:
         then: >-
           no approval or sign-off goes stale: review.yaml is not part of the signed record, and
           the content hashes, simulate and gate ignore it
+  - id: S23
+    role: builder
+    want: one Status page that says per story whether it is signed, built, tested on the real screens and done, and what is missing and who acts
+    soThat: I know what is not done yet without reading the plan
+    requirements: [R34]
+    acceptance:
+      - id: S23-A1
+        given: an EPIC whose stories have boxes with Flow-Box commits, boxes the code graph maps code to, start and end boxes, and boxes with neither
+        when: the builder runs `rehearse progress <epic> <story>` or opens a story's progress
+        then: >-
+          each box says built (with its commits and the files and symbols the graph maps to it),
+          no code of its own (a start or end box), or not built (saying what was looked for:
+          Flow-Box commits naming it or a box inside it, and the code graph)
+      - id: S23-A2
+        given: a decision box of a story
+        when: rehearse decides whether it is built
+        then: >-
+          it needs no code of its own only when a built neighbour's code branches on it, and the
+          page names that neighbour, the file and the line; with no such branch it is not built,
+          and "decisions are free" is never a reason
+      - id: S23-A3
+        given: an EPIC with signed, changed and unsigned stories
+        when: the builder opens Status or runs `rehearse status <epic>`
+        then: >-
+          one row per story with Signed (yes / changed since sign-off / no), Built ("8 of 8 boxes"
+          or "6 of 8 — 2 left"), Tests on the real screens ("3 of 5 passed", "none yet", "1
+          failing"), Automated tests (from the unit report), and Done (done · seen working, done ·
+          checked by automated tests, or not done), under a header such as "18 of 21 stories done ·
+          2 seen working on the real screens · 3 not done", with the sources and their dates
+      - id: S23-A4
+        given: a story that is not done, or done but not seen working
+        when: the builder reads its row
+        then: >-
+          "What's missing" lists each thing and who acts: "2 boxes not built: builders", "approve 4
+          scenarios: you", "sign off: you", "no real-screen test yet: test thread", "a test fails at
+          <step>: builders"
+      - id: S23-A5
+        given: the Status page with stories in every state
+        when: the builder picks All, Not done, or Done but not seen working, and clicks a row
+        then: >-
+          the rows are not done first, then done but not seen working, then the rest; a filter keeps
+          only its rows and says how many; a row opens the story's progress, its boxes with their
+          evidence and its scenarios with their tests
+      - id: S23-A6
+        given: any EPIC
+        when: the builder runs `rehearse status <epic>`, with `--json`, or with `--not-done`
+        then: >-
+          it prints the same table as the page (as JSON with --json; only the stories not done with
+          --not-done) and the sources, and exits 0 whatever the table says
+      - id: S23-A7
+        given: the same commit
+        when: the builder makes the deck and opens the Status page
+        then: the deck's built parts and done stories are the Status page's, from the same rule
+      - id: S23-A8
+        given: no unit report, no Birdview results, or no code graph yet
+        when: the builder opens Status or runs `rehearse status`
+        then: >-
+          the Automated tests column says "not run", the real-screens column says "Birdview results
+          not found", or "built" counts Flow-Box commits only, and the sources say so in plain words
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

@@ -1,0 +1,30 @@
+/* The Status page (T58). */
+.status-page { padding: var(--s-5) var(--s-6); overflow: auto; height: 100%; box-sizing: border-box; }
+.status-head h2 { margin: 0 0 var(--s-1); font-size: var(--fs-lg, 18px); }
+.status-header { margin: 0 0 var(--s-1); font-size: var(--fs-md, 15px); font-weight: var(--fw-semibold); color: var(--ink); }
+.status-filters { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; margin: var(--s-3) 0; }
+.status-filters .chip { cursor: pointer; border-color: var(--line); background: var(--card); }
+.status-filters .chip.is-active { background: var(--accent-tint); border-color: var(--accent); color: var(--builder-strong); }
+.status-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.status-table th, .status-table td { text-align: left; vertical-align: top; padding: var(--s-2); border-bottom: 1px solid var(--line); }
+.status-table thead th { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: var(--fw-bold); }
+.status-row { cursor: pointer; }
+.status-row:hover, .status-row:focus-visible, .status-row.is-open { background: var(--subtle); outline: none; }
+.status-story { font-weight: var(--fw-regular); min-width: 14em; }
+.status-id { font-weight: var(--fw-bold); }
+.status-title { color: var(--ink-2); }
+.status-missing { margin: 0; padding-left: var(--s-4); }
+.status-missing li.is-blocking { color: var(--ink); }
+.status-missing li:not(.is-blocking) { color: var(--muted); }
+.status-who { font-weight: var(--fw-semibold); }
+.tone-good { color: var(--ok-ink); }
+.tone-warn { color: var(--note-ink); }
+.tone-bad { color: var(--warn); }
+.tone-muted { color: var(--muted); }
+.status-detail { padding: var(--s-2) 0; }
+.status-detail .story-progress { max-height: none; border-bottom: 0; padding: 0 0 var(--s-2); }
+.status-sources { margin-top: var(--s-4); }
+.status-sources ul { margin: var(--s-1) 0 0; padding-left: var(--s-4); }
+.progress-evidence { grid-column: 2 / -1; overflow-wrap: anywhere; }
+.progress-branch { display: block; margin-top: 2px; white-space: pre-wrap; }
+.progress-row.is-no-code .progress-mark { color: var(--ok); }

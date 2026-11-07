@@ -282,7 +282,7 @@ describe('T44 progress (box watch-build)', () => {
       { id: 'S1-empty', title: expect.any(String), state: 'missing' },
     ]);
     expect(progress.signOff).toMatchObject({ status: 'signed', valid: true });
-    expect(progress.summary).toBe('1 of 2 boxes have code · 1 of 2 scenarios tested');
+    expect(progress.summary).toBe('1 of 2 boxes built · 1 of 2 scenarios tested');
     const log = s.calls.find((c) => c.command === 'git' && c.args.includes('--all'))!;
     expect(log.args).toEqual(['log', '--all', '--source', '-n', '5000', '--grep=^Flow-Box:', '--format=%H%x1f%S%x1f%s%x1f%B%x1e']);
   });
@@ -291,7 +291,7 @@ describe('T44 progress (box watch-build)', () => {
     const s = await serve(signedEpic());
     const body = await (await s.get('api/story-progress')).json();
     expect(body.stories.map((p: { storyId: string }) => p.storyId)).toEqual(['S1', 'S2']);
-    expect(body.stories[1]).toMatchObject({ thread: null, summary: '1 of 1 box has code · 0 of 1 scenario tested' });
+    expect(body.stories[1]).toMatchObject({ thread: null, summary: '1 of 1 box built · 0 of 1 scenario tested' });
     expect((await s.get('api/story-progress?story=S9')).status).toBe(404);
   });
 });
@@ -331,10 +331,11 @@ describe('T44 progress (pure)', () => {
     expect(p.gate).toEqual([{ check: 'traced', message: 'S1 lacks a thing' }]);
     expect(p.planChanged).toBe(false);
     const text = progressText(p);
-    expect(text).toContain('Story S1 of 2026-11-05-shop: 1 of 2 boxes have code · 2 of 2 scenarios tested');
+    expect(text).toContain('Story S1 of 2026-11-05-shop: 1 of 2 boxes built · 2 of 2 scenarios tested');
     expect(text).toContain('No thread works on this story yet.');
     expect(text).toContain('S1-empty: failing (a.spec.ts:9), failed at pay: card');
-    expect(text).toContain('pay: not yet');
+    expect(text).toContain('  cart: built\n      built: 2 Flow-Box commits');
+    expect(text).toContain('  pay: not built\n      not built: no Flow-Box commit names it or a box inside it; the code graph is not built yet');
     expect(storyProgress({ record, storyId: 'S1', commits: [], thread: null, tests: [], gate: [], linkHash: 'sha256:old' }).planChanged).toBe(true);
   });
 });

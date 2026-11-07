@@ -1,11 +1,13 @@
 // The progress block of the story thread panel (T44, box watch-build): what rehearse sees of the
 // work on a story. The summary line, the thread (status, last activity, branch), per box whether
-// code is built (Flow-Box commits on every branch) with its unit test coverage (T43), per approved
+// it is built, needs no code of its own, or is not built, with the evidence (T58: Flow-Box commits on
+// every branch, code the code graph maps to it, the neighbour a decision's branch is in) and its unit
+// test coverage (T43), per approved
 // scenario its e2e test, the gate findings of the story and whether the sign-off holds.
 
 import { useId } from 'react';
 import type { StoryProgress } from '../api.js';
-import { boxProgressText, scenarioStateText, signOffText } from '../model/progress.js';
+import { boxEvidenceText, boxProgressText, scenarioStateText, signOffText } from '../model/progress.js';
 import { timeLabel } from '../model/storythread.js';
 import { CoverageBadge } from './CoverageBadge.js';
 
@@ -31,15 +33,19 @@ export function StoryProgressBlock({ progress, now }: { progress: StoryProgress;
       )}
       <ul className="progress-rows" aria-label="Boxes">
         {progress.boxes.map((b) => (
-          <li key={b.path} className={b.built ? 'progress-row is-done' : 'progress-row'} data-testid={`story-progress-box-${b.path}`}>
+          <li key={b.path} className={`progress-row is-${b.state}${b.built ? ' is-done' : ''}`} data-testid={`story-progress-box-${b.path}`}>
             <span className="progress-mark" aria-hidden="true">
-              {b.built ? '●' : '○'}
+              {b.state === 'built' ? '●' : b.state === 'no-code' ? '◐' : '○'}
             </span>
             <code className="progress-name" title={b.title}>
               {b.path}
             </code>
             <span className="progress-state small">{boxProgressText(b, branch)}</span>
             {b.coverage && <CoverageBadge stats={b.coverage} compact testId={`story-progress-cov-${b.path}`} />}
+            <span className="progress-evidence small muted" data-testid={`story-progress-evidence-${b.path}`}>
+              {boxEvidenceText(b)}
+              {b.evidence.branch && <code className="progress-branch">{b.evidence.branch.text}</code>}
+            </span>
           </li>
         ))}
       </ul>

@@ -1,0 +1,153 @@
+story: S23
+scenarios:
+
+  - id: S23-built-states
+    title: Each box says built, no code of its own or not built, with its evidence
+    status: draft
+    steps:
+      - { name: status-cli }
+      - name: box-evidence
+        example: { id: states, given: { epic: 2026-11-05-rehearse, story: S6 }, then: { "validate/refs": "built: 3 Flow-Box commits; code the graph maps to it: packages/core/src/validate/refs.ts", end: "no code of its own: an end box", draft-record: "not built: no Flow-Box commit names it or a box inside it, and the code graph maps no code to it" } }
+      - { name: status-table }
+      - { name: whats-missing }
+      - { name: status-sources }
+      - { name: status-text }
+      - { name: status-known }
+    expect: { criterion: S23-A1, state: { built: "commits and code named", noCode: "start and end boxes", notBuilt: "says what was looked for" } }
+
+  - id: S23-decision-held
+    title: A decision counts only when a built neighbour branches on it, and says which one
+    status: draft
+    steps:
+      - { name: status-cli }
+      - name: box-evidence
+        example: { id: held, given: { box: gate-ok, neighbour: review }, then: { gate-ok: "no code of its own: its branch is in the built box review, packages/core/src/trust/readiness.ts:91 (code the graph maps to it)" } }
+      - { name: status-table }
+      - { name: whats-missing }
+      - { name: status-sources }
+      - { name: status-text }
+      - { name: status-known }
+    expect: { criterion: S23-A2, state: { held: "neighbour, file and line named", unheld: "not built: none of its neighbours branches on it" } }
+
+  - id: S23-page-table
+    title: The Status page shows one row per story with its columns, the header and the sources
+    status: draft
+    steps:
+      - { name: status-view }
+      - { name: box-evidence }
+      - name: status-table
+        example: { id: table, given: { epic: 2026-11-05-rehearse }, then: { header: "19 of 22 stories done · 0 seen working on the real screens · 3 not done", columns: [ Signed, Built, Tests on the real screens, Automated tests, Done, "What's missing — who acts" ] } }
+      - { name: whats-missing }
+      - name: status-sources
+        example: { id: sources, given: { epic: 2026-11-05-rehearse }, then: { sources: "commit, code graph, Birdview results, unit report, each with its date" } }
+      - { name: status-page }
+      - { name: status-known }
+    expect: { criterion: S23-A3, state: { header: "N of M stories done · K seen working on the real screens · J not done", columns: 6, sources: "with dates", writes: none } }
+
+  - id: S23-whats-missing
+    title: Each story not done says what is missing and who acts
+    status: draft
+    steps:
+      - { name: status-view }
+      - { name: box-evidence }
+      - { name: status-table }
+      - name: whats-missing
+        example: { id: missing, given: { story: S6 }, then: { missing: "2 boxes not built (happy, more-scenarios): builders" } }
+      - { name: status-sources }
+      - { name: status-page }
+      - { name: status-known }
+    expect: { criterion: S23-A4, state: { S6: "2 boxes not built (happy, more-scenarios): builders", actors: [ builders, you, test thread, planning agent ] } }
+
+  - id: S23-filters-and-click
+    title: Filters keep not done or done but not seen, not done comes first, and a row opens the story's progress
+    status: draft
+    steps:
+      - name: status-view
+        example: { id: filter, given: { epic: 2026-11-05-rehearse, filter: not-done }, then: { filter: not-done } }
+      - { name: box-evidence }
+      - { name: status-table }
+      - { name: whats-missing }
+      - { name: status-sources }
+      - name: status-page
+        example: { id: open-row, given: { click: S6 }, then: { storyId: S6 } }
+      - { name: status-known }
+    expect: { criterion: S23-A5, state: { filters: [ All, Not done, Done but not seen working ], order: "not done first", click: "opens the story's progress" } }
+
+  - id: S23-cli
+    title: rehearse status prints the table, --json the same facts, --not-done only the stories not done, and exits 0
+    status: draft
+    steps:
+      - name: status-cli
+        example: { id: not-done, given: { epic: 2026-11-05-rehearse, notDone: true }, then: { filter: not-done } }
+      - { name: box-evidence }
+      - { name: status-table }
+      - { name: whats-missing }
+      - { name: status-sources }
+      - name: status-text
+        example: { id: text, given: { filter: not-done }, then: { text: "Showing the 3 stories not done.", exit: 0 } }
+      - { name: status-known }
+    expect: { criterion: S23-A6, state: { text: "aligned columns and where the facts come from", json: "the same table", notDone: "only stories not done", exitCode: 0 } }
+
+  - id: S23-deck-same-rule
+    title: The deck counts built with the same rule as the Status page
+    status: draft
+    steps:
+      - { name: present-view }
+      - { name: download-with-recordings }
+      - name: gather-deck-facts
+        example: { id: deck-facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: abc1234, uncommitted: false, facts: "the deck's facts" } }
+      - name: box-evidence
+        example: { id: same, given: { epic: 2026-11-05-rehearse }, then: { boxStates: "the same for the deck, progress and status", graph: "the code graph, updated 2026-11-07 10:30" } }
+      - { name: status-table }
+      - { name: whats-missing }
+      - { name: status-sources }
+      - { name: status-text }
+      - { name: status-known }
+    expect: { criterion: S23-A7, state: { deckDone: "same count as the Status header", deckBuilt: "same boxes as the Status page" } }
+
+  - id: S23-no-graph
+    title: With no code graph, built counts Flow-Box commits only and says so
+    status: draft
+    steps:
+      - { name: status-cli }
+      - name: box-evidence
+        branch: "code graph not built yet"
+        example: { id: no-graph, given: { graph: missing }, then: { exit: code graph not built yet } }
+      - { name: status-table }
+      - { name: whats-missing }
+      - name: status-sources
+        example: { id: graph-source, given: { graph: missing }, then: { built: "code graph not built yet: \"built\" counts Flow-Box commits only" } }
+      - { name: status-text }
+      - { name: status-known }
+    expect: { criterion: S23-A8, state: { built: "Flow-Box commits only", said: "code graph not built yet" } }
+
+  - id: S23-no-unit-report
+    title: With no unit report, the Automated tests column says not run and the done text says so
+    status: draft
+    steps:
+      - { name: status-view }
+      - { name: box-evidence }
+      - name: status-table
+        branch: "no unit report"
+        example: { id: no-unit, given: { unitReport: missing }, then: { exit: no unit report } }
+      - { name: whats-missing }
+      - name: status-sources
+        example: { id: unit-source, given: { unitReport: missing }, then: { unit: "no unit report: run pnpm test:report" } }
+      - { name: status-page }
+      - { name: status-known }
+    expect: { criterion: S23-A8, state: { automated: "not run", done: "done · checked by automated tests (no unit report read)" } }
+
+  - id: S23-no-birdview
+    title: With no Birdview results, the real-screens column says Birdview results not found
+    status: draft
+    steps:
+      - { name: status-view }
+      - { name: box-evidence }
+      - name: status-table
+        branch: "Birdview results not found"
+        example: { id: no-birdview, given: { birdview: missing }, then: { exit: Birdview results not found } }
+      - { name: whats-missing }
+      - { name: status-sources }
+      - { name: status-page }
+      - { name: status-known }
+    expect: { criterion: S23-A8, state: { realScreens: "Birdview results not found", writes: none } }

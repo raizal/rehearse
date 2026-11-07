@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ALL_EPICS, parseSubPath, RENEW_EVERY_MS, startServe, subPathForChoice, switcherOptions, type LeaseCalls } from '../src/panel.js';
+import { ALL_EPICS, frameSrc, parseSubPath, RENEW_EVERY_MS, startServe, subPathForChoice, subPathOf, switcherOptions, type LeaseCalls } from '../src/panel.js';
 
 describe('EPIC switcher', () => {
   it('lists every EPIC from the epics RPC, then "All EPICs…"', () => {
@@ -76,5 +76,20 @@ describe('startServe: the lease follows the open EPIC', () => {
     await vi.advanceTimersByTimeAsync(RENEW_EVERY_MS);
     expect(log).toEqual(['open a -> lease-1-a', 'release lease-1-a']);
     expect(sessions).toEqual([]);
+  });
+});
+
+describe('the Status page from the EPIC picker (T58)', () => {
+  it('the route <project>/<slug>/status opens the EPIC on its Status page, and back', () => {
+    expect(parseSubPath('p1/2026-11-05-shop/status')).toEqual({ projectId: 'p1', slug: '2026-11-05-shop', view: 'status' });
+    expect(parseSubPath('p1/2026-11-05-shop/other')).toEqual({ projectId: 'p1', slug: '2026-11-05-shop' });
+    expect(parseSubPath('p1')).toEqual({ projectId: 'p1', slug: null });
+    expect(subPathOf({ projectId: 'p1', slug: '2026-11-05-shop', view: 'status' })).toBe('p1/2026-11-05-shop/status');
+    expect(subPathOf({ projectId: 'p1', slug: '2026-11-05-shop' })).toBe('p1/2026-11-05-shop');
+  });
+  it('the serve frame opens on #/status, replacing any hash', () => {
+    expect(frameSrc('http://127.0.0.1:4100/?t=1', 'status')).toBe('http://127.0.0.1:4100/?t=1#/status');
+    expect(frameSrc('http://127.0.0.1:4100/#/prd', 'status')).toBe('http://127.0.0.1:4100/#/status');
+    expect(frameSrc('http://127.0.0.1:4100/#/prd', undefined)).toBe('http://127.0.0.1:4100/#/prd');
   });
 });

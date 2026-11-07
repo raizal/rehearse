@@ -4,6 +4,7 @@
 //
 //   #/prd[/<focus>]                        #/techspec[/<focus>]
 //   #/bigpicture[/<view>]                  #/usecases   #/signoff
+//   #/status                               the Status page: what is not done yet (T58)
 //   #/stories                              the story list
 //   #/stories/S6/how                       a story and its tab
 //   #/stories/S6/board/S6-approve          the storyboard of a scenario
@@ -16,7 +17,7 @@
 
 import type { Id } from '@rehearse/core';
 
-export const TAB_IDS = ['prd', 'techspec', 'bigpicture', 'code', 'stories', 'usecases', 'readiness', 'signoff'] as const;
+export const TAB_IDS = ['prd', 'techspec', 'bigpicture', 'code', 'stories', 'usecases', 'readiness', 'signoff', 'status'] as const;
 export type Tab = (typeof TAB_IDS)[number];
 
 export const STORY_TAB_IDS = ['what', 'how', 'output', 'before-after', 'code', 'tests', 'design'] as const;
@@ -28,7 +29,7 @@ export const DEFAULT_BIG_VIEW = 'features';
 export type Loc =
   | { tab: 'prd' | 'techspec'; focus?: string }
   | { tab: 'bigpicture'; view?: string }
-  | { tab: 'usecases' | 'signoff' }
+  | { tab: 'usecases' | 'signoff' | 'status' }
   | { tab: 'readiness'; requirement?: Id }
   | CodeLoc
   | { tab: 'stories'; list: true }
@@ -111,7 +112,7 @@ export function fromHash(hash: string): Loc | undefined {
       return { tab: 'stories', story: one, storyTab: st };
     }
     default:
-      return { tab: tab as 'usecases' | 'signoff' };
+      return { tab: tab as 'usecases' | 'signoff' | 'status' };
   }
 }
 

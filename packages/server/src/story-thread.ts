@@ -43,13 +43,18 @@ import {
   type TestCodeOptions,
   type TestFixture,
   type Id,
+  repoTopOf,
+  type GraphBuilds,
 } from '@rehearse/core';
 import type { CoverageStats } from '@rehearse/graph';
 import { bbProjectResolver, findBbProject, NO_BB_PROJECT } from './bb-project.js';
 import { parseSpawn, parseTell, parseThreadLog, parseThreadShow, statusWords, THREAD_ID, type ThreadMessage } from './bb-json.js';
 import type { TestResult } from './birdview.js';
+import { readGraphBuilds, repoFileReader } from './graph-built.js';
 import {
   branchCommits,
+  commitFiles,
+  withFiles,
   branchShas,
   epicGateItems,
   specTests,
@@ -567,6 +572,10 @@ export interface StoryThreadOptions {
   /** Last e2e results by `file:line` for a story, when the player can answer. */
   testResults?: (storyId: Id) => Promise<Record<string, TestResult> | undefined>;
   now?: () => number;
+  /** What the code graph maps to each box (T58). Default: .rehearse/graph.db of the repo, read-only. */
+  graph?: (slug: string) => GraphBuilds;
+  /** A repo file as text, for the decision check (T58). Default: the repo's files. */
+  readFile?: (file: string) => string | undefined;
 }
 
 /** Events per `bb thread log` page, and pages per request. */
@@ -820,7 +829,7 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     return { ...base, status: bb.status, statusText: bb.statusText, updatedAt: bb.updatedAt ?? null, branch: bb.branch ?? null };
   }
 
-  async function progressOf(storyId: string, shared: { record: EpicRecord; gate: ReturnType<typeof epicGateItems>['gate']; commits: BranchCommit[]; coverage?: Record<string, CoverageStats> | undefined; links: StoryThreads }, results: boolean): Promise<StoryProgress> {
+  async function progressOf(storyId: string, shared: { record: EpicRecord; gate: ReturnType<typeof epicGateItems>['gate']; commits: BranchCommit[]; coverage?: Record<string, CoverageStats> | undefined; links: StoryThreads; graph: GraphBuilds; readFile: (file: string) => string | undefined }, results: boolean): Promise<StoryProgress> {
     const link = shared.links[shared.record.slug]?.[storyId] ?? null;
     const thread = await progressThread(link);
     const threadShas = thread?.branch ? await branchShas(git, thread.branch) : undefined;
@@ -836,17 +845,23 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
       ...(testResults ? { results: testResults } : {}),
       ...(shared.coverage ? { coverage: shared.coverage } : {}),
       gate: shared.gate,
+      graph: shared.graph,
+      readFile: shared.readFile,
     });
   }
 
   async function sharedInputs() {
     const { record: rec, gate } = epicGateItems(epicDir);
-    const [commits, coverage, links] = await Promise.all([
+    const [commits, files, coverage, links] = await Promise.all([
       branchCommits(git),
+      commitFiles(git),
       opts.coverage ? opts.coverage().catch(() => undefined) : Promise.resolve(undefined),
       readLinks().then((l) => l.all, () => ({}) as StoryThreads),
     ]);
-    return { record: rec, gate, commits, coverage, links };
+    // T58: "built" from Flow-Box commits and the code graph (read-only), a decision through a built neighbour.
+    const top = repoTopOf(epicDir);
+    const graph = opts.graph ? opts.graph(rec.slug) : readGraphBuilds(top, rec.slug);
+    return { record: rec, gate, commits: withFiles(commits, files), coverage, links, graph, readFile: opts.readFile ?? repoFileReader(top) };
   }
 
   /** `bb thread spawn` into the project; the new thread's id. Failures in plain words, bb's own under details. */

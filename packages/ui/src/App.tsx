@@ -16,6 +16,7 @@ import { BoxDrawer } from './components/BoxDrawer.js';
 import { CodeMap } from './components/CodeMap.js';
 import { PrdView } from './components/PrdView.js';
 import { Present } from './components/Present.js';
+import { StatusPage } from './components/StatusPage.js';
 import type { ApproveControls } from './components/Approve.js';
 import { ReadinessView } from './components/ReadinessView.js';
 import { signingBlocked, type SessionState } from './components/Review.js';
@@ -43,6 +44,8 @@ const TABS = [
   { id: 'usecases', label: 'Use cases' },
   { id: 'readiness', label: 'Readiness' },
   { id: 'signoff', label: 'Sign off' },
+  // T58 (S23): what is not done yet, and who acts. Last, so PRD and Tech spec still come first (T15).
+  { id: 'status', label: 'Status' },
 ] as const satisfies readonly { id: Tab; label: string }[];
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; view: ReviewEpicView };
@@ -402,6 +405,11 @@ export function App({ load = fetchEpic, api = HTTP_API }: { load?: () => Promise
           <div className="status-msg error" data-testid="load-error">
             Could not load the EPIC record: {state.message}
           </div>
+        )}
+        {view && tab === 'status' && (
+          <main className="page-wrap">
+            <StatusPage slug={view.slug} onOpenStory={(id) => openStory(id, 'how')} />
+          </main>
         )}
         {view && tab === 'prd' && (
           <main className="page-wrap">
