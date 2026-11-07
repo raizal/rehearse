@@ -10,10 +10,10 @@ import { test as base } from '@playwright/test';
 
 const REPO = fileURLToPath(new URL('../../', import.meta.url));
 const SHOP = join(REPO, 'packages/core/test/fixtures/shop');
-const CLI = join(REPO, 'packages/cli/bin/rehearse.js');
+export const CLI = join(REPO, 'packages/cli/bin/rehearse.js');
 
 /** Start the server and wait for the URL it prints. */
-function serve(epicDir: string): Promise<{ child: ChildProcess; url: string }> {
+export function serve(epicDir: string): Promise<{ child: ChildProcess; url: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [CLI, 'serve', epicDir, '--port', '0'], { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
@@ -38,7 +38,7 @@ function serve(epicDir: string): Promise<{ child: ChildProcess; url: string }> {
   });
 }
 
-function stop(child: ChildProcess): Promise<void> {
+export function stop(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null) return Promise.resolve();
   return new Promise((done) => {
     const force = setTimeout(() => child.kill('SIGKILL'), 3_000);

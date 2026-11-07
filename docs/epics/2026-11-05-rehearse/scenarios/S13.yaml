@@ -2,7 +2,7 @@ story: S13
 scenarios:
   - id: S13-row
     title: A no-test row of an approved scenario starts a test thread for that scenario
-    status: draft
+    status: approved
     steps:
       - { name: story-playlist }
       - name: test-rows
@@ -12,10 +12,21 @@ scenarios:
       - { name: test-brief }
       - { name: test-rows }
     expect: { criterion: S13-A1, state: { threads: 1, scenarios: [ S4-drill ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:05:26Z'
+      hash: 'sha256:6c8194f42be05b8b6cb89bc7be04f3148fd194eeba0901e0939b870ad8a3bb82'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAcq2lIinJ9neVHyx+2bRLXPjW9yYjsLAmqdg6CQuEIGj6MGqd/O6RzlTtxt
+        vdOms/eLhyeP+vLk9iYIMGl3IbBg==
+        -----END SSH SIGNATURE-----
 
   - id: S13-all
     title: The summary line writes all K missing tests in one thread
-    status: draft
+    status: approved
     steps:
       - name: test-rows
         example: { id: all-missing, given: { storyId: S4, missing: [ S4-drill, S4-back ] }, then: { summaryButton: Write the 2 missing tests with an agent, decision: write-missing } }
@@ -24,20 +35,42 @@ scenarios:
       - { name: test-brief }
       - { name: test-rows }
     expect: { criterion: S13-A2, state: { threads: 1, scenarios: [ S4-drill, S4-back ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:04:07Z'
+      hash: 'sha256:add31e872773a638aa82579ff14f16803d4b0b8b2d4d2414215d024d265d2107'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAbf3/Uh49mMe+JsQrnIW/5pgqdAj1MLAODHdFwlZUzX5pN47kddHYAmVi6I
+        CyP+OrzTNKSQr00kr2mA61euZRCg==
+        -----END SSH SIGNATURE-----
 
   - id: S13-approve-first
     title: A draft scenario's row says approve this scenario first, with no button
-    status: draft
+    status: approved
     steps:
       - { name: story-playlist }
       - name: test-rows
         example: { id: draft-row, given: { storyId: S13, rows: { S13-row: no test }, status: { S13-row: draft } }, then: { text: "Approve this scenario first: an agent writes tests for approved scenarios only.", buttons: [] } }
       - { name: story-playlist }
     expect: { criterion: S13-A3, state: { threads: 0, button: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:04:17Z'
+      hash: 'sha256:832bc11b4c82bdc7448043cb28089d25d17b5581bf9e8cf96e94a626b2ef511d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA29YoXLQiUnzrAXUiGWyC0nsKuUd4PbhUVi+wt+h90xaFuG9I5B1+nF9faX
+        LTn6fQbuSf+AqQ3rCEZyB8VDRnBw==
+        -----END SSH SIGNATURE-----
 
   - id: S13-not-approved
     title: The server refuses a test thread for a stale scenario
-    status: draft
+    status: approved
     steps:
       - { name: test-rows }
       - name: start-test-thread
@@ -45,10 +78,21 @@ scenarios:
         example: { id: stale-409, given: { storyId: S4, scenarios: [ S4-drill ], status: { S4-drill: stale } }, then: { http: 409, error: "S4-drill (stale): approve this scenario first; an agent writes tests for approved scenarios only" } }
       - { name: test-rows }
     expect: { criterion: S13-A3, state: { threads: 0, spawned: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:04:27Z'
+      hash: 'sha256:b7eda90ebad85fec1a5af6fb119b7c41cd36a7318eccae19f945ca2dd545b7a1'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAhILshOQ5fNW/uw/b1rKsOkJTq9GOzAuKoRnFppHRA3R1VvC/T49HZa/Q+C
+        AznJjOoeUtVGw1oiCok3BFnqeJAA==
+        -----END SSH SIGNATURE-----
 
   - id: S13-thread-row
     title: The rows show the thread, then test written, not run yet
-    status: draft
+    status: approved
     steps:
       - { name: test-rows }
       - { name: start-test-thread }
@@ -56,10 +100,21 @@ scenarios:
       - name: test-rows
         example: { id: thread-on-row, given: { storyId: S4, thread: { id: thr_tests1, status: working, scenarios: [ S4-drill ] }, specFound: S4-drill }, then: { row: "Agent thread working, last activity 14:52 · @thread:thr_tests1", status: test written, not run yet } }
     expect: { criterion: S13-A4, state: { rowThread: thr_tests1, words: test written, not run yet } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:04:40Z'
+      hash: 'sha256:297b1824784e571dc30db66da606a0b967976d8b6c10cc59e032e7ad9bdead97'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAuWrHVbH5a2QVA7pr0DcaPdIdd/ATYCV+GF2ajsJKZzULoLRKT5cEletsHj
+        ImvQnDWCSD1Hvs2oS7hjOpVUqdBg==
+        -----END SSH SIGNATURE-----
 
   - id: S13-send
     title: While the test thread works, a second press sends to it instead of starting another
-    status: draft
+    status: approved
     steps:
       - name: test-rows
         example: { id: send-label, given: { storyId: S4, thread: { status: working, scenarios: [ S4-drill ] }, missing: [ S4-drill, S4-back ] }, then: { summaryButton: Send these scenarios to the running thread, decision: send, scenarios: [ S4-back ] } }
@@ -68,20 +123,42 @@ scenarios:
       - { name: test-brief }
       - { name: test-rows }
     expect: { criterion: S13-A5, state: { threads: 1, spawned: 1, told: 1 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:04:57Z'
+      hash: 'sha256:fb67e7a351734cfce59c8aafa6fdba5b86a8effffdc5e87fea08390dad1db03f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAeyyGbwvrGm57iyjiaN7sM9XeRla/v6NWV5Pz29R1WsLjA9KCnNwZvOSeQo
+        taXVGglzRWHxHeKR0vVGWbsx+rBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S13-brief
     title: The test brief holds what an agent needs to write the tests alone
-    status: draft
+    status: approved
     steps:
       - { name: start-test-thread }
       - name: test-brief
         example: { id: brief-sections, given: { storyId: S4, scenarios: [ S4-drill ] }, then: { sections: [ "S4-drill: …", Where the test goes and its name, How to run it, Rules for this thread, How to work in this repo ], name: "test('S4-drill', async ({ page }) => {", underChars: 24000 } }
       - { name: test-rows }
     expect: { criterion: S13-A6, state: { writeOnlyTests: true, nameRuleQuoted: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:05:07Z'
+      hash: 'sha256:41d0647aee17a7303f33ffd558646fffb7cdc14738383ab069725a7c74b1a6b9'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAF0b+T4PNFMFzd9K9XVYSQiM6qUkIKbO8XNyo2V8AlOaTzXAJS0ncXYB72B
+        JpCYprF5Mn/fSWf419S14x0VsiBA==
+        -----END SSH SIGNATURE-----
 
   - id: S13-cli
     title: An agent prints the test brief from the CLI
-    status: draft
+    status: approved
     steps:
       - { name: draft-record }
       - name: test-brief-cli
@@ -89,3 +166,14 @@ scenarios:
       - name: test-brief
         example: { id: cli-draft, given: { storyId: S13, scenarios: [ S13-row ] }, then: { exitCode: 1, stderr: "S13-row (draft): approve this scenario first" } }
     expect: { criterion: S13-A7, state: { exitCodes: { ok: 0, notApprovedOrNoneMissing: 1, badArgument: 2 } } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T07:05:17Z'
+      hash: 'sha256:b901ffffdfac6157ae2e97a58e203625d27ba56a418c6e41598995abd0de48f0'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA72Znh+xjFHx2ZDF8L1zz9IVfinlzPGrtDqF2aTD7pVnC50LhHmyyUlMUdB
+        vOpxmLnQtJ9EB30FlrGQk9xRfeCg==
+        -----END SSH SIGNATURE-----

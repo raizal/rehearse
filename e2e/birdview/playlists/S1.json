@@ -3,12 +3,23 @@
   "tests": [
     {
       "file": "tests/S1.spec.ts",
-      "line": 62,
+      "line": 25,
+      "name": "S1-new",
+      "about": "Builder creates a new EPIC",
+      "steps": {
+        "start: the builder has an idea, in a repo with no EPIC named 2026-11-05-demo": "start",
+        "new-epic: rehearse new 2026-11-05-demo --title \"Demo\" creates docs/epics/2026-11-05-demo": "new-epic",
+        "draft-record: the record has its files and an empty scenarios/, validate passes, the EPIC is a draft": "draft-record"
+      }
+    },
+    {
+      "file": "tests/S1.spec.ts",
+      "line": 111,
       "name": "S1-exists",
       "about": "Builder creates an EPIC that exists",
       "steps": {
         "start: the EPIC 2026-11-05-demo exists": "start",
-        "new-epic: the builder runs the same command again, it exits epic-exists": "new-epic",
+        "new-epic: the builder runs the same command again, it exits epic-exists and names the folder": "new-epic",
         "rejected: the command failed and changed no file": "rejected"
       }
     }
