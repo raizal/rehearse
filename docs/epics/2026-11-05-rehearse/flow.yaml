@@ -1300,6 +1300,99 @@ root:
       title: The builder knows what is not done and who acts
       stories: [S23]
 
+    # --- Main path tests on the real screens, and done needs them (S26, T61) ---
+    # New boxes only; root edges join them, and `start` to their three inputs.
+    - id: write-tests
+      kind: input
+      lane: builder
+      package: ui
+      title: Click "Write tests" on a story
+      stories: [S26]
+      inputs:  { epic: string, storyId: string }
+      outputs: { epic: string, storyId: string }
+      # POST /api/story-tests/thread with the session token and serve's Origin.
+
+    - id: test-thread
+      kind: process
+      lane: rehearse
+      package: server
+      title: Start a separate test thread, the main path first
+      stories: [S26]
+      inputs:  { epic: string, storyId: string }
+      outputs: { epic: string, storyId: string, thread: string, mainPath: "string?" }
+      sideEffects: ["bb thread spawn"]
+      # Its prompt says: work only from the scenarios and the running product, not from the code
+      # of the story's boxes, because the builder must not write their own proof. Its first task
+      # is `rehearse e2e-start <epic> <story> --main-path`. The test brief lists no box code.
+
+    - id: e2e-start
+      kind: input
+      lane: agent
+      package: cli
+      title: rehearse e2e-start <epic> <story> [--scenario <id>] [--main-path]
+      stories: [S26]
+      inputs:  { epic: string, storyId: string, scenario: "string?", mainPath: "boolean?", stdout: "boolean?", append: "boolean?" }
+      outputs: { epic: string, storyId: string, specFile: string, tests: string }
+      reads:   [Story.*, Scenario.*, Box.*]
+      errorExits: ["the test file exists already"]
+      # One test('<scenario id>: <title>') for each approved scenario, one
+      # test.step('<box path>: <box title>') for each step with the example as a comment, and a
+      # body that throws "not written: ..." until a person writes it. Never writes over a file:
+      # --append adds the missing tests only. --main-path: the owner's pick, else the map rule.
+
+    - id: main-path-test
+      kind: process
+      lane: agent
+      package: e2e
+      title: Write the main path test and run it on the real screens
+      stories: [S26]
+      inputs:  { epic: string, storyId: string, specFile: string, tests: string }
+      outputs: { epic: string, storyId: string, run: string }
+      errorExits: ["main path test fails"]
+      # The test thread replaces each throw with the real step, from the scenario and the running
+      # product (rehearse serve, the CLI), and runs it through Birdview.
+
+    - id: read-done
+      kind: input
+      lane: builder
+      package: cli
+      title: Read if a story is done - the deck, Status, rehearse status or progress
+      stories: [S26]
+      inputs:  { epic: string, storyId: "string?" }
+      outputs: { epic: string, storyId: "string?" }
+
+    - id: done-seen
+      kind: process
+      lane: rehearse
+      package: core
+      title: Done needs the main path test passed on the real screens
+      stories: [S26]
+      inputs:  { epic: string, storyId: "string?", run: "string?" }
+      outputs: { epic: string, done: string, level: string, missing: string }
+      reads:   [Story.*, Scenario.*, SignOff.*]
+      errorExits: ["no main path test yet"]
+      # Done: signed, not stale, built, the main path test passed in its last run, and no test
+      # fails. Levels: not done; built, checked by automated tests - not seen working yet; done
+      # (main path seen working); seen working (every approved scenario). One rule for the deck,
+      # the Status page, rehearse status and progress. It replaces the done rule of S20 and S23.
+
+    - id: done-shown
+      kind: output
+      lane: builder
+      package: ui
+      title: Show done, the level and what is missing
+      stories: [S26]
+      inputs:  { epic: string, done: string, level: string, missing: string }
+      outputs: { epic: string, text: string }
+      # "main path test not written: test thread", or "main path test failed: <step>: builders".
+
+    - id: seen-known
+      kind: end
+      lane: builder
+      package: cli
+      title: The builder knows the story works on the real screens, or what is missing
+      stories: [S26]
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -1499,3 +1592,16 @@ root:
     - { from: status-text,    to: status-known }
     - { from: start,          to: status-cli }
     - { from: epic-all-approved, to: status-view }
+    - { from: start,          to: write-tests }
+    - { from: start,          to: e2e-start }
+    - { from: start,          to: read-done }
+    - { from: write-tests,    to: test-thread }
+    - { from: test-thread,    to: e2e-start }
+    - { from: e2e-start,      to: main-path-test }
+    - { from: e2e-start,      to: main-path-test, label: "the test file exists already", kind: error }
+    - { from: main-path-test, to: done-seen }
+    - { from: main-path-test, to: done-seen,      label: "main path test fails",         kind: error }
+    - { from: read-done,      to: done-seen }
+    - { from: done-seen,      to: done-shown }
+    - { from: done-seen,      to: done-shown,     label: "no main path test yet",        kind: error }
+    - { from: done-shown,     to: seen-known }

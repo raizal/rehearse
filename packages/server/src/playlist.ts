@@ -1,9 +1,9 @@
 // Birdview playlists from the record (T13): one playlist per story, one test per scenario.
-// A Playwright test is named after its scenario id, and each `test.step` title starts with
+// A Playwright test is named after its scenario id (alone, or "<id>: <title>"), and each `test.step` title starts with
 // the flow box it walks ("review/swimlanes: Builder sees one lane per role"), so Birdview can
 // show steps → boxes. Pure functions; the CLI reads and writes the files.
 
-import type { Id, Prd, Scenario } from '@rehearse/core';
+import { testNameOf, type Id, type Prd, type Scenario } from '@rehearse/core';
 
 /** A test as Birdview reads it from a playlist file. */
 export interface PlaylistTest {
@@ -35,6 +35,8 @@ export interface SpecTest {
 
 const TEST_RE = /^\s*test(?:\.only)?\(\s*(['"`])((?:\\.|(?!\1).)*)\1/;
 const STEP_RE = /\btest\.step\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g;
+/** The scenario id a test title names: the whole title, or the id before ": " (T61, `rehearse e2e-start`). */
+export const testName = testNameOf;
 
 /**
  * The tests of a spec file, with the step titles inside each. A test runs from its `test(` line
@@ -45,7 +47,7 @@ export function parseSpec(file: string, text: string): SpecTest[] {
   text.split('\n').forEach((line, i) => {
     const t = TEST_RE.exec(line);
     if (t) {
-      out.push({ file, line: i + 1, name: unescape(t[2]!), steps: [] });
+      out.push({ file, line: i + 1, name: testName(unescape(t[2]!)), steps: [] });
       return;
     }
     const current = out[out.length - 1];

@@ -26,6 +26,7 @@ import {
   readDesignState,
   readFigcraftThumbnail,
   readPresentation,
+  readReview,
   repoTopOf,
   signOffPayload,
   simulateRecord,
@@ -371,6 +372,8 @@ export async function gatherDeckFacts(opts: DeckOptions): Promise<{ record: Epic
     ...(coverage !== undefined ? { coverage } : {}),
     evidence,
     codeGraph: graph.ok ? { ok: true, ...(graph.at ? { at: graph.at } : {}) } : { ok: false, why: graph.why },
+    // The owner's main path picks (review.yaml): "done" needs the main path test passed (T61).
+    mainPath: readReview(record).inputs.mainPath,
   };
   return { record, facts, assets, videos, ...(mediaFolder ? { mediaFolder } : {}), warnings };
 }

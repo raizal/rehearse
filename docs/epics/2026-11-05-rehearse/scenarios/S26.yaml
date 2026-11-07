@@ -1,0 +1,110 @@
+story: S26
+scenarios:
+
+  - id: S26-main-path-done
+    title: The test thread writes the main path test, it passes on the real screens, and the story is done
+    status: draft
+    steps:
+      - name: write-tests
+        example: { id: click, given: { epic: 2026-11-05-rehearse, story: S10 }, then: { storyId: S10 } }
+      - { name: test-thread }
+      - { name: e2e-start }
+      - name: main-path-test
+        example: { id: passed, given: { specFile: e2e/tests/S10.spec.ts }, then: { run: "S10-pass passed on the real screens" } }
+      - name: done-seen
+        example: { id: done, given: { signed: yes, stale: no, built: "all boxes", mainPath: passed, failing: 0 }, then: { done: "done · main path seen working" } }
+      - { name: done-shown }
+      - { name: seen-known }
+    expect: { criterion: S26-A6, state: { S10: done, rule: "signed, not stale, built, main path passed in its last run, no test fails" } }
+
+  - id: S26-start-file
+    title: e2e-start writes one test for each approved scenario and one step for each step
+    status: draft
+    steps:
+      - name: e2e-start
+        example: { id: file, given: { epic: 2026-11-05-rehearse, story: S10 }, then: { specFile: e2e/tests/S10.spec.ts, tests: "test('S10-pass: ...') with one test.step('<box path>: <box title>') for each step" } }
+      - { name: main-path-test }
+      - { name: done-seen }
+      - { name: done-shown }
+      - { name: seen-known }
+    expect: { criterion: S26-A1, state: { tests: "one for each approved scenario", steps: "one for each scenario step, with the example as a comment" } }
+
+  - id: S26-never-silent
+    title: A start file that nobody wrote fails with "not written" and never passes
+    status: draft
+    steps:
+      - { name: e2e-start }
+      - name: main-path-test
+        branch: "main path test fails"
+        example: { id: unwritten, given: { specFile: e2e/tests/S10.spec.ts }, then: { run: "failed: not written: S10-pass step 1 (ci-start)" } }
+      - { name: done-seen }
+      - { name: done-shown }
+      - { name: seen-known }
+    expect: { criterion: S26-A2, state: { run: failed, seenWorking: no } }
+
+  - id: S26-main-path-first
+    title: --main-path picks the owner's main path, and the brief says to write it first
+    status: draft
+    steps:
+      - name: e2e-start
+        example: { id: pick, given: { story: S1, mainPath: true, reviewPick: S1-happy }, then: { tests: "only S1-happy", brief: "Write the main path test first." } }
+      - { name: main-path-test }
+      - { name: done-seen }
+      - { name: done-shown }
+      - { name: seen-known }
+    expect: { criterion: S26-A3, state: { tests: "the main path only", brief: "main path first" } }
+
+  - id: S26-file-exists
+    title: e2e-start never writes over a test file; --append adds only the missing tests
+    status: draft
+    steps:
+      - name: e2e-start
+        branch: "the test file exists already"
+        example: { id: exists, given: { specFile: e2e/tests/S1.spec.ts, append: false }, then: { error: "the test file exists already" } }
+      - name: main-path-test
+        example: { id: append, given: { append: true, existing: [S1-happy] }, then: { added: [S1-other], kept: [S1-happy] } }
+      - { name: done-seen }
+      - { name: done-shown }
+      - { name: seen-known }
+    expect: { criterion: S26-A4, state: { overwritten: no, appended: "the missing tests only" } }
+
+  - id: S26-separate-thread
+    title: The "Write tests" action starts a separate test thread that works from the scenarios, not the code
+    status: draft
+    steps:
+      - { name: write-tests }
+      - name: test-thread
+        example: { id: brief, given: { story: S10 }, then: { firstTask: "rehearse e2e-start 2026-11-05-rehearse S10 --main-path", boxCode: none } }
+      - { name: e2e-start }
+      - { name: main-path-test }
+      - { name: done-seen }
+      - { name: done-shown }
+      - { name: seen-known }
+    expect: { criterion: S26-A5, state: { thread: separate, brief: "no code of the story's boxes", firstTask: "--main-path" } }
+
+  - id: S26-not-seen-yet
+    title: A built story without a passed main path test is not done yet
+    status: draft
+    steps:
+      - name: read-done
+        example: { id: status, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
+      - name: done-seen
+        branch: "no main path test yet"
+        example: { id: checked, given: { signed: yes, built: "all boxes", mainPath: "not written" }, then: { done: "built, checked by automated tests · not seen working yet" } }
+      - name: done-shown
+        example: { id: missing, given: { story: S3 }, then: { missing: "main path test not written: test thread" } }
+      - { name: seen-known }
+    expect: { criterion: S26-A7, state: { level: "built, checked by automated tests · not seen working yet", done: no } }
+
+  - id: S26-main-path-failed
+    title: A failed main path test says the step and who acts
+    status: draft
+    steps:
+      - { name: e2e-start }
+      - name: main-path-test
+        branch: "main path test fails"
+      - name: done-seen
+        example: { id: failed, given: { mainPath: failed, step: "ci-start: Start the CI run" }, then: { missing: "main path test failed: ci-start: Start the CI run: builders" } }
+      - { name: done-shown }
+      - { name: seen-known }
+    expect: { criterion: S26-A8, state: { done: no, missing: "main path test failed: <step>: builders" } }

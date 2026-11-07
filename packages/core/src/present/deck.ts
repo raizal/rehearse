@@ -3,6 +3,7 @@
 // owner's presentation.yaml in; a Deck out. Every slide has 1–3 sentences of narration, made from
 // the record unless the owner wrote one. Unfinished work shows as plainly as finished work.
 
+import { storyBranches } from '../layout/branches.js';
 import { laneColor } from '../layout/diagram.js';
 import { layoutStoryFlow, storyFlow } from '../layout/storyflow.js';
 import { briefSignState } from '../trust/build-brief.js';
@@ -119,6 +120,8 @@ export interface DeckFacts {
   evidence?: DeckEvidence;
   /** The code graph "built" read (T58): when it was built, or why it could not be read. */
   codeGraph?: { ok: boolean; at?: string; why?: string };
+  /** The owner's main path picks of review.yaml (T57), story id → scenario id; the done rule reads them (T61). */
+  mainPath?: Record<Id, Id>;
 }
 
 // ---------------------------------------------------------------- the deck
@@ -326,6 +329,19 @@ export interface StoryView {
   tests: Record<TestState, number>;
   approved: number;
   facts: StoryFacts;
+  /**
+   * The story's main path scenario (T61): the story map's rule and the owner's pick in review.yaml.
+   * `test` is the state of its real-screen test, or `not approved` while the owner has not approved it.
+   */
+  mainPath?: { id: Id; test: TestState | 'not approved' };
+}
+
+/** The main path of a story and the state of its test (T61): what the done rule needs. */
+export function mainPathOf(record: EpicRecord, facts: Pick<DeckFacts, 'mainPath'>, storyId: Id, scenarios: readonly { s: Scenario; approved: boolean }[], tests: Record<Id, TestState>): StoryView['mainPath'] {
+  const id = storyBranches(record.flow, storyId, scenarios.map((x) => x.s), facts.mainPath?.[storyId]).mainId;
+  const main = scenarios.find((x) => x.s.id === id);
+  if (!main) return undefined;
+  return { id: main.s.id, test: main.approved ? (tests[main.s.id] ?? 'not-written') : 'not approved' };
 }
 
 export function storyView(record: EpicRecord, facts: DeckFacts, story: Story): StoryView {
@@ -361,13 +377,14 @@ export function storyView(record: EpicRecord, facts: DeckFacts, story: Story): S
   else if (sign?.status === 'signed') signed = { state: 'partly', note: 'sign again' };
   else signed = { state: 'not-yet', note: 'waiting' };
 
-  return { story, title: storyTitle(story), ...(role ? { role } : {}), scenarios, boxes, steps: [designed, scen, built, tested, signed], sign, tests, approved, facts: f };
+  const mainPath = mainPathOf(record, facts, story.id, scenarios, f.tests);
+  return { story, title: storyTitle(story), ...(role ? { role } : {}), scenarios, boxes, steps: [designed, scen, built, tested, signed], sign, tests, approved, facts: f, ...(mainPath ? { mainPath } : {}) };
 }
 
 /** A story's mark for the map, by the one done rule. */
 function overall(v: StoryView): StepState {
   const state = viewDoneState(v);
-  return state === 'done' ? 'done' : state === 'in-progress' ? 'partly' : 'not-yet';
+  return state === 'done' ? 'done' : state === 'in-progress' || state === 'checked' ? 'partly' : 'not-yet';
 }
 
 function criterionMark(v: StoryView, c: AcceptanceCriterion): Mark {
@@ -450,12 +467,12 @@ function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInput
   const missing = missingThings(v);
   first.push({
     type: 'text',
-    text: state === 'done' ? `Done, ${levelWords(v)}: built and signed off, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing.slice(0, 3).join('; ')}${missing.length > 3 ? `; +${missing.length - 3} more` : ''}.`,
+    text: state === 'done' ? `Done, ${levelWords(v)}: built and signed off, the main path test passed, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing.slice(0, 3).join('; ')}${missing.length > 3 ? `; +${missing.length - 3} more` : ''}.`,
     tone: state === 'done' ? 'good' : v.steps.some((s) => s.alarm) ? 'warn' : 'muted',
   });
   first.push({ type: 'list', title: 'It is done when', items: criteria, columns: criteria.length > 5 && !picture ? 2 : 1, legend: true });
   first.push({ type: 'proof', title: 'The proof', rows: proofRows(v, ctx) });
-  const made1 = `${v.title}. ${state === 'done' ? `This story is done (${levelWords(v)}): it is built and signed off, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing[0] ?? 'not proven yet'}; ${statusLine(v).split(' · ')[0]!.toLowerCase()}.`}`;
+  const made1 = `${v.title}. ${state === 'done' ? `This story is done (${levelWords(v)}): it is built and signed off, the main path test passed, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing[0] ?? 'not proven yet'}; ${statusLine(v).split(' · ')[0]!.toLowerCase()}.`}`;
   const slides: Slide[] = [{ key: id, title: v.title, narration: narrate(inputs, id, made1), ids: [id, ...asArray<string>(v.story.requirements)], ...(picture ? { layout: 'split' as const } : {}), blocks: first }];
 
   if (v.scenarios.length === 0) return slides;
@@ -606,7 +623,7 @@ export function presentationDeck(record: EpicRecord, facts: DeckFacts, inputs: P
     return { id: v.story.id, title: v.title, steps: v.steps, state: viewDoneState(v), ...(level ? { level } : {}) };
   });
   const finished = shown.filter((v) => viewDoneState(v) === 'done').length;
-  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} done (built and signed off, no test failing), ${stand.seen} of them seen working on the real screens. ${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
+  const progSummary = `${finished} of ${plural(shown.length, 'story', 'stories')} done (built and signed off, the main path seen working, no test failing), ${stand.seen} of them seen working on every check. ${stand.checked > 0 ? `${stand.checked} more ${stand.checked === 1 ? 'is' : 'are'} built, not seen working yet. ` : ''}${signed} signed off; ${passing} of ${approved} approved scenarios pass their e2e test${failing > 0 ? `, ${failing} fail` : ''}.`;
   slides.push({
     key: 'progress',
     title: 'Progress, story by story',

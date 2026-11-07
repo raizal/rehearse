@@ -337,6 +337,20 @@ requirements:
       and the evidence says what was looked for. No unit report, no Birdview results or no code
       graph is said in plain words, never hidden. Sources and dates are shown. Read-only. (T58)
 
+  - id: R37
+    kind: functional
+    text: >-
+      Each story's main path gets a test on the real screens. `rehearse e2e-start <epic> <story>
+      [--scenario <id>] [--main-path]` writes the start file of a story's e2e tests from its
+      approved scenarios: one test for each scenario, one step for each step with its box and its
+      example, and each step fails with "not written" until a person writes it. It never writes
+      over a file; --append adds only the missing tests. A separate test thread writes the tests
+      from the scenarios and the running product, not from the code of the boxes, and writes the
+      main path test first. A story is done only when it is signed, not stale, built, its main path
+      test passed on the real screens in its last run, and no test of it fails. "Built, checked by
+      automated tests · not seen working yet" is a level below done. This rule replaces the done
+      rule of S20 and S23. (T61)
+
 stories:
   - id: S1
     role: builder
@@ -1323,6 +1337,65 @@ stories:
         then: >-
           the Automated tests column says "not run", the real-screens column says "Birdview results
           not found", or "built" counts Flow-Box commits only, and the sources say so in plain words
+
+  - id: S26
+    role: builder
+    want: a real-screen test of each story's main path, written from its scenarios by a separate thread, and 'done' to need it
+    soThat: I know the product works and not only the plan
+    requirements: [R37]
+    acceptance:
+      - id: S26-A1
+        given: a story with approved scenarios and no test file
+        when: the builder runs `rehearse e2e-start <epic> <story>`
+        then: >-
+          it writes `e2e/tests/<story>.spec.ts` (or prints it with --stdout) with one
+          `test('<scenario id>: <title>')` for each approved scenario and one
+          `test.step('<box path>: <box title>')` for each step, with the step example as a comment
+      - id: S26-A2
+        given: the start file that `rehearse e2e-start` wrote
+        when: the test runs before a person writes its steps
+        then: >-
+          each step fails with "not written: <scenario> step <n> (<box>)"; a start file never
+          passes, and the Status page never counts it as seen working
+      - id: S26-A3
+        given: a story with a main path (the owner's pick in review.yaml, else the story map rule)
+        when: the builder runs `rehearse e2e-start <epic> <story> --main-path`, or reads the test brief
+        then: >-
+          the file has the test of the main path only; the test brief puts the main path first and
+          says "Write the main path test first."
+      - id: S26-A4
+        given: a test file of the story exists already
+        when: the builder runs `rehearse e2e-start` without and with --append
+        then: >-
+          without --append it stops with "the test file exists already" and writes nothing; with
+          --append it adds the tests of the scenarios that have no test and changes none of the
+          tests in the file
+      - id: S26-A5
+        given: a built story with approved scenarios
+        when: the builder clicks "Write tests" in the UI
+        then: >-
+          rehearse starts a separate test thread whose first task is `rehearse e2e-start <epic>
+          <story> --main-path`; its brief says to work only from the scenarios and the running
+          product and not to read the code of the story's boxes, because the builder must not write
+          their own proof
+      - id: S26-A6
+        given: a story that is signed, not stale and built
+        when: the deck, the Status page, `rehearse status` or `rehearse progress` decides if it is done
+        then: >-
+          it is done only when its main path test passed on the real screens in its last run and no
+          test of it fails; this rule replaces the done rule of S20 and S23
+      - id: S26-A7
+        given: a signed and built story whose main path test did not pass yet
+        when: the builder reads its Done column
+        then: >-
+          it says "built, checked by automated tests · not seen working yet", which is not done;
+          "seen working" (every approved scenario passed on the real screens) stays the top level
+      - id: S26-A8
+        given: a story whose main path test is not written, or failed in its last run
+        when: the builder reads "What's missing" on the Status page
+        then: >-
+          it says "main path test not written: test thread", or "main path test failed: <step>:
+          builders"
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

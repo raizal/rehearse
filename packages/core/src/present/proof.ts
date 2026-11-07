@@ -2,25 +2,34 @@
 // every slide. Box build-recap: the recap slide right after the title. Box proof-lines: one line per
 // source of proof on a story slide, each honest when its source is missing. Box evidence-page:
 // where each kind of proof comes from. Pure: the deck's story views and facts in, blocks out.
+//
+// T61 (box done-seen): "done" needs the main path seen working. A story that is signed, built and
+// has no failing test, but whose main path test did not pass on the real screens in its last run,
+// is "checked": built and checked by automated tests, not seen working yet. It is not done.
 
 import type { Block, DeckEvidence, DeckFacts, Link, Mark, ProofRow, RecapItem, Slide, StoryView } from './deck.js';
 import { plain } from './plain.js';
 
 // ---------------------------------------------------------------- the done rule
 
-export type DoneState = 'done' | 'in-progress' | 'not-started';
+/** `checked` (T61): signed, built and no test fails, but the main path is not seen working yet. Not done. */
+export type DoneState = 'done' | 'checked' | 'in-progress' | 'not-started';
 
 /**
- * How strong the proof of a done story is (T54): every approved scenario's e2e test passed in its
- * last known run (T53's "proven"); some did; or none ran, and the automated checks vouch for it.
+ * How strong the proof of a story is (T54, T61): every approved scenario's e2e test passed in its
+ * last known run (done, the top level); the main path's test passed and some others did not (done);
+ * or the main path is not seen working yet and only the automated checks vouch for it (`checked`).
  */
 export type ProofLevel = 'seen-working' | 'partly-seen' | 'automated';
 
-export const DONE_RULE = 'Done means: every part is built and the owner signed it off, and no test of it fails.';
+export const DONE_RULE = 'Done means: every part is built, the owner signed it off, the main path test passed on the real screens in its last run, and no test of it fails.';
 
-export const DONE_WORDS: Record<DoneState, string> = { done: 'Done', 'in-progress': 'In progress', 'not-started': 'Not started' };
+export const DONE_WORDS: Record<DoneState, string> = { done: 'Done', checked: 'Built, not seen working yet', 'in-progress': 'In progress', 'not-started': 'Not started' };
 
-export const LEVEL_WORDS: Record<ProofLevel, string> = { 'seen-working': 'seen working', 'partly-seen': 'partly seen working', automated: 'checked by automated tests' };
+export const LEVEL_WORDS: Record<ProofLevel, string> = { 'seen-working': 'seen working', 'partly-seen': 'main path seen working', automated: 'checked by automated tests' };
+
+/** The words of the `checked` level (T61). */
+export const NOT_SEEN_YET = 'not seen working yet';
 
 export interface DoneInput {
   /** Signed off under the current rule and unchanged since. */
@@ -38,25 +47,29 @@ export interface DoneInput {
   unitFailed?: number;
   /** Problems the simulation finds in the story's plan. */
   simProblems?: number;
+  /** The last run of the main path scenario's real-screen test (T61). Absent: no main path, so not seen. */
+  mainPath?: 'passed' | 'failed' | 'not-run' | 'not-written' | 'not approved';
 }
 
 /**
- * Box done-rule (T54), the one rule of the summary, the full deck and its progress table. Done:
- * signed off and not stale, every part has code, and no check of it fails (e2e, unit tests that
- * name it, the simulation). Not started: never signed off and no part has code. Else in progress.
+ * Box done-rule (T54, T61, box done-seen), the one rule of the summary, the full deck, its progress
+ * table and the Status page. Done: signed off and not stale, every part has code, the main path
+ * test passed on the real screens in its last run, and no check of it fails (e2e, unit tests that
+ * name it, the simulation). Checked: all of that but the main path test. Not started: never signed
+ * off and no part has code. Else in progress.
  */
 export function storyDoneState(x: DoneInput): DoneState {
   const failing = (x.failed ?? 0) > 0 || (x.unitFailed ?? 0) > 0 || (x.simProblems ?? 0) > 0;
-  if (x.signedOff && x.boxes > 0 && x.built >= x.boxes && !failing) return 'done';
+  if (x.signedOff && x.boxes > 0 && x.built >= x.boxes && !failing) return x.mainPath === 'passed' ? 'done' : 'checked';
   if ((x.signStatus === undefined || x.signStatus === 'draft') && x.built <= 0) return 'not-started';
   return 'in-progress';
 }
 
-/** The proof level of a done story: by its approved scenarios' e2e tests. */
-export function proofLevel(x: Pick<DoneInput, 'approved' | 'passed'>): ProofLevel {
+/** The proof level of a done or checked story: by the main path and the approved scenarios' e2e tests. */
+export function proofLevel(x: Pick<DoneInput, 'approved' | 'passed' | 'mainPath'>): ProofLevel {
+  if (x.mainPath !== 'passed') return 'automated';
   if (x.approved > 0 && x.passed >= x.approved) return 'seen-working';
-  if (x.passed > 0) return 'partly-seen';
-  return 'automated';
+  return 'partly-seen';
 }
 
 function doneInput(v: StoryView): DoneInput {
@@ -70,6 +83,7 @@ function doneInput(v: StoryView): DoneInput {
     built: Math.min(v.facts.built, v.boxes),
     unitFailed: v.facts.unit?.failed ?? 0,
     simProblems: v.facts.simulation?.problems ?? 0,
+    ...(v.mainPath ? { mainPath: v.mainPath.test } : {}),
   };
 }
 
@@ -77,15 +91,17 @@ export function viewDoneState(v: StoryView): DoneState {
   return storyDoneState(doneInput(v));
 }
 
-/** The proof level of a story that is done; undefined for one that is not. */
+/** The proof level of a story that is done or checked; undefined for one that is neither. */
 export function viewProofLevel(v: StoryView): ProofLevel | undefined {
-  return viewDoneState(v) === 'done' ? proofLevel(doneInput(v)) : undefined;
+  const state = viewDoneState(v);
+  return state === 'done' || state === 'checked' ? proofLevel(doneInput(v)) : undefined;
 }
 
-/** "seen working", "partly seen working (5 of 6)", "checked by automated tests". */
+/** "seen working", "main path seen working (5 of 6)", "checked by automated tests, not seen working yet". */
 export function levelWords(v: StoryView): string {
   const level = viewProofLevel(v);
   if (!level) return '';
+  if (level === 'automated') return `${LEVEL_WORDS[level]}, ${NOT_SEEN_YET}`;
   return level === 'partly-seen' ? `${LEVEL_WORDS[level]} (${v.tests.passed} of ${v.approved})` : LEVEL_WORDS[level];
 }
 
@@ -174,11 +190,21 @@ export interface MissingItem {
 export function missingItems(v: StoryView): MissingItem[] {
   const out: MissingItem[] = [];
   const add = (deck: string, text: string, who: Actor, blocking = true) => out.push({ deck, text, who, blocking });
-  if (viewDoneState(v) !== 'done') {
+  const state = viewDoneState(v);
+  // The approved main path (T61): its test is what "done" needs on the real screens.
+  const main = v.mainPath && v.mainPath.test !== 'not approved' ? v.mainPath : undefined;
+  if (state !== 'done') {
     const failed = approvedRuns(v).filter((r) => r.state === 'failed');
-    if (failed.length > 0) {
-      const step = plainStep(failed[0]!.run?.failedStep);
-      const words = `${failed.length === 1 ? 'a test fails' : `${failed.length} tests fail`}${step ? `: ${cut(step, 70)}` : ''}`;
+    const mainFailed = main?.test === 'failed' ? failed.find((r) => r.s.id === main.id) : undefined;
+    if (mainFailed) {
+      const step = cut(plainStep(mainFailed.run?.failedStep), 70);
+      const words = `main path test failed${step ? `: ${step}` : ''}`;
+      add(words, words, 'builders');
+    }
+    const others = failed.filter((r) => r !== mainFailed);
+    if (others.length > 0) {
+      const step = plainStep(others[0]!.run?.failedStep);
+      const words = `${others.length === 1 ? `a${mainFailed ? 'nother' : ''} test fails` : `${others.length} ${mainFailed ? 'other ' : ''}tests fail`}${step ? `: ${cut(step, 70)}` : ''}`;
       add(words, words, 'builders');
     }
     const unitFailed = v.facts.unit?.failed ?? 0;
@@ -200,16 +226,21 @@ export function missingItems(v: StoryView): MissingItem[] {
       const ids = (v.facts.boxes ?? []).filter((b) => b.state === 'not-built').map((b) => b.path);
       add(`${plural(left, 'part')} not built`, `${plural(left, 'box', 'boxes')} not built${ids.length > 0 ? ` (${ids.slice(0, 4).join(', ')}${ids.length > 4 ? ', …' : ''})` : ''}`, 'builders');
     }
+    // The main path test, which "done" needs (T61): the test thread writes it or runs it.
+    if (main?.test === 'not-written') add('main path test not written', 'main path test not written', 'test thread');
+    else if (main?.test === 'not-run') add('main path test not run yet', 'main path test not run yet', 'test thread');
     if (out.length === 0) add('not done yet', 'not done yet', 'builders');
   }
-  // Not seen working yet on the real screens: the test thread writes or runs the e2e tests.
+  // The other scenarios, not seen working yet on the real screens: the test thread writes or runs them.
   if (v.tests.failed === 0 && v.approved > 0 && v.tests.passed < v.approved) {
-    const missing = v.tests['not-written'];
-    const notRun = v.tests['not-run'];
-    if (missing === v.approved) add('', 'no real-screen test yet', 'test thread', false);
+    const rest = v.scenarios.filter((x) => x.approved && x.s.id !== main?.id).map((x) => v.facts.tests[x.s.id] ?? 'not-written');
+    const missing = rest.filter((t) => t === 'not-written').length;
+    const notRun = rest.filter((t) => t === 'not-run').length;
+    const other = main ? 'other ' : '';
+    if (!main && missing === v.approved) add('', 'no real-screen test yet', 'test thread', false);
     else {
-      if (missing > 0) add('', `${plural(missing, 'scenario')} without a real-screen test`, 'test thread', false);
-      if (notRun > 0) add('', `${plural(notRun, 'real-screen test')} not run yet`, 'test thread', false);
+      if (missing > 0) add('', `${missing} ${other}${missing === 1 ? 'scenario' : 'scenarios'} without a real-screen test`, 'test thread', false);
+      if (notRun > 0) add('', `${notRun} ${other}${notRun === 1 ? 'real-screen test' : 'real-screen tests'} not run yet`, 'test thread', false);
     }
   }
   return out;
@@ -305,12 +336,15 @@ export function proofRows(v: StoryView, ctx: ProofContext): ProofRow[] {
 
 export interface Standing {
   done: number;
+  /** Built and checked by automated tests, not seen working yet (T61): not done. */
+  checked: number;
   inProgress: number;
   notStarted: number;
   total: number;
-  /** Done stories by proof level. */
+  /** Done stories by proof level: every approved scenario seen working, or the main path only. */
   seen: number;
   partly: number;
+  /** The same as `checked` (T61): no done story is only checked by automated tests. */
   automated: number;
 }
 
@@ -319,6 +353,7 @@ export function standing(views: StoryView[]): Standing {
   const levels = views.map(viewProofLevel);
   return {
     done: states.filter((s) => s === 'done').length,
+    checked: states.filter((s) => s === 'checked').length,
     inProgress: states.filter((s) => s === 'in-progress').length,
     notStarted: states.filter((s) => s === 'not-started').length,
     total: views.length,
@@ -328,31 +363,34 @@ export function standing(views: StoryView[]): Standing {
   };
 }
 
-/** "6 of 18 stories are done. 9 are in progress. 3 are not started." */
+/** "6 of 18 stories are done. 4 are built and checked by automated tests, not seen working yet. 5 are in progress. 3 are not started." */
 export function standingSentence(s: Standing): string {
   const parts = [`${s.done} of ${plural(s.total, 'story', 'stories')} ${s.done === 1 ? 'is' : 'are'} done.`];
+  if (s.checked > 0) parts.push(`${s.checked} ${s.checked === 1 ? 'is' : 'are'} built and checked by automated tests, ${NOT_SEEN_YET}.`);
   if (s.inProgress > 0) parts.push(`${s.inProgress} ${s.inProgress === 1 ? 'is' : 'are'} in progress.`);
   if (s.notStarted > 0) parts.push(`${s.notStarted} ${s.notStarted === 1 ? 'is' : 'are'} not started.`);
   return parts.join(' ');
 }
 
 /**
- * The summary's one sentence (T54): "15 of 19 parts of the plan are done; 2 of them are seen
- * working on the real screens. 4 are not done yet."
+ * The summary's one sentence (T54, T61): "3 of 19 parts of the plan are done; 2 of them are seen
+ * working on the real screens. 16 are not done yet; 12 of them are built, not seen working yet."
  */
 export function summarySentence(s: Standing): string {
   const notDone = s.total - s.done;
   if (s.total === 0) return 'The plan has no parts yet.';
-  if (s.done === 0) return `None of the ${plural(s.total, 'part')} of the plan is done yet.`;
   const are = (n: number) => (n === 1 ? 'is' : 'are');
+  const checked = s.checked === 0 ? '' : s.checked === notDone ? `; ${notDone === 1 ? 'it is' : 'all of them are'} built, ${NOT_SEEN_YET}` : `; ${s.checked} of them ${are(s.checked)} built, ${NOT_SEEN_YET}`;
+  if (s.done === 0) return `None of the ${plural(s.total, 'part')} of the plan is done yet${checked}.`;
+  // Every done story has its main path seen working (T61): "partly" is the main path only.
   const seen =
-    s.seen + s.partly === 0
-      ? 'none of them is seen working on the real screens yet'
+    s.seen === s.done
+      ? `${s.done === 1 ? 'it is' : 'all of them are'} seen working on the real screens`
       : s.seen > 0
-        ? `${s.seen === s.done ? (s.done === 1 ? 'it is' : 'all of them are') : `${s.seen} of them ${are(s.seen)}`} seen working on the real screens${s.partly > 0 ? `, ${s.partly} partly` : ''}`
-        : `${s.partly} of them ${are(s.partly)} partly seen working on the real screens`;
+        ? `${s.seen} of them ${are(s.seen)} seen working on the real screens, ${s.partly} on the main path only`
+        : `${s.partly === 1 ? 'it is' : 'all of them are'} seen working on the main path only`;
   const first = `${s.done} of ${plural(s.total, 'part')} of the plan ${are(s.done)} done; ${seen}.`;
-  return notDone === 0 ? `${first} Nothing is left to do.` : `${first} ${notDone} ${are(notDone)} not done yet.`;
+  return notDone === 0 ? `${first} Nothing is left to do.` : `${first} ${notDone} ${are(notDone)} not done yet${checked}.`;
 }
 
 export function recapItem(v: StoryView, ctx: ProofContext): RecapItem {
@@ -367,7 +405,7 @@ export function recapItem(v: StoryView, ctx: ProofContext): RecapItem {
   const missing = missingThings(v);
   // The two most important things, so a reader sees what is left without opening the story.
   const more = missing.length > 1 ? ` · ${missing[1]}${missing.length > 2 ? ` · +${missing.length - 2} more` : ''}` : '';
-  const mark: Mark = v.tests.failed > 0 || v.sign?.status === 'stale' ? 'failed' : state === 'in-progress' ? 'partly' : 'not-yet';
+  const mark: Mark = v.tests.failed > 0 || v.sign?.status === 'stale' ? 'failed' : state === 'in-progress' || state === 'checked' ? 'partly' : 'not-yet';
   return { id: v.story.id, text: `${v.title} — ${missing[0]}${more}`, mark, state };
 }
 

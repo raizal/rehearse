@@ -9,7 +9,7 @@
 import type { Block, DeckEvidence, DeckFacts, GroupCard, GroupLine, Link, Mark, Slide, StoryView } from './deck.js';
 import type { PresentationInputs } from './inputs.js';
 import { plain, sentences } from './plain.js';
-import { DONE_RULE, levelWords, missingThings, plainStep, shortDate, standing, summarySentence, TRUST_SENTENCE, viewDoneState, viewProofLevel, type ProofContext, type ProofLevel } from './proof.js';
+import { DONE_RULE, levelWords, missingThings, NOT_SEEN_YET, plainStep, shortDate, standing, summarySentence, TRUST_SENTENCE, viewDoneState, viewProofLevel, type ProofContext, type ProofLevel } from './proof.js';
 
 /** At most this many groups on the done and the not-done slides, and lines in a group. */
 export const MAX_GROUPS = 6;
@@ -95,7 +95,7 @@ export function areaCard(a: Area, year: string): GroupCard {
     const passed = vs.reduce((n, v) => n + v.tests.passed, 0);
     const approved = vs.reduce((n, v) => n + v.approved, 0);
     const at = level === 'automated' ? '' : shortDate(vs.map(lastPassed).filter(Boolean).sort().pop(), year);
-    const word = level === 'partly-seen' ? `partly seen working (${passed} of ${approved})` : level === 'seen-working' ? 'seen working' : 'checked by automated tests';
+    const word = level === 'partly-seen' ? `main path seen working (${passed} of ${approved})` : level === 'seen-working' ? 'seen working' : 'checked by automated tests';
     lines.push({ text: names(vs.map((v) => v.title)), level: `${word}${at ? `, ${at}` : ''}`, mark: 'done', ids: vs.map((v) => v.story.id) });
   }
   return { title: a.title, tone: 'good', lines };
@@ -103,7 +103,8 @@ export function areaCard(a: Area, year: string): GroupCard {
 
 // ---------------------------------------------------------------- what's not done, by reason
 
-export type Reason = 'test-fails' | 'check-fails' | 'stale' | 'approval' | 'building' | 'not-planned';
+/** `not-seen` (T61): built and signed off, but the main path is not seen working on the real screens yet. */
+export type Reason = 'test-fails' | 'check-fails' | 'stale' | 'approval' | 'building' | 'not-seen' | 'not-planned';
 
 /** The one reason a story is not done: the first that holds, in this order. */
 export function notDoneReason(v: StoryView): Reason {
@@ -112,10 +113,11 @@ export function notDoneReason(v: StoryView): Reason {
   if (v.sign?.status === 'stale' || (v.sign?.status === 'signed' && !v.sign.buildable)) return 'stale';
   if (v.scenarios.length === 0 || v.boxes === 0) return 'not-planned';
   if (!v.sign?.buildable) return 'approval';
+  if (viewDoneState(v) === 'checked') return 'not-seen';
   return 'building';
 }
 
-export const REASON_ORDER: Reason[] = ['test-fails', 'check-fails', 'stale', 'approval', 'building', 'not-planned'];
+export const REASON_ORDER: Reason[] = ['test-fails', 'check-fails', 'stale', 'approval', 'building', 'not-seen', 'not-planned'];
 
 /** What each reason takes, and who acts: the owner ("me") or the builders. */
 const REASON_TAKES: Record<Reason, { takes: string; who: string }> = {
@@ -124,6 +126,7 @@ const REASON_TAKES: Record<Reason, { takes: string; who: string }> = {
   stale: { takes: 'I read what changed and sign it off again.', who: 'me' },
   approval: { takes: 'I read each check, a worked example of what it must do, approve it, and sign the part off.', who: 'me' },
   building: { takes: 'The builders write the code for the pieces left.', who: 'the builders (AI agents)' },
+  'not-seen': { takes: 'A separate test thread writes the main path test from the checks, and it passes on the real screens.', who: 'the test thread' },
   'not-planned': { takes: 'I write down what it must do and how we will check it.', who: 'me' },
 };
 
@@ -154,6 +157,8 @@ function reasonTitle(r: Reason, vs: StoryView[]): string {
       const n = vs.reduce((k, v) => k + unbuilt(v), 0);
       return `Being built: ${plural(n, 'piece')} not built yet`;
     }
+    case 'not-seen':
+      return `Built, ${NOT_SEEN_YET}`;
     case 'not-planned':
       return 'Not planned yet';
   }
@@ -176,6 +181,8 @@ function reasonDetail(r: Reason, v: StoryView): string {
     }
     case 'building':
       return `${plural(unbuilt(v), 'piece')} left`;
+    case 'not-seen':
+      return missingThings(v)[0] ?? 'main path test not written';
     case 'not-planned':
       return v.scenarios.length === 0 ? 'no checks written yet' : 'nothing planned to build yet';
   }
@@ -309,9 +316,10 @@ export function nextSteps(groups: ReasonGroup[], s: ReturnType<typeof standing>,
       const n = g.stories.reduce((k, v) => k + waitingChecks(v), 0);
       out.push(n > 0 ? `I approve the ${plural(n, 'check')} waiting for ${titles}, and sign ${g.stories.length === 1 ? 'it' : 'them'} off.` : `I sign off ${titles}.`);
     } else if (g.reason === 'building') out.push(`The builders build the ${plural(g.stories.reduce((n, v) => n + unbuilt(v), 0), 'piece')} left of ${titles}.`);
+    else if (g.reason === 'not-seen') out.push(g.stories.length === 1 ? `The test thread writes the main path test of ${titles} from the checks, and runs it on the real screens.` : `The test thread writes the main path tests of ${titles} from the checks, and runs them on the real screens.`);
     else out.push(`I write the plan of ${titles}.`);
   }
-  if (s.automated + s.partly > 0) out.push(`Run tests on the real screens for the ${plural(s.automated + s.partly, 'part')} only checked by automated tests so far, so ${s.automated + s.partly === 1 ? 'it is' : 'they are'} seen working too.`);
+  if (s.partly > 0) out.push(`Run tests on the real screens for the other checks of the ${plural(s.partly, 'part')} seen working on the main path only.`);
   return out.slice(0, max);
 }
 
@@ -333,9 +341,9 @@ export function summarySlides(x: SummaryInput): Slide[] {
   titleBlocks.push({
     type: 'bar',
     segments: [
-      { label: s.partly === 0 ? 'seen working' : s.seen === 0 ? 'partly seen working' : `seen working (${s.partly} partly)`, count: s.seen + s.partly, tone: 'good' },
-      { label: 'done, checked by automated tests', count: s.automated, tone: 'ok' },
-      { label: 'not done yet', count: s.total - s.done, tone: failing > 0 ? 'bad' : 'todo' },
+      { label: s.partly === 0 ? 'done, seen working' : s.seen === 0 ? 'done, main path seen working' : `done, seen working (${s.partly} on the main path only)`, count: s.done, tone: 'good' },
+      { label: `built, ${NOT_SEEN_YET}`, count: s.checked, tone: 'ok' },
+      { label: 'not done yet', count: s.total - s.done - s.checked, tone: failing > 0 ? 'bad' : 'todo' },
     ],
   });
   titleBlocks.push({ type: 'text', text: `Presented by ${ctx.owner} · ${facts.commit.date}`, tone: 'muted' });
@@ -350,13 +358,13 @@ export function summarySlides(x: SummaryInput): Slide[] {
     narration: narrate(
       'done',
       done.length === 0
-        ? 'No part of the plan is done yet: none is both built and signed off.'
-        : `${plural(done.length, 'part')} of the plan ${done.length === 1 ? 'is' : 'are'} built and signed off. Each line says how strong its proof is: seen working on the real screens, or checked by automated tests.`,
+        ? 'No part of the plan is done yet: none is built, signed off and seen working on the main path.'
+        : `${plural(done.length, 'part')} of the plan ${done.length === 1 ? 'is' : 'are'} built, signed off and seen working on the main path. Each line says how strong its proof is: every check seen working on the real screens, or the main path only.`,
     ),
     ids: [],
     blocks:
       done.length === 0
-        ? [{ type: 'text', text: 'Nothing is done yet: no part of the plan is both built and signed off.', tone: 'warn' }]
+        ? [{ type: 'text', text: 'Nothing is done yet: no part of the plan is built, signed off and seen working on the main path.', tone: 'warn' }]
         : [{ type: 'groups', items: areas.map((a) => areaCard(a, ctx.year)) }],
   });
 

@@ -2,12 +2,12 @@
 // and their order come from the server (core's statusTable, the deck's done rule); this only
 // filters them and words the filters. Pure: the component and the tests share it.
 
-import type { StatusRow, StatusTable } from '@rehearse/core';
+import { builtNotSeen, type StatusRow, type StatusTable } from '@rehearse/core';
 
 export const STATUS_FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'not-done', label: 'Not done' },
-  { id: 'done-not-seen', label: 'Done but not seen working' },
+  { id: 'done-not-seen', label: 'Built but not seen working' },
 ] as const;
 
 export type StatusFilterId = (typeof STATUS_FILTERS)[number]['id'];
@@ -15,7 +15,7 @@ export type StatusFilterId = (typeof STATUS_FILTERS)[number]['id'];
 /** The rows a filter keeps, in the server's order (not done first). The same rule as core's filterRows. */
 export function filterStatusRows(rows: readonly StatusRow[], filter: StatusFilterId): StatusRow[] {
   if (filter === 'not-done') return rows.filter((r) => r.done.state !== 'done');
-  if (filter === 'done-not-seen') return rows.filter((r) => r.done.state === 'done' && !r.seenWorking);
+  if (filter === 'done-not-seen') return rows.filter(builtNotSeen);
   return [...rows];
 }
 
@@ -26,7 +26,7 @@ export function filterCount(t: Pick<StatusTable, 'counts'>, filter: StatusFilter
 
 /** The tone of a row's Done cell. */
 export function doneTone(r: StatusRow): 'good' | 'warn' | 'bad' {
-  return r.done.state !== 'done' ? 'bad' : r.seenWorking ? 'good' : 'warn';
+  return r.done.state === 'checked' ? 'warn' : r.done.state !== 'done' ? 'bad' : r.seenWorking ? 'good' : 'warn';
 }
 
 /** The tone of the Signed cell. */

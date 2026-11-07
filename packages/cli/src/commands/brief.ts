@@ -17,7 +17,7 @@
 
 import { existsSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
-import { briefBoxPaths, decisionTexts, loadEpic, repoCommands, storyBriefDesign, storyBuildBrief, testBriefBoxPaths, type EpicRecord, type StoryDesignLinks } from '@rehearse/core';
+import { briefBoxPaths, decisionTexts, loadEpic, repoCommands, storyBriefDesign, storyBuildBrief, type EpicRecord, type StoryDesignLinks } from '@rehearse/core';
 import { findTestProject, gatherBriefCode, openGraphAccess, repoRoot, storyTestBrief, testsNeeded, type BriefCode } from '@rehearse/server';
 import { EXIT, resolveEpicDir, USAGE, type Io } from '../index.js';
 
@@ -104,7 +104,8 @@ async function testBrief(dir: string, storyId: string, named: string[], json: bo
         return EXIT.findings;
       }
     }
-    code = await briefCode(dir, record, testBriefBoxPaths(record, storyId, ids), testProject);
+    // No box paths (T61): the test brief lists only the e2e helpers, never the code of the story's boxes.
+    code = await briefCode(dir, record, [], testProject);
     made = storyTestBrief(record, storyId, ids, testProject, top, code);
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);

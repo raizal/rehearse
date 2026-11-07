@@ -1,6 +1,7 @@
 // T53: what is done, what is not, and the proof (boxes story-done-state, build-recap, proof-lines,
 // evidence-page). T54 (box done-rule): done is built, signed off and no failing test; how strong the
-// proof is became the proof level. The recap, proof lines and evidence page are in the full deck.
+// proof is became the proof level. T61 (box done-seen): done also needs the main path test passed on
+// the real screens; without it a story is only checked, "not seen working yet". The recap, proof lines and evidence page are in the full deck.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -81,9 +82,15 @@ const proofOf = (deck: Deck, story: string): ProofRow[] => {
 const row = (rows: ProofRow[], label: string) => rows.find((r) => r.label === label);
 
 describe('the done rule (story-done-state) and the proof level', () => {
-  const base = { signedOff: true, signStatus: 'signed' as const, approved: 3, passed: 3, boxes: 2, built: 2 };
-  it('done when signed off, not stale, and every part has code', () => {
+  const base = { signedOff: true, signStatus: 'signed' as const, approved: 3, passed: 3, boxes: 2, built: 2, mainPath: 'passed' as const };
+  it('done when signed off, not stale, every part has code, and the main path test passed', () => {
     expect(storyDoneState(base)).toBe('done');
+  });
+  it('no passed main path test: only checked, not done', () => {
+    for (const mainPath of ['not-written', 'not-run', 'not approved'] as const) expect(storyDoneState({ ...base, passed: 0, mainPath })).toBe('checked');
+    const { mainPath: _, ...noMain } = base;
+    expect(storyDoneState(noMain)).toBe('checked');
+    expect(storyDoneState({ ...base, passed: 2, failed: 1, mainPath: 'failed' })).toBe('in-progress');
   });
   it('stale: changed after sign-off is not done', () => {
     expect(storyDoneState({ ...base, signedOff: false, signStatus: 'stale' })).toBe('in-progress');
@@ -100,17 +107,18 @@ describe('the done rule (story-done-state) and the proof level', () => {
   it('a part without code is not done; nothing approved is still done when built and signed off', () => {
     expect(storyDoneState({ ...base, built: 1 })).toBe('in-progress');
     expect(storyDoneState({ ...base, boxes: 0, built: 0 })).toBe('in-progress');
-    expect(storyDoneState({ ...base, approved: 0, passed: 0 })).toBe('done');
+    expect(storyDoneState({ ...base, approved: 0, passed: 0, mainPath: 'not approved' })).toBe('checked');
   });
   it('not started: never signed off and no part has code', () => {
     expect(storyDoneState({ signedOff: false, approved: 0, passed: 0, boxes: 4, built: 0 })).toBe('not-started');
     expect(storyDoneState({ signedOff: false, signStatus: 'draft', approved: 0, passed: 0, boxes: 4, built: 0 })).toBe('not-started');
     expect(storyDoneState({ signedOff: false, signStatus: 'draft', approved: 0, passed: 0, boxes: 4, built: 1 })).toBe('in-progress');
   });
-  it('proof level: every approved e2e test passed is seen working, some is partly, none is automated tests only', () => {
-    expect(proofLevel({ approved: 3, passed: 3 })).toBe('seen-working');
-    expect(proofLevel({ approved: 6, passed: 5 })).toBe('partly-seen');
-    expect(proofLevel({ approved: 3, passed: 0 })).toBe('automated');
+  it('proof level: every approved e2e test passed is seen working, the main path only is partly, no main path is automated tests only', () => {
+    expect(proofLevel({ approved: 3, passed: 3, mainPath: 'passed' })).toBe('seen-working');
+    expect(proofLevel({ approved: 6, passed: 5, mainPath: 'passed' })).toBe('partly-seen');
+    expect(proofLevel({ approved: 6, passed: 5, mainPath: 'not-written' })).toBe('automated');
+    expect(proofLevel({ approved: 3, passed: 0, mainPath: 'not-written' })).toBe('automated');
     expect(proofLevel({ approved: 0, passed: 0 })).toBe('automated');
   });
 });
@@ -180,10 +188,10 @@ describe('the proof on every story slide (proof-lines)', () => {
     expect(row(rows, 'Simulation')!.text).toBe('the plan simulates clean');
     expect(row(rows, 'Built')!.text).toBe('1 of 1 part has code (3 commits)');
     expect(row(rows, 'Signed')!.text).toBe('signed off by raizal.pregnanta on 6 Nov, signature checked');
-    expect(JSON.stringify(slide(deck, 'S1').blocks)).toMatch(/Done, seen working: built and signed off, and no test of it fails\./);
+    expect(JSON.stringify(slide(deck, 'S1').blocks)).toMatch(/Done, seen working: built and signed off, the main path test passed, and no test of it fails\./);
   });
 
-  it('without the sources: each one says it is missing, and a done story is only "checked by automated tests"', () => {
+  it('without the sources: each one says it is missing, and a story without a passed main path test is not done', () => {
     const notRun = Object.fromEntries(approvedOf(real, 'S1').map((id) => [id, 'not-run' as const]));
     const deck = fullDeck(real, facts({ stories: { S1: { built: 1, tests: notRun } }, testResults: false }), NO_INPUTS);
     const rows = proofOf(deck, 'S1');
@@ -192,9 +200,10 @@ describe('the proof on every story slide (proof-lines)', () => {
     expect(row(rows, 'Unit tests')!.text).toBe('not counted for this deck');
     expect(row(rows, 'Simulation')!.text).toBe('not run for this deck');
     expect(row(rows, 'Signed')!.text).toMatch(/signature not checked$/);
-    // Built and signed off with no failing test is done (T54), but nothing was seen working.
-    expect(recapOf(deck).done.map((i) => [i.id, i.text.replace(/^.*? — /, '').split(' · ')[0]])).toEqual([['S1', 'checked by automated tests']]);
-    expect(JSON.stringify(slide(deck, 'title').blocks)).toMatch(/1 of \d+ parts of the plan is done; none of them is seen working on the real screens yet/);
+    // Built and signed off with no failing test, but the main path test did not run: not done (T61).
+    expect(recapOf(deck).done).toEqual([]);
+    expect(recapOf(deck).notDone.find((i) => i.id === 'S1')!.text).toMatch(/— main path test not run yet/);
+    expect(JSON.stringify(slide(deck, 'title').blocks)).toMatch(/None of the \d+ parts of the plan is done yet; \d+ of them (is|are) built, not seen working yet\./);
   });
 
   it('a recorded run that was not copied is "kept by" the owner; a failing step is named', () => {

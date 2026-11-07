@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadEpic, testTitleLine } from '@rehearse/core';
+import { e2eStart, loadEpic, testTitleLine } from '@rehearse/core';
 import { makeEpic } from '../../core/test/helpers.js';
 import { approvedEpic } from '../../core/test/trust/helpers.js';
 import {
@@ -21,6 +21,7 @@ import {
   startServer,
   storyThreadsJson,
   STORY_THREADS_FILE,
+  testPrompt,
   testTitle,
   type PlayerClient,
   type RunResult,
@@ -131,9 +132,12 @@ describe('T47 write the missing tests with an agent (box start-test-thread)', ()
     // Paths relative to the repo; the new spec goes beside the existing one, which is the style to copy.
     expect(spawn!.input).toContain('- File: `e2e/tests/S1.spec.ts`');
     expect(spawn!.input).toContain('from `e2e/tests/S2.spec.ts`');
-    // T49: the code the scenarios walk, from the graph of the EPIC's repo (no code in it yet).
+    // T61: a separate test thread gets no code of the boxes, and writes the main path test first.
     expect(spawn!.input).toContain('## Code you start from');
-    expect(spawn!.input).toMatch(/- S1-buy:\n {2}- `cart`: no code yet/);
+    expect(spawn!.input).not.toMatch(/`cart`: no code yet/);
+    expect(spawn!.input).toContain("You are a separate test thread: work only from the scenarios and the running product (the UI and the CLI). Do not read the code of the story's boxes");
+    expect(spawn!.input).toContain('First task: run `rehearse e2e-start 2026-11-05-shop S1 --main-path` and write the main path test (S1-buy) from it.');
+    expect(spawn!.input).toContain('The main path of this story is S1-buy, the first scenario below. Write the main path test first.');
     expect(s.links()[s.slug].S1).toEqual({ tests: { thread: 'thr_tests1', scenarios: ['S1-buy', 'S1-empty'], hash: expect.stringMatching(/^sha256:/), at: expect.any(String) } });
     expect(await res.json()).toMatchObject({ thread: { id: 'thr_tests1', scenarios: ['S1-buy', 'S1-empty'], running: true, bb: { ok: true, statusText: 'working' } } });
   });
@@ -287,5 +291,17 @@ describe('T47 the tests link in .rehearse/story-threads.json', () => {
     expect(built.playlist.tests.map((t) => t.name)).toEqual(['S1-buy']);
     expect(built.problems).toEqual([]);
     expect(testTitle('S1', ['S1-buy', 'S1-empty'])).toBe('Tests: S1 S1-buy S1-empty');
+  });
+
+  it('T61 a test of the e2e-start file, "<id>: <title>", is the test of its scenario', () => {
+    const { record } = loadEpic(approvedEpic());
+    const start = e2eStart(record, 'S1', { specFile: 'e2e/tests/S1.spec.ts' });
+    if (!start.ok) throw new Error(start.reason);
+    const tests = parseSpec('tests/S1.spec.ts', start.text);
+    expect(tests.map((t) => t.name)).toEqual(['S1-buy', 'S1-empty']);
+    const built = buildPlaylist('S1', record.prd, record.scenarioFiles.flatMap((f) => f.scenarios), tests);
+    expect(built.playlist.tests.map((t) => t.name)).toEqual(['S1-buy', 'S1-empty']);
+    expect(built.problems).toEqual([]);
+    expect(testPrompt('e', 'S1', ['S1-empty'], 'brief', { id: 'S1-buy', cli: 'rehearse' })).not.toContain('First task');
   });
 });

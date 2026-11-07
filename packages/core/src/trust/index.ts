@@ -82,7 +82,8 @@ export {
   type BuildBrief,
   type BuildBriefOptions,
 } from './build-brief.js';
-export { APPROVE_FIRST, isUiScenario, MAX_TEST_BRIEF_CHARS, NOT_SHOWN, scenarioBoxes, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testBriefBoxPaths, testTitleLine, whereShown, type TestBrief, type TestBriefOptions, type TestFixture } from './test-brief.js';
+export { e2eStart, NOT_WRITTEN, specTestNames, testNameOf, type E2eStart, type E2eStartError, type E2eStartOptions } from './e2e-start.js';
+export { APPROVE_FIRST, isUiScenario, mainPathScenario, MAX_TEST_BRIEF_CHARS, NOT_SHOWN, scenarioBoxes, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testBriefBoxPaths, testTitleLine, whereShown, type TestBrief, type TestBriefOptions, type TestFixture } from './test-brief.js';
 export {
   CODE_START_HEADING,
   codeStartSection,
@@ -95,6 +96,7 @@ export {
   MAX_E2E_HELPERS,
   MAX_TEST_BRIEF_FUNCTIONS,
   testCodeSection,
+  TEST_NO_CODE,
   type BoxCode,
   type CodeCommit,
   type CodeCoverage,

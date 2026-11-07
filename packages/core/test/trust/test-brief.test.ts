@@ -17,6 +17,7 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
     expect(heads).toEqual([
       'S1-buy: Buyer pays and the order ships',
       'S1-empty: Buyer checks out an empty cart',
+      'Code you start from',
       'Where the test goes and its name',
       'Fixtures to start from',
       'How to run it',
@@ -25,6 +26,10 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
     ]);
     expect(md).toContain('# Test brief: e2e tests for S1-buy, S1-empty (story S1 of the EPIC 2026-11-05-shop)');
     expect(md).toContain('Story: as Buyer, I want to pay for my cart, so that I get my items.');
+    // T61: the main path first, and how to start it.
+    expect(md).toContain('The main path of this story is S1-buy, the first scenario below. Write the main path test first.');
+    expect(md).toContain('Start it with `rehearse e2e-start 2026-11-05-shop S1 --main-path`');
+    expect(md).toContain("Do not read the code of the story's boxes: the builder must not write their own proof.");
     expect(md).toContain('Checks S1-A1: given a cart with items; when the buyer pays; then the order is shipped.');
     // Each step with the box it walks: path, title, inputs / outputs, error exits; and the branch taken.
     expect(md).toMatch(/2\. `cart`\n  - example: given \{"items":\["a"\]\} → then \{"orderId":"o1"\}\n  - box `cart`: /);
@@ -35,7 +40,7 @@ describe('scenarioTestBrief (T47, box test-brief)', () => {
     expect(md).toContain('Expect (what the test checks at the end): {"Order.status":"shipped"}');
     // Where and the name rule, quoted.
     expect(md).toContain('- File: `e2e/tests/S1.spec.ts`');
-    expect(md).toContain("The first line of the test is `test('S1-buy', async ({ page }) => {`.");
+    expect(md).toContain("The first line of the test is `test('S1-buy', async ({ page }) => {`, or `S1-buy: <scenario title>` as `e2e-start` writes it.");
     expect(md).toContain(TEST_NAME_RULE);
     expect(md).toContain('Copy the style (imports, fixtures, selectors by test id) from `e2e/tests/S4.spec.ts`.');
     expect(md).toContain('"test written, not run yet"');

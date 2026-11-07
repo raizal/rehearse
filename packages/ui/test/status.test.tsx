@@ -35,7 +35,7 @@ const TABLE: StatusTable = {
   slug: '2026-11-05-shop',
   title: 'Shop',
   header: '2 of 4 stories done · 1 seen working on the real screens · 2 not done',
-  counts: { stories: 4, done: 2, seen: 1, notDone: 2, doneNotSeen: 1 },
+  counts: { stories: 4, done: 2, seen: 1, notDone: 2, doneNotSeen: 1, checked: 0 },
   rows: [
     row('S2', {
       signed: { state: 'no', text: 'no' },
@@ -132,7 +132,7 @@ describe('StatusPage', () => {
     expect(screen.getByTestId('status-filter-all')).toHaveTextContent('All (4)');
     expect(screen.getByTestId('status-filter-all')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('status-filter-not-done')).toHaveTextContent('Not done (2)');
-    expect(screen.getByTestId('status-filter-done-not-seen')).toHaveTextContent('Done but not seen working (1)');
+    expect(screen.getByTestId('status-filter-done-not-seen')).toHaveTextContent('Built but not seen working (1)');
     await userEvent.click(screen.getByTestId('status-filter-not-done'));
     expect(screen.getByTestId('status-filter-not-done')).toHaveAttribute('aria-pressed', 'true');
     expect(ids()).toEqual(['status-row-S2', 'status-row-S5']);
@@ -143,12 +143,12 @@ describe('StatusPage', () => {
   });
 
   it('an empty filter says so', async () => {
-    const allDone: StatusTable = { ...TABLE, header: '1 of 1 stories done · 1 seen working on the real screens · 0 not done', counts: { stories: 1, done: 1, seen: 1, notDone: 0, doneNotSeen: 0 }, rows: [row('S1')] };
+    const allDone: StatusTable = { ...TABLE, header: '1 of 1 stories done · 1 seen working on the real screens · 0 not done', counts: { stories: 1, done: 1, seen: 1, notDone: 0, doneNotSeen: 0, checked: 0 }, rows: [row('S1')] };
     render(<StatusPage slug="2026-11-05-shop" onOpenStory={() => {}} api={fakeApi(ok(allDone))} now={NOW} />);
     await userEvent.click(await screen.findByTestId('status-filter-not-done'));
     expect(screen.getByTestId('status-empty')).toHaveTextContent('Every story is done.');
     await userEvent.click(screen.getByTestId('status-filter-done-not-seen'));
-    expect(screen.getByTestId('status-empty')).toHaveTextContent('No story is done but not seen working.');
+    expect(screen.getByTestId('status-empty')).toHaveTextContent('No story is built but not seen working.');
   });
 
   it('a row opens the story progress view, and "Open story" opens the story', async () => {
@@ -216,7 +216,7 @@ describe('the Status tab in the app', () => {
   it('#/status GETs api/status for this EPIC; Open story goes to the story', async () => {
     const view = reviewEpic();
     const asked: string[] = [];
-    const s1 = { ...TABLE, slug: view.slug, rows: [row('S1', { done: { state: 'in-progress', text: 'not done' }, seenWorking: false })], counts: { stories: 1, done: 0, seen: 0, notDone: 1, doneNotSeen: 0 }, header: '0 of 1 stories done · 0 seen working on the real screens · 1 not done' };
+    const s1 = { ...TABLE, slug: view.slug, rows: [row('S1', { done: { state: 'in-progress', text: 'not done' }, seenWorking: false })], counts: { stories: 1, done: 0, seen: 0, notDone: 1, doneNotSeen: 0, checked: 0 }, header: '0 of 1 stories done · 0 seen working on the real screens · 1 not done' };
     window.history.replaceState(null, '', '#/status');
     mockServer({
       epic: () => view,

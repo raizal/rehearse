@@ -92,7 +92,7 @@ describe('presentationDeck: slide order', () => {
     expect(rows?.type === 'progress' && rows.rows.length).toBe(real.prd!.stories.length);
     expect(rows?.type === 'progress' && rows.rows.every((r) => r.steps.length === PROGRESS_STEPS.length)).toBe(true);
     expect(progress.blocks.some((b) => b.type === 'text' && /of \d+ stories done/.test(b.text))).toBe(true);
-    expect(progress.narration).toMatch(/of \d+ stories done \(built and signed off, no test failing\), \d+ of them seen working/);
+    expect(progress.narration).toMatch(/of \d+ stories done \(built and signed off, the main path seen working, no test failing\), \d+ of them seen working on every check/);
   });
 
   it('a story has "As a…", its criteria, the swimlanes and what was checked', () => {
@@ -180,7 +180,7 @@ describe('honesty', () => {
     const record = withWaitingStory(real, waiting);
     const deck = fullDeck(record, facts(record), NO_INPUTS);
     const progress = deck.slides.find((s) => s.key === 'progress')!;
-    expect(progress.narration).toMatch(/done \(built and signed off, no test failing\)/);
+    expect(progress.narration).toMatch(/done \(built and signed off, the main path seen working, no test failing\)/);
     expect(JSON.stringify(deck.slides.find((s) => s.key === waiting)!.blocks)).toMatch(/no approved scenario yet/);
     expect(JSON.stringify(deck.slides)).not.toMatch(/0 of 0 approved/);
     expect(deck.slides.find((s) => s.key === `${waiting}-checks`)!.narration).toMatch(/all waiting for approval, so none is tested yet/);
