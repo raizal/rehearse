@@ -1,6 +1,8 @@
-// `rehearse brief <epic-dir-or-slug> <story> [--allow-unsigned] [--json]` (T44, box build-brief):
-// the build brief a thread gets for a signed story. It refuses an unsigned or stale story (exit 1)
-// unless --allow-unsigned, which says so on top of the brief.
+// `rehearse brief <epic-dir-or-slug> <story> [--scenario <id>]… [--allow-unsigned] [--json]` (T44, box
+// build-brief): the build brief a thread gets for a signed story. It refuses an unsigned or stale story
+// (exit 1) unless --allow-unsigned, which says so on top of the brief. A brief too long for its budget
+// shows its first approved scenarios in full and the others in one line each (T56); --scenario names
+// the ones to show in full (exit 1 when one is not an approved scenario of the story).
 //
 // `rehearse brief <epic> <story> --tests [--scenario <id>]… [--json]` (T47, box test-brief): the
 // test brief a test thread gets, for the named scenarios or, without --scenario, every approved
@@ -24,7 +26,7 @@ const VALUE_OPTIONS = ['--scenario'];
 
 export async function runBrief(args: string[], io: Io): Promise<number> {
   const usage = () => {
-    io.stderr(`rehearse brief: expected <epic-dir-or-slug> <story> [--allow-unsigned] [--json], or <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]\n\n${USAGE}`);
+    io.stderr(`rehearse brief: expected <epic-dir-or-slug> <story> [--scenario <id>]… [--allow-unsigned] [--json], or <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]\n\n${USAGE}`);
     return EXIT.usage;
   };
   const positional: string[] = [];
@@ -43,7 +45,7 @@ export async function runBrief(args: string[], io: Io): Promise<number> {
   }
   const json = flags.has('--json');
   const tests = flags.has('--tests');
-  if (positional.length !== 2 || (scenarios.length > 0 && !tests) || (tests && flags.has('--allow-unsigned'))) return usage();
+  if (positional.length !== 2 || (tests && flags.has('--allow-unsigned'))) return usage();
   const [epic, storyId] = positional as [string, string];
   const dir = resolveEpicDir(epic, io.cwd);
   if (!dir) {
@@ -59,7 +61,7 @@ export async function runBrief(args: string[], io: Io): Promise<number> {
     const top = repoTop(dir);
     code = await briefCode(dir, record, briefBoxPaths(record, storyId), findTestProject(dir));
     design = storyBriefDesign(top, record, storyId);
-    made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), decisions: decisionTexts(dir), commands: repoCommands(top), design });
+    made = storyBuildBrief(record, storyId, { ...code, allowUnsigned: flags.has('--allow-unsigned'), ...(scenarios.length > 0 ? { scenarios } : {}), decisions: decisionTexts(dir), commands: repoCommands(top), design });
   } catch (e) {
     io.stderr(`rehearse brief: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;

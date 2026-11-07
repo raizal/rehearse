@@ -99,7 +99,8 @@ describe('loader (box validate/parse)', () => {
     const { record, findings } = loadEpic(REAL_EPIC);
     expect(findings).toEqual([]);
     expect(record.prd?.stories.map((s) => s.id)).toContain('S2');
-    expect(record.scenarioFiles.length).toBe(20);
+    // One scenario file per story, whatever the number of stories.
+    expect(record.scenarioFiles.map((f) => f.story).sort()).toEqual(record.prd!.stories.map((s) => s.id).sort());
   });
 });
 

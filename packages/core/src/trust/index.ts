@@ -74,6 +74,7 @@ export {
   briefBoxPaths,
   briefSignState,
   MAX_BRIEF_CHARS,
+  MIN_CODE_ROOM,
   parseDecisionTexts,
   storyBuildBrief,
   storyChangeMessage,
@@ -81,7 +82,7 @@ export {
   type BuildBrief,
   type BuildBriefOptions,
 } from './build-brief.js';
-export { APPROVE_FIRST, isUiScenario, NOT_SHOWN, scenarioBoxes, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testBriefBoxPaths, testTitleLine, whereShown, type TestBrief, type TestBriefOptions, type TestFixture } from './test-brief.js';
+export { APPROVE_FIRST, isUiScenario, MAX_TEST_BRIEF_CHARS, NOT_SHOWN, scenarioBoxes, scenarioStatuses, scenarioTestBrief, TEST_NAME_RULE, testBriefBoxPaths, testTitleLine, whereShown, type TestBrief, type TestBriefOptions, type TestFixture } from './test-brief.js';
 export {
   CODE_START_HEADING,
   codeStartSection,

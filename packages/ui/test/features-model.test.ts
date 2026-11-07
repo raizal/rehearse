@@ -250,7 +250,7 @@ describe('big picture (S4-A4)', () => {
       { from: 'next-story', to: 'review', back: true },
       { from: 'epic-all-approved', to: 'review', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 20, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: view.prd!.stories.length, processes: main.length });
   });
 });
 

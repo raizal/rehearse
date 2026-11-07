@@ -15,7 +15,7 @@ export const USAGE = `Usage: bb rehearse [open] [<slug>]
        bb rehearse simulate <epic-dir-or-slug> [--drafts] [--json]
        bb rehearse gate check <epic-dir-or-slug> [--json]
        bb rehearse new <slug> --title "<title>"
-       bb rehearse brief <epic-dir-or-slug> <story> [--allow-unsigned] [--json]
+       bb rehearse brief <epic-dir-or-slug> <story> [--scenario <id>]… [--allow-unsigned] [--json]
        bb rehearse brief <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]
        bb rehearse progress <epic-dir-or-slug> <story> [--json]
 

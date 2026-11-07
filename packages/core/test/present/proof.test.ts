@@ -24,10 +24,13 @@ import {
   type RecapItem,
   type StoryFacts,
 } from '../../src/index.js';
-import { REAL_EPIC } from '../helpers.js';
+import { REAL_EPIC, withWaitingStory } from '../helpers.js';
 
 const COMMIT = { branch: 'main', sha: 'abc1234', date: '2026-11-07' };
 const real = loadEpic(REAL_EPIC).record;
+/** The last story, made to wait for the owner again (nothing approved, not signed off), whatever the owner signed. */
+const WAITING = real.prd!.stories.at(-1)!.id;
+const waitingReal = withWaitingStory(real, WAITING);
 
 /** The full deck (T54): the summary, then the recap, proof lines and evidence page of T53. */
 const fullDeck = (record: EpicRecord, f: DeckFacts, i: typeof NO_INPUTS): Deck => presentationDeck(record, f, i, { full: true });
@@ -113,7 +116,7 @@ describe('the done rule (story-done-state) and the proof level', () => {
 });
 
 describe('the recap (build-recap)', () => {
-  const deck = fullDeck(real, facts({ stories: doneS1() }), NO_INPUTS);
+  const deck = fullDeck(waitingReal, facts({ stories: doneS1() }), NO_INPUTS);
 
   it('opens the appendix, right after "Details, story by story", with the standing sentence', () => {
     const keys = deck.slides.map((s) => s.key);
@@ -139,7 +142,7 @@ describe('the recap (build-recap)', () => {
     expect(r.notDone[0]!.mark).toBe('failed');
     const states = r.notDone.map((i: RecapItem) => i.state);
     expect(states.lastIndexOf('in-progress')).toBeLessThan(states.indexOf('not-started'));
-    expect(r.notDone.find((i) => i.id === 'S19')!.text).toMatch(/— waiting for my approval \(\d+ scenarios\) · \d+ parts not built$/);
+    expect(r.notDone.find((i) => i.id === WAITING)!.text).toMatch(/— waiting for my approval \(\d+ scenarios?\) · \d+ parts? not built$/);
     expect(r.doneTotal + r.notDoneTotal).toBe(real.prd!.stories.length);
   });
 
@@ -161,7 +164,7 @@ describe('the recap (build-recap)', () => {
     if (b?.type !== 'progress') throw new Error('no progress');
     expect(b.rows.find((r) => r.id === 'S1')!.state).toBe('done');
     expect(b.rows.find((r) => r.id === 'S2')!.state).toBe('in-progress');
-    expect(b.rows.find((r) => r.id === 'S19')!.state).toBe('not-started');
+    expect(b.rows.find((r) => r.id === WAITING)!.state).toBe('not-started');
     expect(deckHtml(deck)).toContain('<th>Done / In progress / Not started</th>');
   });
 });
@@ -206,14 +209,14 @@ describe('the proof on every story slide (proof-lines)', () => {
   });
 
   it('stale, a signature that does not match, unit failures and plan problems are said plainly', () => {
-    const deck = fullDeck(real, facts({ stories: doneS1({ signature: 'invalid', unit: { tests: 2, passed: 1, failed: 1 }, simulation: { problems: 2, uncovered: 0 } }) }), NO_INPUTS);
+    const deck = fullDeck(waitingReal, facts({ stories: doneS1({ signature: 'invalid', unit: { tests: 2, passed: 1, failed: 1 }, simulation: { problems: 2, uncovered: 0 } }) }), NO_INPUTS);
     const rows = proofOf(deck, 'S1');
     expect(row(rows, 'Signed')!.text).toMatch(/but the signature does not match$/);
     expect(row(rows, 'Unit tests')!.text).toMatch(/1 pass, 1 fail$/);
     expect(row(rows, 'Simulation')!.text).toBe('2 problems found in the plan');
-    const s18 = proofOf(deck, 'S18');
-    expect(row(s18, 'E2E tests')!.text).toBe('no approved scenario yet, so no test counts');
-    expect(row(s18, 'Signed')!.text).toBe('not signed off yet');
+    const waiting = proofOf(deck, WAITING);
+    expect(row(waiting, 'E2E tests')!.text).toBe('no approved scenario yet, so no test counts');
+    expect(row(waiting, 'Signed')!.text).toBe('not signed off yet');
   });
 
   it('a check row shows when it ran, the still of its last screen and the recording link', () => {
