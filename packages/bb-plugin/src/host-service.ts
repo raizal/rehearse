@@ -26,12 +26,12 @@ export interface HostServiceOptions {
   onCountChange?: (running: number) => void;
 }
 
-/** The model and reasoning level of story threads started from the panel (T44). */
-export type ThreadSettings = Pick<ServeTarget, 'threadModel' | 'threadReasoning'>;
+/** The panel's bb project (T46) and the model and reasoning level of story threads (T44). */
+export type ServeSettings = Pick<ServeTarget, 'projectId' | 'threadModel' | 'threadReasoning'>;
 
 export interface HostService {
   listEpics(repoPath: string): string[];
-  open(repoPath: string, slug: string, command: string, thread?: ThreadSettings): Promise<Opened & { sshAgent: { available: boolean; source: SshAgent['source'] } }>;
+  open(repoPath: string, slug: string, command: string, settings?: ServeSettings): Promise<Opened & { sshAgent: { available: boolean; source: SshAgent['source'] } }>;
   renew(leaseId: string): boolean;
   release(leaseId: string): Promise<boolean>;
   runCli(cwd: string, args: string[], command: string): Promise<CliResult>;
@@ -57,11 +57,11 @@ export function createHostService(opts: HostServiceOptions = {}): HostService {
   });
   return {
     listEpics,
-    async open(repoPath, slug, command, thread = {}) {
+    async open(repoPath, slug, command, settings = {}) {
       if (!isDir(join(repoPath, 'docs', 'epics', slug))) {
         throw new Error(`no EPIC folder docs/epics/${slug} in ${repoPath}`);
       }
-      const opened = await manager.open({ repoPath, slug, command, ...thread });
+      const opened = await manager.open({ repoPath, slug, command, ...settings });
       return { ...opened, sshAgent: agentInfo(agent()) };
     },
     renew: (leaseId) => manager.renew(leaseId),

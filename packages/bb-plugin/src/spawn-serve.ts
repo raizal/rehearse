@@ -49,12 +49,17 @@ export function threadArgs(target: ServeTarget): string[] {
   ];
 }
 
+/** The serve environment: the panel's bb project as REHEARSE_BB_PROJECT, so serve need not guess it (T46). */
+export function serveProcessEnv(target: ServeTarget, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return target.projectId ? { ...env, REHEARSE_BB_PROJECT: target.projectId } : env;
+}
+
 export function spawnServe(target: ServeTarget, port: number, opts: SpawnServeOptions): Promise<ServeProcess> {
   const { invocation } = opts;
   const args = ['-e', WATCHDOG, '--', invocation.command, ...invocation.prefix, 'serve', target.slug, '--port', String(port), ...threadArgs(target)];
   const child = spawn(opts.nodePath ?? process.execPath, args, {
     cwd: target.repoPath,
-    env: opts.env,
+    env: serveProcessEnv(target, opts.env),
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   const url = `http://${LOOPBACK}:${port}/`;

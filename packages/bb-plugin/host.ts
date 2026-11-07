@@ -39,9 +39,10 @@ export default experimental_defineHostEntry({
   contract: hostContract,
   handlers: {
     listEpics: ({ repoPath }) => ({ slugs: service.listEpics(repoPath) }),
-    open: async ({ repoPath, slug, command, threadModel, threadReasoning }, context) => {
+    open: async ({ repoPath, slug, command, projectId, threadModel, threadReasoning }, context) => {
       track(context);
       return service.open(repoPath, slug, command, {
+        ...(projectId ? { projectId } : {}),
         ...(threadModel ? { threadModel } : {}),
         ...(threadReasoning ? { threadReasoning } : {}),
       });

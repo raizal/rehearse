@@ -12,7 +12,7 @@ if (command === 'serve') {
   const port = Number(rest[rest.indexOf('--port') + 1]);
   const server = createServer((req, res) => {
     res.setHeader('content-type', 'text/html');
-    res.end(`<!doctype html><title>rehearse ${slug}</title><main data-slug="${slug}" data-pid="${process.pid}"></main>`);
+    res.end(`<!doctype html><title>rehearse ${slug}</title><main data-slug="${slug}" data-pid="${process.pid}" data-bb-project="${process.env.REHEARSE_BB_PROJECT ?? ''}"></main>`);
   });
   server.on('error', (e) => {
     process.stderr.write(e.code === 'EADDRINUSE' ? `rehearse serve: port in use: ${port}\n` : `rehearse serve: ${e.message}\n`);
