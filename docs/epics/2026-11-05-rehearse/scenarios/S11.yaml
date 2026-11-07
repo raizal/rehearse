@@ -2,7 +2,7 @@ story: S11
 scenarios:
   - id: S11-brief
     title: The brief of a signed story holds everything the agent builds to
-    status: draft
+    status: approved
     steps:
       - { name: sign-off }
       - name: watch-build
@@ -13,53 +13,97 @@ scenarios:
           id: brief-content
           given: { storyId: S1 }
           then:
-            header: [signed by, signed at, rule-2 hash, matches the signed story]
-            sections: [Story, Approved scenarios, Boxes, Decisions, Entities, How to work in this repo]
+            header: [ signed by, signed at, rule-2 hash, matches the signed story ]
+            sections: [ Story, Approved scenarios, Boxes, Decisions, Entities, How to work in this repo ]
             draftsApart: true
             underTokens: 6000
       - { name: watch-build }
     expect: { criterion: S11-A1, state: { briefSections: 6, draftsListedApart: true, tokens: "< 6000" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:40:41Z'
+      hash: 'sha256:7dd045f5f3f1ff9e1eec20011e6fca6b074f05567647451e57c8c0d1e96f6df2'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAxj1p2k+/zm+kDi7XmwnJDIJ0D8m9caoH+ZY1SbHZIUGIo2O3EI/ErZWr9/
+        /IOEMGH0rfAPZsfFfsupF0g5emDw==
+        -----END SSH SIGNATURE-----
 
   - id: S11-unsigned
     title: An unsigned story gets no build button, only a question thread
-    status: draft
+    status: approved
     steps:
       - name: watch-build
         branch: "story not signed or stale"
         example: { id: unsigned-story, given: { storyId: S2, signed: false }, then: { refusal: not signed off, offer: Start a question thread } }
       - { name: review/swimlanes }
     expect: { criterion: S11-A2, state: { buildButton: false, refusal: not signed off, questionThread: offered } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:40:53Z'
+      hash: 'sha256:6c6618e61eaac3218be63feafb5322c409a4d594901bf6b951bdfe080bcd00cb'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABATU4vJb4RXY8mX00cu2HfpvzXVp3+xGJcfk6ykaE/fmKQufV+8f+mlqtgm3
+        /s/efOCtH9O5dPKYg/geQuB1MmAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S11-stale
     title: A story edited after its sign-off is stale and is not handed over
-    status: draft
+    status: approved
     steps:
       - { name: signed-edit }
       - name: content-changed
-        example: { id: edit-after-sign, given: { epicDir: docs/epics/x }, then: { staleStories: [S1], staleScenarios: [] } }
+        example: { id: edit-after-sign, given: { epicDir: docs/epics/x }, then: { staleStories: [ S1 ], staleScenarios: [] } }
       - name: watch-build
         branch: "story not signed or stale"
         example: { id: stale-story, given: { storyId: S1 }, then: { refusal: "changed since the sign-off on 2026-11-05", offer: Start a question thread } }
       - { name: review/swimlanes }
     expect: { criterion: S11-A2, state: { buildButton: false, briefRefused: true, reasonNamesSignOffDate: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:41:04Z'
+      hash: 'sha256:89909ea1631237c4b919046ef251517fb66806bc6d1868ac0689f15091b53c6d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAPrHxf14SV0VueqJfT8/jQJGos3fEchRWu1/uAM46oigH/tNxMR86R//qw/
+        m75GXQcXmydrFUaBECJPNoLIQSCA==
+        -----END SSH SIGNATURE-----
 
   - id: S11-spawn
     title: Build with an agent starts a bb thread in a new worktree from the current branch
-    status: draft
+    status: approved
     steps:
       - { name: watch-build }
       - name: start-build
         example:
           id: spawn-worktree
           given: { storyId: S1, branch: feature/plan, threadModel: "", threadReasoning: "" }
-          then: { storyId: S1, thread: thr_new, hash: "sha256:abc", at: "2026-11-07T10:00:00Z", spawnArgs: [--new-environment, worktree, --base-branch, feature/plan], modelFlags: none }
+          then: { storyId: S1, thread: thr_new, hash: "sha256:abc", at: "2026-11-07T10:00:00Z", spawnArgs: [ --new-environment, worktree, --base-branch, feature/plan ], modelFlags: none }
       - { name: build-brief }
       - { name: watch-build }
-    expect: { criterion: S11-A3, state: { worktree: new, baseBranch: current, linkKeeps: [thread, hash, at], modelFlagsOnlyWhenSet: true } }
+    expect: { criterion: S11-A3, state: { worktree: new, baseBranch: current, linkKeeps: [ thread, hash, at ], modelFlagsOnlyWhenSet: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:41:18Z'
+      hash: 'sha256:10d9fba9859f3d238fa25cb2425076268b661f31029fc029bc321edb8832768a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAixtUkBfzDZXqTpvrgbX6076iHil15N6rAQJtbdcZVArGT27AXKHhF0Utwx
+        YmFwyeH0yD7EdJl6kvFJTiy1OnCQ==
+        -----END SSH SIGNATURE-----
 
   - id: S11-plan-changed
     title: The plan changed after the thread started, and the builder sends the change
-    status: draft
+    status: approved
     steps:
       - { name: signed-edit }
       - { name: content-changed }
@@ -70,10 +114,21 @@ scenarios:
       - { name: build-brief }
       - { name: watch-build }
     expect: { criterion: S11-A4, state: { notice: shown, threadTold: true, linkHash: updated } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:41:33Z'
+      hash: 'sha256:54a66383da77eb41a4268137bbb6fcf208d68b6defac4621f159d9e70f36c72f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABANhZjThTF9I3IAZx8YDxv8jPrXU8RtJsKgT7D45Plau5kB5zhuKK8S3YPnT
+        ewY8VMO92SKfb6Dd0rBLw42tSADQ==
+        -----END SSH SIGNATURE-----
 
   - id: S11-progress
     title: The progress block shows what is built and tested
-    status: draft
+    status: approved
     steps:
       - { name: build-brief }
       - name: watch-build
@@ -81,20 +136,42 @@ scenarios:
           id: progress-block
           given: { storyId: S1, boxes: 2, boxesWithCommits: 1, approvedScenarios: 2, e2ePassing: 1, e2eNotRun: 1 }
           then: { summary: "1 of 2 boxes have code · 1 of 2 scenarios tested", notRun: not run yet, signOff: holds }
-    expect: { criterion: S11-A5, state: { thread: status and last activity, perBox: [built, commits, branch, coverage], perScenario: [found, passing, failing, missing] } }
+    expect: { criterion: S11-A5, state: { thread: status and last activity, perBox: [ built, commits, branch, coverage ], perScenario: [ found, passing, failing, missing ] } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:43:55Z'
+      hash: 'sha256:bd2be116fd12286f8ccbd3a993a0717a49b3944991648ab5e4a98d780ed5d1ff'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABABpBjprUux6p0lwtBSzwZpF7V8Jt90HLbApnoY0ImcmJI1q9N3sKXl3AjNT
+        mKE1XTdoHiCVTMq7C9Zl5Jhr/5BQ==
+        -----END SSH SIGNATURE-----
 
   - id: S11-overview
     title: The Stories list shows the build of every story
-    status: draft
+    status: approved
     steps:
       - { name: sign-off }
       - name: watch-build
-        example: { id: overview, given: { stories: [S1, S2] }, then: { S1: "1/2 boxes · 1/2 tested · thread running", S2: "0/1 boxes · 0/1 tested" } }
+        example: { id: overview, given: { stories: [ S1, S2 ] }, then: { S1: "1/2 boxes · 1/2 tested · thread running", S2: "0/1 boxes · 0/1 tested" } }
     expect: { criterion: S11-A6, state: { column: shown per story, thread: status when linked } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:44:03Z'
+      hash: 'sha256:d3c97f4df9308756b89b4daa00d5cd9ca7fa4a5dec9bbf6df164fc44ba51d263'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAWpYf1ZSrFUTkamq0Uy0FfZE7T3n4w6eeAa/h0U94vsFUd/IdDWwgSkWllk
+        p0HFCXMm3/cl7Cs6eFsIT65iUCBg==
+        -----END SSH SIGNATURE-----
 
   - id: S11-cli
     title: An agent asks for the brief and the progress on the command line
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - name: build-brief
@@ -102,12 +179,34 @@ scenarios:
       - name: watch-build
         example: { id: cli-progress, given: { command: rehearse progress 2026-11-05-shop S1 }, then: { summary: "1 of 2 boxes have code · 1 of 2 scenarios tested" } }
     expect: { criterion: S11-A7, state: { textOrJson: true, staleOrUnsignedExitCode: 1 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:44:12Z'
+      hash: 'sha256:6ff3369da102f06c8340d97dc4b6f0bc0ff2e77275e5d9aa892d6862dcb73b81'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABArVec/H8Tyx/zK/cV9bObr8xSbOGlmfHbP6dGjpgK6ToMZuSLlo240qeB9y
+        L2CEkbFFGZHv0vTsiF+VkyiMp6Dw==
+        -----END SSH SIGNATURE-----
 
   - id: S11-skill
     title: The skill holds the same how-to-work lines as the brief
-    status: draft
+    status: approved
     steps:
       - name: build-brief
-        example: { id: skill-text, given: { storyId: S1 }, then: { brief: "## How to work in this repo", hash: "sha256:abc", skillSection: Working on a story, skillNames: [rehearse brief, rehearse progress] } }
+        example: { id: skill-text, given: { storyId: S1 }, then: { brief: "## How to work in this repo", hash: "sha256:abc", skillSection: Working on a story, skillNames: [ rehearse brief, rehearse progress ] } }
       - { name: watch-build }
     expect: { criterion: S11-A8, state: { sameLines: true, namesCommands: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T03:44:18Z'
+      hash: 'sha256:9268d854a4486849da5788abc0c30336151a95f1f153c64b5a23d3d6e01633e1'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAb9/r34g4yLJMeeSRoNmEUx+a8DZGd+C5Mg2+tGPkXtE+aaP8nwH1Y6KXVD
+        uxcqDLqdFbkI6uCTufvgJGbClvCw==
+        -----END SSH SIGNATURE-----
