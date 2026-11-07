@@ -30,6 +30,7 @@ export {
   type StepState,
   type StoryFacts,
   type TestState,
+  mainPathOf,
   storyView,
 } from './deck.js';
 export { deckHtml, SLIDE_H, SLIDE_W, type DeckAsset, type DeckAssets } from './html.js';
@@ -52,6 +53,7 @@ export {
   type Actor,
   type MissingItem,
   NO_EVIDENCE,
+  NOT_SEEN_YET,
   plainStep,
   proofRows,
   RECAP_MAX,
@@ -72,4 +74,4 @@ export {
 export { escapeXml, storyFlowSvg, wrapText } from './svg.js';
 export { areaCard, detailsSlide, doneAreas, MAX_GROUPS, MAX_LINES, MAX_PICTURES, nextSteps, notDoneGroups, notDoneReason, proofPictures, REASON_ORDER, reasonCard, summarySlides, type Area, type Reason, type ReasonGroup, type SummaryInput } from './summary.js';
 export { boxEvidence, branchLine, BUILT_WORDS, builtWords, countsBuilt, decisionTokens, isSourceFile, NO_GRAPH, trailerPath, type BoxEvidence, type BranchLine, type BuiltState, type EvidenceInput, type GraphBuilds, type GraphCode, type TrailerCommit } from './built.js';
-export { filterRows, missingLine, statusRow, statusSources, statusTable, statusText, type SignedState, type StatusFilter, type StatusRow, type StatusSources, type StatusTable } from './status.js';
+export { builtNotSeen, filterRows, missingLine, statusRow, statusSources, statusTable, statusText, type SignedState, type StatusFilter, type StatusRow, type StatusSources, type StatusTable } from './status.js';

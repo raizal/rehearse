@@ -9,8 +9,14 @@
 //
 // A brief over its budget (MAX_TEST_BRIEF_CHARS) keeps as many scenarios in full as fit; each other
 // one is one line with its title and criterion, and `--tests --scenario <id>` prints it in full (T56).
+//
+// T61 (box main-path-test): the story's main path scenario comes first, and the brief says "Write
+// the main path test first." and how `rehearse e2e-start --main-path` starts it. The brief lists no
+// code of the story's boxes: a separate test thread works only from the scenarios and the running
+// product, because the builder must not write their own proof.
 
 import { indexBoxes } from '../flow-index.js';
+import { storyBranches } from '../layout/branches.js';
 import type { AcceptanceCriterion, Box, EpicRecord, Hash, Id, Role, Scenario, ScenarioStep, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
 import { briefSignState } from './build-brief.js';
@@ -30,6 +36,8 @@ export interface TestBriefOptions extends TestCodeOptions {
   commands?: RepoCommands;
   /** The fixtures a test starts from: `ui` serves the app (UI scenarios), `cli` runs the CLI in a fresh repo. */
   fixtures?: { ui?: TestFixture; cli?: TestFixture };
+  /** The owner's main path pick for the story (review.yaml `mainPath`), when there is one (T61). */
+  mainPath?: Id;
 }
 
 /** A fixture file of the test project and what it exports. */
@@ -54,6 +62,8 @@ export type TestBrief =
       /** Story hash rule 2 of the content now. */
       hash: Hash;
       specFile: string;
+      /** The story's main path scenario, when it is one of `scenarios` (then it is the first). */
+      mainId?: Id;
     }
   | {
       ok: false;
@@ -70,7 +80,7 @@ export type TestBrief =
  * whose title is exactly the scenario id is the scenario's test.
  */
 export const TEST_NAME_RULE =
-  'The Tests tab finds a scenario\'s test in any `*.spec.ts` under the test project. It finds a line that starts with `test(` and has a quoted title that is exactly the scenario id. `test.describe` and `test.step` lines do not count. Any other title leaves the row on "no test".';
+  'The Tests tab finds a scenario\'s test in any `*.spec.ts` under the test project. It finds a line that starts with `test(` and has a quoted title. `test.describe` and `test.step` lines do not count. The title is exactly the scenario id, or the scenario id, ": " and the scenario title (`test(\'S1-happy: Create a record\'`). Any other title leaves the row on "no test".';
 
 /** The first line of a scenario's test, as the Tests tab matches it. */
 export function testTitleLine(scenarioId: Id): string {
@@ -103,6 +113,14 @@ function storyScenarios(record: EpicRecord, storyId: Id): { s: Scenario; status:
   );
 }
 
+/**
+ * The main path scenario of a story (T61): the owner's pick in review.yaml, else the story map
+ * rule (`storyBranches`). Undefined when the story has no scenario.
+ */
+export function mainPathScenario(record: EpicRecord, storyId: Id, override?: Id): Id | undefined {
+  return storyBranches(record.flow, storyId, storyScenarios(record, storyId).map((m) => m.s), override).mainId;
+}
+
 /** Each scenario of a story and its trust (approved, draft or stale), in record order. */
 export function scenarioStatuses(record: EpicRecord, storyId: Id): { id: Id; status: 'approved' | 'draft' | 'stale' }[] {
   return storyScenarios(record, storyId).map((m) => ({ id: m.s.id, status: m.status }));
@@ -117,7 +135,9 @@ export function scenarioTestBrief(record: EpicRecord, storyId: Id, scenarioIds: 
   const mine = storyScenarios(record, storyId);
   const unknown = scenarioIds.filter((id) => !mine.some((m) => m.s.id === id));
   if (unknown.length > 0) return { ok: false, storyId, reason: `no scenario ${unknown.join(', ')} in story ${storyId}` };
-  const picked = [...new Set(scenarioIds)].map((id) => mine.find((m) => m.s.id === id)!);
+  const mainId = mainPathScenario(record, storyId, opts.mainPath);
+  // The main path first (T61), then the others in the order asked.
+  const picked = [...new Set(scenarioIds)].map((id) => mine.find((m) => m.s.id === id)!).sort((a, b) => Number(b.s.id === mainId) - Number(a.s.id === mainId));
   const notApproved = picked.filter((m) => m.status !== 'approved').map((m) => ({ id: m.s.id, status: m.status as 'draft' | 'stale' }));
   if (notApproved.length > 0) {
     const list = notApproved.map((n) => `${n.id} (${n.status})`).join(', ');
@@ -143,7 +163,7 @@ export function scenarioTestBrief(record: EpicRecord, storyId: Id, scenarioIds: 
     const examples = shortened ? new Map<string, string>() : undefined;
     const shown = picked.slice(0, full);
     return [
-      header(record, story, ids),
+      header(record, story, ids, ids.includes(mainId ?? '') ? mainId : undefined, cmds.cli),
       ...shown.map((m) => scenarioSection(record, story, m.s, seen, opts.fixtures ?? {}, examples)),
       shortened ? inShortSection(story, picked.slice(full).map((m) => m.s), shown.map((m) => m.s), cmds.cli, record.slug) : '',
       ...tail,
@@ -159,7 +179,7 @@ export function scenarioTestBrief(record: EpicRecord, storyId: Id, scenarioIds: 
       if (markdown.length < MAX_TEST_BRIEF_CHARS) break;
     }
   }
-  return { ok: true, storyId, scenarios: ids, markdown: `${markdown}\n`, hash: sign.currentHash, specFile };
+  return { ok: true, storyId, scenarios: ids, markdown: `${markdown}\n`, hash: sign.currentHash, specFile, ...(mainId && ids.includes(mainId) ? { mainId } : {}) };
 }
 
 /** The criterion a scenario checks, or undefined. */
@@ -209,12 +229,20 @@ function roleName(record: EpicRecord, id: string): string {
   return role && typeof role.name === 'string' ? role.name : id;
 }
 
-function header(record: EpicRecord, story: Story, ids: Id[]): string {
+function header(record: EpicRecord, story: Story, ids: Id[], mainId: Id | undefined, cli: string): string {
+  const main = mainId
+    ? [
+        `The main path of this story is ${mainId}, the first scenario below. Write the main path test first.`,
+        `Start it with \`${cli} e2e-start ${record.slug} ${story.id} --main-path\`. This command writes the start file with one \`test.step\` for each step. Each step fails until you write it. "Done" needs this test passed on the real screens.`,
+        '',
+      ]
+    : [];
   return [
     `# Test brief: e2e tests for ${ids.join(', ')} (story ${story.id} of the EPIC ${record.slug})`,
     '',
     `Write one Playwright e2e test per scenario below. Each scenario is approved by the owner: the test proves the app does what it says.`,
     '',
+    ...main,
     `Story: as ${roleName(record, story.role)}, I want ${oneLine(str(story.want))}, so that ${oneLine(str(story.soThat))}.`,
     `Record: \`docs/epics/${record.slug}/\` (prd.yaml, flow.yaml, scenarios/${story.id}.yaml).`,
   ].join('\n');
@@ -310,7 +338,7 @@ function whereSection(testProject: string, specFile: string, ids: Id[], example:
     '## Where the test goes and its name',
     '',
     `- File: \`${specFile}\` (add to it when it exists). The test project is \`${testProject}/\`.`,
-    `- Name: the scenario id, exactly: ${ids.map((id) => `\`${id}\``).join(', ')}. The first line of the test is \`${testTitleLine(first)}\`.`,
+    `- Name: the scenario id: ${ids.map((id) => `\`${id}\``).join(', ')}. The first line of the test is \`${testTitleLine(first)}\`, or \`${first}: <scenario title>\` as \`e2e-start\` writes it.`,
     `- ${TEST_NAME_RULE}`,
     `- Steps: \`await test.step('<box path>: <what happens>', async () => { … })\`, one per step above, in order. Birdview maps each step to its box by the text before the first ": ".`,
     example ? `- Copy the style (imports, fixtures, selectors by test id) from \`${example}\`.` : `- No spec exists yet in \`${testProject}/\`: start from the Playwright config there.`,
@@ -333,6 +361,7 @@ function rulesSection(cli: string, slug: string, storyId: Id, ids: Id[]): string
     '## Rules for this thread',
     '',
     '- Write only tests: do not change app code. If the app cannot do what a scenario says, stop and say so in the thread. Give the scenario, the step and what the app does instead.',
+    `- Work only from the scenarios and the product that runs (the UI and the CLI). Do not read the code of the story's boxes. The builder must not write their own proof. This rule comes before the lines on code in *How to work in this repo*. Use \`${cli} context\` and the other code commands only for the e2e helpers.`,
     '- Do not change a scenario to fit the app. A scenario that looks wrong is for the owner: say so in the thread.',
     '- A test builds no box. Its commits carry no `Flow-Box:` trailer, so rehearse does not count a box as built by them. The line on trailers below is for build threads.',
     `- Re-read this brief with \`${cli} brief ${slug} ${storyId} --tests ${ids.map((id) => `--scenario ${id}`).join(' ')}\`.`,

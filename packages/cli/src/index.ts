@@ -16,6 +16,7 @@ import { isGraphVerb, runGraph } from './commands/graph.js';
 import { runBrief } from './commands/brief.js';
 import { runPresent } from './commands/present.js';
 import { runProgress } from './commands/progress.js';
+import { runE2eStart } from './commands/e2e-start.js';
 import { runStatus } from './commands/status.js';
 import { runFigcraft } from './commands/figcraft.js';
 import { runDesign } from './commands/design.js';
@@ -51,6 +52,13 @@ Commands:
   brief <epic-dir-or-slug> <story> --tests [--scenario <id>]… [--json]
                                          The test brief of scenarios without an e2e test, as a test thread gets it
                                          (default: all of the story's). Exit 1 on a draft or stale scenario, or when all have a test.
+  e2e-start <epic-dir-or-slug> <story> [--scenario <id>]… [--main-path] [--stdout] [--append] [--out <file>]
+                                         Write the start file of a story's e2e tests (default <test project>/tests/<story>.spec.ts):
+                                         one test for each scenario the owner accepted, one test.step for each step, with the example
+                                         data. Each step fails with "not written" until you write it. --main-path: only the
+                                         story's main path scenario. A file that exists is never written again: --append adds
+                                         the missing tests and changes none. --stdout prints the file. Exit 1 when there is
+                                         nothing to write (the file exists, nothing new, or a draft scenario).
   progress <epic-dir-or-slug> <story> [--json]
                                          What rehearse sees of the work on a story: each box built (Flow-Box commits on
                                          every branch, code the code graph maps to it), no code of its own (start/end, or a
@@ -132,6 +140,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   if (command === 'brief') return runBrief(rest, io);
   if (command === 'progress') return runProgress(rest, io);
   if (command === 'status') return runStatus(rest, io);
+  if (command === 'e2e-start') return runE2eStart(rest, io);
   if (command === 'present') return runPresent(rest, io);
   if (command === 'playlists') return runPlaylists(rest, io);
   if (command === 'play') return runPlay(rest, io);

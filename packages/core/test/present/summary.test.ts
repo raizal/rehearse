@@ -1,5 +1,6 @@
 // T54: the executive summary, the default deck (boxes summary-deck, group-done-by-area,
-// group-not-done-by-reason, how-we-know, full-deck-appendix).
+// group-not-done-by-reason, how-we-know, full-deck-appendix). T61 (box done-seen): done needs the
+// main path test passed; a story built and signed off without it is "built, not seen working yet".
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -77,7 +78,7 @@ function texts(blocks: Block[]): string[] {
   });
 }
 
-/** S1 and S2 seen working, S3 partly, S4 and S5 checked by automated tests; S6 has a failing test. */
+/** S1 and S2 seen working, S3 on the main path only, S4 and S5 built but not seen working yet; S6 has a failing test. */
 function mixed(): Record<string, StoryFacts> {
   const s3 = approvedOf(real, 'S3');
   const s6 = approvedOf(real, 'S6');
@@ -110,17 +111,17 @@ describe('the summary (summary-deck)', () => {
     const title = slide(deck, 'title');
     const total = real.prd!.stories.length;
     expect(title.blocks[0]!.type).toBe('lead');
-    expect(JSON.stringify(title.blocks)).toContain(`5 of ${total} parts of the plan are done; 2 of them are seen working on the real screens, 1 partly. ${total - 5} are not done yet.`);
+    expect(JSON.stringify(title.blocks)).toContain(`3 of ${total} parts of the plan are done; 2 of them are seen working on the real screens, 1 on the main path only. ${total - 3} are not done yet; 2 of them are built, not seen working yet.`);
     const bar = title.blocks.find((b) => b.type === 'bar');
     expect(bar?.type === 'bar' && bar.segments.map((s) => [s.label, s.count])).toEqual([
-      ['seen working (1 partly)', 3],
-      ['done, checked by automated tests', 2],
+      ['done, seen working (1 on the main path only)', 3],
+      ['built, not seen working yet', 2],
       ['not done yet', total - 5],
     ]);
   });
 
   it('titles joined in one line start small after the first, an acronym stays', () => {
-    const many = presentationDeck(real, facts({ stories: Object.fromEntries(signed.map((id) => [id, built(id)])) }), inputs());
+    const many = presentationDeck(real, facts({ stories: Object.fromEntries(signed.map((id) => [id, built(id, 'all')])) }), inputs());
     const lines = groups(many, 'done').flatMap((g) => g.lines.map((l) => l.text));
     expect(lines.some((l) => / and \d+ more$/.test(l))).toBe(true);
     expect(lines.join(' | ')).not.toMatch(/, [A-Z][a-z]| and [A-Z][a-z]/);
@@ -149,8 +150,8 @@ describe('the summary (summary-deck)', () => {
   it('every done line ends with its proof level, with the date when it was seen working', () => {
     const levels = groups(deck, 'done').flatMap((g) => g.lines.map((l) => l.level));
     expect(levels).toContain('seen working, 7 Nov');
-    expect(levels.some((l) => /^partly seen working \(\d+ of \d+\), 6 Nov$/.test(l ?? ''))).toBe(true);
-    expect(levels).toContain('checked by automated tests');
+    expect(levels.some((l) => /^main path seen working \(\d+ of \d+\), 6 Nov$/.test(l ?? ''))).toBe(true);
+    expect(levels).not.toContain('checked by automated tests');
   });
 
   it('a stale sign-off reads "changed after it was signed off; needs a new sign-off"', () => {
@@ -175,7 +176,7 @@ describe('the summary (summary-deck)', () => {
   it('nothing done yet says so plainly', () => {
     const none = presentationDeck(real, facts(), NO_INPUTS);
     expect(JSON.stringify(slide(none, 'title').blocks)).toContain(`None of the ${real.prd!.stories.length} parts of the plan is done yet.`);
-    expect(slide(none, 'done').blocks).toEqual([{ type: 'text', text: 'Nothing is done yet: no part of the plan is both built and signed off.', tone: 'warn' }]);
+    expect(slide(none, 'done').blocks).toEqual([{ type: 'text', text: 'Nothing is done yet: no part of the plan is built, signed off and seen working on the main path.', tone: 'warn' }]);
   });
 });
 
@@ -184,7 +185,7 @@ describe('what is done, by area (group-done-by-area)', () => {
     const deck = presentationDeck(real, facts({ stories: mixed() }), NO_INPUTS);
     const g = groups(deck, 'done');
     const roleOf = (id: string) => real.prd!.roles.find((r) => r.id === real.prd!.stories.find((s) => s.id === id)!.role)!.name.toLowerCase();
-    const roles = [...new Set(['S1', 'S2', 'S3', 'S4', 'S5'].map(roleOf))];
+    const roles = [...new Set(['S1', 'S2', 'S3'].map(roleOf))];
     expect(g.map((c) => c.title)).toEqual(roles.map((r) => `What the ${r} can now do`));
     for (const c of g) {
       expect(c.lines.length).toBeLessThanOrEqual(MAX_LINES);
@@ -196,8 +197,12 @@ describe('what is done, by area (group-done-by-area)', () => {
     const areas = [{ title: 'Making a record', stories: ['S1', 'S2', 'S3', 'S4', 'S5'] }];
     const g = groups(presentationDeck(real, facts({ stories: mixed() }), inputs({ areas })), 'done');
     expect(g.map((c) => c.title)).toEqual(['Making a record']);
-    expect(g[0]!.lines.map((l) => l.ids)).toEqual([['S1', 'S2'], ['S3'], ['S4', 'S5']]);
-    expect(g[0]!.lines.map((l) => l.level)).toEqual(['seen working, 7 Nov', expect.stringMatching(/^partly seen working \(\d+ of \d+\), 6 Nov$/), 'checked by automated tests']);
+    const all = presentationDeck(real, facts({ stories: { ...mixed(), S4: built('S4', 'all'), S5: built('S5', 'all') } }), inputs({ areas }));
+    const g2 = groups(all, 'done');
+    expect(g2[0]!.lines.map((l) => l.ids)).toEqual([['S1', 'S2', 'S4', 'S5'], ['S3']]);
+    expect(g2[0]!.lines.map((l) => l.level)).toEqual(['seen working, 7 Nov', expect.stringMatching(/^main path seen working \(\d+ of \d+\), 6 Nov$/)]);
+    // Three done stories or fewer: one line per story.
+    expect(g[0]!.lines.map((l) => l.ids)).toEqual([['S1'], ['S2'], ['S3']]);
   });
 
   it("the owner's areas, then the rest; at most six cards, the rest under \"And more\"", () => {
@@ -224,11 +229,11 @@ describe('what is not done, by reason (group-not-done-by-reason)', () => {
     const record = withWaitingStory(real, real.prd!.stories.at(-1)!.id);
     const deck = presentationDeck(record, facts({ stories: mixed() }), NO_INPUTS);
     const g = groups(deck, 'not-done');
-    expect(g.map((c) => c.title.replace(/: .*/, ''))).toEqual(['A test fails', 'Waiting for my approval', 'Being built']);
+    expect(g.map((c) => c.title.replace(/: .*/, ''))).toEqual(['A test fails', 'Waiting for my approval', 'Being built', 'Built, not seen working yet']);
     expect(g.length).toBeLessThanOrEqual(MAX_GROUPS);
     for (const c of g) {
       expect(c.takes).toMatch(/\S/);
-      expect(c.who).toMatch(/^(me|the builders)/);
+      expect(c.who).toMatch(/^(me|the builders|the test thread)/);
       expect(c.lines.length).toBeLessThanOrEqual(MAX_LINES);
     }
     const waiting = g.find((c) => c.title.startsWith('Waiting for my approval'))!;
@@ -240,7 +245,10 @@ describe('what is not done, by reason (group-not-done-by-reason)', () => {
     // Past three, the last line counts the rest; every story not done is in a card.
     expect(building.lines[MAX_LINES - 1]!.text).toMatch(/^and \d+ more parts of the plan$/);
     const ids = g.flatMap((c) => c.lines.flatMap((l) => l.ids ?? []));
-    expect(ids.sort()).toEqual(real.prd!.stories.map((s) => s.id).filter((id) => !['S1', 'S2', 'S3', 'S4', 'S5'].includes(id)).sort());
+    expect(ids.sort()).toEqual(real.prd!.stories.map((s) => s.id).filter((id) => !['S1', 'S2', 'S3'].includes(id)).sort());
+    const notSeen = g.find((c) => c.title === 'Built, not seen working yet')!;
+    expect([notSeen.who, notSeen.lines.flatMap((l) => l.ids ?? [])]).toEqual(['the test thread', ['S4', 'S5']]);
+    expect(notSeen.lines[0]!.level).toBe('main path test not run yet');
   });
 
   it('everything done: the not-done slide says nothing is left', () => {
@@ -290,7 +298,7 @@ describe('how we know (how-we-know)', () => {
   it('what done means, the numbers with their dates, the sources and the trust sentence', () => {
     const deck = presentationDeck(real, facts({ stories: mixed(), evidence }), NO_INPUTS);
     const all = texts(slide(deck, 'how-we-know').blocks).join('\n');
-    expect(all).toMatch(/^Done means: every part is built and the owner signed it off, and no test of it fails\./);
+    expect(all).toMatch(/^Done means: every part is built and the owner signed it off. The main path test passed on the real screens in its last run, and no test of it fails\./);
     expect(all).toMatch(/Tests on the real screens: \d+ of \d+ approved checks passed, 1 failed in their last run \(Birdview, runs from 5 Nov to 7 Nov\); \d+ have no run on the real screens yet\./);
     expect(slide(deck, 'how-we-know').blocks.some((b) => b.type === 'list' && b.items[0]!.mark === 'failed')).toBe(true);
     expect(all).toContain('Automated tests: 1200 of 1200 passed (run 7 Nov).');

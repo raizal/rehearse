@@ -18,6 +18,7 @@ import {
   scenarioTestBrief,
   storyBuildBrief,
   testBriefBoxPaths,
+  TEST_NO_CODE,
   testCodeSection,
   type BoxCode,
   type CodeRef,
@@ -167,24 +168,25 @@ describe('the build brief with code (T49)', () => {
   });
 });
 
-describe('the test brief with code (T49)', () => {
-  it('lists per scenario the code of the boxes it walks, each box once, and the e2e helpers', () => {
+describe('the test brief with code (T49; T61: no box code)', () => {
+  it('lists no code of the boxes, says to work from the scenarios and the product that runs, and lists the e2e helpers', () => {
     const { record } = loadEpic(approvedEpic());
     expect(testBriefBoxPaths(record, 'S1', ['S1-buy', 'S1-empty'])).toEqual(expect.arrayContaining(['cart', 'pay']));
-    const r = scenarioTestBrief(record, 'S1', ['S1-buy', 'S1-empty'], {
+    const r = scenarioTestBrief(loadEpic(approvedEpic()).record, 'S1', ['S1-buy', 'S1-empty'], {
       code: [payCode({ functions: Array.from({ length: 7 }, (_, i) => fn(i)), total: 7 })],
       e2eHelpers: [{ name: 'serve', file: 'e2e/tests/serve.ts', line: 16 }],
     });
     if (!r.ok) throw new Error(r.reason);
     expect(r.markdown).toContain(`## ${CODE_START_HEADING}`);
-    expect(r.markdown).toContain('  - `pay`: src/pay.ts (charge0 :10, charge1 :11, charge2 :12, charge3 :13, charge4 :14) and 2 more');
-    expect(r.markdown.match(/ {2}- `pay`:/g)).toHaveLength(1);
+    expect(r.markdown).toContain(TEST_NO_CODE);
+    expect(r.markdown).not.toContain('src/pay.ts');
+    expect(r.markdown).not.toContain('charge0');
     expect(r.markdown).toContain('- E2e helpers: `serve` e2e/tests/serve.ts:16');
   });
 
-  it('says so when there are no helpers, or the graph is down; no facts, no section', () => {
+  it('says so when there are no helpers; the rule shows also without code facts', () => {
     expect(testCodeSection([{ id: 'S1-buy', boxes: ['pay'] }], { code: [payCode()] })).toContain('- E2e helpers: none yet outside the spec files.');
-    expect(testCodeSection([{ id: 'S1-buy', boxes: ['pay'] }], { codeUnavailable: 'no graph' })).toContain('The code graph is not available (no graph)');
-    expect(testCodeSection([{ id: 'S1-buy', boxes: ['pay'] }], {})).toBe('');
+    expect(testCodeSection([{ id: 'S1-buy', boxes: ['pay'] }], { codeUnavailable: 'no graph' })).not.toContain('no graph');
+    expect(testCodeSection([{ id: 'S1-buy', boxes: ['pay'] }], {})).toContain(TEST_NO_CODE);
   });
 });

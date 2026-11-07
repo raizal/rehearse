@@ -27,10 +27,10 @@ import {
   scenarioTestBrief,
   briefBoxPaths,
   codeStartSection,
-  testBriefBoxPaths,
   decisionTexts,
   diffStoryContent,
   loadEpic,
+  readReview,
   repoCommands,
   storyBuildBrief,
   storyBriefDesign,
@@ -357,8 +357,12 @@ export function storyTestBrief(record: EpicRecord, storyId: Id, ids: Id[], testP
   const relFixture = (f: TestFixture | undefined) => (f ? { file: rel(f.file), exports: f.exports } : undefined);
   const ui = relFixture(fixtures.ui);
   const cli = relFixture(fixtures.cli);
+  const pick = readReview(record).inputs.mainPath[storyId];
+  // No code of the story's boxes (T61): the test thread works from the scenarios and the product that runs.
+  const { code: _boxCode, codeUnavailable: _unavailable, ...helpers } = code;
   return scenarioTestBrief(record, storyId, ids, {
-    ...code,
+    ...helpers,
+    ...(pick ? { mainPath: pick } : {}),
     testProject: project,
     specFile: `${specDir}/${storyId}.spec.ts`,
     ...(example ? { exampleSpec: `${project}/${example.file}` } : {}),
@@ -396,10 +400,19 @@ export function testFixtures(testProject: string | undefined): { ui?: TestFixtur
   return { ...(ui ? { ui } : {}), ...(cli ? { cli } : {}) };
 }
 
-/** The first message of a test thread: one line on top, then the test brief. */
-export function testPrompt(slug: string, storyId: Id, scenarios: Id[], markdown: string): string {
+/**
+ * The first message of a test thread: a few lines on top, then the test brief. With the main path
+ * among the scenarios (T61, box main-path-test), the first task is its start file and its test.
+ */
+export function testPrompt(slug: string, storyId: Id, scenarios: Id[], markdown: string, main?: { id: Id; cli: string }): string {
+  const first =
+    main && scenarios.includes(main.id)
+      ? [`First task: run \`${main.cli} e2e-start ${slug} ${storyId} --main-path\` and write the main path test (${main.id}) from it. Make it pass on the real screens before you write the others.`]
+      : [];
   return [
     `Write the e2e tests of story ${storyId} of the EPIC ${slug} for ${scenarios.join(', ')}, from this brief. The scenarios are approved by the owner; the owner watches the tests in rehearse (the story's Tests tab, Birdview).`,
+    "You are a separate test thread. Work only from the scenarios and the product that runs (the UI and the CLI). Do not read the code of the story's boxes. The builder must not write their own proof.",
+    ...first,
     'Write only tests. First, say in a few lines which spec file you will write and how each test walks its scenario. Then write and run them.',
     '',
     markdown,
@@ -705,7 +718,8 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
 
   async function testBrief(storyId: string, ids: Id[]): Promise<TestBrief & { ok: true }> {
     const rec = record();
-    const code = opts.briefCode ? await opts.briefCode(rec, testBriefBoxPaths(rec, storyId, ids)) : {};
+    // No box paths (T61): only the e2e helpers, never the code of the story's boxes.
+    const code = opts.briefCode ? await opts.briefCode(rec, []) : {};
     const made = storyTestBrief(rec, storyId, ids, opts.testProject, await topLevel(), code);
     if (!made.ok) throw new StoryThreadError(409, made.reason);
     return made;
@@ -1016,7 +1030,7 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
             ...(opts.threadModel ? { model: opts.threadModel } : {}),
             ...(opts.threadReasoning ? { reasoning: opts.threadReasoning } : {}),
           },
-          testPrompt(brief.slug, storyId, made.scenarios, made.markdown),
+          testPrompt(brief.slug, storyId, made.scenarios, made.markdown, made.mainId ? { id: made.mainId, cli: repoCommands(await topLevel()).cli } : undefined),
         );
         await saveTestLink(brief, { thread, scenarios: made.scenarios, hash: made.hash, at: new Date(now()).toISOString() });
       } finally {

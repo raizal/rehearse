@@ -3,13 +3,17 @@
 // a header sentence. Box status-sources: where the facts come from and when. The rows come from the
 // deck's own story views and its one done rule (proof.ts), so the page and the deck never disagree.
 // Pure: the record and the facts the server gathered in, the table out.
+//
+// T61 (box done-seen): a story that is signed and built but whose main path is not seen working on
+// the real screens is "built, checked by automated tests · not seen working yet". It is not done:
+// the header counts it with the stories not done and says how many of them it is.
 
 import type { EpicRecord, Id, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
 import { builtWords, type BoxEvidence } from './built.js';
 import { storyView, type DeckFacts, type StoryView } from './deck.js';
 import { plain } from './plain.js';
-import { LEVEL_WORDS, missingItems, standing, viewDoneState, viewProofLevel, type Actor, type DoneState, type ProofLevel } from './proof.js';
+import { LEVEL_WORDS, missingItems, NOT_SEEN_YET, standing, viewDoneState, viewProofLevel, type Actor, type DoneState, type ProofLevel } from './proof.js';
 
 export type SignedState = 'yes' | 'changed' | 'no';
 
@@ -38,10 +42,11 @@ export interface StatusSources {
 export interface StatusTable {
   slug: string;
   title: string;
-  /** "18 of 21 stories done · 2 seen working on the real screens · 3 not done" */
+  /** "2 of 21 stories done · 1 seen working on the real screens · 19 not done (16 of them built, not seen working yet)" */
   header: string;
-  counts: { stories: number; done: number; seen: number; notDone: number; doneNotSeen: number };
-  /** Not done first, then done but not seen working, then the rest; in record order within each. */
+  /** `notDone` counts the checked stories too; `checked`: built, not seen working yet (T61). */
+  counts: { stories: number; done: number; seen: number; notDone: number; doneNotSeen: number; checked: number };
+  /** Not done first, then built but not seen working, then done but not every check seen, then seen working; in record order within each. */
   rows: StatusRow[];
   sources: StatusSources;
 }
@@ -81,11 +86,14 @@ function unitOf(v: StoryView): StatusRow['unit'] {
 function doneOf(v: StoryView): StatusRow['done'] {
   const state = viewDoneState(v);
   const level = viewProofLevel(v);
-  if (state !== 'done') return { state, text: 'not done' };
+  if (state !== 'done' && state !== 'checked') return { state, text: 'not done' };
   const u = v.facts.unit;
-  // The deck's level, plus what is known of the automated tests: never claim a check nobody read.
-  const caveat = level !== 'automated' ? '' : !u ? ' (no unit report read)' : u.tests === 0 ? ' (no unit test names it)' : '';
-  return { state, ...(level ? { level } : {}), text: `done · ${level === 'partly-seen' ? `${LEVEL_WORDS[level]} (${v.tests.passed} of ${v.approved})` : LEVEL_WORDS[level ?? 'automated']}${caveat}` };
+  // Checked (T61): built and checked by automated tests; say what is known of them, and that it is not seen working yet.
+  if (state === 'checked') {
+    const caveat = !u ? ' (no unit report read)' : u.tests === 0 ? ' (no unit test names it)' : '';
+    return { state, level: 'automated', text: `built, ${LEVEL_WORDS.automated}${caveat} · ${NOT_SEEN_YET}` };
+  }
+  return { state, ...(level ? { level } : {}), text: `done · ${level === 'partly-seen' ? `${LEVEL_WORDS[level]} (${v.tests.passed} of ${v.approved})` : LEVEL_WORDS[level ?? 'seen-working']}` };
 }
 
 /** One row of the Status page. */
@@ -105,7 +113,7 @@ export function statusRow(v: StoryView, facts: DeckFacts): StatusRow {
   };
 }
 
-const rank = (r: StatusRow): number => (r.done.state !== 'done' ? 0 : r.seenWorking ? 2 : 1);
+const rank = (r: StatusRow): number => (r.done.state === 'checked' ? 1 : r.done.state !== 'done' ? 0 : r.seenWorking ? 3 : 2);
 
 /** Box status-sources: where the facts come from and when, in plain words. */
 export function statusSources(facts: DeckFacts): StatusSources {
@@ -142,20 +150,24 @@ export function statusTable(record: EpicRecord, facts: DeckFacts): StatusTable {
   const order = new Map(rows.map((r, i) => [r.id, i]));
   rows.sort((a, b) => rank(a) - rank(b) || order.get(a.id)! - order.get(b.id)!);
   const notDone = st.total - st.done;
+  const checked = st.checked === 0 ? '' : ` (${st.checked === notDone ? (notDone === 1 ? 'it is' : 'all of them') : `${st.checked} of them`} built, ${NOT_SEEN_YET})`;
   return {
     slug: record.slug,
     title: plain(record.prd?.epic?.title) || record.slug,
-    header: `${st.done} of ${plural(st.total, 'story', 'stories')} done · ${st.seen} seen working on the real screens · ${notDone} not done`,
-    counts: { stories: st.total, done: st.done, seen: st.seen, notDone, doneNotSeen: st.done - st.seen },
+    header: `${st.done} of ${plural(st.total, 'story', 'stories')} done · ${st.seen} seen working on the real screens · ${notDone} not done${checked}`,
+    counts: { stories: st.total, done: st.done, seen: st.seen, notDone, doneNotSeen: st.checked + st.done - st.seen, checked: st.checked },
     rows,
     sources: statusSources(facts),
   };
 }
 
+/** Built and signed off, but not every check seen working: the checked stories and the stories done on the main path only (T61). */
+export const builtNotSeen = (r: StatusRow): boolean => r.done.state === 'checked' || (r.done.state === 'done' && !r.seenWorking);
+
 /** The rows a filter keeps. */
 export function filterRows(rows: readonly StatusRow[], filter: StatusFilter): StatusRow[] {
   if (filter === 'not-done') return rows.filter((r) => r.done.state !== 'done');
-  if (filter === 'done-not-seen') return rows.filter((r) => r.done.state === 'done' && !r.seenWorking);
+  if (filter === 'done-not-seen') return rows.filter(builtNotSeen);
   return [...rows];
 }
 
@@ -172,7 +184,7 @@ export function statusText(t: StatusTable, filter: StatusFilter = 'all'): string
   const widths = head.slice(0, -1).map((h, i) => Math.max(h.length, ...cells.map((c) => c[i]!.length)));
   const line = (c: string[]) => c.map((x, i) => (i < widths.length ? pad(x, widths[i]!) : x)).join('  ').trimEnd();
   const out = [`${t.title} (${t.slug})`, t.header, ''];
-  if (filter !== 'all') out.push(filter === 'not-done' ? `Showing the ${plural(rows.length, 'story', 'stories')} not done.` : `Showing the ${plural(rows.length, 'story', 'stories')} done but not seen working.`, '');
+  if (filter !== 'all') out.push(filter === 'not-done' ? `Showing the ${plural(rows.length, 'story', 'stories')} not done.` : `Showing the ${plural(rows.length, 'story', 'stories')} built but not seen working.`, '');
   out.push(line(head));
   for (const c of cells) out.push(line(c));
   out.push('', 'Where the facts come from:', `  commit: ${t.sources.commit}`, `  built: ${t.sources.graph}`, `  real screens: ${t.sources.e2e}`, `  automated tests: ${t.sources.unit}`);

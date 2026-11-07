@@ -1,5 +1,6 @@
 // T58 (S23, boxes status-table, whats-missing, status-sources): the Status page and `rehearse
-// status`. One row per story from the deck's own story views and done rule, so the page and the
+// status`. T61 (box done-seen): done needs the main path test passed on the real screens; a story
+// signed and built without it is "built, checked by automated tests · not seen working yet". One row per story from the deck's own story views and done rule, so the page and the
 // deck never disagree; what is missing says who acts; the sources say where the facts come from.
 
 import { describe, expect, it } from 'vitest';
@@ -14,6 +15,7 @@ import {
   statusSources,
   statusTable,
   statusText,
+  storyView,
   type BoxEvidence,
   type DeckFacts,
   type EpicRecord,
@@ -32,9 +34,15 @@ function facts(over: Record<string, Partial<StoryFacts>> = {}, rest: Partial<Dec
   return { commit: COMMIT, uncommitted: false, owner: 'Ada', stories, gate: { ok: true, items: [] }, testResults: true, ...rest };
 }
 
-/** A story signed off and buildable in the real record, whatever the owner signed last. */
+/** With no real-screen test, a story signed off and built is only checked (T61), whatever the owner signed last. */
 const table0 = statusTable(real, facts());
-const DONE = table0.rows.find((r) => r.done.state === 'done')!.id;
+const DONE = table0.rows.find((r) => r.done.state === 'checked')!.id;
+const NOT_SIGNED = table0.rows.find((r) => r.signed.state === 'no')!.id;
+const story = (id: string) => real.prd!.stories.find((s) => s.id === id)!;
+/** The main path scenario of DONE, and its other approved scenarios. */
+const MAIN = storyView(real, facts(), story(DONE)).mainPath!.id;
+const approvedOf = (id: string) => real.scenarioFiles.flatMap((f) => f.scenarios).filter((s) => s.story === id && s.approval).map((s) => s.id);
+const OTHERS = approvedOf(DONE).filter((id) => id !== MAIN);
 
 /** DONE with its last box left unbuilt, with the box-evidence words of that box. */
 function oneLeft(): { f: DeckFacts; left: string } {
@@ -51,14 +59,42 @@ function oneLeft(): { f: DeckFacts; left: string } {
 describe('statusTable', () => {
   it('one row per story, and a header that adds up', () => {
     expect(table0.rows.map((r) => r.id).sort()).toEqual([...ids].sort());
-    const { stories, done, seen, notDone } = table0.counts;
+    const { stories, done, seen, notDone, checked } = table0.counts;
     expect(stories).toBe(ids.length);
     expect(done + notDone).toBe(stories);
-    expect(table0.header).toBe(`${done} of ${stories} stories done · ${seen} seen working on the real screens · ${notDone} not done`);
+    expect([done, seen]).toEqual([0, 0]);
+    expect(checked).toBeGreaterThan(0);
+    expect(table0.header).toBe(`0 of ${stories} stories done · 0 seen working on the real screens · ${notDone} not done (${checked} of them built, not seen working yet)`);
   });
 
-  it('puts the stories not done first, then done but not seen working, in record order within each', () => {
-    const rank = (r: (typeof table0.rows)[number]) => (r.done.state !== 'done' ? 0 : r.seenWorking ? 2 : 1);
+  it('the main path test passed: done; every approved test passed: seen working; the header counts them', () => {
+    const main = statusTable(real, facts({ [DONE]: { tests: { [MAIN]: 'passed' } } }));
+    const row = main.rows.find((r) => r.id === DONE)!;
+    expect(row.done.state).toBe('done');
+    expect(row.done.text).toBe(OTHERS.length === 0 ? 'done · seen working' : `done · main path seen working (1 of ${OTHERS.length + 1})`);
+    expect(main.counts).toMatchObject({ done: 1, checked: table0.counts.checked - 1 });
+    expect(main.header).toMatch(/^1 of \d+ stories done · /);
+    const all = statusTable(real, facts({ [DONE]: { tests: Object.fromEntries(approvedOf(DONE).map((id) => [id, 'passed'])) } }));
+    expect(all.rows.find((r) => r.id === DONE)!).toMatchObject({ done: { state: 'done', text: 'done · seen working' }, seenWorking: true });
+    expect(all.header).toMatch(/^1 of \d+ stories done · 1 seen working on the real screens · /);
+  });
+
+  it('another test passed but not the main path: still not done', () => {
+    if (OTHERS.length === 0) return;
+    const row = statusTable(real, facts({ [DONE]: { tests: { [OTHERS[0]!]: 'passed' } } })).rows.find((r) => r.id === DONE)!;
+    expect(row.done.state).toBe('checked');
+    expect(row.missing.map(missingLine)).toContain('main path test not written: test thread');
+  });
+
+  it('the main path test failed: not done, and the builders act on the failed step', () => {
+    const f = facts({ [DONE]: { tests: { [MAIN]: 'failed' }, runs: { [MAIN]: { at: '2026-11-07T10:00:00Z', failedStep: 'review/playback: the play button' } } } });
+    const row = statusTable(real, f).rows.find((r) => r.id === DONE)!;
+    expect(row.done.state).toBe('in-progress');
+    expect(row.missing.map(missingLine)[0]).toMatch(/^main path test failed: .+: builders$/);
+  });
+
+  it('puts the stories not done first, then built but not seen working, then the rest, in record order within each', () => {
+    const rank = (r: (typeof table0.rows)[number]) => (r.done.state === 'checked' ? 1 : r.done.state !== 'done' ? 0 : r.seenWorking ? 3 : 2);
     const ranks = table0.rows.map(rank);
     expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
     const notDone = table0.rows.filter((r) => rank(r) === 0).map((r) => r.id);
@@ -85,15 +121,15 @@ describe('statusTable', () => {
     expect(row.built.evidence.find((e) => e.path === left)?.text).toBe('not built: nothing');
   });
 
-  it('done with no unit report read: the done text says so, and Automated says not run', () => {
+  it('checked with no unit report read: the done text says so, and Automated says not run', () => {
     const row = table0.rows.find((r) => r.id === DONE)!;
     expect(row.unit.text).toBe('not run');
-    expect(row.done.text).toBe('done · checked by automated tests (no unit report read)');
+    expect(row.done.text).toBe('built, checked by automated tests (no unit report read) · not seen working yet');
     const named = statusTable(real, facts({ [DONE]: { unit: { tests: 0, passed: 0, failed: 0 } } })).rows.find((r) => r.id === DONE)!;
     expect(named.unit.text).toBe('no test names it');
-    expect(named.done.text).toBe('done · checked by automated tests (no unit test names it)');
+    expect(named.done.text).toBe('built, checked by automated tests (no unit test names it) · not seen working yet');
     const passed = statusTable(real, facts({ [DONE]: { unit: { tests: 4, passed: 4, failed: 0 } } })).rows.find((r) => r.id === DONE)!;
-    expect([passed.unit.text, passed.unit.tone, passed.done.text]).toEqual(['4 of 4 passed', 'good', 'done · checked by automated tests']);
+    expect([passed.unit.text, passed.unit.tone, passed.done.text]).toEqual(['4 of 4 passed', 'good', 'built, checked by automated tests · not seen working yet']);
   });
 
   it('a failing unit test: not done, and the builders act', () => {
@@ -103,10 +139,12 @@ describe('statusTable', () => {
     expect(row.missing.map(missingLine)).toContain('an automated test fails: builders');
   });
 
-  it('done but no real-screen test: the test thread acts, without blocking done', () => {
+  it('no main path test: the test thread acts, and it blocks done; the other scenarios do not', () => {
     const row = table0.rows.find((r) => r.id === DONE)!;
     expect(row.e2e.text).toBe('none yet');
-    expect(row.missing).toContainEqual({ text: 'no real-screen test yet', who: 'test thread', blocking: false });
+    expect(row.missing).toContainEqual({ text: 'main path test not written', who: 'test thread', blocking: true });
+    expect(row.missing.map(missingLine)).toContain('main path test not written: test thread');
+    if (OTHERS.length > 0) expect(row.missing).toContainEqual({ text: `${OTHERS.length} other ${OTHERS.length === 1 ? 'scenario' : 'scenarios'} without a real-screen test`, who: 'test thread', blocking: false });
   });
 
   it('no Birdview results: the real-screens column says so', () => {
@@ -119,22 +157,26 @@ describe('statusTable', () => {
 
 describe('the Status page and the deck agree', () => {
   it('the same done count and the same not-done stories', () => {
-    const { f } = oneLeft();
+    const { f: left } = oneLeft();
+    const other = table0.rows.find((r) => r.done.state === 'checked' && r.id !== DONE)!.id;
+    const otherMain = storyView(real, left, story(other)).mainPath!.id;
+    const f = { ...left, stories: { ...left.stories, [other]: { ...left.stories[other]!, tests: { [otherMain]: 'passed' as const } } } };
     const t = statusTable(real, f);
+    expect(t.counts.done).toBe(1);
     const deck = JSON.stringify(presentationDeck(real, f, NO_INPUTS));
-    expect(deck).toContain(`${t.counts.done} of ${t.counts.stories} parts of the plan are done`);
+    expect(deck).toContain(`${t.counts.done} of ${t.counts.stories} parts of the plan ${t.counts.done === 1 ? 'is' : 'are'} done`);
     expect(deck).toContain(`${t.counts.notDone} ${t.counts.notDone === 1 ? 'is' : 'are'} not done yet`);
     expect(t.rows.find((r) => r.id === DONE)!.done.state).not.toBe('done');
   });
 });
 
 describe('filterRows', () => {
-  it('keeps not done, or done but not seen working', () => {
+  it('keeps not done, or built but not seen working', () => {
     const notDone = filterRows(table0.rows, 'not-done');
     expect(notDone.every((r) => r.done.state !== 'done')).toBe(true);
     expect(notDone).toHaveLength(table0.counts.notDone);
     const notSeen = filterRows(table0.rows, 'done-not-seen');
-    expect(notSeen.every((r) => r.done.state === 'done' && !r.seenWorking)).toBe(true);
+    expect(notSeen.every((r) => r.done.state === 'checked' || (r.done.state === 'done' && !r.seenWorking))).toBe(true);
     expect(notSeen).toHaveLength(table0.counts.doneNotSeen);
     expect(filterRows(table0.rows, 'all')).toHaveLength(ids.length);
   });
@@ -166,8 +208,9 @@ describe('statusText', () => {
     expect(text).toContain('  commit: main @ abc1234, 2026-11-07');
   });
   it('--not-done keeps the stories not done, and says so', () => {
-    const text = statusText(table0, 'not-done');
-    expect(text).toContain(`Showing the ${table0.counts.notDone === 1 ? '1 story' : `${table0.counts.notDone} stories`} not done.`);
+    const t = statusTable(real, facts({ [DONE]: { tests: { [MAIN]: 'passed' } } }));
+    const text = statusText(t, 'not-done');
+    expect(text).toContain(`Showing the ${t.counts.notDone === 1 ? '1 story' : `${t.counts.notDone} stories`} not done.`);
     expect(text).not.toMatch(new RegExp(`^${DONE}\\s`, 'm'));
   });
 });

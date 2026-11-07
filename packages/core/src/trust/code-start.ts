@@ -211,43 +211,17 @@ export interface TestCodeOptions extends CodeStartOptions {
   e2eHelpers?: CodeRef[];
 }
 
-/** `file (fn :12, fn :40)` per file of a box's code, compact. */
-function filesLine(b: BoxCode): string {
-  if (b.functions.length === 0) return b.inChildren ? 'its code is in the boxes inside it' : 'no code yet';
-  const shown = b.functions.slice(0, MAX_TEST_BRIEF_FUNCTIONS);
-  const byFile = new Map<string, string[]>();
-  for (const f of shown) byFile.set(f.file, [...(byFile.get(f.file) ?? []), `${f.name}${f.line !== undefined ? ` :${f.line}` : ''}`]);
-  const total = b.total ?? b.functions.length;
-  const more = total > shown.length ? ` and ${total - shown.length} more` : '';
-  return `${[...byFile].map(([file, fns]) => `${file} (${fns.join(', ')})`).join(', ')}${more}`;
-}
+/** Why the test brief lists no code of the story's boxes (T61, box `main-path-test`). */
+export const TEST_NO_CODE =
+  "This thread works only from the scenarios and the product that runs (the UI and the CLI). Do not read the code of the story's boxes: the builder must not write their own proof. If a step is not clear from the scenario and the product, ask in the thread.";
 
 /**
- * The "Code you start from" section of the test brief: per scenario, the code of the boxes it walks
- * (files and functions; a box once, at its first scenario), and the e2e helpers to reuse. '' when
- * the caller gave no code facts.
+ * The "Code you start from" section of the test brief (T61): no code of the story's boxes, only the
+ * e2e helpers of the test project to reuse. A separate test thread writes the proof from the
+ * scenarios and the product that runs, not from the code it checks.
  */
-export function testCodeSection(scenarios: readonly { id: string; boxes: readonly string[] }[], opts: TestCodeOptions): string {
-  const cli = opts.cli ?? 'rehearse';
-  const lines = [`## ${CODE_START_HEADING}`, ''];
-  if (opts.codeUnavailable !== undefined) {
-    lines.push(`The code graph is not available (${oneLine(opts.codeUnavailable)}), so this brief lists no code; find it with \`${cli} find <words>\` once the graph opens.`);
-    return lines.join('\n');
-  }
-  if (!opts.code) return '';
-  lines.push(`The app code each scenario walks, from the code graph (\`${cli} context <box>\` shows more), and the e2e helpers to reuse. Read them; do not change app code.`, '');
-  const byBox = new Map(opts.code.map((c) => [c.box, c]));
-  const seen = new Set<string>();
-  for (const s of scenarios) {
-    const parts: string[] = [];
-    for (const box of s.boxes) {
-      if (seen.has(box)) continue;
-      seen.add(box);
-      const c = byBox.get(box);
-      if (c) parts.push(`  - \`${box}\`: ${filesLine(c)}`);
-    }
-    lines.push(parts.length > 0 ? `- ${s.id}:` : `- ${s.id}: its boxes are listed above`, ...parts);
-  }
+export function testCodeSection(_scenarios: readonly { id: string; boxes: readonly string[] }[], opts: TestCodeOptions): string {
+  const lines = [`## ${CODE_START_HEADING}`, '', TEST_NO_CODE, ''];
   const helpers = (opts.e2eHelpers ?? []).slice(0, MAX_E2E_HELPERS);
   lines.push(helpers.length > 0 ? `- E2e helpers: ${helpers.map(ref).join('; ')}` : '- E2e helpers: none yet outside the spec files.');
   return lines.join('\n');

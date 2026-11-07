@@ -1,6 +1,6 @@
 // The Status page (T58, S23, boxes status-table, whats-missing and status-sources): per story,
 // whether it is signed, built, tested on the real screens and done, and what is missing and who
-// acts, not done first. Filters: All / Not done / Done but not seen working. A row opens the
+// acts, not done first. Filters: All / Not done / Built but not seen working. A row opens the
 // story's progress (its boxes with their evidence, its scenarios with their tests). Read-only: it
 // only GETs api/status and api/story-progress. A story with small changes (T62) says "New in C1".
 
@@ -87,7 +87,7 @@ export function StatusPage({
       </div>
       {rows.length === 0 ? (
         <p className="small muted" data-testid="status-empty">
-          {filter === 'not-done' ? 'Every story is done.' : 'No story is done but not seen working.'}
+          {filter === 'not-done' ? 'Every story is done.' : 'No story is built but not seen working.'}
         </p>
       ) : (
         <table className="status-table" data-testid="status-table">

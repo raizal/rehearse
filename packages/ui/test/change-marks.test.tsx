@@ -114,7 +114,7 @@ describe('"New in C1" in the review (T62)', () => {
       slug: view.slug,
       title: 'Shop',
       header: '0 of 2 stories done · 0 seen working on the real screens · 2 not done',
-      counts: { stories: 2, done: 0, seen: 0, notDone: 2, doneNotSeen: 0 },
+      counts: { stories: 2, done: 0, seen: 0, notDone: 2, doneNotSeen: 0, checked: 0 },
       rows: [row('S1'), row('S2')],
       sources: { commit: 'main', graph: 'none', e2e: 'none', unit: 'none' },
     };

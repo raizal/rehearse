@@ -101,9 +101,9 @@ describe('T18b grid layout (pages 5 and 6)', () => {
       const { layout, cols } = dataFlowLayout(df);
       // Two columns is the floor: with T52's S18 process the real EPIC is 16 px wider than the page there,
       // and T55's S21 processes (they read scenario, approval and story status) add gutters: 172 px; T57's S22 and T58's S23 together: 316 px
-      // processes (they read stories, boxes, scenarios and sign-offs): 256 px; T62's S27 processes (they read stories and scenarios): 412 px. The canvas scrolls.
+      // processes (they read stories, boxes, scenarios and sign-offs): 256 px; T62's S27 processes (they read stories and scenarios): 412 px; T61's S26 processes (they read the main path test) and S27 together: 520 px. The canvas scrolls.
       if (cols > 2) expect(layout.width).toBeLessThanOrEqual(DIAGRAM_W);
-      expect(layout.width).toBeLessThanOrEqual(DIAGRAM_W + 416);
+      expect(layout.width).toBeLessThanOrEqual(DIAGRAM_W + 520);
       expect(layout).toEqual(layoutGrid(df, dataFlowCells(df, cols)));
       expectGridReadable(df.nodes, df.edges, layout);
     }
@@ -113,9 +113,9 @@ describe('T18b grid layout (pages 5 and 6)', () => {
     const df = dataFlow(realEpic().flow, realEpic().prd, realEpic().entities);
     expect(layoutGrid(df, dataFlowCells(df, 7)).width).toBeGreaterThan(DIAGRAM_W);
     expect(dataFlowLayout(df).cols).toBeLessThan(7);
-    // T52 (S18): even two columns are 16 px too wide now (T55, S21: 172 px; T57, S22 and T58, S23 together: 316 px; T62, S27: 412 px); it stops at two (one column would be 8000 px tall).
+    // T52 (S18): even two columns are 16 px too wide now (T55, S21: 172 px; T57, S22 and T58, S23 together: 316 px; T62, S27: 412 px; T61, S26 with S27: 520 px); it stops at two (one column would be 8000 px tall).
     expect(dataFlowLayout(df)).toMatchObject({ cols: 2 });
-    expect(dataFlowLayout(df).layout.width).toBeLessThanOrEqual(DIAGRAM_W + 416);
+    expect(dataFlowLayout(df).layout.width).toBeLessThanOrEqual(DIAGRAM_W + 520);
     // A small record keeps every column.
     const small = dataFlow(reviewEpic().flow, reviewEpic().prd, reviewEpic().entities);
     expect(dataFlowLayout(small).cols).toBe(columnsFor(DIAGRAM_W, Math.max(...small.nodes.map((n) => n.w))));
