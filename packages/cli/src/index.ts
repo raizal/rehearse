@@ -15,6 +15,7 @@ import { isGraphVerb, runGraph } from './commands/graph.js';
 import { runBrief } from './commands/brief.js';
 import { runProgress } from './commands/progress.js';
 import { runFigcraft } from './commands/figcraft.js';
+import { runDesign } from './commands/design.js';
 
 export interface Io {
   cwd: string;
@@ -58,6 +59,10 @@ Commands:
                                          Download the FigCraft web build (default: the installed app's version, else the
                                          latest release), check its SHA-256 and unpack it into .rehearse/figcraft-web/<v>/
                                          for the Design tab of rehearse serve. Exit 1 on a hash mismatch or a network error.
+  design suggest <epic-dir-or-slug> [--json]
+                                         For each story with no design linked, the top 3 pages and frames of design/**/*.figcraft
+                                         by the words they share with it, and why. Never links: the owner links in the Design tab.
+                                         Exit 1 when there is no readable design file under design/.
 
 Code graph (each verb first updates .rehearse/graph.db at the git top-level; --rebuild makes it again):
   find <words> [--json] [--rebuild]      Find code by words (BM25; camelCase and snake_case are split).
@@ -116,6 +121,7 @@ export function run(argv: string[], io: Io): number {
   if (command === 'gate') return runGate(rest, io);
   if (command === 'new') return runNew(rest, io);
   if (command === 'serve') return runServe(rest, io);
+  if (command === 'design') return runDesign(rest, io);
   if (command !== 'validate') {
     io.stderr(`rehearse: unknown command ${command}\n\n${USAGE}`);
     return EXIT.usage;

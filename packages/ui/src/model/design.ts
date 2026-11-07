@@ -2,6 +2,7 @@
 // address, the host-mode messages FigCraft sends, which of its saves rehearse writes and which
 // it offers as a download, base64 for the save call, and the latest test run beside a design.
 
+import type { DesignPicture, DesignSuggestion } from '@rehearse/core';
 import type { TestRow } from './tests.js';
 import { testSummary } from './tests.js';
 
@@ -12,9 +13,34 @@ export function pageWords(page: Page): string {
   return typeof page === 'number' ? `page ${page}` : `page “${page}”`;
 }
 
-/** "design/rehearse-review.figcraft · page 14", under the picture. */
-export function designCaption(link: { file: string; page: Page }): string {
-  return `${link.file} · ${pageWords(link.page)}`;
+/** "design/rehearse-review.figcraft · page 14" (· frame “Pay form”), under the picture. */
+export function designCaption(link: { file: string; page: Page; frame?: string }): string {
+  return `${link.file} · ${pageWords(link.page)}${link.frame !== undefined ? ` · frame “${link.frame}”` : ''}`;
+}
+
+// T51: the picker, the suggestions, where a link comes from, and the refresh of pictures.
+
+/** The address of a picture: a PNG under design/ (`?v=` after a refresh, so the browser reads it again), or the file's thumbnail. */
+export function pictureSrc(picture: DesignPicture, version = 0): string {
+  if (picture.kind === 'file thumbnail') return `design-thumbnail?file=${encodeURIComponent(picture.file)}`;
+  return version > 0 ? `${picture.png}?v=${version}` : picture.png;
+}
+
+/** "Page 3 “Cart”", or "Frame “Pay form” on page 2 “Pay”", for a suggestion. */
+export function suggestionWords(s: DesignSuggestion): string {
+  const page = `page ${s.page} “${s.pageName}”`;
+  return s.frame ? `Frame “${s.frame.name}” on ${page}` : `${page.charAt(0).toUpperCase()}${page.slice(1)}`;
+}
+
+/** "linked by frame name “[S1] Cart”": a link that comes from a frame's name, not links.yaml. */
+export function sourceWords(source: { source: string; frameName?: string } | undefined): string | undefined {
+  if (source?.source !== 'frame name') return undefined;
+  return `linked by frame name${source.frameName ? ` “${source.frameName}”` : ''}`;
+}
+
+/** "Linked S1 to design/x.figcraft · page 2." after a click. */
+export function linkedWords(who: string, link: { file: string; page: Page; frame?: string }): string {
+  return `Linked ${who} to ${designCaption(link)}.`;
 }
 
 /** "Open page 13": FigCraft starts on its home screen and cannot open the page itself. */

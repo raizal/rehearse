@@ -2,14 +2,14 @@
 // its SHA-256 against the release's SHA256SUMS.txt, and unpack it into .rehearse/figcraft-web/<v>/
 // at the repo top, where `rehearse serve` hosts it at /figcraft/. A wrong or missing hash changes
 // nothing on disk. The zip is unpacked into a temp folder first and renamed into place after.
-// The zip reader is our own (stored and deflate entries); it refuses absolute paths, `..` and backslashes.
+// The zip reader is core's (stored and deflate entries); it refuses absolute paths, `..` and backslashes.
 
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import * as zlib from 'node:zlib';
+import { readZip as readCoreZip, ZipError, type ZipFile } from '@rehearse/core';
 
 /** Where the web builds live, relative to the repo top. */
 export const FIGCRAFT_WEB_DIR = '.rehearse/figcraft-web';
@@ -128,73 +128,16 @@ export function expectedHash(sums: string, name: string): string | undefined {
   return undefined;
 }
 
-export interface ZipFile {
-  /** Relative path with `/`; never absolute, never `..`. */
-  name: string;
-  data: Buffer;
-}
+export type { ZipFile } from '@rehearse/core';
 
-const bad = (message: string) => new FigcraftFetchError('bad zip', message);
-
-/** A safe relative path: no leading slash, drive letter, backslash, NUL, or `.`/`..`/empty part. */
-function safeName(name: string): boolean {
-  if (name === '' || name.startsWith('/') || /^[A-Za-z]:/.test(name) || name.includes('\\') || name.includes('\0')) return false;
-  return name.split('/').every((part) => part !== '' && part !== '.' && part !== '..');
-}
-
-/** The files of a zip (folders left out), from its central directory. Throws on anything odd. */
+/** The files of a zip (folders left out), from its central directory. Throws a `bad zip` FigcraftFetchError on anything odd. */
 export function readZip(zip: Buffer): ZipFile[] {
-  let end = -1;
-  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 0xffff); i--) {
-    if (zip.readUInt32LE(i) === 0x06054b50) {
-      end = i;
-      break;
-    }
+  try {
+    return readCoreZip(zip, { maxBytes: MAX_UNPACKED_BYTES });
+  } catch (e) {
+    if (e instanceof ZipError) throw new FigcraftFetchError('bad zip', e.message.startsWith('not a zip') ? `the download is ${e.message}` : e.message);
+    throw e;
   }
-  if (end < 0) throw bad('the download is not a zip file (no end of central directory)');
-  const count = zip.readUInt16LE(end + 10);
-  let at = zip.readUInt32LE(end + 16);
-  if (count === 0xffff || at === 0xffffffff) throw bad('the zip is a zip64 file, which rehearse cannot read');
-  const files: ZipFile[] = [];
-  let total = 0;
-  for (let n = 0; n < count; n++) {
-    if (at + 46 > zip.length || zip.readUInt32LE(at) !== 0x02014b50) throw bad('the zip central directory is broken');
-    const flags = zip.readUInt16LE(at + 8);
-    const method = zip.readUInt16LE(at + 10);
-    const crc = zip.readUInt32LE(at + 16);
-    const packed = zip.readUInt32LE(at + 20);
-    const size = zip.readUInt32LE(at + 24);
-    const nameLen = zip.readUInt16LE(at + 28);
-    const next = at + 46 + nameLen + zip.readUInt16LE(at + 30) + zip.readUInt16LE(at + 32);
-    const local = zip.readUInt32LE(at + 42);
-    const raw = zip.subarray(at + 46, at + 46 + nameLen).toString('utf8');
-    at = next;
-    const isDir = raw.endsWith('/');
-    const name = isDir ? raw.slice(0, -1) : raw;
-    if (!safeName(name)) throw bad(`the zip holds an unsafe path ${JSON.stringify(raw)}; nothing was unpacked`);
-    if (isDir) continue;
-    if (flags & 1) throw bad(`${name} in the zip is encrypted`);
-    if (local + 30 > zip.length || zip.readUInt32LE(local) !== 0x04034b50) throw bad(`the zip entry ${name} is broken`);
-    const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
-    if (start + packed > zip.length) throw bad(`the zip entry ${name} is cut short`);
-    total += size;
-    if (total > MAX_UNPACKED_BYTES) throw bad(`the zip unpacks to more than ${MAX_UNPACKED_BYTES} bytes`);
-    const body = zip.subarray(start, start + packed);
-    let data: Buffer;
-    if (method === 0) data = Buffer.from(body);
-    else if (method === 8) {
-      try {
-        data = zlib.inflateRawSync(body, { maxOutputLength: Math.max(1, size) });
-      } catch (e) {
-        throw bad(`the zip entry ${name} does not inflate: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    } else throw bad(`the zip entry ${name} uses compression method ${method}; only stored and deflate are read`);
-    if (data.length !== size) throw bad(`the zip entry ${name} has ${data.length} bytes, not ${size}`);
-    const crc32 = (zlib as { crc32?: (data: Buffer) => number }).crc32;
-    if (crc32 && crc32(data) >>> 0 !== crc) throw bad(`the zip entry ${name} fails its CRC check`);
-    files.push({ name, data });
-  }
-  return files;
 }
 
 /** Drop the one folder every file is in (`figcraft-web-0.16.0/index.html` → `index.html`). */

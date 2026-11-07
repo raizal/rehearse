@@ -702,6 +702,82 @@ root:
       # tests as the Tests tab knows it (the screenshot, else the recording, else "no run yet").
       # Read-only; no new approval rule.
 
+    # --- Link a story to its design without editing YAML (S17, T51) ---
+    # New boxes only: design-tab, design-brief, validate, valid, draft-record and start-build stay
+    # as they are; root edges join them.
+    - id: design-index
+      kind: process
+      lane: rehearse
+      package: core
+      title: Index the design files under design/
+      stories: [S17]
+      inputs:  { storyId: "string?" }
+      outputs: { storyId: "string?", files: "list string", findings: "list Finding" }
+      # Every design/**/*.figcraft (a zip): its pages (number, name; page ids numbers or strings)
+      # and their top-level frames (id, name). A page's picture is design/<n>-<slug>.png when it
+      # exists, else the zip's thumbnail.png, marked "file thumbnail"; a frame's is
+      # design/frames/<frame-slug>.png. Read again only when a file's size or mtime changes. Over
+      # 64 MB or not a FigCraft zip is a finding, never a crash. Pure in core; serve and the CLI read the disk.
+
+    - id: link-design
+      kind: input
+      lane: builder
+      package: server
+      title: Link, change or unlink a design in one click
+      stories: [S17]
+      inputs:  { epic: string, storyId: string, box: "string?", file: "string?", page: "number?", frame: "string?", unlink: "boolean?" }
+      outputs: { storyId: string, link: "string?" }
+      sideEffects: [write design/links.yaml]
+      errorExits: ["file not in design/"]
+      # POST /api/design/link {epic, story, box?, file, page, frame?} or {…, unlink: true}: the
+      # owner's click in the picker (files → pages → frames with pictures), on a suggestion, or on
+      # Change / Unlink, in the Design tab or the box drawer. Token and Origin; agents never call
+      # it. The yaml document API keeps comments and order. Only an indexed .figcraft file under
+      # design/, a page and a top-level frame it has; else refused and nothing written.
+
+    - id: suggest-design
+      kind: process
+      lane: rehearse
+      package: core
+      title: Suggest pages and frames for an unlinked story or box
+      stories: [S17]
+      inputs:  { storyId: "string?", files: "list string" }
+      outputs: { storyId: "string?", suggestions: "list string" }
+      # Ranks pages and frames by word overlap with the story's want, criteria and box titles
+      # (light stemming, stop words dropped, page numbers ignored, words common to every story
+      # weigh less). The top 3 show as "Suggested" with the matching words as the reason and a
+      # Link button; never linked by themselves. `rehearse design suggest <epic> [--json]` lists them.
+
+    - id: frame-tag-links
+      kind: process
+      lane: rehearse
+      package: core
+      title: Frames named [<story id>] link themselves
+      stories: [S17]
+      inputs:  { files: "list string" }
+      outputs: { storyId: "string?", links: "list string", findings: "list Finding", report: Report }
+      errorExits: ["unknown story in tag"]
+      # A top-level frame named `[S17] …`, `[S17/<box path>] …` or `[<epic slug>:S17] …` links that
+      # story or box. A links.yaml entry wins over it; it wins over a suggestion. A tag naming a
+      # story or box that does not exist, or a story id two EPICs have without the slug, is a
+      # finding `rehearse validate` reports (the error exit) and links nothing.
+
+    - id: refresh-design-pictures
+      kind: input
+      lane: builder
+      package: server
+      title: Refresh the pictures of linked frames from a running FigCraft
+      stories: [S17]
+      inputs:  { storyId: string }
+      outputs: { storyId: string, wrote: "list string" }
+      sideEffects: [write design/<n>-<slug>.png, write design/frames/<frame-slug>.png]
+      errorExits: ["FigCraft not running", "file not the active tab"]
+      # POST /api/design/refresh {story} (token and Origin), the owner's "Refresh pictures". Asks
+      # FigCraft on 127.0.0.1:4800 for doc.list and renders each linked frame with ui.render
+      # (png, base64) only when the linked file is the active tab; no other command is sent, never
+      # one that changes a document. Not running: "Open the file in FigCraft (port 4800) to
+      # refresh pictures". Says what it wrote.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -800,3 +876,23 @@ root:
     - { from: start-build,          to: design-links }
     - { from: design-links,         to: design-brief }
     - { from: design-brief,         to: build-brief }
+    - { from: design-tab,              to: design-index }
+    - { from: design-index,            to: design-tab }
+    - { from: design-index,            to: link-design }
+    - { from: link-design,             to: design-tab }
+    - { from: link-design,             to: design-tab,       label: "file not in design/", kind: error }
+    - { from: design-index,            to: suggest-design }
+    - { from: suggest-design,          to: design-tab }
+    - { from: suggest-design,          to: link-design }
+    - { from: design-index,            to: frame-tag-links }
+    - { from: frame-tag-links,         to: design-tab }
+    - { from: frame-tag-links,         to: design-brief }
+    - { from: frame-tag-links,         to: valid }
+    - { from: frame-tag-links,         to: draft-record,     label: "unknown story in tag", kind: error }
+    - { from: validate,                to: design-index }
+    - { from: start-build,             to: design-index }
+    - { from: draft-record,            to: design-index }
+    - { from: design-tab,              to: refresh-design-pictures }
+    - { from: refresh-design-pictures, to: design-tab }
+    - { from: refresh-design-pictures, to: design-tab,       label: "FigCraft not running",    kind: error }
+    - { from: refresh-design-pictures, to: design-tab,       label: "file not the active tab", kind: error }

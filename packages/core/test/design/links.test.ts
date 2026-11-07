@@ -10,11 +10,13 @@ import {
   isDesignPath,
   loadEpic,
   NO_DESIGN_LINE,
+  FRAME_TAG_LINE,
   parseDesignLinks,
   storyBuildBrief,
   storyDesignLinks,
   validateEpic,
 } from '../../src/index.js';
+import { makeZip } from '../zip.js';
 import { REAL_EPIC } from '../helpers.js';
 import { signedEpic } from '../trust/helpers.js';
 
@@ -114,7 +116,8 @@ describe('design links (T50, box design-links)', () => {
     const epic = join(top, 'docs', 'epics', '2026-11-05-rehearse');
     cpSync(REAL_EPIC, epic, { recursive: true });
     mkdirSync(join(top, 'design'));
-    writeFileSync(join(top, 'design', 'a.figcraft'), 'x');
+    // A readable FigCraft file (T51: a linked file that cannot be read is a finding of its own).
+    writeFileSync(join(top, 'design', 'a.figcraft'), makeZip([{ name: 'document.json', data: '{"pages":[],"nodes":{}}' }]));
     writeFileSync(join(top, 'design', 'links.yaml'), 'epics:\n  2026-11-05-rehearse:\n    S12: { file: design/a.figcraft, page: 14, png: design/14.png }\n    S4: { file: design/a.figcraft, page: 2 }\n');
     const report = validateEpic(epic);
     expect(report.ok).toBe(false);
@@ -139,9 +142,17 @@ describe('the Design section of the build brief (T50, box design-brief)', () => 
     expect(md).toContain('Never write to the design file, and never call `POST /api/design/save`');
   });
 
-  it('no link: one line', () => {
-    expect(designSection(undefined)).toBe(`${DESIGN_HEADING}\n\n${NO_DESIGN_LINE}`);
-    expect(designSection({ boxes: {} })).toBe('## Design\n\nNo design linked for this story.');
+  it('no link: one line, and how a new screen links itself (T51)', () => {
+    expect(designSection(undefined)).toBe(`${DESIGN_HEADING}\n\n${NO_DESIGN_LINE}\n\n${FRAME_TAG_LINE}`);
+    expect(designSection({ boxes: {} })).toBe(
+      '## Design\n\nNo design linked for this story.\n\nIf you design a new screen in FigCraft, name its top frame `[<story id>] <what it shows>` so it links itself.',
+    );
+  });
+
+  it('a frame link names the frame, and the tag line closes the section (T51)', () => {
+    const md = designSection({ story: { file: 'design/r.figcraft', page: 14, frame: 'Story · tests', png: 'design/frames/story-tests.png' }, boxes: {} });
+    expect(md).toContain('- The story: `design/r.figcraft`, page 14, frame "Story · tests", picture `design/frames/story-tests.png`.');
+    expect(md.endsWith(FRAME_TAG_LINE)).toBe(true);
   });
 
   it('the build brief has it after the boxes, with and without a link', () => {

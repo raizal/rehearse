@@ -8,15 +8,27 @@ import { randomBytes } from 'node:crypto';
 import { basename, dirname, extname, join, normalize, sep } from 'node:path';
 import {
   DESIGN_LINKS_FILE,
+  boxTexts,
   designLinkFindings,
   designLinkLine,
+  findFrame,
+  findPage,
+  indexBoxes,
   isDesignPath,
   loadEpic,
-  readDesignLinks,
+  pictureOf,
+  readDesignState,
   repoCommands,
-  storyDesignLinks,
+  storyEffectiveDesign,
+  storyTexts,
+  suggestDesigns,
+  type DesignFileIndex,
   type DesignLink,
+  type DesignLinkSource,
   type DesignLinks,
+  type DesignPicture,
+  type DesignState,
+  type DesignSuggestion,
   type Finding,
 } from '@rehearse/core';
 import { installedFigcraftWeb } from './figcraft-web.js';
@@ -40,6 +52,27 @@ export interface DesignView {
   figcraft: { fetched: boolean; version?: string; url: string; command: string };
   /** The name FigCraft shows as the author: the server's identity. */
   author: string;
+  /** T51: where the story's link comes from (links.yaml wins over a frame name). */
+  storySource?: LinkSource;
+  /** T51: where each box link comes from. */
+  boxSources: Record<string, LinkSource>;
+  /** T51: the picture of the story's link: its PNG, else the page or frame PNG of the index, else the file thumbnail. */
+  storyPicture?: DesignPicture;
+  boxPictures: Record<string, DesignPicture>;
+  /** T51: the boxes that serve the story (path → title), the ones the drawer can link. */
+  storyBoxes: Record<string, string>;
+  /** T51: the top pages and frames for the story when it has no link; never linked by themselves. */
+  suggestions: DesignSuggestion[];
+  /** T51: the same for each unlinked box of the story. */
+  boxSuggestions: Record<string, DesignSuggestion[]>;
+  /** T51: every design file under design/, its pages and top-level frames: the picker. */
+  index: DesignFileIndex[];
+}
+
+/** Where a link comes from, and the frame's name for a link by frame name. */
+export interface LinkSource {
+  source: DesignLinkSource;
+  frameName?: string;
 }
 
 /** The fetch command in the repo's form (`pnpm rehearse figcraft fetch` or `rehearse figcraft fetch`). */
@@ -50,21 +83,62 @@ export function figcraftFetchCommand(top: string): string {
 export function designView(epicDir: string, top: string, storyId: string, author: string): [number, unknown] {
   const { record } = loadEpic(epicDir);
   if (!record.prd?.stories.some((s) => s.id === storyId)) return [404, { ok: false, error: `no story ${storyId} in prd.yaml` }];
-  const mine = storyDesignLinks(readDesignLinks(top).links, record.slug, storyId);
-  const findings = designLinkFindings(record, top).filter((f) => f.refs.length === 0 || f.refs.includes(storyId));
+  const state = readDesignState(top, record);
+  const eff = storyEffectiveDesign(state, record.slug, storyId);
+  const findings = designLinkFindings(record, top, state).filter((f) => f.refs.length === 0 || f.refs.includes(storyId));
   const installed = installedFigcraftWeb(top);
+  const source = (s: { source: DesignLinkSource; frameName?: string }): LinkSource => ({ source: s.source, ...(s.frameName !== undefined ? { frameName: s.frameName } : {}) });
+  const storyBoxes: Record<string, string> = {};
+  for (const [path, { box }] of indexBoxes(record.flow)) if (Array.isArray(box.stories) && box.stories.includes(storyId)) storyBoxes[path] = typeof box.title === 'string' ? box.title : box.id;
+  const others = (record.prd?.stories ?? []).map((s) => storyTexts(record, s.id));
+  const boxPictures: Record<string, DesignPicture> = {};
+  for (const [b, s] of Object.entries(eff.boxes)) {
+    const pic = linkPicture(top, state, s.link);
+    if (pic) boxPictures[b] = pic;
+  }
+  const storyPicture = eff.story ? linkPicture(top, state, eff.story.link) : undefined;
+  const boxSuggestions: Record<string, DesignSuggestion[]> = {};
+  for (const b of Object.keys(storyBoxes)) if (!eff.boxes[b]) boxSuggestions[b] = suggestDesigns(state.index, boxTexts(record, b), { others });
   const view: DesignView = {
     ok: true,
     slug: record.slug,
-    story: mine.story ?? null,
-    boxes: mine.boxes,
+    story: eff.story?.link ?? null,
+    boxes: Object.fromEntries(Object.entries(eff.boxes).map(([b, s]) => [b, s.link])),
     findings,
     linksFile: DESIGN_LINKS_FILE,
     linkLine: designLinkLine(storyId),
     figcraft: { fetched: installed !== undefined, ...(installed ? { version: installed.version } : {}), url: FIGCRAFT_PATH, command: figcraftFetchCommand(top) },
     author,
+    ...(eff.story ? { storySource: source(eff.story) } : {}),
+    boxSources: Object.fromEntries(Object.entries(eff.boxes).map(([b, s]) => [b, source(s)])),
+    ...(storyPicture ? { storyPicture } : {}),
+    boxPictures,
+    storyBoxes,
+    suggestions: eff.story ? [] : suggestDesigns(state.index, storyTexts(record, storyId), { others }),
+    boxSuggestions,
+    index: state.index.files,
   };
   return [200, view];
+}
+
+/** The picture of a link: its own PNG when it exists, else the index's frame or page PNG, else the file thumbnail. */
+function linkPicture(top: string, state: DesignState, link: DesignLink): DesignPicture | undefined {
+  const file = state.index.files.find((f) => f.file === link.file);
+  const page = file && findPage(file, link.page);
+  const frame = page && link.frame !== undefined ? findFrame(page, link.frame) : undefined;
+  if (link.png && isDesignPath(link.png, '.png') && existsSync(join(top, link.png))) return { kind: link.frame !== undefined ? 'frame' : 'page', png: link.png };
+  return file && page ? pictureOf(file, page, frame) : undefined;
+}
+
+/** The PNGs the design index knows exist (page and frame pictures). */
+function servedPngs(state: DesignState): Set<string> {
+  const out = new Set<string>();
+  for (const f of state.index.files)
+    for (const p of f.pages) {
+      if (p.png) out.add(p.png);
+      for (const fr of p.frames) if (fr.png) out.add(fr.png);
+    }
+  return out;
 }
 
 /** Every link of every EPIC and story, boxes too. */
@@ -72,9 +146,15 @@ function allLinks(links: DesignLinks): DesignLink[] {
   return Object.values(links).flatMap((stories) => Object.values(stories).flatMap((one) => [...(one.story ? [one.story] : []), ...Object.values(one.boxes)]));
 }
 
-/** A path is linked in links.yaml as a `file` (.figcraft) or a `png`. */
+/**
+ * A path is linked as a `file` (.figcraft) or a `png`: in links.yaml or by a frame name (T51). A PNG
+ * the design index shows (a page's or a frame's picture) counts as linked too: the picker shows it.
+ */
 export function isLinked(top: string, path: string, as: 'file' | 'png'): boolean {
-  return allLinks(readDesignLinks(top).links).some((l) => l[as] === path);
+  const state = readDesignState(top);
+  if (allLinks(state.links).some((l) => l[as] === path)) return true;
+  if (state.tags.links.some((t) => t.link[as] === path)) return true;
+  return as === 'png' && servedPngs(state).has(path);
 }
 
 /** `<top>/design` when it is a real folder of the repo (not a symlink out of it), else undefined. */

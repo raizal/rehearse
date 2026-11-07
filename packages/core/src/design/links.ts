@@ -27,6 +27,8 @@ export interface DesignLink {
   file: string;
   /** The page's number (1 is the first) or its name. */
   page: number | string;
+  /** A top-level frame of the page, by its name or id (T51). */
+  frame?: string;
   png?: string;
 }
 
@@ -49,10 +51,11 @@ export function isDesignPath(p: string, ext: string): boolean {
 
 function readLink(v: unknown, where: string, refs: string[], findings: Finding[]): DesignLink | undefined {
   if (!isObject(v)) {
-    findings.push(finding(where, 'a link must be { file, page, png? }', refs));
+    findings.push(finding(where, 'a link must be { file, page, frame?, png? }', refs));
     return undefined;
   }
   const { file, page, png } = v;
+  const frame = typeof v.frame === 'number' && Number.isInteger(v.frame) ? String(v.frame) : v.frame;
   let ok = true;
   if (typeof file !== 'string' || !isDesignPath(file, '.figcraft')) {
     findings.push(finding(`${where}.file`, `file must be a .figcraft file under design/, not ${JSON.stringify(file)}`, refs));
@@ -67,9 +70,13 @@ function readLink(v: unknown, where: string, refs: string[], findings: Finding[]
     findings.push(finding(`${where}.png`, `png must be a .png file under design/, not ${JSON.stringify(png)}`, refs));
     ok = false;
   }
-  for (const key of Object.keys(v)) if (!['file', 'page', 'png', 'boxes'].includes(key)) findings.push(finding(`${where}.${key}`, `unknown key ${key}`, refs));
+  if (frame !== undefined && (typeof frame !== 'string' || frame.trim() === '')) {
+    findings.push(finding(`${where}.frame`, `frame must be the name or id of a top-level frame of the page, not ${JSON.stringify(frame)}`, refs));
+    ok = false;
+  }
+  for (const key of Object.keys(v)) if (!['file', 'page', 'frame', 'png', 'boxes'].includes(key)) findings.push(finding(`${where}.${key}`, `unknown key ${key}`, refs));
   if (!ok) return undefined;
-  return { file: file as string, page: page as number | string, ...(typeof png === 'string' ? { png } : {}) };
+  return { file: file as string, page: page as number | string, ...(typeof frame === 'string' ? { frame } : {}), ...(typeof png === 'string' ? { png } : {}) };
 }
 
 /** Parse links.yaml. Malformed entries are findings and are left out; the rest are kept. */
@@ -90,11 +97,11 @@ export function parseDesignLinks(text: string): { links: DesignLinks; findings: 
     for (const [storyId, entry] of Object.entries(stories)) {
       const where = `epics.${slug}.${storyId}`;
       const one: StoryDesignLinks = { boxes: {} };
-      if (isObject(entry) && (entry.file !== undefined || entry.page !== undefined || entry.png !== undefined)) {
+      if (isObject(entry) && (entry.file !== undefined || entry.page !== undefined || entry.png !== undefined || entry.frame !== undefined)) {
         const story = readLink(entry, where, [storyId], findings);
         if (story) one.story = story;
       } else if (!isObject(entry) || entry.boxes === undefined) {
-        findings.push(finding(where, 'a story link must be { file, page, png?, boxes? }', [storyId]));
+        findings.push(finding(where, 'a story link must be { file, page, frame?, png?, boxes? }', [storyId]));
       }
       if (isObject(entry) && entry.boxes !== undefined) {
         if (!isObject(entry.boxes)) findings.push(finding(`${where}.boxes`, 'boxes must be a map of box path → link', [storyId]));

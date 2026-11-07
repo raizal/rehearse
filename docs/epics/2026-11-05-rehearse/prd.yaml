@@ -231,6 +231,21 @@ requirements:
       brief names the design to build to, and the sign-off view shows the design beside the
       latest test result. Only the owner saves designs, from the UI. (T50)
 
+  - id: R28
+    kind: functional
+    text: >-
+      The owner links a story, or a box of it, to a design without editing YAML. Rehearse indexes
+      every `design/**/*.figcraft` (pages and their top-level frames, with pictures); the Design
+      tab and the box drawer pick a file, page and frame in one click, change or unlink it, and
+      rewrite `design/links.yaml` keeping its comments and order, pointing only at indexed files
+      under `design/`. An unlinked story or box gets the top 3 pages and frames whose names share
+      words with it, with the reason, never linked by themselves (`rehearse design suggest` lists
+      them too). A frame named `[<story id>]` or `[<story id>/<box path>]` links itself, below a
+      links.yaml entry; a tag naming a story or box that does not exist is a finding. "Refresh
+      pictures" asks a running FigCraft on 127.0.0.1:4800 for PNGs of the linked frames, only
+      when the file is its active tab, and never sends a command that changes a document. The
+      build brief and the skill say to name a new screen's top frame `[<story id>] …`. (T51)
+
 stories:
   - id: S1
     role: builder
@@ -754,6 +769,66 @@ stories:
           the design picture shows beside the latest Birdview result of the story's tests (its
           screenshot, else a link to the recording, else "no run yet"), read-only, with no new
           approval rule
+
+  - id: S17
+    role: builder
+    want: to link a story to its design by picking it, not by editing YAML
+    soThat: every story shows the screen it builds to, and agents name new screens so they link themselves
+    requirements: [R28]
+    acceptance:
+      - id: S17-A1
+        given: '`.figcraft` files under `design/`, one with numbered pages, one with string page ids, one too large'
+        when: rehearse reads the design index
+        then: >-
+          each readable file lists its pages (number, name) and their top-level frames (id, name);
+          a page's picture is `design/<n>-<slug>.png` when it exists, else the file's thumbnail,
+          marked "file thumbnail"; a file over 64 MB or not a FigCraft zip is a finding, not a
+          crash; the index is read again only when a file's size or time changes
+      - id: S17-A2
+        given: the story's Design tab or a box drawer, and the design index
+        when: the builder presses "Link a design", picks a file, then a page or a frame
+        then: >-
+          one click links it: `design/links.yaml` gets the link with its comments and order kept,
+          and the tab shows its picture; "Change" picks another and "Unlink" removes it; a file
+          not under `design/` or not in the index is refused and nothing is written
+      - id: S17-A3
+        given: a story or box with no design link
+        when: the builder opens its Design tab or box drawer
+        then: >-
+          the top 3 pages and frames whose names share words with the story's title, criteria and
+          box titles show as "Suggested", each with its reason ("matches: tests, birdview") and a
+          Link button; a suggestion is never linked by itself
+      - id: S17-A4
+        given: a frame named `[S17]`, `[S17/link-design]` or `[<epic slug>:S17]`
+        when: the story has no links.yaml entry
+        then: >-
+          the frame links the story or box by itself and the tab says "linked by frame name"; a
+          links.yaml entry wins over it, and it wins over a suggestion
+      - id: S17-A5
+        given: a frame tag that names a story or box that does not exist, or a story id two EPICs have without the EPIC slug
+        when: the builder runs `rehearse validate <epic>`
+        then: the tag is a finding in plain words, never a crash, and links nothing
+      - id: S17-A6
+        given: a linked story, and FigCraft running on 127.0.0.1:4800 with the linked file as its active tab
+        when: the builder presses "Refresh pictures"
+        then: >-
+          rehearse asks FigCraft for a PNG of each linked frame (`ui.render`), writes
+          `design/<n>-<slug>.png` or `design/frames/<frame-slug>.png` and says what it wrote; it
+          only lists tabs and renders, never sends a command that changes a document; another
+          active tab or no FigCraft is said in plain words and nothing is written
+      - id: S17-A7
+        given: any story
+        when: rehearse makes its build brief, or an agent reads the rehearse skill
+        then: >-
+          both say: "If you design a new screen in FigCraft, name its top frame
+          `[<story id>] <what it shows>` so it links itself."; the skill names
+          `rehearse design suggest`
+      - id: S17-A8
+        given: an EPIC and design files under `design/`
+        when: the builder or an agent runs `rehearse design suggest <epic> [--json]`
+        then: >-
+          it lists each unlinked story with its top suggestions and their reason, writes nothing,
+          and exits 0; no readable design file exits 1, a usage error exits 2
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

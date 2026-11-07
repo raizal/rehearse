@@ -5,16 +5,24 @@
 // file when it is ready, writes a plain Save of that file back through the server, and offers
 // every other save (Save As, exports) as a download. FigCraft starts on its home screen, so a
 // banner says which page to open. Unsaved changes are guarded on close and on leaving the page.
+//
+// T51: no YAML to edit. "Link a design" opens a picker of the design files, pages and frames; one
+// click links (Change and Unlink after). An unlinked story shows the top 3 suggested pages and
+// frames with a one-click Link. A link that comes from a frame's name says so. "Refresh pictures"
+// asks a running FigCraft for fresh PNGs of the linked frames, and says what it wrote or why not.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Id } from '@rehearse/core';
-import { HTTP_DESIGN_API, type DesignApi, type DesignInfo, type DesignLinkView } from '../design-api.js';
+import type { DesignPicture as PictureRef, Id } from '@rehearse/core';
+import { HTTP_DESIGN_API, type DesignApi, type DesignInfo, type DesignLinkView, type DesignTarget, type LinkRequest } from '../design-api.js';
 import {
   baseName,
   designCaption,
   DOWNLOAD_NOTE,
   failedWords,
   figcraftSrc,
+  linkedWords,
+  pictureSrc,
+  sourceWords,
   openPageHint,
   readFigcraftMessage,
   savedWords,
@@ -23,6 +31,7 @@ import {
   setDesignUnsaved,
   UNSAVED_CONFIRM,
 } from '../model/design.js';
+import { DesignPicker, DesignSuggestions } from './DesignLinker.js';
 import { FindingList } from './Review.js';
 import { isServerRestarted, ServerRestarted } from './ServerRestarted.js';
 
@@ -42,12 +51,17 @@ export function useDesign(storyId: Id, api: DesignApi = HTTP_DESIGN_API): { load
   return { load, reload: useCallback(() => setN((v) => v + 1), []) };
 }
 
-/** A page of the design: its PNG, or words when no PNG is linked, and the file and page under it. */
-export function DesignPicture({ link, testId }: { link: DesignLinkView; testId: string }) {
+/**
+ * A page of the design: its PNG, or words when no PNG is linked, and the file and page under it.
+ * T51: `picture` is the server's choice (the link's PNG, else the index's page or frame PNG, else
+ * the file thumbnail, said under it); `version` makes the browser read a refreshed PNG again.
+ */
+export function DesignPicture({ link, testId, picture, version = 0 }: { link: DesignLinkView; testId: string; picture?: PictureRef | undefined; version?: number }) {
+  const shown: PictureRef | undefined = picture ?? (link.png ? { kind: 'page', png: link.png } : undefined);
   return (
     <figure className="design-figure" data-testid={testId}>
-      {link.png ? (
-        <img src={link.png} alt={`The design, ${designCaption(link)}`} data-testid={`${testId}-png`} />
+      {shown ? (
+        <img src={pictureSrc(shown, version)} alt={`The design, ${designCaption(link)}`} data-testid={`${testId}-png`} />
       ) : (
         <p className="muted small design-no-png" data-testid={`${testId}-no-png`}>
           No PNG of this page is linked: add <code>png: design/&lt;page&gt;.png</code> to the link to see it here.
@@ -55,6 +69,7 @@ export function DesignPicture({ link, testId }: { link: DesignLinkView; testId: 
       )}
       <figcaption className="small muted" data-testid={`${testId}-caption`}>
         {designCaption(link)}
+        {shown?.kind === 'file thumbnail' && <span data-testid={`${testId}-thumbnail`}> · file thumbnail (no PNG of this page yet)</span>}
       </figcaption>
     </figure>
   );
@@ -62,15 +77,54 @@ export function DesignPicture({ link, testId }: { link: DesignLinkView; testId: 
 
 type Msg = { text: string; warn: boolean };
 
+/** Link, change or unlink (target null) a story or a box of it; says what happened. */
+export function useDesignLink(api: DesignApi, reload: () => void) {
+  const [msg, setMsg] = useState<Msg | undefined>();
+  const [busy, setBusy] = useState(false);
+  const link = async (who: LinkRequest, target: DesignTarget | null): Promise<boolean> => {
+    setBusy(true);
+    const name = who.box ? `box ${who.box} of ${who.story}` : who.story;
+    const r = await api.link(who, target);
+    setBusy(false);
+    if (!r.ok) {
+      setMsg({ text: `Could not ${target ? 'link' : 'unlink'} ${name}: ${r.error}`, warn: true });
+      return false;
+    }
+    setMsg({ text: r.body.link ? linkedWords(name, r.body.link) : `Unlinked ${name}.`, warn: false });
+    reload();
+    return true;
+  };
+  return { msg, setMsg, busy, setBusy, link };
+}
+
 export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; api?: DesignApi }) {
   const { load, reload } = useDesign(storyId, api);
   const [editing, setEditing] = useState(false);
-  const [msg, setMsg] = useState<Msg | undefined>();
+  const { msg, setMsg, busy, setBusy, link: linkTo } = useDesignLink(api, reload);
   const [pending, setPending] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     setEditing(false);
+    setPicking(false);
     setMsg(undefined);
-  }, [storyId]);
+  }, [storyId, setMsg]);
+
+  const pick = async (target: DesignTarget | null) => {
+    if (!info) return;
+    if (await linkTo({ epic: info.slug, story: storyId }, target)) setPicking(false);
+  };
+  const refresh = async () => {
+    setBusy(true);
+    setMsg({ text: 'Asking FigCraft for fresh pictures…', warn: false });
+    const r = await api.refresh(storyId);
+    setBusy(false);
+    setMsg(r.ok ? { text: r.body.message, warn: false } : { text: r.error, warn: true });
+    if (r.ok) {
+      setVersion((v) => v + 1);
+      reload();
+    }
+  };
 
   const fetchWeb = async () => {
     setPending(true);
@@ -84,6 +138,9 @@ export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; a
   const info = load.kind === 'ready' ? load.info : undefined;
   const link = info?.story ?? undefined;
   const findings = info?.findings ?? [];
+  // A T50 server sends no index: then the tab offers no picker.
+  const linkable = info?.index !== undefined;
+  const linkedBy = sourceWords(info?.storySource);
   return (
     <section className="story-design" data-testid="story-design" aria-labelledby="story-design-h">
       <header className="story-design-head">
@@ -127,19 +184,65 @@ export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; a
           <p className="small" data-testid="design-hint">
             In FigCraft: {openPageHint(link.page)} of {link.file}.
           </p>
-          <DesignPicture link={link} testId="design-story" />
+          {linkedBy && (
+            <p className="small muted" data-testid="design-source">
+              {linkedBy}: a links.yaml entry for {storyId} would win over it.
+            </p>
+          )}
+          <DesignPicture link={link} testId="design-story" picture={info.storyPicture} version={version} />
+          {linkable && (
+            <div className="story-design-actions" data-testid="design-actions">
+              <button type="button" className="action small" data-testid="design-change" disabled={busy} onClick={() => setPicking((p) => !p)}>
+                Change
+              </button>
+              {!linkedBy && (
+                <button type="button" className="action small" data-testid="design-unlink" disabled={busy} onClick={() => void pick(null)}>
+                  Unlink
+                </button>
+              )}
+              <button type="button" className="action small" data-testid="design-refresh" disabled={busy} onClick={() => void refresh()}>
+                Refresh pictures
+              </button>
+            </div>
+          )}
         </>
       )}
       {info && !link && (
         <div className="story-design-none" data-testid="design-none">
-          <p>
-            <strong>No design linked</strong> to {storyId}. To link one, add this line to <code>{info.linksFile}</code> under <code>epics: {info.slug}:</code>
-          </p>
-          <pre className="design-link-line" data-testid="design-link-line">
-            <code>{info.linkLine}</code>
-          </pre>
+          {linkable ? (
+            <>
+              <p>
+                <strong>No design linked</strong> to {storyId}. Pick a page or frame, or link a suggestion.
+              </p>
+              {!picking && (
+                <button type="button" className="action small primary" data-testid="design-link-open" disabled={busy} onClick={() => setPicking(true)}>
+                  Link a design
+                </button>
+              )}
+              <DesignSuggestions suggestions={info.suggestions} busy={busy} onLink={(t) => void pick(t)} testId="design-suggested" />
+              <details className="small">
+                <summary>Or write the link by hand</summary>
+                <p>
+                  Add this line to <code>{info.linksFile}</code> under <code>epics: {info.slug}:</code>
+                </p>
+                <pre className="design-link-line" data-testid="design-link-line">
+                  <code>{info.linkLine}</code>
+                </pre>
+              </details>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong>No design linked</strong> to {storyId}. To link one, add this line to <code>{info.linksFile}</code> under <code>epics: {info.slug}:</code>
+              </p>
+              <pre className="design-link-line" data-testid="design-link-line">
+                <code>{info.linkLine}</code>
+              </pre>
+            </>
+          )}
         </div>
       )}
+      {info && picking && <DesignPicker index={info.index ?? []} busy={busy} onPick={(t) => void pick(t)} onCancel={() => setPicking(false)} testId="design-picker" />}
       {findings.length > 0 && (
         <div data-testid="design-findings">
           <p className="warn small">The design links of {storyId} have problems:</p>

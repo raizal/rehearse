@@ -102,4 +102,4 @@ export {
   type CodeStartOptions,
   type TestCodeOptions,
 } from './code-start.js';
-export { DESIGN_HEADING, designSection, NO_DESIGN_LINE, type BriefDesign } from './design-section.js';
+export { DESIGN_HEADING, designSection, FRAME_TAG_LINE, NO_DESIGN_LINE, type BriefDesign } from './design-section.js';

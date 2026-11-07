@@ -1,7 +1,8 @@
 // Box `validate`: parse → schema → refs → report. No network, no LLM (R18).
 
 import { checkArchitectureChange } from '../architecture/validate.js';
-import { designLinkFindings, repoTopOf } from '../design/load.js';
+import { repoTopOf } from '../design/load.js';
+import { designLinkFindings } from '../design/load-index.js';
 import { loadEpic } from '../loader.js';
 import type { LoadResult, Report } from '../types.js';
 import { checkRefs } from './refs.js';

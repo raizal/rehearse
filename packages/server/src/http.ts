@@ -17,18 +17,25 @@
 // the UI, for a .figcraft file linked in links.yaml only; agents never call it. `POST /api/figcraft/fetch`
 // (owner's button) downloads the FigCraft web build into .rehearse/figcraft-web/, checked against its
 // SHA-256; `GET /figcraft/…` hosts it, framed by this origin only.
+// T51: `POST /api/design/link` (the owner's click in the picker or on a suggestion) rewrites
+// design/links.yaml, keeping its comments; `POST /api/design/refresh` asks a running FigCraft
+// (127.0.0.1:4800, read-only: doc.list and ui.render) for the linked frames' pictures. Both need
+// the token and Origin; agents never call them. `GET /design-thumbnail?file=` is an indexed file's
+// thumbnail.png (no token: an <img>).
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, relative, sep } from 'node:path';
-import { approveScenarios, defaultVerifier, repoTopOf, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
+import { approveScenarios, defaultVerifier, readFigcraftThumbnail, repoTopOf, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { MAP_LEVELS, type CoverageStats, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, PLAYER_ACTIONS, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { BirdviewError, playStory, useProject } from './birdview-play.js';
 import { gatherBriefCode } from './brief-code.js';
 import { designView, figcraftFile, FIGCRAFT_PATH, MAX_DESIGN_BODY_BYTES, readLinkedDesignFile, saveDesign } from './design-route.js';
+import { linkDesign, refreshDesignPictures } from './design-link.js';
+import { FIGCRAFT_CONTROL_HOST, FIGCRAFT_CONTROL_PORT, type FigcraftControlAddress } from './figcraft-control.js';
 import { FIGCRAFT_VERSION, FigcraftFetchError, fetchFigcraftWeb, type Fetcher } from './figcraft-web.js';
 import { graphServiceFor, repoRoot, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
@@ -70,6 +77,8 @@ export interface ServeOptions {
   repoTop?: string;
   /** Downloads for `POST /api/figcraft/fetch`. Default: fetch from GitHub (tests pass a fake). */
   figcraftFetcher?: Fetcher;
+  /** The FigCraft desktop app's control port for "Refresh pictures" (T51). Default: 127.0.0.1:4800. */
+  figcraftControl?: FigcraftControlAddress;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -102,7 +111,7 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph' | 'threadModel' | 'threadReasoning' | 'repoTop' | 'figcraftFetcher'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph' | 'threadModel' | 'threadReasoning' | 'repoTop' | 'figcraftFetcher' | 'figcraftControl'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
@@ -129,6 +138,8 @@ const ROUTES: Record<string, string> = {
   '/api/design': 'GET, HEAD',
   '/api/design/file': 'GET',
   '/api/design/save': 'POST',
+  '/api/design/link': 'POST',
+  '/api/design/refresh': 'POST',
   '/api/figcraft/fetch': 'POST',
   ...Object.fromEntries(PLAYER_ACTIONS.map((a) => [`/api/birdview/${a}`, 'POST'])),
 };
@@ -333,14 +344,21 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       return;
     }
     if (path.startsWith('/api/design') || path === '/api/figcraft/fetch') {
-      void design(req, res, path, query, top, opts.epicDir, session, opts.figcraftFetcher);
+      void design(req, res, path, query, top, opts.epicDir, session, opts.figcraftFetcher, opts.figcraftControl ?? { host: FIGCRAFT_CONTROL_HOST, port: FIGCRAFT_CONTROL_PORT });
       return;
     }
     if (path.startsWith('/design/')) {
       // A linked PNG, for an <img>: no token, linked files only.
       const png = readLinkedDesignFile(top, path.slice(1), 'png');
       if (png) send(res, 200, TYPES['.png']!, png);
-      else send(res, 404, 'text/plain; charset=utf-8', 'not found: only PNGs linked in design/links.yaml are served\n');
+      else send(res, 404, 'text/plain; charset=utf-8', 'not found: only PNGs linked in design/links.yaml or shown by the design index are served\n');
+      return;
+    }
+    if (path === '/design-thumbnail') {
+      // The thumbnail.png of an indexed design file, for an <img>: no token.
+      const png = readFigcraftThumbnail(top, query.get('file') ?? '');
+      if (png) send(res, 200, TYPES['.png']!, png);
+      else send(res, 404, 'text/plain; charset=utf-8', 'not found: only the thumbnails of design files under design/ are served\n');
       return;
     }
     if (path === '/figcraft') {
@@ -587,6 +605,8 @@ async function threadMerge(req: IncomingMessage, res: ServerResponse, path: stri
  *   GET  /api/design/file?file=<path>    the bytes of a .figcraft file linked in links.yaml
  *   POST /api/design/save {file, bytes}  the owner's Save: base64 bytes of a linked .figcraft file
  *   POST /api/figcraft/fetch {version?}  download and check the FigCraft web build
+ *   POST /api/design/link {epic, story, box?, file, page, frame?} or {…, unlink: true}   (T51)
+ *   POST /api/design/refresh {story}     pictures of the story's linked frames from FigCraft (T51)
  */
 async function design(
   req: IncomingMessage,
@@ -597,6 +617,7 @@ async function design(
   epicDir: string,
   session: ServerSession,
   fetcher: Fetcher | undefined,
+  control: FigcraftControlAddress,
 ): Promise<void> {
   try {
     if (req.method !== 'POST') {
@@ -628,6 +649,16 @@ async function design(
     }
     if (path === '/api/design/save') {
       const [status, out] = saveDesign(top, body.json);
+      sendJson(res, status, out);
+      return;
+    }
+    if (path === '/api/design/link') {
+      const [status, out] = linkDesign(epicDir, top, body.json);
+      sendJson(res, status, out);
+      return;
+    }
+    if (path === '/api/design/refresh') {
+      const [status, out] = await refreshDesignPictures(epicDir, top, body.json, control);
       sendJson(res, status, out);
       return;
     }

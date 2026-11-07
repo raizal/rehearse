@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  FRAME_TAG_LINE,
   briefSignState,
   decisionTexts,
   HOW_TO_WORK,
@@ -163,6 +164,13 @@ describe('how to work, one text for the brief and the skill', () => {
     for (const line of HOW_TO_WORK) expect(section).toContain(`- ${line}`);
     expect(skill).toContain('rehearse brief');
     expect(skill).toContain('rehearse progress');
+  });
+
+  it('T51: the skill says how a new FigCraft frame links itself, as the brief does, and names design suggest', () => {
+    const skill = readFileSync(SKILL, 'utf8');
+    expect(FRAME_TAG_LINE).toBe('If you design a new screen in FigCraft, name its top frame `[<story id>] <what it shows>` so it links itself.');
+    expect(skill).toContain(FRAME_TAG_LINE.slice(0, -1));
+    expect(skill).toContain('`rehearse design suggest <epic> [--json]`');
   });
 
   it('T48 says commit on the branch and stop, set up first, and play e2e tests through Birdview', () => {

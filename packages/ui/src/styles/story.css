@@ -460,6 +460,23 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .design-figure { margin: 0; display: grid; gap: var(--s-1); }
 .design-figure img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); }
 .design-no-png { margin: 0; padding: var(--s-3); border: 1px dashed var(--line-strong); border-radius: var(--r-md); }
+/* T51: linking without YAML: the actions under a link, the suggestions and the picker */
+.story-design-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-3); }
+.story-design-none { display: grid; gap: var(--s-3); justify-items: start; }
+.design-suggestions h4, .design-picker h4 { margin: 0 0 var(--s-2); }
+.design-suggestions ol, .design-picker-pages, .design-picker-frames, .design-picker-files { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.design-suggestions li, .design-picker-pages > li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); }
+.design-suggestion-words { display: grid; gap: var(--s-1); flex: 1 1 12rem; }
+.design-picker { margin-top: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--subtle); display: grid; gap: var(--s-3); }
+.design-picker-head { display: flex; align-items: center; gap: var(--s-3); }
+.design-picker-head .action { margin-left: auto; }
+.design-picker-files { display: flex; flex-wrap: wrap; }
+.design-picker-files .action[aria-pressed='true'] { border-color: var(--ink); font-weight: var(--fw-bold); }
+.design-picker-page-name { flex: 1 1 10rem; }
+.design-picker-frames { flex-basis: 100%; padding-left: var(--s-5); }
+.design-picker-frames li { display: flex; align-items: center; gap: var(--s-2); }
+.design-thumb { display: inline-grid; gap: 2px; justify-items: center; }
+.design-thumb img { width: 96px; height: auto; max-height: 72px; object-fit: contain; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); }
 .design-beside { margin-top: var(--s-4); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5); }
 .design-beside h4 { margin: 0 0 var(--s-2); }
 .design-beside-runs { list-style: none; margin: 0 0 var(--s-2); padding: 0; display: grid; gap: var(--s-1); }

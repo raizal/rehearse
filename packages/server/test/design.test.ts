@@ -13,7 +13,21 @@ import { FigcraftFetchError, fetchFigcraftWeb, installedFigcraftWeb, newToken, r
 import { fakeFetcher, fakeRelease, makeZip, sha256 } from './zip.js';
 
 const UI = mkdtempSync(join(tmpdir(), 'rehearse-ui-'));
-const FIGCRAFT = Buffer.from('FIGCRAFT-v1 the design');
+/** A FigCraft file (a zip with document.json): pages 1 Home, 2 Pay (frame "Pay form"), 3 Cart. */
+const FIGCRAFT = makeZip([
+  {
+    name: 'document.json',
+    data: JSON.stringify({
+      pages: [1, 2, 3],
+      nodes: {
+        1: { type: 'page', name: 'Home', children: [] },
+        2: { type: 'page', name: 'Pay', children: [20] },
+        20: { type: 'frame', name: 'Pay form', children: [] },
+        3: { type: 'page', name: 'Cart', children: [] },
+      },
+    }),
+  },
+]);
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 const LINKS = `epics:
   2026-11-05-shop:
@@ -85,7 +99,7 @@ describe('GET /api/design (T50, box design-tab)', () => {
     const { url, token } = await serve(dir);
     const res = await fetch(new URL('api/design?story=S1', url), { headers: { 'x-rehearse-token': token } });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       ok: true,
       slug: '2026-11-05-shop',
       story: { file: 'design/shop.figcraft', page: 2, png: 'design/s1.png' },
