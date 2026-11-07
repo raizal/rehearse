@@ -33,17 +33,15 @@ export function liveAllowedSigners(): string | undefined {
 }
 
 /**
- * The new stories of an EPIC that wait for the owner: never signed off, and every scenario of
- * theirs a draft (for example S11 of the first EPIC, added by T44). The live dogfood tests allow
- * their gate findings and pin everything else.
+ * The new stories of an EPIC that wait for the owner: never signed off (for example S11 of the
+ * first EPIC, added by T44), even when the owner has approved some of their scenarios already. The
+ * live dogfood tests allow their gate findings and pin everything else.
  */
 export function waitingStories(epicDir: string): string[] {
   const { record } = loadEpic(epicDir);
-  const scenarios = record.scenarioFiles.flatMap((f) => f.scenarios);
   return detectStale(record)
     .stories.filter((s) => s.status === 'draft' && s.signedHash === undefined)
-    .map((s) => s.id)
-    .filter((id) => scenarios.filter((sc) => sc.story === id).every((sc) => sc.status === 'draft'));
+    .map((s) => s.id);
 }
 
 /** Hash of every file under `dir` (names and bytes), to show that a command wrote nothing. */
