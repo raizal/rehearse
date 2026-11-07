@@ -2,7 +2,7 @@ story: S12
 scenarios:
   - id: S12-shown
     title: The Tests tab shows the story playlist and the Birdview line before anything plays
-    status: draft
+    status: approved
     steps:
       - name: story-playlist
         example:
@@ -11,10 +11,21 @@ scenarios:
           then: { playlist: "S4 · to see the flow as swimlanes and drill into boxes", tests: 5, line: "Birdview: eudr-fe · playlist none", button: Play in Birdview }
       - { name: review/swimlanes }
     expect: { criterion: S12-A1, state: { playlistShown: true, playerCalls: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:55:48Z'
+      hash: 'sha256:a8fe9302dd2fa8d8fbc1b9336c25b25864da9192b52458f7fd0929822ef2d7de'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABATlR/taMGuY/loPq1UnboEUSXTgTJjtaVPpl2fdwmUierBNKTUfTnkRmHVW
+        zmh5b9n2QdMoPoNSyEEfDM0Gw+BQ==
+        -----END SSH SIGNATURE-----
 
   - id: S12-play
     title: Play in Birdview switches the project, writes the playlist and plays it, in that order
-    status: draft
+    status: approved
     steps:
       - { name: story-playlist }
       - name: play-story
@@ -25,10 +36,21 @@ scenarios:
       - name: story-playlist
         example: { id: live-status, given: { storyId: S4 }, then: { line: "Birdview: product-development-tools/e2e · playlist S4 · to see the flow as swimlanes and drill into boxes", rows: running } }
     expect: { criterion: S12-A2, state: { callOrder: [ project, playlist, play ], embedded: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:55:59Z'
+      hash: 'sha256:9317e84cf5fa16eb99a271f81a1297525e10ec31aacdcce420eb8009c25af635'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAvXDFQzEIwiiff2XphKLCqy4U04ey69ixsG9zX9bNO2LTj1YxEI2hSN7AEy
+        gXgPEQIKGwmtoNDPJp4MhKRlvXBg==
+        -----END SSH SIGNATURE-----
 
   - id: S12-switch
     title: Birdview on another project - the notice, Play switches it, Switch back returns it
-    status: draft
+    status: approved
     steps:
       - name: story-playlist
         example: { id: other-project, given: { storyId: S4, birdview: { project: eudr-fe } }, then: { notice: "Birdview is on eudr-fe. Play will switch it to this repo.", link: Switch back } }
@@ -38,10 +60,21 @@ scenarios:
         example: { id: switch-back, given: { to: default }, then: { project: eudr-fe } }
       - { name: story-playlist }
     expect: { criterion: S12-A3, state: { switched: true, switchedBack: default } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:56:11Z'
+      hash: 'sha256:ac0b819aabfd0ca8976ae1ad1a7fcd34fa8d34406ad8bf0aaf6ef72d065391a3'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABASr/gIYYvB7qhpYSKIHNNlkEjuVbjBzQ78mNnsPaJmLxc/cW2ZQHVtZ/45b
+        djDsIAwLTr25lNEiCbAFb/clbtCg==
+        -----END SSH SIGNATURE-----
 
   - id: S12-busy
     title: Birdview is busy - the tab says so and nothing is queued
-    status: draft
+    status: approved
     steps:
       - { name: story-playlist }
       - name: play-story
@@ -49,10 +82,21 @@ scenarios:
         example: { id: busy-409, given: { storyId: S4, playerAnswers: 409 }, then: { message: "Birdview is busy, try again.", retried: false } }
       - { name: story-playlist }
     expect: { criterion: S12-A4, state: { message: "Birdview is busy, try again.", queued: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:56:21Z'
+      hash: 'sha256:5450f2da6080f5ca4d73aba8c30e5b013ef403cf3c69451b7d9c29fce7ed7a32'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABANwSDK/bkYyjfLDpjs2YHnQnC28FBGrQQlYBs/JYOMJpMDLkUtJmIxIezTF
+        qCSX+6aPjjwq+I6iw6zQh5wBHHCw==
+        -----END SSH SIGNATURE-----
 
   - id: S12-not-running
     title: Birdview is not running - the tab says to open it from the bb sidebar
-    status: draft
+    status: approved
     steps:
       - { name: story-playlist }
       - name: play-story
@@ -60,10 +104,21 @@ scenarios:
         example: { id: player-down, given: { storyId: S4, player: down }, then: { message: "Birdview is not running; open it from the bb sidebar." } }
       - { name: story-playlist }
     expect: { criterion: S12-A4, state: { message: "Birdview is not running; open it from the bb sidebar.", retried: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:56:26Z'
+      hash: 'sha256:230a37ff1548704e2198c1c51e0e938ae469be83878d9adf0a77c54b094b4bdc'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAy0MN7oTCj+xORJyR3YeZvGnew5WvBsgtO1gYwRfxE58xh3981e3gQVFkrN
+        5pDdbBA+Ie5Q93AHXU+h6oYQPiCw==
+        -----END SSH SIGNATURE-----
 
   - id: S12-use-busy
     title: Switch back while a test runs - busy, and the project stays
-    status: draft
+    status: approved
     steps:
       - { name: story-playlist }
       - name: use-project
@@ -71,20 +126,42 @@ scenarios:
         example: { id: switch-busy, given: { to: default, playerAnswers: 409 }, then: { message: "Birdview is busy, try again." } }
       - { name: story-playlist }
     expect: { criterion: S12-A4, state: { projectUnchanged: true, queued: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:56:33Z'
+      hash: 'sha256:fb93e972cf5ffb64f711662204e57da9feadcd6a5483df8c35589b09d16f33ad'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAF2M4ACl41TPyJ7PY1/YJgYdaaVGnmhjiSXOkc/xe9QNXoWyXbPK9c+75im
+        jaVRi8v4bWObhiXwVc4K/QALvNCQ==
+        -----END SSH SIGNATURE-----
 
   - id: S12-single
     title: ▶ on one test plays that test only
-    status: draft
+    status: approved
     steps:
       - { name: story-playlist }
       - name: play-story
         example: { id: one-test, given: { storyId: S4, test: "tests/S4.spec.ts:29" }, then: { played: [ "tests/S4.spec.ts:29" ], calls: [ POST /api/project, POST /api/playlist, "POST /api/play {keys}" ] } }
       - { name: story-playlist }
     expect: { criterion: S12-A5, state: { played: one test } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:56:40Z'
+      hash: 'sha256:c83861c4925dbb8950797b61307d1dee708dce29c8814f72608ec8853540bef5'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAgkKLET2UeAdYkc233PlsHkhbYIGQg/MvrMO9dxZoKZSqoIrnJYUV/Sz65c
+        +yfYG8Yj8xp4TYwN0WU+5Bt76FAg==
+        -----END SSH SIGNATURE-----
 
   - id: S12-cli
     title: An agent plays a story and pushes the playlists from the CLI
-    status: draft
+    status: approved
     steps:
       - { name: draft-record }
       - name: play-cli
@@ -92,3 +169,14 @@ scenarios:
       - name: play-story
         example: { id: cli-busy, given: { storyId: S4, playerAnswers: 409 }, then: { exitCode: 1, stderr: "Birdview is busy, try again." } }
     expect: { criterion: S12-A6, state: { exitCodes: { ok: 0, busyOrDown: 1, badTest: 2 } } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T05:56:49Z'
+      hash: 'sha256:6287d6f638055de8d84dd8688cffc370f1befdd319cd0815428b60c4e4343ef5'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABABPh9r02fqxbMPArF1MK8O3GPtOyl/hFfPMHz3CnmCKC9iw/HS2yYZ8N6MM
+        tlphCJHJkIlELH04hhdpXKYLMzDA==
+        -----END SSH SIGNATURE-----
