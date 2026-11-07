@@ -25,6 +25,9 @@ describe('parseBbRehearse: pass-through', () => {
     [['simulate', 'x', '--json']],
     [['gate', 'check', 'x']],
     [['new', 'x', '--title', 'X']],
+    [['brief', 'x', 'S1']],
+    [['brief', 'x', 'S1', '--json']],
+    [['progress', 'x', 'S1', '--json']],
   ])('passes %j to the rehearse CLI unchanged', (argv) => {
     expect(parseBbRehearse(argv)).toEqual({ kind: 'pass', args: argv });
   });

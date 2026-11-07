@@ -86,6 +86,16 @@ describe('rehearse serve', () => {
     for (const bad of [['--birdview-port'], ['--birdview-port', '0'], ['--birdview-port', 'x']]) expect(parseServeArgs([...bad, SHOP], REPO)).toContain('--birdview-port needs a number');
   });
 
+  it('T44 --thread-model and --thread-reasoning set the model of story threads; unset, bb picks', () => {
+    expect(parseServeArgs(['--thread-model', 'claude-opus-5-5', '--thread-reasoning', 'medium', SHOP], REPO)).toEqual({
+      epicDir: SHOP, port: DEFAULT_PORT, birdviewPort: 3298, threadModel: 'claude-opus-5-5', threadReasoning: 'medium',
+    });
+    expect(parseServeArgs([SHOP], REPO)).not.toHaveProperty('threadModel');
+    for (const bad of [['--thread-model'], ['--thread-model', '--port'], ['--thread-reasoning', 'a b'], ['--thread-model', '-x']]) {
+      expect(parseServeArgs([...bad, SHOP], REPO)).toMatch(/--thread-(model|reasoning) needs a name/);
+    }
+  });
+
   it('usage errors exit 2 without starting a server', () => {
     for (const args of [['--port'], ['--port', 'x'], ['--port', '70000'], ['--host', '0.0.0.0'], [SHOP, SHOP], ['no-such-epic']]) {
       const t = io();

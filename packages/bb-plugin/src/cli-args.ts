@@ -15,17 +15,19 @@ export const USAGE = `Usage: bb rehearse [open] [<slug>]
        bb rehearse simulate <epic-dir-or-slug> [--drafts] [--json]
        bb rehearse gate check <epic-dir-or-slug> [--json]
        bb rehearse new <slug> --title "<title>"
+       bb rehearse brief <epic-dir-or-slug> <story> [--allow-unsigned] [--json]
+       bb rehearse progress <epic-dir-or-slug> <story> [--json]
 
 open        Open the rehearse panel (the same UI as \`rehearse serve\`), for <slug> if given.
-validate, simulate, gate check, new
+validate, simulate, gate check, new, brief, progress
             Run the rehearse CLI in the thread's checkout. Same output and exit codes.
 
 There is no approve and no sign-off command: approve in the panel.
 Exit codes: 0 OK, 1 findings, 2 usage error, 3 internal error.
 `;
 
-/** Commands passed to the rehearse CLI. Each one is read-only, except `new`, which only adds a folder. */
-export const PASS_THROUGH = ['validate', 'simulate', 'gate', 'new'] as const;
+/** Commands passed to the rehearse CLI. Each one is read-only (`brief` and `progress` only read the record and git), except `new`, which only adds a folder. */
+export const PASS_THROUGH = ['validate', 'simulate', 'gate', 'new', 'brief', 'progress'] as const;
 
 const REFUSED: Record<string, string> = {
   approve: 'bb rehearse has no approve command: approve in the panel, which signs with your key (R13, D41)',

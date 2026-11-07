@@ -9,6 +9,8 @@ const slug = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/).max(200);
 const absPath = z.string().min(1).max(4096);
 /** The `rehearseCommand` setting: empty means "find it" (see src/resolve-bin.ts). */
 const command = z.string().max(4096);
+/** The `threadModel` / `threadReasoning` settings: the model and reasoning level of story threads (T44). */
+const threadSetting = z.string().max(200).regex(/^[A-Za-z0-9._:\/-]*$/).optional();
 
 const sshAgent = z.object({ available: z.boolean(), source: z.enum(['env', 'launchd', 'none']) }).strict();
 
@@ -18,7 +20,7 @@ export const hostContract = defineRpcContract({
     output: z.object({ slugs: z.array(z.string()) }).strict(),
   },
   open: {
-    input: z.object({ repoPath: absPath, slug, command }).strict(),
+    input: z.object({ repoPath: absPath, slug, command, threadModel: threadSetting, threadReasoning: threadSetting }).strict(),
     output: z
       .object({ leaseId: z.string(), port: z.number().int(), url: z.string(), reused: z.boolean(), sshAgent })
       .strict(),

@@ -36,7 +36,14 @@ describe('T12 bb JSON parsers (real output)', () => {
   it('T12 2 reads the thread status and title from bb thread show --json', () => {
     expect(parseThreadShow(fixture('bb-thread-show.json'))).toEqual({
       ok: true,
-      value: { id: 'thr_sz8f4bedm4', status: 'active', title: 'Implement collapsible story thread panel', projectId: 'proj_np45qbzf4r' },
+      value: {
+        id: 'thr_sz8f4bedm4',
+        status: 'active',
+        title: 'Implement collapsible story thread panel',
+        projectId: 'proj_np45qbzf4r',
+        updatedAt: 1793886954664,
+        branch: 'bb/implement-collapsible-story-thread-panel-thr_sz8f4bedm4',
+      },
     });
   });
 
@@ -86,7 +93,7 @@ describe('T12 bb JSON parsers (real output)', () => {
 
 describe('T12 link file, brief and earlier work', () => {
   it('T12 1 keeps only story id → thr_ id entries from the link file', () => {
-    expect(parseStoryThreads('{"e":{"S1":"thr_abc","S2":"nope","S3":5},"f":[],"g":{}}')).toEqual({ e: { S1: 'thr_abc' } });
+    expect(parseStoryThreads('{"e":{"S1":"thr_abc","S2":"nope","S3":5},"f":[],"g":{}}')).toEqual({ e: { S1: { thread: 'thr_abc' } } });
     expect(parseStoryThreads('not json')).toEqual({});
   });
 
@@ -220,7 +227,7 @@ describe('T12 story thread routes', () => {
     expect(JSON.parse(readFileSync(s.linkFile, 'utf8'))).toEqual({ [s.slug]: { S1: 'thr_sz8f4bedm4' } });
     const body = await res.json();
     expect(body.threadId).toBe('thr_sz8f4bedm4');
-    expect(body.bb).toEqual({ ok: true, status: 'idle', statusText: 'idle', title: 'Implement collapsible story thread panel' });
+    expect(body.bb).toMatchObject({ ok: true, status: 'idle', statusText: 'idle', title: 'Implement collapsible story thread panel' });
     expect(body.messages.map((m: { from: string }) => m.from)).toEqual(['you', 'agent', 'agent']);
   });
 
@@ -240,7 +247,7 @@ describe('T12 story thread routes', () => {
     const spawn = s.calls.find((c) => c.args[1] === 'spawn')!;
     expect(spawn.args).toEqual(['thread', 'spawn', '--json', '--prompt-file', '-', '--title', 'S1 · to pay for my cart', '--project', 'proj_abc']);
     expect(spawn.input).toContain('Story thread for S1 of the EPIC 2026-11-05-shop');
-    expect(JSON.parse(readFileSync(s.linkFile, 'utf8'))).toEqual({ [s.slug]: { S1: 'thr_newstory1' } });
+    expect(JSON.parse(readFileSync(s.linkFile, 'utf8'))).toEqual({ [s.slug]: { S1: { thread: 'thr_newstory1', kind: 'question', at: expect.any(String) } } });
     expect((await s.post('start', { story: 'S1' })).status).toBe(409);
   });
 

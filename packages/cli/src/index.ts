@@ -11,6 +11,8 @@ import { runPlaylists } from './commands/playlists.js';
 import { runServe } from './commands/serve.js';
 import { runCoverage } from './commands/coverage.js';
 import { isGraphVerb, runGraph } from './commands/graph.js';
+import { runBrief } from './commands/brief.js';
+import { runProgress } from './commands/progress.js';
 
 export interface Io {
   cwd: string;
@@ -30,8 +32,15 @@ Commands:
                                          --drafts counts draft and stale scenarios too: findings only, never evidence.
   gate check <epic-dir-or-slug> [--json] Check the gate: traced, sim-clean, no-stale, signed-off. Never signs off.
   new <slug> --title "<title>"           Create docs/epics/<slug>/ (slug YYYY-MM-DD-<kebab>) at the git top-level.
-  serve [epic-dir-or-slug] [--port N] [--birdview-port N]
+  serve [epic-dir-or-slug] [--port N] [--birdview-port N] [--thread-model M] [--thread-reasoning R]
                                          Serve the review UI on 127.0.0.1 (default port 4700; Birdview player 3298).
+                                         --thread-model/--thread-reasoning: the model and reasoning level of story threads.
+  brief <epic-dir-or-slug> <story> [--allow-unsigned] [--json]
+                                         The build brief of a signed story, as a thread gets it. Exit 1 when the story is
+                                         not signed off or changed since (--allow-unsigned prints it, saying so on top).
+  progress <epic-dir-or-slug> <story> [--json]
+                                         What rehearse sees of the work on a story: boxes with code (Flow-Box commits on
+                                         every branch), e2e tests per scenario, gate findings, whether it is signed, its thread.
   playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir>]
                                          Write one Birdview playlist per story from the e2e tests named after scenarios.
 
@@ -74,6 +83,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   const [command, ...rest] = argv;
   if (isGraphVerb(command)) return runGraph(command, rest, io);
   if (command === 'coverage') return runCoverage(rest, io);
+  if (command === 'progress') return runProgress(rest, io);
   return run(argv, io);
 }
 
@@ -88,6 +98,7 @@ export function run(argv: string[], io: Io): number {
   if (command === 'new') return runNew(rest, io);
   if (command === 'serve') return runServe(rest, io);
   if (command === 'playlists') return runPlaylists(rest, io);
+  if (command === 'brief') return runBrief(rest, io);
   if (command !== 'validate') {
     io.stderr(`rehearse: unknown command ${command}\n\n${USAGE}`);
     return EXIT.usage;

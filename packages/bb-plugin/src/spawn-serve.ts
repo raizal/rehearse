@@ -41,9 +41,17 @@ export interface SpawnServeOptions {
 /** `rehearse serve` exits 2 on EADDRINUSE and says "port in use". */
 const PORT_IN_USE = /EADDRINUSE|port in use/i;
 
+/** The story-thread settings as serve flags; nothing when unset, so bb's defaults apply (T44). */
+export function threadArgs(target: ServeTarget): string[] {
+  return [
+    ...(target.threadModel ? ['--thread-model', target.threadModel] : []),
+    ...(target.threadReasoning ? ['--thread-reasoning', target.threadReasoning] : []),
+  ];
+}
+
 export function spawnServe(target: ServeTarget, port: number, opts: SpawnServeOptions): Promise<ServeProcess> {
   const { invocation } = opts;
-  const args = ['-e', WATCHDOG, '--', invocation.command, ...invocation.prefix, 'serve', target.slug, '--port', String(port)];
+  const args = ['-e', WATCHDOG, '--', invocation.command, ...invocation.prefix, 'serve', target.slug, '--port', String(port), ...threadArgs(target)];
   const child = spawn(opts.nodePath ?? process.execPath, args, {
     cwd: target.repoPath,
     env: opts.env,

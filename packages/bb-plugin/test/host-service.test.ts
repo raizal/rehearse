@@ -60,3 +60,22 @@ describe('host service', () => {
     expect(service().listEpics(tempRepo())).toEqual([]);
   });
 });
+
+describe('host service: story thread settings (T44)', () => {
+  it('hands threadModel and threadReasoning to the serve start, and leaves them out when unset', async () => {
+    const targets: unknown[] = [];
+    const s = createHostService({
+      findAgent: () => ({ socket: null, source: 'none' }),
+      pickPort: async () => 1,
+      start: async (target, port) => {
+        targets.push(target);
+        return { pid: 1, port, url: `http://127.0.0.1:${port}/`, stop: async () => undefined, onExit: () => undefined };
+      },
+    });
+    services.push(s);
+    await s.open(tempRepo('a'), 'a', '', { threadModel: 'claude-opus-5-5', threadReasoning: 'medium' });
+    await s.open(tempRepo('b'), 'b', '');
+    expect(targets[0]).toMatchObject({ slug: 'a', threadModel: 'claude-opus-5-5', threadReasoning: 'medium' });
+    expect(targets[1]).not.toHaveProperty('threadModel');
+  });
+});

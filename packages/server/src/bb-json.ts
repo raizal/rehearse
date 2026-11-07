@@ -16,6 +16,10 @@ export interface BbThread {
   status: string;
   title: string | null;
   projectId: string | null;
+  /** Epoch milliseconds of the last change, when bb says. */
+  updatedAt?: number | null;
+  /** The git branch of the thread's environment (`bb thread show` only). */
+  branch?: string | null;
 }
 
 export type ThreadMessageFrom = 'you' | 'agent' | 'thread' | 'system';
@@ -55,7 +59,8 @@ function thread(value: unknown): BbThread | undefined {
   if (!isObject(value)) return undefined;
   const id = str(value.id);
   if (id === undefined || !THREAD_ID.test(id)) return undefined;
-  return { id, status: str(value.status) ?? 'unknown', title: str(value.title) ?? null, projectId: str(value.projectId) ?? null };
+  const updatedAt = typeof value.updatedAt === 'number' && Number.isFinite(value.updatedAt) ? value.updatedAt : null;
+  return { id, status: str(value.status) ?? 'unknown', title: str(value.title) ?? null, projectId: str(value.projectId) ?? null, updatedAt };
 }
 
 /** `bb thread show <id> --json`. */
@@ -65,7 +70,9 @@ export function parseThreadShow(text: string): Parsed<BbThread> {
   const error = bbError(json.value);
   if (error !== undefined) return { ok: false, error };
   const t = thread(isObject(json.value) ? json.value.thread : undefined);
-  return t ? { ok: true, value: t } : { ok: false, error: 'bb thread show: no thread in the answer' };
+  if (!t) return { ok: false, error: 'bb thread show: no thread in the answer' };
+  const env = isObject(json.value) && isObject(json.value.environment) ? json.value.environment : {};
+  return { ok: true, value: { ...t, branch: str(env.branchName) ?? null } };
 }
 
 /** `bb thread spawn --json`: the new thread. */

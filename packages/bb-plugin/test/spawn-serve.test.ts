@@ -3,7 +3,7 @@ import { createServer } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { findFreePort } from '../src/port.js';
 import { PortInUseError, type ServeProcess } from '../src/serve-manager.js';
-import { spawnServe, WATCHDOG } from '../src/spawn-serve.js';
+import { spawnServe, threadArgs, WATCHDOG } from '../src/spawn-serve.js';
 import { fakeInvocation, listening, tempRepo, until } from './helpers.js';
 
 const running: ServeProcess[] = [];
@@ -91,5 +91,15 @@ describe('the watchdog', () => {
     watchdog.stdin.end();
     await exited;
     await until(async () => !(await listening(port)));
+  });
+});
+
+describe('spawnServe: story thread settings (T44)', () => {
+  it('passes --thread-model and --thread-reasoning only when the settings are set', () => {
+    expect(threadArgs({ repoPath: '/r', slug: 'e' })).toEqual([]);
+    expect(threadArgs({ repoPath: '/r', slug: 'e', threadModel: 'claude-opus-5-5' })).toEqual(['--thread-model', 'claude-opus-5-5']);
+    expect(threadArgs({ repoPath: '/r', slug: 'e', threadModel: 'claude-opus-5-5', threadReasoning: 'medium' })).toEqual([
+      '--thread-model', 'claude-opus-5-5', '--thread-reasoning', 'medium',
+    ]);
   });
 });

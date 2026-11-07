@@ -23,6 +23,9 @@ export interface ServeTarget {
   slug: string;
   /** The `rehearseCommand` setting used to start the process. Not part of the process identity. */
   command?: string;
+  /** `--thread-model` / `--thread-reasoning` of serve (T44). Not part of the process identity. */
+  threadModel?: string;
+  threadReasoning?: string;
 }
 
 export type StartServe = (target: ServeTarget, port: number) => Promise<ServeProcess>;
