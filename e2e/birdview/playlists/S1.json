@@ -1,0 +1,16 @@
+{
+  "name": "S1 · to create an EPIC record with one command",
+  "tests": [
+    {
+      "file": "tests/S1.spec.ts",
+      "line": 62,
+      "name": "S1-exists",
+      "about": "Builder creates an EPIC that exists",
+      "steps": {
+        "start: the EPIC 2026-11-05-demo exists": "start",
+        "new-epic: the builder runs the same command again, it exits epic-exists": "new-epic",
+        "rejected: the command failed and changed no file": "rejected"
+      }
+    }
+  ]
+}
