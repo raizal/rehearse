@@ -13,6 +13,7 @@ import { makeEpic } from '../../core/test/helpers.js';
 import { approvedEpic } from '../../core/test/trust/helpers.js';
 import {
   buildPlaylist,
+  exportNames,
   newToken,
   parseSpec,
   parseStoryThreads,
@@ -132,6 +133,26 @@ describe('T47 write the missing tests with an agent (box start-test-thread)', ()
     expect(spawn!.input).toContain('from `e2e/tests/S2.spec.ts`');
     expect(s.links()[s.slug].S1).toEqual({ tests: { thread: 'thr_tests1', scenarios: ['S1-buy', 'S1-empty'], hash: expect.stringMatching(/^sha256:/), at: expect.any(String) } });
     expect(await res.json()).toMatchObject({ thread: { id: 'thr_tests1', scenarios: ['S1-buy', 'S1-empty'], running: true, bb: { ok: true, statusText: 'working' } } });
+  });
+
+  it('T48 the brief names the fixtures of the test project with their exports, and writes commands as they run in the repo', async () => {
+    const s = await serve(approvedEpic());
+    writeFileSync(join(s.e2e, 'tests', 'cli.ts'), 'export function freshRepo() {}\nexport function rehearse() {}\nexport const git = () => 1;\n');
+    writeFileSync(join(s.e2e, '..', 'package.json'), JSON.stringify({ scripts: { rehearse: 'node packages/cli/bin/rehearse.js' } }));
+    writeFileSync(join(s.e2e, '..', 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\n");
+    expect((await s.post('thread', { story: 'S1' })).status).toBe(200);
+    const input = s.bbCalls('spawn')[0]!.input!;
+    expect(input).toContain('Start from: a CLI scenario (no box of the app), `e2e/tests/cli.ts`.');
+    expect(input).toContain('- CLI scenario: `e2e/tests/cli.ts` (`freshRepo`, `rehearse`, `git`) makes a fresh git repo and runs the CLI in it.');
+    expect(input).toContain('- UI scenario: no fixture in `e2e/tests/`');
+    expect(input).toContain('`pnpm rehearse play 2026-11-05-shop S1 --test <file:line> --wait`');
+    expect(input).toContain('Set up first: `pnpm install --frozen-lockfile && pnpm -r build`');
+    expect(input).toContain("Commit on your thread's branch. Do not merge, push or rebase onto main yourself");
+  });
+
+  it('T48 exportNames reads functions, consts, classes and export lists', () => {
+    const text = "export const CLI = 'x';\nexport async function serve() {}\nexport function stop() {}\nexport class Box {}\nexport { expect } from '@playwright/test';\nexport { a as b, type T };\nconst hidden = 1;\n";
+    expect(exportNames(text)).toEqual(['CLI', 'serve', 'stop', 'Box', 'expect', 'b']);
   });
 
   it('starts for the named scenarios only, and passes --model and --reasoning-level when serve has them', async () => {

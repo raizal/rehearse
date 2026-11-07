@@ -26,7 +26,7 @@ export interface MockRoutes {
   /** `GET api/birdview?story=<id>` (T13). */
   birdview?: (storyId: string) => Reply;
   /** `POST api/birdview/play-story | play-test | use-project` (T45). */
-  birdviewCall?: (action: string, body: Record<string, string>) => Reply;
+  birdviewCall?: (action: string, body: Record<string, string | string[]>) => Reply;
   /** `GET api/sign-off/preview?stories=S1,S2` (T39). */
   signOffPreview?: (storyIds: string[]) => Reply;
   /** `GET api/graph?verb=…` (T36, T40). */
@@ -35,6 +35,8 @@ export interface MockRoutes {
   progress?: (storyId: string | null) => Reply;
   /** `GET api/story-tests/thread?story=`, `POST api/story-tests/thread | send` (T47). */
   testThread?: (method: string, path: string, body: unknown) => Reply;
+  /** `GET api/thread/merge?story=&kind=`, `POST api/thread/merge | ask-rebase` (T48): GET passes the query as the body. */
+  threadMerge?: (method: string, path: 'merge' | 'ask-rebase', body: Record<string, unknown>) => Reply;
 }
 
 export const SESSION: Session = {
@@ -73,6 +75,10 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     }
     if (url.startsWith('api/story-tests/') && routes.testThread) {
       return respond(routes.testThread(method, url.split('?')[0]!.slice('api/story-tests/'.length), body ?? { story: decodeURIComponent(url.split('?story=')[1] ?? '') }));
+    }
+    if (url.startsWith('api/thread/') && routes.threadMerge) {
+      const [path = '', query = ''] = url.slice('api/thread/'.length).split('?');
+      return respond(routes.threadMerge(method, path as 'merge' | 'ask-rebase', body ?? Object.fromEntries(new URLSearchParams(query))));
     }
     if (url.startsWith('api/birdview/') && method === 'POST') {
       return respond(routes.birdviewCall?.(url.slice('api/birdview/'.length), body) ?? { status: 404, body: { error: 'no route' } });

@@ -77,6 +77,8 @@ export {
   storyBrief,
   storyTestBrief,
   storyThreadsJson,
+  exportNames,
+  testFixtures,
   testsNeeded,
   testPrompt,
   testSendMessage,
@@ -88,6 +90,7 @@ export {
   type SpawnOptions,
   type StoryLink,
   type StoryThreads,
+  type LinkedThread,
   type StoryThreadService,
   type EarlierWork,
   type RunResult,
@@ -98,6 +101,7 @@ export {
   type TestThreads,
   type TestThreadView,
 } from './story-thread.js';
+export { createThreadMerge, listFiles, MergeConflictError, type BranchCommitSummary, type MergeDone, type MergeKind, type MergeSummary, type NewTest, type ThreadMergeOptions, type ThreadMergeService } from './thread-merge.js';
 export {
   branchCommits,
   branchShas,
@@ -141,7 +145,7 @@ export {
   type PlayerView,
   type TestResult,
 } from './birdview.js';
-export { BIRDVIEW_BUSY, BIRDVIEW_NOT_RUNNING, BirdviewError, playStory, pushPlaylists, useProject, type BirdviewFailure, type PlayOutcome } from './birdview-play.js';
+export { BIRDVIEW_BUSY, BIRDVIEW_NOT_RUNNING, BirdviewError, playAndWait, playStory, pushPlaylists, useProject, type BirdviewFailure, type PlayOutcome, type WaitOptions, type WaitResult } from './birdview-play.js';
 export { epicPlaylists, storyPlaylist } from './story-playlist.js';
 export { buildPlaylist, parsePlaylist, parseSpec, playlistJson, stepBox, storiesWithTests, type Playlist, type PlaylistBuild, type PlaylistTest, type SpecTest } from './playlist.js';
 export { parseCorrectionLog, parseDecisions, type Correction, type CorrectionNote, type Decision } from './record-docs.js';

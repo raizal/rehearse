@@ -4,7 +4,7 @@
 // calls go to the same server, which talks to the player on 127.0.0.1 (T13).
 
 import type { Finding, Id } from '@rehearse/core';
-import type { SignOffPreview, StoryProgress, StoryThreadView, TestThreadView } from '@rehearse/server';
+import type { MergeDone, MergeKind, MergeSummary, SignOffPreview, StoryProgress, StoryThreadView, TestThreadView } from '@rehearse/server';
 import type { ApproveOk, PostOutcome, ReviewEpicView, SignOffOk } from './contract.js';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
@@ -56,7 +56,7 @@ export type BirdviewAction = 'play-story' | 'play-test' | 'use-project';
 export type BirdviewOutcome = { ok: true; body: Record<string, unknown> } | { ok: false; error: string; reason?: string };
 
 /** Play this story's playlist or one test, or switch the player's project. One try: busy is said, not queued. */
-export async function postBirdview(action: BirdviewAction, body: Record<string, string>, client: SessionClient = sessionClient): Promise<BirdviewOutcome> {
+export async function postBirdview(action: BirdviewAction, body: Record<string, string | string[]>, client: SessionClient = sessionClient): Promise<BirdviewOutcome> {
   try {
     const r = await tokenCall(client, `api/birdview/${action}`, body);
     if (r.status === 200 && r.body?.ok === true) return { ok: true, body: r.body };
@@ -92,7 +92,7 @@ async function post<T>(client: SessionClient, url: string, body: unknown): Promi
 export type { StoryThreadView } from '@rehearse/server';
 
 /** A story-thread answer: the view, or an error in words (and the raw message behind it, T46). */
-export type ThreadOutcome<T> = { kind: 'ok'; body: T } | { kind: 'error'; status: number; message: string; details?: string };
+export type ThreadOutcome<T> = { kind: 'ok'; body: T } | { kind: 'error'; status: number; message: string; details?: string; conflict?: { files: string[] } };
 
 export type StoryThreadAction = 'link' | 'start' | 'build' | 'send-change' | 'send' | 'open';
 
@@ -143,6 +143,25 @@ export function fetchSignOffPreview(storyIds: Id[], client: SessionClient = sess
   return threadCall<SignOffPreview>(client, `api/sign-off/preview?stories=${storyIds.map(encodeURIComponent).join(',')}`, undefined, 'this rehearse serve has no sign-off preview; update rehearse');
 }
 
+export type { MergeDone, MergeKind, MergeSummary } from '@rehearse/server';
+
+const NO_MERGE = 'this rehearse serve cannot merge a thread; update rehearse';
+
+/** `GET api/thread/merge?story=&kind=` (T48): what the thread's branch brings that the checked-out branch has not. */
+export function fetchMergeSummary(story: Id, kind: MergeKind, client: SessionClient = sessionClient): Promise<ThreadOutcome<MergeSummary>> {
+  return threadCall<MergeSummary>(client, `api/thread/merge?story=${encodeURIComponent(story)}&kind=${kind}`, undefined, NO_MERGE);
+}
+
+/** `POST api/thread/merge` (T48): the owner's "Merge into <branch>". A conflict comes back with its files. */
+export function postMerge(story: Id, kind: MergeKind, client: SessionClient = sessionClient): Promise<ThreadOutcome<MergeDone>> {
+  return threadCall<MergeDone>(client, 'api/thread/merge', { story, kind }, NO_MERGE);
+}
+
+/** `POST api/thread/ask-rebase` (T48): tell the thread its branch conflicts, and ask it to rebase. */
+export function postAskRebase(story: Id, kind: MergeKind, files: string[], client: SessionClient = sessionClient): Promise<ThreadOutcome<{ ok: true; threadId: string }>> {
+  return threadCall<{ ok: true; threadId: string }>(client, 'api/thread/ask-rebase', { story, kind, files }, NO_MERGE);
+}
+
 async function threadCall<T>(client: SessionClient, url: string, body?: unknown, missing = 'this rehearse serve has no story thread API; update rehearse'): Promise<ThreadOutcome<T>> {
   let r: TokenReply;
   try {
@@ -154,5 +173,7 @@ async function threadCall<T>(client: SessionClient, url: string, body?: unknown,
   if (tokenRejected(r)) return { kind: 'error', status: r.status, message: SERVER_RESTARTED };
   const error = typeof r.body?.error === 'string' ? r.body.error : `HTTP ${r.status}`;
   const details = typeof r.body?.details === 'string' && r.body.details !== '' ? r.body.details : undefined;
-  return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? missing : error, ...(details ? { details } : {}) };
+  const conflict = r.body?.conflict as { files?: unknown } | undefined;
+  const files = Array.isArray(conflict?.files) ? conflict.files.filter((f): f is string => typeof f === 'string') : undefined;
+  return { kind: 'error', status: r.status, message: r.status === 404 && error.startsWith('no endpoint') ? missing : error, ...(details ? { details } : {}), ...(files ? { conflict: { files } } : {}) };
 }

@@ -11,7 +11,7 @@
 import { indexBoxes } from '../flow-index.js';
 import type { AcceptanceCriterion, Box, EntityDef, EpicRecord, Hash, Id, Requirement, Role, Scenario, ScenarioStep, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
-import { howToWorkMarkdown } from './how-to-work.js';
+import { howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
 import { diffStoryContent, type ContentChange } from './signoff-preview.js';
 import { allScenarios, detectStale, scenarioTrust, signOffRule } from './stale.js';
 import { servingBoxes, storyContentV2, storyHashV2 } from './story-hash.js';
@@ -22,6 +22,8 @@ export interface BuildBriefOptions {
   allowUnsigned?: boolean;
   /** Decision id → text (`decisionTexts`). A cited id without text is listed by id. */
   decisions?: Record<string, string>;
+  /** How the commands are written in the repo (`repoCommands`). Default `rehearse`, a pnpm workspace. */
+  commands?: RepoCommands;
 }
 
 /** Where the story stands against its sign-off. */
@@ -105,7 +107,7 @@ export function storyBuildBrief(record: EpicRecord, storyId: Id, opts: BuildBrie
     boxSection(record, story),
     decisionSection(record, story, opts.decisions ?? {}),
     entitySection(record, story),
-    `## How to work in this repo\n\n${howToWorkMarkdown()}`,
+    `## How to work in this repo\n\n${howToWorkMarkdown(opts.commands)}`,
   ]
     .filter((s) => s !== '')
     .join('\n\n');

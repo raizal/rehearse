@@ -99,7 +99,7 @@ describe('loader (box validate/parse)', () => {
     const { record, findings } = loadEpic(REAL_EPIC);
     expect(findings).toEqual([]);
     expect(record.prd?.stories.map((s) => s.id)).toContain('S2');
-    expect(record.scenarioFiles.length).toBe(13);
+    expect(record.scenarioFiles.length).toBe(14);
   });
 });
 

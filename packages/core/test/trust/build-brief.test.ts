@@ -1,11 +1,16 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   briefSignState,
   decisionTexts,
   HOW_TO_WORK,
+  howToWorkLines,
   howToWorkMarkdown,
+  PNPM_SETUP,
+  repoCommands,
   loadEpic,
   parseDecisionTexts,
   storyBuildBrief,
@@ -158,5 +163,43 @@ describe('how to work, one text for the brief and the skill', () => {
     for (const line of HOW_TO_WORK) expect(section).toContain(`- ${line}`);
     expect(skill).toContain('rehearse brief');
     expect(skill).toContain('rehearse progress');
+  });
+
+  it('T48 says commit on the branch and stop, set up first, and play e2e tests through Birdview', () => {
+    expect(HOW_TO_WORK).toContain(
+      "Commit on your thread's branch. Do not merge, push or rebase onto main yourself, and never turn the sandbox off. When done, say so in the thread: the owner merges from rehearse.",
+    );
+    expect(HOW_TO_WORK).toContain('Set up first: `pnpm install --frozen-lockfile && pnpm -r build` (the install needs network: if the sandbox blocks it, say so in the thread).');
+    expect(HOW_TO_WORK.join('\n')).toContain('`rehearse play <epic> <story> --test <file:line> --wait`');
+    expect(HOW_TO_WORK.join('\n')).toContain('Do not try to start Chromium in the sandbox.');
+    expect(HOW_TO_WORK.join('\n')).toContain('an agent never calls `POST /api/thread/merge`');
+    // A repo without a known setup says how to find it.
+    expect(howToWorkLines({ cli: 'rehearse' })[1]).toBe('Set up first: install and build the repo as its README says (the install needs network: if the sandbox blocks it, say so in the thread).');
+  });
+
+  it('T48 the build brief writes each command as it runs in the repo', () => {
+    const commands = { cli: 'pnpm rehearse', setup: PNPM_SETUP };
+    const r = storyBuildBrief(loadEpic(signedEpic()).record, 'S1', { commands });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.markdown).toContain(howToWorkMarkdown(commands));
+    expect(r.markdown).toContain('`pnpm rehearse play <epic> <story> --test <file:line> --wait`');
+    expect(r.markdown).not.toContain('`rehearse ');
+  });
+
+  it('T48 repoCommands: pnpm rehearse when the root package.json has the script, the pnpm setup with a pnpm lockfile', () => {
+    const top = mkdtempSync(join(tmpdir(), 'rehearse-cmds-'));
+    try {
+      expect(repoCommands(top)).toEqual({ cli: 'rehearse' });
+      writeFileSync(join(top, 'package.json'), JSON.stringify({ scripts: { rehearse: 'node packages/cli/bin/rehearse.js' } }));
+      writeFileSync(join(top, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\n");
+      expect(repoCommands(top)).toEqual({ cli: 'pnpm rehearse', setup: PNPM_SETUP });
+      writeFileSync(join(top, 'package.json'), '{ not json');
+      expect(repoCommands(top).cli).toBe('rehearse');
+    } finally {
+      rmSync(top, { recursive: true, force: true });
+    }
+    // This repo has both.
+    expect(repoCommands(fileURLToPath(new URL('../../../../', import.meta.url)))).toEqual({ cli: 'pnpm rehearse', setup: PNPM_SETUP });
   });
 });

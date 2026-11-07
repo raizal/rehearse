@@ -212,13 +212,19 @@ describe('big picture (S4-A4)', () => {
       // T45 (S12): the Tests tab goes back to review; a play or a switch comes back to the tab.
       { from: 'story-playlist', to: 'review', back: true },
       { from: 'use-project', to: 'story-playlist', back: true },
-      { from: 'play-story', to: 'story-playlist', back: true },
       // T47 (S13): the test rows go back to the Tests tab; a started or refused thread and its brief come back to the rows.
       { from: 'test-rows', to: 'story-playlist', back: true },
+      // T48 (S14): the merge panel sits after the build panel, so the Tests tab reaches it going back.
+      { from: 'test-rows', to: 'merge-panel', back: true },
       { from: 'start-test-thread', to: 'test-rows', back: true },
       { from: 'test-brief', to: 'test-rows', back: true },
+      // T48 (S14): the test brief's work rules, the branch summary and a merge or refusal come back to the panel.
+      { from: 'test-brief', to: 'work-rules', back: true },
+      { from: 'thread-branch', to: 'merge-panel', back: true },
+      { from: 'merge-thread', to: 'merge-panel', back: true },
+      { from: 'play-story', to: 'story-playlist', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 13, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 14, processes: main.length });
   });
 });
 
