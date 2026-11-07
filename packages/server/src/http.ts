@@ -540,7 +540,7 @@ async function readPost(req: IncomingMessage, session: ServerSession, field: str
 /**
  * The Birdview actions of the Tests tab (T45). `play-story {story}` switches the player to this
  * repo's test project, writes the story playlist through it and plays it; `play-test {story, test}`
- * does the same for one test of the story; `use-project {to: "this" | "default"}` only switches.
+ * does the same for one test of the story, or a list of them; `use-project {to: "this" | "default"}` only switches.
  * A failure is a BirdviewError: 409 busy, 503 not running, 404, 400 or 502, in plain words.
  */
 async function playerAction(setup: BirdviewSetup, epicDir: string, action: PlayerAction, body: Record<string, unknown>): Promise<[number, unknown]> {
@@ -551,9 +551,13 @@ async function playerAction(setup: BirdviewSetup, epicDir: string, action: Playe
   const story = body.story;
   if (typeof story !== 'string' || !STORY_ID.test(story)) return [400, { ok: false, error: 'story must be a story id' }];
   if (action === 'play-story') return [200, { ok: true, ...(await playStory(setup, epicDir, story)) }];
+  // One key, or several: the new tests a merge brought (T48).
   const test = body.test;
-  if (typeof test !== 'string' || !TEST_KEY.test(test)) return [400, { ok: false, error: 'test must be a test key, <file>:<line>' }];
-  return [200, { ok: true, ...(await playStory(setup, epicDir, story, test)) }];
+  const keys = Array.isArray(test) ? test : [test];
+  if (keys.length === 0 || !keys.every((k) => typeof k === 'string' && TEST_KEY.test(k))) {
+    return [400, { ok: false, error: 'test must be a test key, <file>:<line>, or a list of them' }];
+  }
+  return [200, { ok: true, ...(await playStory(setup, epicDir, story, Array.isArray(test) ? (keys as string[]) : (test as string))) }];
 }
 
 /** Discard the body of a refused request, so the connection can answer. */

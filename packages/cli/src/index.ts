@@ -48,9 +48,11 @@ Commands:
   playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir> | --push [--birdview-port N]]
                                          Write one Birdview playlist per story from the e2e tests named after scenarios.
                                          --push writes them through the Birdview player (switching it to the test project).
-  play <epic-dir-or-slug> <story> [--test <file:line>] [--birdview-port N] [--json]
+  play <epic-dir-or-slug> <story> [--test <file:line>] [--wait [--timeout <seconds>]] [--birdview-port N] [--json]
                                          Switch Birdview to this repo's test project, write the story playlist through it
                                          and play it (or one test). Exit 1 when Birdview is busy or not running: try again.
+                                         --wait waits for the run to end and prints each result from Birdview's state:
+                                         exit 0 when all passed, 1 when one failed or the timeout ran out (default 600 s).
 
 Code graph (each verb first updates .rehearse/graph.db at the git top-level; --rebuild makes it again):
   find <words> [--json] [--rebuild]      Find code by words (BM25; camelCase and snake_case are split).
