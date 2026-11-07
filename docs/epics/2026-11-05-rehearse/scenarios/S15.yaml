@@ -2,7 +2,7 @@ story: S15
 scenarios:
   - id: S15-code
     title: Each box of the story gets its code with path:line and coverage, in the boxes' order
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - name: gather-box-code
@@ -11,10 +11,21 @@ scenarios:
         example: { id: function-line, given: { box: build-brief, function: storyBuildBrief }, then: { line: "- `storyBuildBrief` packages/core/src/trust/build-brief.ts:<line> (no coverage data)" } }
       - { name: build-brief }
     expect: { criterion: S15-A1, state: { section: Code you start from, after: Boxes, maxFunctions: 8 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:00:17Z'
+      hash: 'sha256:5b1c7d7ba5b594609d5b332455d565a984e419fe99c88c5ca5968dcd7ae704aa'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA47orEEwEf6aTtd75B6J2w+DvdwpgswXL3F2KROALNteWfO7fWGEnTN+w7m
+        ZcgCkfzEgtBwkzfZ7NcJ0qpGlACg==
+        -----END SSH SIGNATURE-----
 
   - id: S15-commits
     title: A box lists its earlier Flow-Box commits with branch
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - name: gather-box-code
@@ -22,10 +33,21 @@ scenarios:
       - { name: code-start-section }
       - { name: build-brief }
     expect: { criterion: S15-A2, state: { maxCommits: 5, newestFirst: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:00:39Z'
+      hash: 'sha256:f2c7ba2d6d6ca6f8dd5fc7a792d1597abb0ba8b9b721743bd83cc07601980626'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAspG9a5If/YQ9Q0BkONIBI629LQOAdO2xzNQdh0+UMgxGXVUxWa3voxv7fM
+        M/iVmnU6yLP15IMEnKqe5lKSk7Bw==
+        -----END SSH SIGNATURE-----
 
   - id: S15-neighbours
     title: A box lists its callers, callees, the tests that call it and the commands to dig deeper
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - { name: gather-box-code }
@@ -33,10 +55,21 @@ scenarios:
         example: { id: dig-deeper, given: { box: build-brief, cli: node packages/cli/bin/rehearse.js }, then: { line: "Dig deeper: `node packages/cli/bin/rehearse.js context build-brief`" } }
       - { name: build-brief }
     expect: { criterion: S15-A3, state: { maxCallers: 5, maxCallees: 5, testedBy: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:00:52Z'
+      hash: 'sha256:8109c3fbacef23ed74c378e0683334c3494b9ccef2ffe161135fe5df9c4a1253'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAPim/gRl5EFPypMeHE46aQj8Es5jGua+FjBZHOD0EpWrIbyrO3dT3QLCU9b
+        gB8TUGTMJGEKlXK3F0+4plc7TMDw==
+        -----END SSH SIGNATURE-----
 
   - id: S15-no-code
     title: A box with no code gets the nearest code, marked as guesses
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - name: gather-box-code
@@ -45,10 +78,21 @@ scenarios:
         example: { id: guesses, given: { box: cart }, then: { text: "No code yet. Nearest existing code:" } }
       - { name: build-brief }
     expect: { criterion: S15-A4, state: { guesses: marked } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:01:02Z'
+      hash: 'sha256:b24acf16870cb954c31e1ee9f11e643f849f3a8dfffee1e35c4ce64e461320f6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAJNAw27L1CDC9xvKYXCk7fefTGRJiX9oDdD8yj83zRfHVgQfhrqSAUOQw24
+        qfl6j1AXZqNdSRxap21r5Ejp7DBw==
+        -----END SSH SIGNATURE-----
 
   - id: S15-graph-down
     title: The code graph cannot open, the section says so in one line and the brief still builds
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - name: gather-box-code
@@ -58,10 +102,21 @@ scenarios:
         example: { id: one-line, given: { codeUnavailable: the graph store is locked }, then: { text: "The code graph is not available (the graph store is locked)" } }
       - { name: build-brief }
     expect: { criterion: S15-A5, state: { briefBuilt: true, testsRun: 0, underBudget: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:01:13Z'
+      hash: 'sha256:62a468183cfd919c05be27b82b617fddd8e46fdc5ef0a208380be648c5b23ba8'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAqxat0l0G/PS9T5QnFQ+nTzaym86JMGAQAFegmb1ft8qYcXYC1A1GOTssd+
+        HhTCa9ln6Gt3wIptvsoAfr80GiBw==
+        -----END SSH SIGNATURE-----
 
   - id: S15-test-brief
     title: The test brief has the code of the boxes each scenario walks and the e2e helpers
-    status: draft
+    status: approved
     steps:
       - { name: start-test-thread }
       - name: gather-box-code
@@ -69,10 +124,21 @@ scenarios:
       - { name: code-start-section }
       - { name: test-brief }
     expect: { criterion: S15-A6, state: { perScenario: true, e2eHelpers: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:01:25Z'
+      hash: 'sha256:c3e98857aa9980dd3c13861eb747f9572ff07426be6ff3ddcdf8cdc03f1c8a7a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAH3LwJGFBytmKVvYiAfvF4orUxfB995d0ZR9SAEhdLe/poQBFuEU5TgvbVZ
+        7RaY7bX7hvjHZnV+8kGfSF43mLDA==
+        -----END SSH SIGNATURE-----
 
   - id: S15-how-to-work
     title: The how-to-work lines of the brief and the skill say to start from the code section
-    status: draft
+    status: approved
     steps:
       - { name: start-build }
       - { name: gather-box-code }
@@ -80,10 +146,21 @@ scenarios:
       - name: build-brief
         example: { id: how-to-work, given: { storyId: S11 }, then: { line: "Start from the section *Code you start from*; use `rehearse context <box path>` before reading files by hand" } }
     expect: { criterion: S15-A7, state: { skillAgrees: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:01:39Z'
+      hash: 'sha256:b2ee8614ff1924db476ae43cc03bae38783efb08c781a0b8aee9e11b3cbfe9c5'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAg12f93dLK02LcYpD388C2aZLTtZ9TsYytHK1ukD/9AdAtJ8B6ziGfbkeYU
+        ImZCSrNJUtqx6116byeqowZyxtBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S15-json
     title: rehearse brief --json includes the code facts
-    status: draft
+    status: approved
     steps:
       - { name: draft-record }
       - name: test-brief-cli
@@ -92,10 +169,21 @@ scenarios:
       - { name: code-start-section }
       - { name: test-brief }
     expect: { criterion: S15-A8, state: { jsonHasCode: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:01:52Z'
+      hash: 'sha256:1e842df6bc40739b9b9f4e78ac910b440b4b5160b30824e36888931b2110acff'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAQs7psiZxR6Ab4ZxuhYICsky9r2JjGEawgciDfuOq8Rs4wISXo+VyWdLxII
+        ZIrNqGt7bjByeALPkb6Kfm99r8Bw==
+        -----END SSH SIGNATURE-----
 
   - id: S15-graph-down-tests
     title: The code graph cannot open for a test brief, the brief still builds without code
-    status: draft
+    status: approved
     steps:
       - { name: start-test-thread }
       - name: gather-box-code
@@ -104,3 +192,14 @@ scenarios:
       - { name: code-start-section }
       - { name: test-brief }
     expect: { criterion: S15-A5, state: { briefBuilt: true, testsRun: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T08:02:01Z'
+      hash: 'sha256:245436e8bc30bced037ead208cbe474da5e3dd13edd687abf4a9b12b499fe9df'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAOSfcUJXrl9ZMUnQwdECcqMB4jtjB/ZZadIp056KiU8cS7KFiOk19dYZUf4
+        rLbg4y7IvUAIlFHxoRKEURimugAA==
+        -----END SSH SIGNATURE-----
