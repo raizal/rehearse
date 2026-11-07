@@ -4,7 +4,7 @@ story: S12
 scenarios:
   - id: S12-box-badges
     title: Builder opens a box drawer and sees the coverage badge of the box and its children
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - name: drill-code
@@ -22,10 +22,21 @@ scenarios:
       - { name: show-coverage }
       - { name: seen }
     expect: { criterion: S12-A1, state: { drawerBadge: "80% · 3 tests", tone: green, parentIsSumOfChildren: true, boxCode: "builds edges, else Flow-Box files" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:52:32Z'
+      hash: 'sha256:e3553517a960d4d67407c4a5375d43a77d477f53ec22ebf9b8355f1ca05c282f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABApcnTvAdgN57gcDrK9PEPzAjEgapjFj+BG4qukaFuo4TkmqRESx/drqzcNs
+        aI/Oww9C9WVnEDu7r2Tpye5vsfBw==
+        -----END SSH SIGNATURE-----
 
   - id: S12-map-badges
     title: Builder opens the Code map and sees badges on packages, folders, files and functions
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -43,10 +54,21 @@ scenarios:
       - { name: show-coverage }
       - { name: seen }
     expect: { criterion: S12-A1, state: { levels: [ package, folder, file, function ], badge: "80% · 1 test", tone: green } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:52:54Z'
+      hash: 'sha256:ee7910da54faf99c139bad6de80615707d8fc1065f53369599b73b7042fdb5c1'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABATXkM3R73UVp3xwLa8OTM51DwerzMFtI7or3uYWLLqqIW+20MbuYoCeBWNB
+        Bep47Zd7KOaSDSX73hMhjT4R8rBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S12-orange-red
     title: Badges are orange from 50% to 79% and red below 50%
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - { name: drill-code }
@@ -63,10 +85,21 @@ scenarios:
       - { name: show-coverage }
       - { name: seen }
     expect: { criterion: S12-A1, state: { ship: orange, send: red, pay: "no coverage data" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:53:21Z'
+      hash: 'sha256:0717293064bedc312e0b7e5f7e1bd3451327c6198948c3779e377e1a86a4813c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAVyStnlDPr/J9Q3GDbBm2LFLvLMMUADfeqUF9iGcw1drNfFgBJxd+3yYszc
+        QvP0HLBQ2OTPtXK07J6zoaBDhnAw==
+        -----END SSH SIGNATURE-----
 
   - id: S12-line-marks
     title: Builder reads a function below a leaf box with green and red line marks
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - name: drill-code
@@ -84,10 +117,21 @@ scenarios:
       - { name: show-coverage }
       - { name: seen }
     expect: { criterion: S12-A2, state: { line10: green, line13: red, line11: "branches partly taken (1 of 2)", commentLine: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:53:34Z'
+      hash: 'sha256:c755d33fbc529ab2849b02ab2c8e2e07b72025d5e6c1f8ac2cc44d7f54af94c6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAO+z+RV9zpRCMq6QIX9vQXoRPvo817R5S14KPivWhwkE5z2F+8nLmm8YQGh
+        ObUcwP7gvBoXY183StHO9XWwFhBg==
+        -----END SSH SIGNATURE-----
 
   - id: S12-tested-by
     title: Builder sees the tests that call a function and opens one
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - { name: drill-code }
@@ -104,10 +148,21 @@ scenarios:
       - { name: show-coverage }
       - { name: seen }
     expect: { criterion: S12-A3, state: { testedBy: [ "charges the card (calls it)", "refunds an order (through a helper)" ], opensTestCode: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:53:50Z'
+      hash: 'sha256:3829b6cbc1ad278e3a03991254e0c8412a3df435a7956006fb7bc33b4ec8b401'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA16fsHxcdO0npHVFfo3C8FWiqdRl8Efj3eI0qYvs+uF0TznoS3hEtPw2StM
+        T8xLFWrT2C/fIxPG/DYWdhOcujCw==
+        -----END SSH SIGNATURE-----
 
   - id: S12-stale
     title: Coverage older than the code says to run the tests again
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - { name: drill-code }
@@ -124,10 +179,21 @@ scenarios:
       - { name: show-coverage }
       - { name: seen }
     expect: { criterion: S12-A4, state: { badgeMark: "⟳", line: "coverage is older than this code; run the tests again" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:54:00Z'
+      hash: 'sha256:4bbcdec1ac4ec171b2bf33cda81fcaf3f8b6b380bb429d489af2fb0680be0bb3'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAc+yIUDYBhec8xRYsAWfWQkP66ziBnPPCZW1AfBQEFS5jhirhEekLaFwhox
+        R7c5w/INGRyVKu/qq2y5kLHJ2iDQ==
+        -----END SSH SIGNATURE-----
 
   - id: S12-no-data
     title: A repo with no coverage file shows one line on how to make one
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - { name: code-map }
@@ -147,10 +213,21 @@ scenarios:
       - { name: show-coverage }
       - { name: seen }
     expect: { criterion: S12-A5, state: { line: "No coverage file yet. Run `pnpm coverage` …", zeroPercentBadges: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:54:20Z'
+      hash: 'sha256:37a6b3f29de59149a6e90c45e8d73d26e7609e8ed57718e0aa14aaaa6e90d24d'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAe48LbqfDC5gFoU4MvvNXtOzPRgg4Tza+fuBCqo+38keiLlJgfMa3VtCP0F
+        L0ARSRt6+UMqybZxjn15I6d0HWAg==
+        -----END SSH SIGNATURE-----
 
   - id: S12-cli
     title: Agent runs rehearse coverage on a function and gets the lines not run
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: ask }
@@ -165,10 +242,21 @@ scenarios:
       - { name: coverage-asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S12-A6, state: { firstLine: "function charge: 80% · 1 test", notRun: "13-16", jsonSameFields: true, notFoundExit: 1, usageExit: 2 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:54:35Z'
+      hash: 'sha256:ba75470adebdd61ad1b596673ab2097c5954ab16bdbe12aab4643ca5f2c11479'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA3qTzIB2O0AnzadJcQrTGUFtL6TVDsZv748COqb5dZl6SSjEqq3bCEzpfCU
+        j7h6FB4nkIZ/geLxAZKIC655+xCA==
+        -----END SSH SIGNATURE-----
 
   - id: S12-cli-no-data
     title: Agent runs rehearse coverage in a repo with no coverage file
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: ask }
@@ -185,10 +273,21 @@ scenarios:
       - { name: coverage-asker, branch: cli }
       - { name: got-it }
     expect: { criterion: S12-A5, state: { firstLine: "file src/pay.ts: no coverage data", hint: "No coverage file yet …", exitCode: 0 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:54:51Z'
+      hash: 'sha256:b1ab23bafe17448227a4799530759454dc445ce060c2fc6eb74d3750065bda33'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA88BDMYXxhBEuC/IHldS88V+SHK4XuX4hOwe/t7IQaaJOn7Do88mD0sw+Ta
+        481TC5bKK3fxxh7lJePc/T00YxBA==
+        -----END SSH SIGNATURE-----
 
   - id: S12-refused
     title: A coverage request without the session token gets 403
-    status: draft
+    status: approved
     steps:
       - { name: open-box }
       - { name: drill-code }
@@ -197,3 +296,14 @@ scenarios:
         example: { id: serve-coverage-forbidden, given: { token: null }, then: { exit: forbidden, status: 403, body: "no coverage data" } }
       - { name: refused }
     expect: { criterion: S12-A7, state: { status: 403, graphOpened: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:55:03Z'
+      hash: 'sha256:740b82c0c9328583855018b969c14b249669ccf4749f9f9000d494e85116590f'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAT7zljn8eT38t1LyHArjwHp7zvw1t7UtS/Yo8lvFd6AgznkBaeboY2pabde
+        sWeELWoqx57CtJwIYJ3KJBMceZBQ==
+        -----END SSH SIGNATURE-----
