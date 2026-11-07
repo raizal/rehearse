@@ -90,6 +90,7 @@ export {
   type SpawnOptions,
   type StoryLink,
   type StoryThreads,
+  type LinkedThread,
   type StoryThreadService,
   type EarlierWork,
   type RunResult,
@@ -100,6 +101,7 @@ export {
   type TestThreads,
   type TestThreadView,
 } from './story-thread.js';
+export { createThreadMerge, listFiles, MergeConflictError, type BranchCommitSummary, type MergeDone, type MergeKind, type MergeSummary, type NewTest, type ThreadMergeOptions, type ThreadMergeService } from './thread-merge.js';
 export {
   branchCommits,
   branchShas,

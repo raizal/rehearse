@@ -590,6 +590,19 @@ export interface StoryThreadService {
   startTests(storyId: string, scenarios?: string[]): Promise<TestThreadView>;
   /** Send more scenarios to the story's test thread; default: the missing ones it does not have. */
   sendTests(storyId: string, scenarios?: string[]): Promise<TestThreadView>;
+  /** The story's build thread (`build`: the thread of the story column) or test thread (`tests`), with what bb says now (T48). null without one. */
+  threadFor(storyId: string, kind: 'build' | 'tests'): Promise<LinkedThread | null>;
+  /** Send a message to a thread with `bb thread tell` (T48: ask it to rebase). */
+  tell(threadId: string, text: string): Promise<void>;
+}
+
+/** A story's thread of one kind and what bb says of it (T48). */
+export interface LinkedThread {
+  brief: StoryBrief;
+  threadId: string;
+  bb: BbState;
+  /** The scenarios a test thread was given; [] for a build thread. */
+  scenarios: Id[];
 }
 
 function bbFailure(r: RunResult): string {
@@ -836,8 +849,22 @@ export function createStoryThreads(opts: StoryThreadOptions): StoryThreadService
     return { brief, threadId };
   }
 
+  async function tell(threadId: string, text: string): Promise<void> {
+    const r = await run('bb', ['thread', 'tell', threadId, '--message-file', '-', '--json'], { cwd: epicDir, input: text });
+    if (r.code !== 0 || r.spawnError !== undefined) throw new StoryThreadError(502, 'bb could not send to the thread.', bbFailure(r));
+    const told = parseTell(r.stdout);
+    if (!told.ok) throw new StoryThreadError(502, 'bb could not send to the thread.', told.error);
+  }
+
   return {
     view,
+    async threadFor(storyId, kind) {
+      const brief = briefOf(storyId);
+      const link = kind === 'build' ? await linkOf(brief) : await testLinkOf(brief);
+      if (!link) return null;
+      return { brief, threadId: link.thread, bb: await bbState(link.thread), scenarios: 'scenarios' in link ? link.scenarios : [] };
+    },
+    tell,
     async link(storyId, threadId) {
       const brief = briefOf(storyId);
       if (!THREAD_ID.test(threadId)) throw new StoryThreadError(400, 'a thread id looks like thr_abc123');
