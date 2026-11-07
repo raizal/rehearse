@@ -1,0 +1,91 @@
+story: S13
+scenarios:
+  - id: S13-row
+    title: A no-test row of an approved scenario starts a test thread for that scenario
+    status: draft
+    steps:
+      - { name: story-playlist }
+      - name: test-rows
+        example: { id: row-button, given: { storyId: S4, rows: { S4-drill: no test, S4-swimlanes: not run } }, then: { buttons: [ "S4-drill: Write this test with an agent" ], decision: write-one } }
+      - name: start-test-thread
+        example: { id: spawn-one, given: { storyId: S4, scenarios: [ S4-drill ] }, then: { title: "Tests: S4 S4-drill", spawn: "bb thread spawn --new-environment worktree --base-branch <current>" } }
+      - { name: test-brief }
+      - { name: test-rows }
+    expect: { criterion: S13-A1, state: { threads: 1, scenarios: [ S4-drill ] } }
+
+  - id: S13-all
+    title: The summary line writes all K missing tests in one thread
+    status: draft
+    steps:
+      - name: test-rows
+        example: { id: all-missing, given: { storyId: S4, missing: [ S4-drill, S4-back ] }, then: { summaryButton: Write the 2 missing tests with an agent, decision: write-missing } }
+      - name: start-test-thread
+        example: { id: spawn-all, given: { storyId: S4, scenarios: [ S4-drill, S4-back ] }, then: { title: "Tests: S4 S4-drill S4-back" } }
+      - { name: test-brief }
+      - { name: test-rows }
+    expect: { criterion: S13-A2, state: { threads: 1, scenarios: [ S4-drill, S4-back ] } }
+
+  - id: S13-approve-first
+    title: A draft scenario's row says approve this scenario first, with no button
+    status: draft
+    steps:
+      - { name: story-playlist }
+      - name: test-rows
+        example: { id: draft-row, given: { storyId: S13, rows: { S13-row: no test }, status: { S13-row: draft } }, then: { text: "Approve this scenario first: an agent writes tests for approved scenarios only.", buttons: [] } }
+      - { name: story-playlist }
+    expect: { criterion: S13-A3, state: { threads: 0, button: none } }
+
+  - id: S13-not-approved
+    title: The server refuses a test thread for a stale scenario
+    status: draft
+    steps:
+      - { name: test-rows }
+      - name: start-test-thread
+        branch: "scenario not approved"
+        example: { id: stale-409, given: { storyId: S4, scenarios: [ S4-drill ], status: { S4-drill: stale } }, then: { http: 409, error: "S4-drill (stale): approve this scenario first; an agent writes tests for approved scenarios only" } }
+      - { name: test-rows }
+    expect: { criterion: S13-A3, state: { threads: 0, spawned: false } }
+
+  - id: S13-thread-row
+    title: The rows show the thread, then test written, not run yet
+    status: draft
+    steps:
+      - { name: test-rows }
+      - { name: start-test-thread }
+      - { name: test-brief }
+      - name: test-rows
+        example: { id: thread-on-row, given: { storyId: S4, thread: { id: thr_tests1, status: working, scenarios: [ S4-drill ] }, specFound: S4-drill }, then: { row: "Agent thread working, last activity 14:52 · @thread:thr_tests1", status: test written, not run yet } }
+    expect: { criterion: S13-A4, state: { rowThread: thr_tests1, words: test written, not run yet } }
+
+  - id: S13-send
+    title: While the test thread works, a second press sends to it instead of starting another
+    status: draft
+    steps:
+      - name: test-rows
+        example: { id: send-label, given: { storyId: S4, thread: { status: working, scenarios: [ S4-drill ] }, missing: [ S4-drill, S4-back ] }, then: { summaryButton: Send these scenarios to the running thread, decision: send, scenarios: [ S4-back ] } }
+      - name: start-test-thread
+        example: { id: tell, given: { storyId: S4, scenarios: [ S4-back ], send: true }, then: { tell: "bb thread tell thr_tests1", scenarios: [ S4-drill, S4-back ] } }
+      - { name: test-brief }
+      - { name: test-rows }
+    expect: { criterion: S13-A5, state: { threads: 1, spawned: 1, told: 1 } }
+
+  - id: S13-brief
+    title: The test brief holds what an agent needs to write the tests alone
+    status: draft
+    steps:
+      - { name: start-test-thread }
+      - name: test-brief
+        example: { id: brief-sections, given: { storyId: S4, scenarios: [ S4-drill ] }, then: { sections: [ "S4-drill: …", Where the test goes and its name, How to run it, Rules for this thread, How to work in this repo ], name: "test('S4-drill', async ({ page }) => {", underChars: 24000 } }
+      - { name: test-rows }
+    expect: { criterion: S13-A6, state: { writeOnlyTests: true, nameRuleQuoted: true } }
+
+  - id: S13-cli
+    title: An agent prints the test brief from the CLI
+    status: draft
+    steps:
+      - { name: draft-record }
+      - name: test-brief-cli
+        example: { id: cli-tests, given: { story: S4, scenarios: [ S4-drill ] }, then: { exitCode: 0, stdout: "# Test brief: e2e tests for S4-drill" } }
+      - name: test-brief
+        example: { id: cli-draft, given: { storyId: S13, scenarios: [ S13-row ] }, then: { exitCode: 1, stderr: "S13-row (draft): approve this scenario first" } }
+    expect: { criterion: S13-A7, state: { exitCodes: { ok: 0, notApprovedOrNoneMissing: 1, badArgument: 2 } } }

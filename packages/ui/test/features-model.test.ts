@@ -213,8 +213,12 @@ describe('big picture (S4-A4)', () => {
       { from: 'story-playlist', to: 'review', back: true },
       { from: 'use-project', to: 'story-playlist', back: true },
       { from: 'play-story', to: 'story-playlist', back: true },
+      // T47 (S13): the test rows go back to the Tests tab; a started or refused thread and its brief come back to the rows.
+      { from: 'test-rows', to: 'story-playlist', back: true },
+      { from: 'start-test-thread', to: 'test-rows', back: true },
+      { from: 'test-brief', to: 'test-rows', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 12, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 13, processes: main.length });
   });
 });
 

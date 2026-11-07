@@ -441,6 +441,61 @@ root:
       outputs: { storyId: string, test: "string?", exitCode: number }
       # The same calls as the Tests tab; exit 1 when busy or not running, 2 on a bad argument.
 
+    # --- Hand a scenario without an e2e test to an agent (S13, T47) ---
+    # New boxes only: story-playlist, start-build and build-brief stay as they are; root edges join them.
+    - id: test-rows
+      kind: output
+      lane: builder
+      package: ui
+      title: No-test rows and the story's test thread on the Tests tab
+      stories: [S13]
+      inputs:  { storyId: string }
+      outputs: { storyId: string, decision: "enum[write-one, write-missing, send]", scenarios: "list string" }
+      reads:   [Story.*, Scenario.status]
+      # A no-test row of an approved scenario: "Write this test with an agent". A draft or stale
+      # one: "approve this scenario first", no button. The summary: "Write the K missing tests with
+      # an agent" (one thread). The rows of the test thread: status words, last activity, @thread;
+      # then "test written, not run yet". While it works, the buttons send to it instead.
+
+    - id: start-test-thread
+      kind: input
+      lane: builder
+      package: server
+      title: Start the story's test thread, or send it more scenarios
+      stories: [S13]
+      inputs:  { storyId: string, scenarios: "list string?" }
+      outputs: { storyId: string, thread: string, scenarios: "list string", hash: hash, at: datetime }
+      reads:   [Story.*, Scenario.status]
+      sideEffects: [bb thread spawn --new-environment worktree --base-branch <current>, bb thread tell]
+      errorExits: ["scenario not approved"]
+      # POST /api/story-tests/thread and /send (token and Origin). Title "Tests: <story> <ids>".
+      # One test thread per story at a time: a second start while it works is 409, send instead.
+      # The link goes in .rehearse/story-threads.json as the story's `tests` entry.
+
+    - id: test-brief
+      kind: process
+      lane: rehearse
+      package: core
+      title: Make the test brief of approved scenarios
+      stories: [S13]
+      inputs:  { storyId: string, scenarios: "list string" }
+      outputs: { storyId: string, brief: string, specFile: string, hash: hash }
+      reads:   [Story.*, AcceptanceCriterion.*, Scenario.*, Box.*]
+      # Story sentence; per scenario the criterion, steps with their boxes, examples and expect;
+      # the spec file and the test name (the Tests tab's rule, quoted); an example spec; how to
+      # run it; write only tests; how to work. Refuses a draft or stale scenario.
+
+    - id: test-brief-cli
+      kind: input
+      lane: agent
+      package: cli
+      title: rehearse brief --tests
+      stories: [S13]
+      inputs:  { story: string, scenarios: "list string?" }
+      outputs: { storyId: string, scenarios: "list string", brief: string, exitCode: number }
+      # Default: the approved scenarios without a test. Exit 1 on a draft or stale scenario or
+      # none missing, 2 on a bad argument.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -489,3 +544,11 @@ root:
     - { from: use-project,     to: story-playlist, label: "Birdview busy",        kind: error }
     - { from: draft-record,    to: play-cli }
     - { from: play-cli,        to: play-story }
+    - { from: story-playlist,    to: test-rows }
+    - { from: test-rows,         to: story-playlist }
+    - { from: test-rows,         to: start-test-thread }
+    - { from: start-test-thread, to: test-brief }
+    - { from: start-test-thread, to: test-rows,   label: "scenario not approved", kind: error }
+    - { from: test-brief,        to: test-rows }
+    - { from: draft-record,      to: test-brief-cli }
+    - { from: test-brief-cli,    to: test-brief }

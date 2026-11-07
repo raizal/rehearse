@@ -187,6 +187,15 @@ requirements:
       it, and play it (or one test). A busy or stopped player is said in plain words; nothing
       is queued or retried, and the player can be switched back to its default project. (T45)
 
+  - id: R24
+    kind: functional
+    text: >-
+      A story's approved scenario with no e2e test can be handed to a coding agent from the
+      Tests tab: one bb thread per story at a time gets a test brief (the scenarios, their boxes,
+      where the test goes and its name, how to run it, write only tests), the rows show that
+      thread, and more scenarios go to the running thread instead of a second one. A draft or
+      stale scenario is approved first. `rehearse brief --tests` prints the same brief. (T47)
+
 stories:
   - id: S1
     role: builder
@@ -487,6 +496,55 @@ stories:
         then: >-
           it plays the story or pushes every story playlist through Birdview, and exits 0;
           busy or not running exits 1 with the same words; a bad --test exits 2
+
+  - id: S13
+    role: builder
+    want: to hand a scenario that has no e2e test to an agent from the Tests tab
+    soThat: every approved scenario gets a test without me writing it or briefing the agent by hand
+    requirements: [R24]
+    acceptance:
+      - id: S13-A1
+        given: an approved scenario whose row on the Tests tab says "no test"
+        when: the builder opens the tab
+        then: >-
+          the row has "Write this test with an agent"; pressing it starts one bb thread with the
+          test brief of that scenario; a row with a test has no such button
+      - id: S13-A2
+        given: a story with K approved scenarios without an e2e test
+        when: the builder presses "Write the K missing tests with an agent" on the summary line
+        then: one thread starts with the test brief of all K scenarios
+      - id: S13-A3
+        given: a draft or stale scenario with no test
+        when: the builder opens the Tests tab, or the server is asked to start a test thread for it
+        then: >-
+          the row says "approve this scenario first" with no button, and the server refuses
+          (409) in the same words; no thread starts
+      - id: S13-A4
+        given: a test thread of the story has started
+        when: the builder looks at the rows it has
+        then: >-
+          each shows the thread (status words, last activity, the @thread link); once the spec
+          lands the row says "test written, not run yet", then the normal statuses after a play
+      - id: S13-A5
+        given: the story's test thread is working
+        when: the builder presses a write button again
+        then: >-
+          the button reads "Send these scenarios to the running thread" and sends them with
+          `bb thread tell`; no second thread starts
+      - id: S13-A6
+        given: approved scenarios of a story
+        when: rehearse makes their test brief
+        then: >-
+          it holds the story sentence; per scenario given / when / then, expect, the boxes it
+          walks and the criterion; the spec file and the exact test name with the Tests tab's
+          rule quoted; an example spec; how to run it; "write only tests"; and how to work in
+          the repo; under about 6k tokens
+      - id: S13-A7
+        given: a repo with an EPIC and its e2e test project
+        when: an agent runs `rehearse brief <epic> <story> --tests [--scenario <id>]…`
+        then: >-
+          it prints the test brief and exits 0; a draft or stale scenario, or none missing,
+          exits 1 with the reason; a bad argument exits 2
 
 resolvedQuestions:
   - question: Who is "the builder" in records?
