@@ -13,6 +13,7 @@ import { runServe } from './commands/serve.js';
 import { runCoverage } from './commands/coverage.js';
 import { isGraphVerb, runGraph } from './commands/graph.js';
 import { runBrief } from './commands/brief.js';
+import { runPresent } from './commands/present.js';
 import { runProgress } from './commands/progress.js';
 import { runFigcraft } from './commands/figcraft.js';
 import { runDesign } from './commands/design.js';
@@ -47,6 +48,10 @@ Commands:
   progress <epic-dir-or-slug> <story> [--json]
                                          What rehearse sees of the work on a story: boxes with code (Flow-Box commits on
                                          every branch), e2e tests per scenario, gate findings, whether it is signed, its thread.
+  present <epic-dir-or-slug> [--out <file.html>] [--pdf <file.pdf>] [--committed-only]
+                                         The EPIC as a deck for a supervisor: one self-contained HTML file (default
+                                         presentations/<slug>-<date>-<sha>.html), and a PDF with --pdf (Chromium from e2e/).
+                                         Exit 1 with --committed-only on uncommitted record changes, or when no PDF.
   playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir> | --push [--birdview-port N]]
                                          Write one Birdview playlist per story from the e2e tests named after scenarios.
                                          --push writes them through the Birdview player (switching it to the test project).
@@ -98,13 +103,14 @@ function isDir(p: string): boolean {
   return existsSync(p) && statSync(p).isDirectory();
 }
 
-/** The entry of bin/rehearse.js: the code graph verbs, coverage, brief, progress, playlists, play and figcraft are async; the other commands run in `run`. */
+/** The entry of bin/rehearse.js: the code graph verbs, coverage, brief, progress, present, playlists, play and figcraft are async; the other commands run in `run`. */
 export async function main(argv: string[], io: Io): Promise<number> {
   const [command, ...rest] = argv;
   if (isGraphVerb(command)) return runGraph(command, rest, io);
   if (command === 'coverage') return runCoverage(rest, io);
   if (command === 'brief') return runBrief(rest, io);
   if (command === 'progress') return runProgress(rest, io);
+  if (command === 'present') return runPresent(rest, io);
   if (command === 'playlists') return runPlaylists(rest, io);
   if (command === 'play') return runPlay(rest, io);
   if (command === 'figcraft') return runFigcraft(rest, io);

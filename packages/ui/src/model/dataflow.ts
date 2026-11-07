@@ -203,7 +203,8 @@ export function dataFlowCells(df: DataFlow, cols: number): Map<string, Cell> {
 /**
  * The data flow laid out as wide as the page at most: as many columns as the widest node allows,
  * one fewer while the lanes in the gutters make it wider than `maxW` (down to two: with T50's S16
- * boxes the real EPIC's gutters made three columns 1794 wide).
+ * boxes the real EPIC's gutters made three columns 1794 wide; with T52's S18 two columns are 1796,
+ * and the canvas scrolls the rest, since one column would be 8000 px tall).
  */
 export function dataFlowLayout(df: DataFlow, maxW: number = DIAGRAM_W): { layout: GraphLayout; cols: number } {
   let cols = columnsFor(maxW, Math.max(...df.nodes.map((n) => n.w)));

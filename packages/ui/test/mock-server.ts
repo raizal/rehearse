@@ -49,6 +49,8 @@ export interface MockRoutes {
   designRefresh?: (body: { story: string }) => Reply;
   /** `POST api/figcraft/fetch` (T50). */
   figcraftFetch?: () => Reply;
+  /** `GET api/present?epic=&format=` (T52): the deck, or an error body. */
+  present?: (format: 'html' | 'pdf', epic: string) => { status: number; data?: string; headers?: Record<string, string | undefined>; body?: unknown };
 }
 
 export const SESSION: Session = {
@@ -105,6 +107,19 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     if (url === 'api/design/link' && method === 'POST' && routes.designLink) return respond(routes.designLink(body));
     if (url === 'api/design/refresh' && method === 'POST' && routes.designRefresh) return respond(routes.designRefresh(body));
     if (url === 'api/figcraft/fetch' && method === 'POST' && routes.figcraftFetch) return respond(routes.figcraftFetch());
+    if (url.startsWith('api/present?') && method === 'GET' && routes.present) {
+      const q = new URLSearchParams(url.slice('api/present?'.length));
+      const r = routes.present(q.get('format') === 'pdf' ? 'pdf' : 'html', q.get('epic') ?? '');
+      const headers = new Headers(Object.entries(r.headers ?? {}).filter((e): e is [string, string] => e[1] !== undefined));
+      return {
+        ok: r.status >= 200 && r.status < 300,
+        status: r.status,
+        headers,
+        text: async () => r.data ?? '',
+        blob: async () => new Blob([r.data ?? ''], { type: headers.get('content-type') ?? '' }),
+        json: async () => (r.body === undefined ? JSON.parse('not json') : r.body),
+      } as unknown as Response;
+    }
     if (url === 'api/sign-off' && method === 'POST') return respond(routes.signOff?.(body) ?? { status: 500, body: { error: 'no route' } });
     return respond({ status: 404, body: { error: `no endpoint ${url}` } });
   });

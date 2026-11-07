@@ -15,3 +15,6 @@ coverage/
 
 # The FigCraft web build (T50): `rehearse figcraft fetch` downloads it; rehearse serve hosts it at /figcraft/.
 .rehearse/figcraft-web/
+
+# Decks of `rehearse present` (T52)
+presentations/

@@ -30,6 +30,7 @@ import { extname, join, normalize, relative, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, readFigcraftThumbnail, repoTopOf, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { MAP_LEVELS, type CoverageStats, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
+import { buildDeckHtml, chromiumPrinter, deckFileName, epicSlugOf, PrinterUnavailable, type DeckOptions, type Printer } from './present.js';
 import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, PLAYER_ACTIONS, type BirdviewSetup, type PlayerAction } from './birdview.js';
 import { BirdviewError, playStory, useProject } from './birdview-play.js';
 import { gatherBriefCode } from './brief-code.js';
@@ -79,6 +80,8 @@ export interface ServeOptions {
   figcraftFetcher?: Fetcher;
   /** The FigCraft desktop app's control port for "Refresh pictures" (T51). Default: 127.0.0.1:4800. */
   figcraftControl?: FigcraftControlAddress;
+  /** Prints the deck of `GET /api/present?format=pdf` (T52). Default: Playwright's Chromium from e2e/ (tests pass a fake). */
+  printer?: Printer;
 }
 
 /** The header every POST must carry, with the session token. */
@@ -111,7 +114,7 @@ const NOT_BUILT = `<!doctype html>
 <body><div id="root"><p>The rehearse UI is not built. Run <code>pnpm -r build</code>, then start <code>rehearse serve</code> again.</p></div></body></html>
 `;
 
-type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph' | 'threadModel' | 'threadReasoning' | 'repoTop' | 'figcraftFetcher' | 'figcraftControl'>;
+type HandlerOptions = Pick<ServeOptions, 'epicDir' | 'uiDir' | 'session' | 'verifier' | 'git' | 'run' | 'bbProject' | 'birdview' | 'graph' | 'threadModel' | 'threadReasoning' | 'repoTop' | 'figcraftFetcher' | 'figcraftControl' | 'printer'>;
 
 const ROUTES: Record<string, string> = {
   '/api/session': 'GET, HEAD',
@@ -135,6 +138,7 @@ const ROUTES: Record<string, string> = {
   '/api/thread/merge': 'GET, POST',
   '/api/thread/ask-rebase': 'POST',
   '/api/birdview': 'GET',
+  '/api/present': 'GET',
   '/api/design': 'GET, HEAD',
   '/api/design/file': 'GET',
   '/api/design/save': 'POST',
@@ -341,6 +345,25 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
           else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
         },
       );
+      return;
+    }
+    if (path === '/api/present') {
+      void present(req, res, query, session, {
+        epicDir: opts.epicDir,
+        repoTop: top,
+        git: (args) => git(args, opts.epicDir),
+        verifier,
+        ...(birdview.projectDir ? { testProject: birdview.projectDir } : {}),
+        testResults: async (storyId) => {
+          const info = await birdviewInfo(birdview, storyId, opts.epicDir);
+          return info.player.kind === 'ours' ? info.player.results : undefined;
+        },
+        coverage: async () => {
+          if (!graph.status().indexed) return undefined;
+          const [, answer] = await readCoverage(new URLSearchParams(), graph, opts.epicDir, git);
+          return coveragePercent((answer as { boxes?: Record<string, CoverageStats> }).boxes);
+        },
+      }, opts.printer ?? chromiumPrinter(top));
       return;
     }
     if (path.startsWith('/api/design') || path === '/api/figcraft/fetch') {
@@ -597,6 +620,55 @@ async function threadMerge(req: IncomingMessage, res: ServerResponse, path: stri
     else if (e instanceof StoryThreadError) sendJson(res, e.status, { ok: false, error: e.message, ...(e.details ? { details: e.details } : {}) });
     else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
   }
+}
+
+/**
+ * `GET /api/present?epic=<slug>[&format=pdf]` (T52, box present-view): the served EPIC's deck as
+ * one HTML file, or printed to PDF. The token and a same-origin Origin first; no Chromium is a 503
+ * in plain words.
+ */
+async function present(req: IncomingMessage, res: ServerResponse, query: URLSearchParams, session: ServerSession, deckOptions: DeckOptions, printer: Printer): Promise<void> {
+  const refused = checkRequest(req, session);
+  if (refused) {
+    sendJson(res, refused.status, { ok: false, error: refused.error });
+    return;
+  }
+  const format = query.get('format') ?? 'html';
+  if (format !== 'html' && format !== 'pdf') {
+    sendJson(res, 400, { ok: false, error: 'format must be html or pdf' });
+    return;
+  }
+  try {
+    const slug = epicSlugOf(deckOptions.epicDir);
+    const epic = query.get('epic');
+    if (epic !== null && epic !== slug) {
+      sendJson(res, 404, { ok: false, error: `this server shows the EPIC ${slug}, not ${epic}` });
+      return;
+    }
+    const built = await buildDeckHtml(deckOptions);
+    const name = deckFileName(slug, built.facts);
+    if (format === 'html') {
+      send(res, 200, 'text/html; charset=utf-8', built.html, { 'content-disposition': `inline; filename="${name}.html"`, 'x-deck-slides': String(built.deck.slides.length) });
+      return;
+    }
+    const pdf = await printer(built.html);
+    send(res, 200, 'application/pdf', Buffer.from(pdf), { 'content-disposition': `attachment; filename="${name}.pdf"` });
+  } catch (e) {
+    if (e instanceof PrinterUnavailable) sendJson(res, 503, { ok: false, error: e.message });
+    else sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+/** Lines covered by unit tests over every box with code, in whole percent rounded down. */
+function coveragePercent(boxes: Record<string, CoverageStats> | undefined): number | undefined {
+  if (!boxes) return undefined;
+  let lines = 0;
+  let covered = 0;
+  for (const s of Object.values(boxes)) {
+    lines += s.lines;
+    covered += s.covered;
+  }
+  return lines > 0 ? Math.floor((covered / lines) * 100) : undefined;
 }
 
 /**

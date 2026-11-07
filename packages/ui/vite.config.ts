@@ -16,6 +16,8 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     globalSetup: ['./test/global-setup.ts'],
     alias: {
+      // The subpath first: a string alias also matches `@rehearse/core/…`.
+      '@rehearse/core/layout': fileURLToPath(new URL('../core/src/layout/index.ts', import.meta.url)),
       '@rehearse/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
       '@rehearse/server': fileURLToPath(new URL('../server/src/index.ts', import.meta.url)),
       '@rehearse/graph': fileURLToPath(new URL('../graph/src/index.ts', import.meta.url)),

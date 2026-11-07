@@ -122,7 +122,7 @@ export function designView(epicDir: string, top: string, storyId: string, author
 }
 
 /** The picture of a link: its own PNG when it exists, else the index's frame or page PNG, else the file thumbnail. */
-function linkPicture(top: string, state: DesignState, link: DesignLink): DesignPicture | undefined {
+export function linkPicture(top: string, state: DesignState, link: DesignLink): DesignPicture | undefined {
   const file = state.index.files.find((f) => f.file === link.file);
   const page = file && findPage(file, link.page);
   const frame = page && link.frame !== undefined ? findFrame(page, link.frame) : undefined;

@@ -21,7 +21,8 @@ export {
   type FigcraftFetchErrorKind,
   type ZipFile,
 } from './figcraft-web.js';
-export { designView, FIGCRAFT_PATH, figcraftFetchCommand, MAX_DESIGN_BODY_BYTES, notFetchedPage, saveDesign, type DesignView, type LinkSource, type SaveResult } from './design-route.js';
+export { brainstormIdea, buildDeckHtml, chromiumPrinter, deckFileName, epicSlugOf, gatherDeckFacts, NO_CHROMIUM, PrinterUnavailable, UncommittedError, type BuiltDeck, type DeckOptions, type Printer } from './present.js';
+export { designView, linkPicture, FIGCRAFT_PATH, figcraftFetchCommand, MAX_DESIGN_BODY_BYTES, notFetchedPage, saveDesign, type DesignView, type LinkSource, type SaveResult } from './design-route.js';
 export { FIGCRAFT_NOT_RUNNING, linkDesign, refreshDesignPictures, type LinkResult, type RefreshItem, type RefreshResult } from './design-link.js';
 export { FIGCRAFT_CONTROL_HOST, FIGCRAFT_CONTROL_PORT, FigcraftNotRunning, isReadOnlyCall, listFigcraftDocs, renderFigcraftPng, type FigcraftControlAddress, type FigcraftDoc } from './figcraft-control.js';
 export {

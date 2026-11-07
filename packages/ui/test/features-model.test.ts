@@ -239,8 +239,10 @@ describe('big picture (S4-A4)', () => {
       { from: 'test-brief', to: 'work-rules', back: true },
       // T51 (S17): refreshed pictures come back to the Design tab.
       { from: 'refresh-design-pictures', to: 'design-tab', back: true },
+      // T52 (S18): the deck comes back to the preview.
+      { from: 'deck-file', to: 'present-view', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 17, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 18, processes: main.length });
   });
 });
 
