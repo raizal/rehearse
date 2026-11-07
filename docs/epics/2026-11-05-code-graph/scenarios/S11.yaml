@@ -4,7 +4,7 @@ story: S11
 scenarios:
   - id: S11-packages
     title: Builder opens the Code map and sees the packages
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -21,10 +21,21 @@ scenarios:
         example: { id: level-packages, given: { query: { verb: map, target: packages } }, then: { nodes: [ "@rehearse/core", "@rehearse/graph", "@rehearse/server", "@rehearse/ui", "@rehearse/cli", "@rehearse/bb-plugin", "Outside packages (N)" ], edges: [ { from: "@rehearse/server", to: "@rehearse/graph", count: 12 } ], notes: [ "6 packages, N outside" ] } }
       - { name: code-map }
     expect: { criterion: S11-A1, state: { nodesPerPackage: 1, outsideGroup: "Outside packages (N)", edgesCounted: true, namesReadable: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:27:23Z'
+      hash: 'sha256:94df2912ae7c3fd86e0c2f5d85673074c0d0c87fef3d1f2ba47a62231765cbf4'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAqxNdy66vKuUKDRXT7M9F0PmuyHrmMMi8HgPC6udWMz4kPhjGsDT+XVzZ0s
+        h5SSvSIrqNIp69/FFgSSItVQ67DQ==
+        -----END SSH SIGNATURE-----
 
   - id: S11-package
     title: Builder opens a package and sees its files in folders
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -40,10 +51,21 @@ scenarios:
         example: { id: level-package, given: { query: { verb: map, target: "@rehearse/server" } }, then: { nodes: [ "src/ (folder)", graph-route.ts, http.ts, "@rehearse/graph (stub)" ], edges: [ { from: http.ts, to: graph-route.ts } ], notes: [ "Show 9 test files" ] } }
       - { name: code-map }
     expect: { criterion: S11-A2, state: { folderGroups: [ src/, test/ ], testsHidden: true, chip: "Show 9 test files", urlHoldsLevel: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:28:05Z'
+      hash: 'sha256:48e7d5500949eab633ce13b189851ff4c0255f9eb3ce01e46a58b852eff02604'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAAmfDxeNQMyhl3sxrqLk/w9VkcpSPkYUX4SfnDN4GQpKGkWB7nzCIxlKsYZ
+        xBB4NfguAAlSid+RsjQVzPeB3RDA==
+        -----END SSH SIGNATURE-----
 
   - id: S11-file
     title: Builder opens a file and sees its code and the code it calls elsewhere
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -59,10 +81,21 @@ scenarios:
         example: { id: level-file, given: { query: { verb: map, target: packages/server/src/graph-route.ts } }, then: { nodes: [ createGraphService, "map.ts · 4 calls", "node:path · 3 calls" ], edges: [ { from: createGraphService, to: "map.ts · 4 calls", trust: exact } ], notes: [] } }
       - { name: code-map }
     expect: { criterion: S11-A3, state: { oneNodePerOtherFile: true, membersListed: true, trustStyles: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:28:25Z'
+      hash: 'sha256:e27e334a23edc28229c3fea2cee1d79347dedf670931ce24ef5cd96e62dfac6a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAU9tLmRxNilLRs7ZmusCHA4VdExe5PXJV7hHi37RB3kxASb2EvAkHNhQo8h
+        OPIlW/vXeK9RazHUKZtJwyphkZDg==
+        -----END SSH SIGNATURE-----
 
   - id: S11-panel-box
     title: Builder selects a function and opens the box it serves
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -78,10 +111,21 @@ scenarios:
         example: { id: level-boxes, given: { query: { verb: map, target: packages/server/src/graph-route.ts } }, then: { nodes: [ { name: createGraphService, kind: function, boxes: [ serve-query ] } ], edges: [], notes: [] } }
       - { name: code-map }
     expect: { criterion: S11-A4, state: { panel: [ name, kind, place, callers, callees, tests, http, boxes ], boxOpens: "?box=serve-query", badge: true, edgesLit: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:28:44Z'
+      hash: 'sha256:a09d6ff4a9e828c2a84761a2a2cf580d036dc2838f54901350f2b3a9df731bd3'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAiQ4Th7Ax/SWQ99swPvj6712ianwodalypBdVNiFc0za8Fq+03IBVdwtVzv
+        Ox+8wsrqRQbsKVIKWtJ6cGN7iqAQ==
+        -----END SSH SIGNATURE-----
 
   - id: S11-search
     title: Builder searches words and the map jumps to the hit
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -111,10 +155,21 @@ scenarios:
       - { name: map-level }
       - { name: code-map }
     expect: { criterion: S11-A5, state: { level: file, target: packages/graph/src/map.ts, selected: MapIndex.level } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:29:17Z'
+      hash: 'sha256:c6a7681bccecb153f2614521b0d7f8ce12f6c2423927661563594eb62fa64f67'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA7CHT2rAB02GNtHwIXRcYP6wFWg+mZI8zoH05gmjObv81yrm9dhv5fV6c+e
+        +FYR6+2qytLdgE2EQ/JBRwLtNMDw==
+        -----END SSH SIGNATURE-----
 
   - id: S11-filters
     title: Builder filters the map until nothing is left
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -130,10 +185,21 @@ scenarios:
         example: { id: level-empty, given: { query: { verb: map, target: "@rehearse/bb-plugin" } }, then: { nodes: [], edges: [], notes: [ "nothing left with these filters" ] } }
       - { name: code-map }
     expect: { criterion: S11-A6, state: { nodes: 0, message: "Nothing is left with these filters.", offers: "Clear filters" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:30:41Z'
+      hash: 'sha256:a4129b31a9ef8381100e93c18f4f491492cd22fc77d1c798cab78aad2b796151'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA7yVyax5bn0zz13KI/jzHeg71ybyAJpNX+wACj4HcVS3qQHC6Une8SQR0XX
+        iZjEABKbMrAM0LDQSCMx/q8rW7Ag==
+        -----END SSH SIGNATURE-----
 
   - id: S11-indexing
     title: Builder opens the Code map in a repo that is not indexed yet
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -152,10 +218,21 @@ scenarios:
       - { name: map-level }
       - { name: code-map }
     expect: { criterion: S11-A7, state: { shownFirst: "indexing", IndexRun.mode: cold, mapShown: true } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:30:56Z'
+      hash: 'sha256:d770871dffb5edface87ffdb6fcd57edc9647d8ca55b4bdced7eebb5eeb25c0c'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABABXDW+HxUDH9LdaTUgjZxWdFfQ46aBoQv1z1fH7JRbl/Dzdsfdhi+fOB2wp
+        +qXJg7+7j7MP2rc8mOPy3R17FwDw==
+        -----END SSH SIGNATURE-----
 
   - id: S11-gone
     title: Builder opens a map URL of a file that is gone
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - name: code-map
@@ -172,10 +249,21 @@ scenarios:
         example: { id: level-gone, given: { query: { verb: map, target: packages/server/src/old-route.ts } }, then: { exit: not-found, status: 404 } }
       - { name: code-map }
     expect: { criterion: S11-A7, state: { status: 404, message: "Not on the map" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:31:12Z'
+      hash: 'sha256:9496b68deddb61de1d493a0261bd71709053a5b3afd853e3ed7749284cc5cf81'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAP4iChsj4wlUaa6N5BOt5XXdSaP24MPqe01gniFEnY+OyvauU0Mf56TY641
+        o5S0TEB6XRVHNEUZCnCVEmRTW6Dg==
+        -----END SSH SIGNATURE-----
 
   - id: S11-refused
     title: A map request without the session token gets 403
-    status: draft
+    status: approved
     steps:
       - { name: open-map }
       - { name: code-map }
@@ -184,3 +272,14 @@ scenarios:
         example: { id: serve-map-forbidden, given: { token: null }, then: { exit: forbidden, status: 403, body: "no graph data" } }
       - { name: refused }
     expect: { criterion: S11-A8, state: { status: 403, graphDataSent: false } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-07T02:31:23Z'
+      hash: 'sha256:14ed1519389c087ea4b6abfe467ab7e572f790a7cb97177321d548d3e9ecd885'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAtbAVQYComGsdjemeTTPm1gJ6NUhPwrp8o71c9bZdwKHMqNNnUK4SVUSoPU
+        pF5mIEdNNx6amRkWgenVVlbrbmBw==
+        -----END SSH SIGNATURE-----
