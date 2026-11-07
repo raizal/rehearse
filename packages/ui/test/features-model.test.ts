@@ -209,8 +209,12 @@ describe('big picture (S4-A4)', () => {
       { from: 'log-correction', to: 'draft-record', back: true },
       { from: 'watch-build', to: 'review', back: true },
       { from: 'build-brief', to: 'watch-build', back: true },
+      // T45 (S12): the Tests tab goes back to review; a play or a switch comes back to the tab.
+      { from: 'story-playlist', to: 'review', back: true },
+      { from: 'use-project', to: 'story-playlist', back: true },
+      { from: 'play-story', to: 'story-playlist', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 11, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 12, processes: main.length });
   });
 });
 

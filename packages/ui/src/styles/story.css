@@ -432,7 +432,12 @@ button.cg-node:focus-visible { outline: 3px solid var(--accent); outline-offset:
 .story-tests-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
 .story-test { padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); font-size: var(--fs-md); }
 .story-test.is-failed { border-color: var(--warn); }
-.story-test-head { display: flex; justify-content: space-between; gap: var(--s-2); margin-bottom: var(--s-1); }
+.story-test-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); margin-bottom: var(--s-1); }
+.story-test-head .badge { margin-left: auto; }
+.story-test-play { padding: 0 var(--s-2); }
+.story-tests-birdview { margin: calc(-1 * var(--s-2)) 0 var(--s-3); display: grid; gap: var(--s-1); }
+.story-tests-birdview p { margin: 0; }
+.story-tests-birdview .link-button:disabled { opacity: 0.5; cursor: default; }
 .story-tests-note { margin-top: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--agent-line); border-radius: var(--r-md); background: var(--agent-tint); color: var(--agent-ink); font-size: var(--fs-sm); }
 .story-tests-notice { margin-bottom: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--note-line); border-radius: var(--r-md); background: var(--ci-tint); color: var(--note-ink); font-size: var(--fs-md); }
 .story-tests-notice ol { margin: var(--s-2) 0 0; padding-left: var(--s-5); display: grid; gap: var(--s-1); }

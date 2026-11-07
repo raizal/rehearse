@@ -179,6 +179,14 @@ requirements:
       works in its own worktree, and rehearse shows its progress per box and per
       scenario. A stale or unsigned story is not handed over. (T44)
 
+  - id: R23
+    kind: functional
+    text: >-
+      The story Tests tab and `rehearse play` play a story's e2e tests in Birdview with one
+      action: switch the player to this repo's test project, write the story playlist through
+      it, and play it (or one test). A busy or stopped player is said in plain words; nothing
+      is queued or retried, and the player can be switched back to its default project. (T45)
+
 stories:
   - id: S1
     role: builder
@@ -438,6 +446,47 @@ stories:
         then: >-
           its section "Working on a story" holds the same how-to-work lines as the brief, and
           it names `rehearse brief` and `rehearse progress`
+
+  - id: S12
+    role: builder
+    want: to play a story's e2e tests in Birdview with one button
+    soThat: I watch the story work without setting up the player by hand
+    requirements: [R23]
+    acceptance:
+      - id: S12-A1
+        given: a story with e2e tests named after its scenarios
+        when: the builder opens its Tests tab
+        then: >-
+          the story playlist, built from the record and the spec files, shows before anything
+          plays, with "Play in Birdview" and one line "Birdview: <project> · playlist <name>"
+      - id: S12-A2
+        given: Birdview runs and is free
+        when: the builder clicks "Play in Birdview"
+        then: >-
+          rehearse switches the player to this repo's test project, writes the story playlist
+          through it and plays it, in that order, and the rows show live status
+      - id: S12-A3
+        given: Birdview plays another project
+        when: the builder opens the Tests tab, plays, or clicks "Switch back"
+        then: >-
+          the tab says "Birdview is on <other project>. Play will switch it to this repo.";
+          Play switches it; "Switch back" returns the player to its default project
+      - id: S12-A4
+        given: Birdview is busy (a test runs, waits or is held) or not running
+        when: the builder plays or switches the project
+        then: >-
+          the tab says "Birdview is busy, try again" or "Birdview is not running; open it from
+          the bb sidebar"; nothing is queued or retried
+      - id: S12-A5
+        given: a story with e2e tests
+        when: the builder clicks ▶ on one test
+        then: rehearse switches the project, writes the playlist, and plays that test only
+      - id: S12-A6
+        given: a repo with an EPIC and its e2e test project
+        when: an agent runs `rehearse play <epic> <story> [--test <key>]` or `rehearse playlists <epic> --push`
+        then: >-
+          it plays the story or pushes every story playlist through Birdview, and exits 0;
+          busy or not running exits 1 with the same words; a bad --test exits 2
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

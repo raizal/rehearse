@@ -49,13 +49,20 @@ export async function fetchBirdview(storyId: Id, client: SessionClient = session
   return r.body as unknown as BirdviewInfo;
 }
 
-/** Pick this story's playlist in the player. */
-export async function postBirdviewSelect(storyId: Id, client: SessionClient = sessionClient): Promise<{ ok: true } | { ok: false; error: string }> {
+/** A Birdview call of the Tests tab (T45), as the server names it. */
+export type BirdviewAction = 'play-story' | 'play-test' | 'use-project';
+
+/** What a Birdview call did, or why not: `reason` is busy | off | not-found | bad-request | refused. */
+export type BirdviewOutcome = { ok: true; body: Record<string, unknown> } | { ok: false; error: string; reason?: string };
+
+/** Play this story's playlist or one test, or switch the player's project. One try: busy is said, not queued. */
+export async function postBirdview(action: BirdviewAction, body: Record<string, string>, client: SessionClient = sessionClient): Promise<BirdviewOutcome> {
   try {
-    const r = await tokenCall(client, 'api/birdview/action', { action: 'playlist-select', storyId });
-    if (r.status === 200 && r.body?.ok === true) return { ok: true };
+    const r = await tokenCall(client, `api/birdview/${action}`, body);
+    if (r.status === 200 && r.body?.ok === true) return { ok: true, body: r.body };
     if (tokenRejected(r)) return { ok: false, error: SERVER_RESTARTED };
-    return { ok: false, error: typeof r.body?.error === 'string' ? r.body.error : `HTTP ${r.status}` };
+    const reason = typeof r.body?.reason === 'string' ? r.body.reason : undefined;
+    return { ok: false, error: typeof r.body?.error === 'string' ? r.body.error : `HTTP ${r.status}`, ...(reason ? { reason } : {}) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

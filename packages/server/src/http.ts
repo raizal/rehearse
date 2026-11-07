@@ -4,8 +4,8 @@
 // panel (T12) writes local state only (.rehearse/story-threads.json) and runs `bb`. Each POST needs
 // the session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
 // key are the server process's, never the request's. The code reads (`/api/code-index`,
-// `/api/box-code`) and the story-thread reads run git or bb; the Birdview routes read the e2e player and forward an allowlist
-// of its actions, on 127.0.0.1 only. The code graph route (`/api/graph`, G20) answers show, near, find,
+// `/api/box-code`) and the story-thread reads run git or bb; the Birdview routes read the e2e player and, for the actions in
+// PLAYER_ACTIONS only (switch the player to this repo, write a story playlist, play it; T45), call it on 127.0.0.1. The code graph route (`/api/graph`, G20) answers show, near, find,
 // path and the code map's levels (T40) from @rehearse/graph, and a file watcher keeps the graph fresh (graph-route.ts). All of them need
 // the same token and Origin check. The sign-off preview (`GET /api/sign-off/preview`, T39) reads
 // git history too, with the same check.
@@ -17,7 +17,8 @@ import { extname, join, normalize, sep } from 'node:path';
 import { approveScenarios, defaultVerifier, signOff, simulateRecord, type Finding, type Id, type Verifier } from '@rehearse/core';
 import { MAP_LEVELS, type CoverageStats, type MapLevel } from '@rehearse/graph';
 import { boxCode, codeIndex, epicBoxPaths, execGit, type GitRunner } from './box-code.js';
-import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, httpPlayerClient, PLAYER_ACTIONS, playerView, type BirdviewSetup, type PlayerAction } from './birdview.js';
+import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, PLAYER_ACTIONS, type BirdviewSetup, type PlayerAction } from './birdview.js';
+import { BirdviewError, playStory, useProject } from './birdview-play.js';
 import { graphServiceFor, type GraphService } from './graph-route.js';
 import { createSession, sessionInfo, tokenMatches, type ServerSession } from './session.js';
 import { MAX_PREVIEW_STORIES, signOffPreview } from './signoff-preview.js';
@@ -104,10 +105,12 @@ const ROUTES: Record<string, string> = {
   '/api/story-thread/send': 'POST',
   '/api/story-thread/open': 'POST',
   '/api/birdview': 'GET',
-  '/api/birdview/action': 'POST',
+  ...Object.fromEntries(PLAYER_ACTIONS.map((a) => [`/api/birdview/${a}`, 'POST'])),
 };
 
 const STORY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+/** A Birdview test key: a file relative to the test project, and a line. */
+const TEST_KEY = /^[A-Za-z0-9_][\w./-]{0,250}:\d{1,6}$/;
 /** Longest graph target the route takes. */
 const MAX_TARGET = 512;
 
@@ -135,7 +138,7 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
       return (answer as { ok?: boolean; boxes?: Record<string, CoverageStats> }).boxes;
     },
     testResults: async (storyId) => {
-      const info = await birdviewInfo(birdview, storyId);
+      const info = await birdviewInfo(birdview, storyId, opts.epicDir);
       return info.player.kind === 'ours' ? info.player.results : undefined;
     },
   });
@@ -211,21 +214,25 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
         sendJson(res, 400, { error: 'query must be ?story=<story id>' });
         return;
       }
-      void birdviewInfo(birdview, story).then(
+      void birdviewInfo(birdview, story, opts.epicDir).then(
         (info) => sendJson(res, 200, info),
         (e: unknown) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }),
       );
       return;
     }
-    if (path === '/api/birdview/action') {
+    if (path.startsWith('/api/birdview/')) {
+      const action = path.slice('/api/birdview/'.length) as PlayerAction;
       void readJsonPost(req, session).then((body) => {
         if ('status' in body) {
           sendJson(res, body.status, { ok: false, error: body.error });
           return;
         }
-        void playerAction(birdview, body.json).then(
+        void playerAction(birdview, opts.epicDir, action, body.json).then(
           ([status, out]) => sendJson(res, status, out),
-          (e: unknown) => sendJson(res, 502, { ok: false, error: `the player did not answer: ${e instanceof Error ? e.message : String(e)}` }),
+          (e: unknown) =>
+            e instanceof BirdviewError
+              ? sendJson(res, e.status, { ok: false, reason: e.kind, error: e.message })
+              : sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }),
         );
       });
       return;
@@ -484,24 +491,22 @@ async function readPost(req: IncomingMessage, session: ServerSession, field: str
 }
 
 /**
- * `{ action, storyId }`: forward an allowed action to the player, only when it plays this EPIC's
- * test project. `playlist-select` picks the story's playlist (its id is the story id).
+ * The Birdview actions of the Tests tab (T45). `play-story {story}` switches the player to this
+ * repo's test project, writes the story playlist through it and plays it; `play-test {story, test}`
+ * does the same for one test of the story; `use-project {to: "this" | "default"}` only switches.
+ * A failure is a BirdviewError: 409 busy, 503 not running, 404, 400 or 502, in plain words.
  */
-async function playerAction(setup: BirdviewSetup, body: Record<string, unknown>): Promise<[number, unknown]> {
-  const action = body.action;
-  if (typeof action !== 'string' || !(PLAYER_ACTIONS as readonly string[]).includes(action)) {
-    return [400, { ok: false, error: `action must be one of ${PLAYER_ACTIONS.join(', ')}` }];
+async function playerAction(setup: BirdviewSetup, epicDir: string, action: PlayerAction, body: Record<string, unknown>): Promise<[number, unknown]> {
+  if (action === 'use-project') {
+    if (body.to !== 'this' && body.to !== 'default') return [400, { ok: false, error: 'body must be { "to": "this" | "default" }' }];
+    return [200, { ok: true, ...(await useProject(setup, body.to)) }];
   }
-  const storyId = body.storyId;
-  if (typeof storyId !== 'string' || !STORY_ID.test(storyId)) return [400, { ok: false, error: 'storyId must be a story id' }];
-  const client = setup.client ?? httpPlayerClient(setup.port);
-  const [state, head] = await Promise.all([client.state(), client.setup()]);
-  const view = playerView(setup.projectDir, state, head, []);
-  if (view.kind !== 'ours') return [409, { ok: false, error: `the player plays another project (${view.kind === 'other' ? view.projectDir || 'none set' : 'off'})` }];
-  const out = await client.action(action as PlayerAction, { id: storyId });
-  const error = typeof out.body === 'object' && out.body !== null ? (out.body as { error?: unknown }).error : undefined;
-  if (out.status !== 200 || typeof error === 'string') return [502, { ok: false, error: `player: ${typeof error === 'string' ? error : `HTTP ${out.status}`}` }];
-  return [200, { ok: true }];
+  const story = body.story;
+  if (typeof story !== 'string' || !STORY_ID.test(story)) return [400, { ok: false, error: 'story must be a story id' }];
+  if (action === 'play-story') return [200, { ok: true, ...(await playStory(setup, epicDir, story)) }];
+  const test = body.test;
+  if (typeof test !== 'string' || !TEST_KEY.test(test)) return [400, { ok: false, error: 'test must be a test key, <file>:<line>' }];
+  return [200, { ok: true, ...(await playStory(setup, epicDir, story, test)) }];
 }
 
 /** Discard the body of a refused request, so the connection can answer. */

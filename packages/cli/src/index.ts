@@ -8,6 +8,7 @@ import { runSimulate } from './commands/simulate.js';
 import { runGate } from './commands/gate.js';
 import { runNew } from './commands/new.js';
 import { runPlaylists } from './commands/playlists.js';
+import { runPlay } from './commands/play.js';
 import { runServe } from './commands/serve.js';
 import { runCoverage } from './commands/coverage.js';
 import { isGraphVerb, runGraph } from './commands/graph.js';
@@ -41,8 +42,12 @@ Commands:
   progress <epic-dir-or-slug> <story> [--json]
                                          What rehearse sees of the work on a story: boxes with code (Flow-Box commits on
                                          every branch), e2e tests per scenario, gate findings, whether it is signed, its thread.
-  playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir>]
+  playlists <epic-dir-or-slug> [--tests <dir>] [--out <dir> | --push [--birdview-port N]]
                                          Write one Birdview playlist per story from the e2e tests named after scenarios.
+                                         --push writes them through the Birdview player (switching it to the test project).
+  play <epic-dir-or-slug> <story> [--test <file:line>] [--birdview-port N] [--json]
+                                         Switch Birdview to this repo's test project, write the story playlist through it
+                                         and play it (or one test). Exit 1 when Birdview is busy or not running: try again.
 
 Code graph (each verb first updates .rehearse/graph.db at the git top-level; --rebuild makes it again):
   find <words> [--json] [--rebuild]      Find code by words (BM25; camelCase and snake_case are split).
@@ -78,12 +83,14 @@ function isDir(p: string): boolean {
   return existsSync(p) && statSync(p).isDirectory();
 }
 
-/** The entry of bin/rehearse.js: the code graph verbs are async, the other commands run in `run`. */
+/** The entry of bin/rehearse.js: the code graph verbs, progress, playlists and play are async; the other commands run in `run`. */
 export async function main(argv: string[], io: Io): Promise<number> {
   const [command, ...rest] = argv;
   if (isGraphVerb(command)) return runGraph(command, rest, io);
   if (command === 'coverage') return runCoverage(rest, io);
   if (command === 'progress') return runProgress(rest, io);
+  if (command === 'playlists') return runPlaylists(rest, io);
+  if (command === 'play') return runPlay(rest, io);
   return run(argv, io);
 }
 
@@ -97,7 +104,6 @@ export function run(argv: string[], io: Io): number {
   if (command === 'gate') return runGate(rest, io);
   if (command === 'new') return runNew(rest, io);
   if (command === 'serve') return runServe(rest, io);
-  if (command === 'playlists') return runPlaylists(rest, io);
   if (command === 'brief') return runBrief(rest, io);
   if (command !== 'validate') {
     io.stderr(`rehearse: unknown command ${command}\n\n${USAGE}`);

@@ -1,0 +1,94 @@
+story: S12
+scenarios:
+  - id: S12-shown
+    title: The Tests tab shows the story playlist and the Birdview line before anything plays
+    status: draft
+    steps:
+      - name: story-playlist
+        example:
+          id: playlist-on-open
+          given: { storyId: S4, specs: [ tests/S4.spec.ts ], birdview: { project: eudr-fe, playlist: none } }
+          then: { playlist: "S4 · to see the flow as swimlanes and drill into boxes", tests: 5, line: "Birdview: eudr-fe · playlist none", button: Play in Birdview }
+      - { name: review/swimlanes }
+    expect: { criterion: S12-A1, state: { playlistShown: true, playerCalls: 0 } }
+
+  - id: S12-play
+    title: Play in Birdview switches the project, writes the playlist and plays it, in that order
+    status: draft
+    steps:
+      - { name: story-playlist }
+      - name: play-story
+        example:
+          id: one-button
+          given: { storyId: S4 }
+          then: { project: "<repo>/e2e", playlist: "S4 · to see the flow as swimlanes and drill into boxes", played: [ "playlist S4 · to see the flow as swimlanes and drill into boxes" ], calls: [ POST /api/project, POST /api/playlist, POST /api/play ] }
+      - name: story-playlist
+        example: { id: live-status, given: { storyId: S4 }, then: { line: "Birdview: product-development-tools/e2e · playlist S4 · to see the flow as swimlanes and drill into boxes", rows: running } }
+    expect: { criterion: S12-A2, state: { callOrder: [ project, playlist, play ], embedded: true } }
+
+  - id: S12-switch
+    title: Birdview on another project - the notice, Play switches it, Switch back returns it
+    status: draft
+    steps:
+      - name: story-playlist
+        example: { id: other-project, given: { storyId: S4, birdview: { project: eudr-fe } }, then: { notice: "Birdview is on eudr-fe. Play will switch it to this repo.", link: Switch back } }
+      - { name: play-story }
+      - { name: story-playlist }
+      - name: use-project
+        example: { id: switch-back, given: { to: default }, then: { project: eudr-fe } }
+      - { name: story-playlist }
+    expect: { criterion: S12-A3, state: { switched: true, switchedBack: default } }
+
+  - id: S12-busy
+    title: Birdview is busy - the tab says so and nothing is queued
+    status: draft
+    steps:
+      - { name: story-playlist }
+      - name: play-story
+        branch: "Birdview busy"
+        example: { id: busy-409, given: { storyId: S4, playerAnswers: 409 }, then: { message: "Birdview is busy, try again.", retried: false } }
+      - { name: story-playlist }
+    expect: { criterion: S12-A4, state: { message: "Birdview is busy, try again.", queued: false } }
+
+  - id: S12-not-running
+    title: Birdview is not running - the tab says to open it from the bb sidebar
+    status: draft
+    steps:
+      - { name: story-playlist }
+      - name: play-story
+        branch: "Birdview not running"
+        example: { id: player-down, given: { storyId: S4, player: down }, then: { message: "Birdview is not running; open it from the bb sidebar." } }
+      - { name: story-playlist }
+    expect: { criterion: S12-A4, state: { message: "Birdview is not running; open it from the bb sidebar.", retried: false } }
+
+  - id: S12-use-busy
+    title: Switch back while a test runs - busy, and the project stays
+    status: draft
+    steps:
+      - { name: story-playlist }
+      - name: use-project
+        branch: "Birdview busy"
+        example: { id: switch-busy, given: { to: default, playerAnswers: 409 }, then: { message: "Birdview is busy, try again." } }
+      - { name: story-playlist }
+    expect: { criterion: S12-A4, state: { projectUnchanged: true, queued: false } }
+
+  - id: S12-single
+    title: ▶ on one test plays that test only
+    status: draft
+    steps:
+      - { name: story-playlist }
+      - name: play-story
+        example: { id: one-test, given: { storyId: S4, test: "tests/S4.spec.ts:29" }, then: { played: [ "tests/S4.spec.ts:29" ], calls: [ POST /api/project, POST /api/playlist, "POST /api/play {keys}" ] } }
+      - { name: story-playlist }
+    expect: { criterion: S12-A5, state: { played: one test } }
+
+  - id: S12-cli
+    title: An agent plays a story and pushes the playlists from the CLI
+    status: draft
+    steps:
+      - { name: draft-record }
+      - name: play-cli
+        example: { id: cli-play, given: { story: S4 }, then: { exitCode: 0, stdout: "Birdview: <repo>/e2e · playlist S4 · to see the flow as swimlanes and drill into boxes (5 tests)" } }
+      - name: play-story
+        example: { id: cli-busy, given: { storyId: S4, playerAnswers: 409 }, then: { exitCode: 1, stderr: "Birdview is busy, try again." } }
+    expect: { criterion: S12-A6, state: { exitCodes: { ok: 0, busyOrDown: 1, badTest: 2 } } }

@@ -1,6 +1,8 @@
-// The story Tests tab (T13, design page 14): one row per scenario with its e2e test status in
-// words, and whether the Birdview player can be shown here. Status comes from the player's
-// results when it plays this EPIC's test project; otherwise every test is "not run".
+// The story Tests tab (T13, design page 14; T45): one row per scenario with its e2e test status in
+// words, and the Birdview line above "Play in Birdview": which project and playlist the player
+// shows, a notice when it plays another project (Play switches it), and where "Switch back" goes.
+// Status comes from the player's results when it plays this EPIC's test project; otherwise every
+// test is "not run".
 
 import type { Id, Scenario } from '@rehearse/core';
 import type { BirdviewInfo, PlaylistTest } from '@rehearse/server';
@@ -59,66 +61,51 @@ export function testSummary(rows: TestRow[]): string {
   return `${passed} of ${withTest.length} tests pass${missing > 0 ? `, ${missing} scenario${missing === 1 ? '' : 's'} without a test` : ''}`;
 }
 
-/** Shell-quote a path for a copyable command. */
-function q(path: string): string {
-  return /^[\w@%+=:,./-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\''`)}'`;
+/** The words of the server when the player does not answer (birdview-play.ts). */
+export const NOT_RUNNING = 'Birdview is not running; open it from the bb sidebar.';
+
+/** A project folder in a few words: `<repo>/e2e` for a test project folder named e2e, else its name. */
+export function projectName(path: string): string {
+  const parts = path.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean);
+  const last = parts[parts.length - 1] ?? path;
+  return last === 'e2e' && parts.length > 1 ? `${parts[parts.length - 2]}/e2e` : last;
 }
 
-/** The commands that point Birdview at this EPIC's test project and its story playlists. */
-export function setupCommands(info: BirdviewInfo): string[] {
-  if (!info.projectDir) return [];
-  const out = [`bb plugin config birdview-e2e set projectDir ${q(info.projectDir)}`];
-  if (info.playlistsDir) out.push(`bb plugin config birdview-e2e set playlistsDir ${q(info.playlistsDir)}`);
-  return out;
-}
+const samePath = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
 
-export interface PlayerNotice {
-  /** Embed the player: it runs and plays this EPIC's test project. */
+export interface BirdviewStatus {
+  /** "Birdview: <project> · playlist <name>", or why there is no player. */
+  line: string;
+  /** When the player plays another project: "Birdview is on <it>. Play will switch it to this repo." */
+  other?: string;
+  /** "Switch back" to the player's default project, when it plays another one now. */
+  switchBack?: { label: string; projectDir: string };
+  /** Embed the player: it plays this repo's test project. */
   embed: boolean;
-  /** What is wrong, in words; empty when all is well. */
-  title?: string;
-  text?: string;
-  /** Commands to run by hand, in order. */
-  commands: string[];
+  /** Why "Play in Birdview" cannot be pressed; undefined when it can. */
+  blocked?: string;
 }
 
-/** Whether to embed the player, and the steps to set it up when not. */
-export function playerNotice(info: BirdviewInfo): PlayerNotice {
-  const commands = setupCommands(info);
-  if (!info.projectDir) {
-    return {
-      embed: false,
-      title: 'This EPIC has no e2e test project',
-      text: 'rehearse looks for an e2e/ folder with a playwright.config.ts above the EPIC folder. Add one, name each test after its scenario id, then run rehearse playlists.',
-      commands: [],
-    };
-  }
+/** The Birdview line of the Tests tab, the notices under it, and whether Play can be pressed. */
+export function birdviewStatus(info: BirdviewInfo): BirdviewStatus {
   const p = info.player;
-  if (p.kind === 'off') {
-    return {
-      embed: false,
-      title: `The Birdview player is not running on port ${info.port}`,
-      text: 'Install the birdview-e2e plugin in bb and open Birdview from the sidebar, then point it at this test project:',
-      commands,
-    };
+  const noTests = !info.playlist || info.playlist.tests.length === 0;
+  if (!info.projectDir) {
+    const blocked = 'This EPIC has no e2e test project: rehearse looks for an e2e/ folder with a playwright.config.ts above the EPIC folder.';
+    return { line: blocked, embed: false, blocked };
   }
-  if (p.kind === 'other') {
-    return {
-      embed: false,
-      title: 'The Birdview player plays another project',
-      text: `It plays ${p.projectDir || 'no project'}, not ${info.projectDir}. To play these tests, point it at this test project (this changes Birdview for every project):`,
-      commands,
-    };
-  }
-  if (info.playlistsDir && p.playlistsDir && p.playlistsDir !== info.playlistsDir) {
-    return {
-      embed: true,
-      title: 'Birdview reads playlists from another folder',
-      text: `It reads ${p.playlistsDir}; the story playlists are in ${info.playlistsDir}.`,
-      commands: commands.slice(1),
-    };
-  }
-  return { embed: true, commands: [] };
+  if (p.kind === 'off') return { line: NOT_RUNNING, embed: false, blocked: NOT_RUNNING };
+  const playing = info.active?.projectDir ?? (p.kind === 'other' ? p.projectDir : info.projectDir);
+  const line = `Birdview: ${playing ? projectName(playing) : 'no project'} · playlist ${info.active?.playlist?.name ?? 'none'}`;
+  const def = info.defaultProject;
+  const switchBack = def && playing && !samePath(def.projectDir, playing) ? { label: `Switch back to ${projectName(def.projectDir)}`, projectDir: def.projectDir } : undefined;
+  return {
+    line,
+    ...(p.kind === 'other' ? { other: `Birdview is on ${playing ? projectName(playing) : 'no project'}. Play will switch it to this repo.` } : {}),
+    ...(switchBack ? { switchBack } : {}),
+    embed: p.kind === 'ours',
+    ...(noTests ? { blocked: 'No e2e test of this story yet: name a Playwright test after one of its scenario ids.' } : {}),
+  };
 }
 
 /** The player page, embedded: no chat, the active view. */

@@ -390,6 +390,57 @@ root:
       # Under about 6k tokens. `rehearse brief <epic> <story>` prints it; it refuses a stale or
       # unsigned story unless --allow-unsigned.
 
+    # --- Play a story's e2e tests in Birdview with one button (S12, T45) ---
+    # New boxes only: review, story-tests and playback stay as they are; root edges join them.
+    - id: story-playlist
+      kind: output
+      lane: builder
+      package: ui
+      title: Story playlist and Play in Birdview
+      stories: [S12]
+      inputs:  { storyId: string }
+      outputs: { storyId: string, decision: "enum[play, play-test, switch-back]", test: "string?", to: "enum[this, default]?" }
+      reads:   [Story.*, Scenario.*]
+      # GET /api/birdview?story= builds the playlist from the record and the spec files (as
+      # `rehearse playlists`), and reads the player's project, playlist and default project.
+      # "Birdview: <project> · playlist <name>"; on another project "Birdview is on <it>. Play will
+      # switch it to this repo." and "Switch back". A ▶ per test. Busy and not running in words.
+
+    - id: play-story
+      kind: input
+      lane: builder
+      package: server
+      title: Play the story in Birdview
+      stories: [S12]
+      inputs:  { storyId: string, test: "string?" }
+      outputs: { storyId: string, project: string, playlist: string, played: "list string" }
+      sideEffects: [Birdview POST /api/project, Birdview POST /api/playlist, Birdview POST /api/play]
+      errorExits: ["Birdview busy", "Birdview not running"]
+      # POST /api/birdview/play-story and /play-test (token and Origin). One try: 409 is "Birdview
+      # is busy, try again", no answer is "Birdview is not running; open it from the bb sidebar".
+
+    - id: use-project
+      kind: input
+      lane: builder
+      package: server
+      title: Switch Birdview back
+      stories: [S12]
+      inputs:  { storyId: string, to: "enum[this, default]" }
+      outputs: { storyId: string, project: string }
+      sideEffects: [Birdview GET /api/projects, Birdview POST /api/project]
+      errorExits: ["Birdview busy"]
+      # POST /api/birdview/use-project (token and Origin). The default is the player's projectDir setting.
+
+    - id: play-cli
+      kind: input
+      lane: agent
+      package: cli
+      title: rehearse play and playlists --push
+      stories: [S12]
+      inputs:  { story: string, test: "string?" }
+      outputs: { storyId: string, test: "string?", exitCode: number }
+      # The same calls as the Tests tab; exit 1 when busy or not running, 2 on a bad argument.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -427,3 +478,14 @@ root:
     - { from: watch-build,     to: review,      label: "story not signed or stale", kind: error }
     - { from: start-build,     to: build-brief }
     - { from: build-brief,     to: watch-build }
+    - { from: review,          to: story-playlist }
+    - { from: story-playlist,  to: play-story }
+    - { from: story-playlist,  to: use-project }
+    - { from: story-playlist,  to: review }
+    - { from: play-story,      to: story-playlist }
+    - { from: play-story,      to: story-playlist, label: "Birdview busy",        kind: error }
+    - { from: play-story,      to: story-playlist, label: "Birdview not running", kind: error }
+    - { from: use-project,     to: story-playlist }
+    - { from: use-project,     to: story-playlist, label: "Birdview busy",        kind: error }
+    - { from: draft-record,    to: play-cli }
+    - { from: play-cli,        to: play-story }
