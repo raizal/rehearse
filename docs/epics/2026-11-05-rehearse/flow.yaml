@@ -1099,6 +1099,97 @@ root:
       outputs: { epic: string }
       # A link back to the EPIC; no Next story.
 
+    # --- One map per story: every scenario a branch of the main path (S22, T57) ---
+    # New boxes only: the review, approve and Next boxes stay as they are; root edges join them.
+    - id: main-path
+      kind: process
+      lane: rehearse
+      package: core
+      title: Find the story's main path
+      stories: [S22]
+      inputs:  { storyId: "string?" }   # the story open in the review
+      outputs: { storyId: string, mainPath: string, source: "enum[only, derived, owner, fallback]" }
+      reads:   [Scenario.steps]
+      errorExits: ["no scenario without an error edge", "unknown scenario in review.yaml"]
+      # The scenario with no error edge that the others follow the furthest (box and branch), then
+      # the one that walks the most of the story's boxes, then the first in file order. The owner's
+      # pick in review.yaml wins; review.yaml is not part of the signed record. When every scenario
+      # takes an error edge, the first one is the main path and the page says so. A pick naming no
+      # scenario of the story is ignored (validate reports it).
+
+    - id: branch-point
+      kind: process
+      lane: rehearse
+      package: core
+      title: Find where each scenario leaves the main path
+      stories: [S22]
+      inputs:  { storyId: string, mainPath: string }
+      outputs: { storyId: string, mainPath: string, scenarioId: string, shared: number, branchAt: "string?", condition: "string?", rejoin: "string?" }
+      reads:   [Scenario.steps]
+      # Steps are equal only with the same box, branch and example. The first step that differs,
+      # the condition there in plain words (the answer to a decision, an error exit, other example
+      # data), and the main path's box where it comes back, if it does.
+
+    - id: review-order
+      kind: process
+      lane: rehearse
+      package: ui
+      title: Order the scenarios along the map
+      stories: [S22]
+      inputs:  { storyId: string, mainPath: string }
+      outputs: { storyId: string, order: list string }
+      # Main path first, then the branches in the order they leave it (file order on a tie): the
+      # review queue, the cards of the story page and Next scenario follow it.
+
+    - id: story-map
+      kind: output
+      lane: builder
+      package: ui
+      title: The story at a glance, one map per story
+      stories: [S22]
+      inputs:  { storyId: string, order: list string }
+      outputs: { storyId: string, scenarioId: string }
+      # The union of the story's paths in the role lanes (the storyboard's layout): the main path
+      # as the spine, each box drawn once, each path a line; a branch opens its scenario. On the
+      # story page above the scenario cards, and on every storyboard.
+
+    - id: highlight-scenario
+      kind: output
+      lane: builder
+      package: ui
+      title: Highlight the open scenario on the map
+      stories: [S22]
+      inputs:  { scenarioId: string }
+      outputs: { scenarioId: string, header: string, marker: "string?", rejoin: "string?" }
+      # Its path in full colour, the others faded and out of the tab order. "Branches here: when
+      # <condition>", "Joins the main path again", and the header "Main path" or "Branch of the
+      # main path at <step>: when <condition>".
+
+    - id: collapse-shared
+      kind: process
+      lane: builder
+      package: ui
+      title: Collapse the opening shared with the main path
+      stories: [S22]
+      inputs:  { scenarioId: string }
+      outputs: { scenarioId: string, shared: number, startAt: number, seen: number }
+      errorExits: ["shared steps not seen yet"]
+      # "Same as the main path up to <step> (N steps)"; playback starts at the branch point. A
+      # collapsed step counts as seen only when the same step (box, branch, example) was seen on
+      # the main path's storyboard in this browser; expanding shows them and marks them seen.
+
+    - id: pick-main-path
+      kind: input
+      lane: builder
+      package: server
+      title: Pick the main path (UI only)
+      stories: [S22]
+      inputs:  { storyId: string, scenarioId: string }
+      outputs: { storyId: string, mainPath: string }
+      errorExits: ["unknown story or scenario"]
+      # POST /api/review/main-path with the session token and the page's Origin writes review.yaml,
+      # keeping its comments. An owner action: agents never call it.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -1268,3 +1359,18 @@ root:
     - { from: next-story,         to: review }
     - { from: next-story,         to: epic-all-approved,  label: "nothing left to approve",      kind: error }
     - { from: epic-all-approved,  to: review }
+    - { from: review,             to: main-path }
+    - { from: main-path,          to: branch-point }
+    - { from: main-path,          to: branch-point,       label: "no scenario without an error edge", kind: error }
+    - { from: main-path,          to: branch-point,       label: "unknown scenario in review.yaml",   kind: error }
+    - { from: branch-point,       to: review-order }
+    - { from: review-order,       to: story-map }
+    - { from: review-order,       to: next-scenario }
+    - { from: story-map,          to: highlight-scenario }
+    - { from: story-map,          to: pick-main-path }
+    - { from: pick-main-path,     to: main-path }
+    - { from: pick-main-path,     to: story-map,          label: "unknown story or scenario",         kind: error }
+    - { from: highlight-scenario, to: collapse-shared }
+    - { from: highlight-scenario, to: approve }
+    - { from: collapse-shared,    to: approve }
+    - { from: collapse-shared,    to: highlight-scenario, label: "shared steps not seen yet",         kind: error }

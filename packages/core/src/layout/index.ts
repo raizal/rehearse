@@ -4,3 +4,4 @@
 
 export * from './diagram.js';
 export * from './storyflow.js';
+export * from './branches.js';

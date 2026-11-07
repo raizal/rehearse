@@ -180,7 +180,7 @@ export function chartElements({ sf, layout, current, seen, onPick, onKey, refFn 
 }
 
 /** Width of an element, followed as it changes; 0 when it has no layout (tests). */
-function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
+export function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
   const ref = useRef<T>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -194,7 +194,7 @@ function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
 }
 
 /** Refit when the canvas changes size; pan to the current step when it is out of view. */
-function Follow({ layout, current, id }: { layout: SfLayout; current: number; id: string | undefined }) {
+export function Follow({ layout, current, id }: { layout: Pick<SfLayout, 'nodes'>; current: number; id: string | undefined }) {
   const rf = useReactFlow();
   const width = useStore((s) => s.width);
   const height = useStore((s) => s.height);
@@ -215,7 +215,7 @@ function Follow({ layout, current, id }: { layout: SfLayout; current: number; id
 }
 
 /** The tallest the canvas grows before the chart zooms out (zoom and pan for big ones). */
-const MAX_H = 1100;
+export const MAX_H = 1100;
 
 export function StoryFlowChart(props: StoryFlowChartProps) {
   const { sf, layout, current, label } = props;

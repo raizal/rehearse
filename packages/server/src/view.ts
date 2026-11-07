@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkSystem, compareSystem, loadEpic, loadSystem, makeReport, scenarioHash, systemDirFor, validateRecord } from '@rehearse/core';
+import { checkSystem, compareSystem, loadEpic, loadSystem, makeReport, readReview, scenarioHash, systemDirFor, validateRecord, type ReviewInputs } from '@rehearse/core';
 import type {
   ArchitectureChange,
   EntityModel,
@@ -54,6 +54,8 @@ export interface EpicView {
   system?: SystemView;
   /** As-is + change → to-be, when there is an as-is architecture or a change. */
   compare?: SystemCompare;
+  /** review.yaml (T57): the owner's main path per story, valid picks only. Not part of the signed record. */
+  review?: ReviewInputs;
 }
 
 /** docs/system/ as the UI reads it. */
@@ -107,6 +109,8 @@ export function buildEpicView(dir: string): EpicView {
     if (system.entities) view.system.entities = system.entities;
   }
   if (system.architecture || record.architecture) view.compare = compareSystem(system, record);
+  const review = readReview(record).inputs;
+  if (Object.keys(review.mainPath).length > 0) view.review = review;
   return view;
 }
 

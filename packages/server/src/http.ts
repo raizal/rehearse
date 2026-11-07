@@ -36,6 +36,7 @@ import { birdviewInfo, DEFAULT_BIRDVIEW_PORT, findTestProject, PLAYER_ACTIONS, t
 import { BirdviewError, playStory, useProject } from './birdview-play.js';
 import { gatherBriefCode } from './brief-code.js';
 import { designView, figcraftFile, FIGCRAFT_PATH, MAX_DESIGN_BODY_BYTES, readLinkedDesignFile, saveDesign } from './design-route.js';
+import { pickMainPath } from './review-main-path.js';
 import { linkDesign, refreshDesignPictures } from './design-link.js';
 import { FIGCRAFT_CONTROL_HOST, FIGCRAFT_CONTROL_PORT, type FigcraftControlAddress } from './figcraft-control.js';
 import { FIGCRAFT_VERSION, FigcraftFetchError, fetchFigcraftWeb, type Fetcher } from './figcraft-web.js';
@@ -147,6 +148,7 @@ const ROUTES: Record<string, string> = {
   '/api/design/save': 'POST',
   '/api/design/link': 'POST',
   '/api/design/refresh': 'POST',
+  '/api/review/main-path': 'POST',
   '/api/figcraft/fetch': 'POST',
   ...Object.fromEntries(PLAYER_ACTIONS.map((a) => [`/api/birdview/${a}`, 'POST'])),
 };
@@ -368,6 +370,20 @@ export function createHandler(opts: HandlerOptions): (req: IncomingMessage, res:
           return coveragePercent((answer as { boxes?: Record<string, CoverageStats> }).boxes);
         },
       }, opts.printer ?? chromiumPrinter(top)));
+      return;
+    }
+    if (path === '/api/review/main-path') {
+      // The owner picks a story's main path (T57): review.yaml, not part of the signed record.
+      void readJsonPost(req, session, MAX_BODY_BYTES).then(
+        (body) => {
+          if ('status' in body) sendJson(res, body.status, { ok: false, error: body.error });
+          else {
+            const [status, out] = pickMainPath(opts.epicDir, body.json);
+            sendJson(res, status, out);
+          }
+        },
+        (e: unknown) => sendJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }),
+      );
       return;
     }
     if (path.startsWith('/api/design') || path === '/api/figcraft/fetch') {

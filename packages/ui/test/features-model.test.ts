@@ -207,6 +207,12 @@ describe('big picture (S4-A4)', () => {
     // T44 (S11): the refusal goes back to review, and a started build comes back to its panel.
     expect(bp.edges.filter((e) => e.back)).toEqual([
       { from: 'log-correction', to: 'draft-record', back: true },
+      // T52 (S18): the deck comes back to the preview.
+      { from: 'deck-file', to: 'present-view', back: true },
+      // T53 (S19): the zip download asks the server for the deck's facts again, with the recordings.
+      { from: 'download-with-recordings', to: 'gather-deck-facts', back: true },
+      // T57 (S22): steps not seen yet on the main path go back to the highlighted map.
+      { from: 'collapse-shared', to: 'highlight-scenario', back: true },
       { from: 'watch-build', to: 'review', back: true },
       // T50 (S16): a bad link goes back to the record; the hosted FigCraft and a save or refusal come back to the Design tab.
       { from: 'design-links', to: 'draft-record', back: true },
@@ -239,16 +245,15 @@ describe('big picture (S4-A4)', () => {
       { from: 'test-brief', to: 'work-rules', back: true },
       // T51 (S17): refreshed pictures come back to the Design tab.
       { from: 'refresh-design-pictures', to: 'design-tab', back: true },
-      // T52 (S18): the deck comes back to the preview.
-      { from: 'deck-file', to: 'present-view', back: true },
-      // T53 (S19): the zip download asks the server for the deck's facts again, with the recordings.
-      { from: 'download-with-recordings', to: 'gather-deck-facts', back: true },
       // T55 (S21): Next scenario, Next story, both finish panels and a failed approval go back to review.
       { from: 'after-approve', to: 'review', back: true },
       { from: 'next-scenario', to: 'review', back: true },
       { from: 'story-all-approved', to: 'review', back: true },
       { from: 'next-story', to: 'review', back: true },
       { from: 'epic-all-approved', to: 'review', back: true },
+      // T57 (S22): the owner's pick of a main path goes back to finding it; a refused pick goes back to the map.
+      { from: 'pick-main-path', to: 'main-path', back: true },
+      { from: 'pick-main-path', to: 'story-map', back: true },
     ]);
     expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: view.prd!.stories.length, processes: main.length });
   });

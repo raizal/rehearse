@@ -4,7 +4,8 @@
 // takes. The other branches of that decision lead, faded, to the boxes they would go to.
 // The layout is plain arithmetic: the path is a chain, so each step gets a row of its own.
 
-import type { Flow, Prd, Scenario, ScenarioStep } from '../types.js';
+import type { Flow, Id, Prd, Scenario, ScenarioStep } from '../types.js';
+import { storyBranches, type StoryBranches } from './branches.js';
 import { boxAt, diagramAt, laneColor, parentPath, UNKNOWN_LANE_COLOR, type LaneInfo } from './diagram.js';
 
 export interface SfStep {
@@ -213,4 +214,226 @@ export function layoutStoryFlow(sf: StoryFlow): SfLayout {
   }
   const height = (sf.steps.length ? y - SF.rowGap : y) + SF.bottom;
   return { width: Math.max(x, 1), height, lanes, nodes };
+}
+
+// ---------------------------------------------------------------- one map per story (S22, T57)
+
+/** A box of the story map: drawn once, however many scenarios go through it. */
+export interface SmNode {
+  id: string;
+  path: string;
+  title: string;
+  lane: string;
+  decision: boolean;
+  inside?: string;
+  /** Scenarios that go through the box, in branch order. */
+  scenarios: Id[];
+  /** On the main path. */
+  main: boolean;
+}
+
+/** A line of the story map: one transition, with the scenarios that take it. */
+export interface SmEdge {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+  error: boolean;
+  /** The scenarios that take it; empty for an exit no scenario of the story takes (drawn faded). */
+  scenarios: Id[];
+  /** The path the line is drawn for: the main path, or the first branch (in branch order) that takes it; '' when none does. */
+  line: Id;
+  main: boolean;
+  /** False for an exit of a decision no scenario takes: to a faded box, or to a box of the map. */
+  taken: boolean;
+}
+
+/** A box a decision could go to that no scenario of the story takes. */
+export interface SmGhost {
+  id: string;
+  /** Id of the decision node. */
+  from: string;
+  path: string;
+  title: string;
+  lane: string;
+  label?: string;
+  error: boolean;
+}
+
+export interface StoryMap {
+  storyId: Id;
+  branches: StoryBranches;
+  lanes: LaneInfo[];
+  nodes: SmNode[];
+  ghosts: SmGhost[];
+  edges: SmEdge[];
+  /** Scenario id → the node id of each of its steps (a loop visits a node twice). */
+  steps: Record<Id, string[]>;
+}
+
+/**
+ * The union of a story's scenario paths (S22): one node per box, one line per transition, the main
+ * path first. `override` is the owner's pick of the main path (review.yaml).
+ */
+export function storyMap(flow: Flow | undefined, prd: Prd | undefined, storyId: Id, scenarios: Scenario[], override?: Id): StoryMap {
+  const own = scenarios.filter((s) => s && s.story === storyId);
+  const branches = storyBranches(flow, storyId, own, override);
+  const byId = new Map(own.map((s) => [s.id, s]));
+  const ordered = branches.branches.map((b) => byId.get(b.scenarioId)).filter((s): s is Scenario => s !== undefined);
+  const nodes = new Map<string, SmNode>();
+  const edges = new Map<string, SmEdge>();
+  const ghosts: SmGhost[] = [];
+  const steps: Record<Id, string[]> = {};
+  const taken = new Map<string, Set<string>>();
+  const node = (path: string, scenarioId: Id, main: boolean): SmNode => {
+    let n = nodes.get(path);
+    if (!n) {
+      const box = boxAt(flow, path);
+      const parent = parentPath(path);
+      n = {
+        id: `box-${nodes.size + 1}`,
+        path,
+        title: box?.title ?? path,
+        lane: typeof box?.lane === 'string' ? box.lane : '?',
+        decision: box?.kind === 'decision',
+        ...(parent !== '' ? { inside: boxAt(flow, parent)?.title ?? parent } : {}),
+        scenarios: [],
+        main,
+      };
+      nodes.set(path, n);
+    }
+    if (!n.scenarios.includes(scenarioId)) n.scenarios.push(scenarioId);
+    if (main) n.main = true;
+    return n;
+  };
+  const others: { from: SmNode; exits: Exit[] }[] = [];
+  for (const sc of ordered) {
+    const main = sc.id === branches.mainId;
+    const list = (Array.isArray(sc.steps) ? sc.steps : []).filter((s) => s && typeof s.name === 'string');
+    const ids = list.map((s) => node(s.name, sc.id, main).id);
+    steps[sc.id] = ids;
+    list.forEach((step, i) => {
+      const { taken: t, others: rest } = exits(flow, list, i);
+      if (rest.length) others.push({ from: nodes.get(step.name)!, exits: rest });
+      if (i + 1 >= list.length) return;
+      const label = step.branch ?? t?.label;
+      const key = `${ids[i]}>${ids[i + 1]}|${label ?? ''}`;
+      let e = edges.get(key);
+      if (!e) {
+        e = { id: `line-${edges.size + 1}`, from: ids[i]!, to: ids[i + 1]!, ...(label !== undefined ? { label } : {}), error: t?.error ?? false, scenarios: [], line: sc.id, main, taken: true };
+        edges.set(key, e);
+      }
+      if (!e.scenarios.includes(sc.id)) e.scenarios.push(sc.id);
+      if (main) e.main = true;
+      const from = taken.get(ids[i]!) ?? new Set<string>();
+      from.add(list[i + 1]!.name);
+      taken.set(ids[i]!, from);
+    });
+  }
+  // Exits of a decision no scenario takes, once per decision and target: a dashed line to the box
+  // when the map has it, else to a faded box of its own.
+  const exitKeys = new Set<string>();
+  const untaken: SmEdge[] = [];
+  for (const { from, exits: rest } of others) {
+    for (const x of rest) {
+      const key = `${from.id}>${x.to}`;
+      if (exitKeys.has(key) || taken.get(from.id)?.has(x.to)) continue;
+      exitKeys.add(key);
+      let to = nodes.get(x.to)?.id;
+      if (to === undefined) {
+        const target = boxAt(flow, x.to);
+        to = `ghost-${from.id}-${ghosts.length + 1}`;
+        ghosts.push({ id: to, from: from.id, path: x.to, title: target?.title ?? x.to, lane: typeof target?.lane === 'string' ? target.lane : '?', ...(x.label !== undefined ? { label: x.label } : {}), error: x.error });
+      }
+      untaken.push({ id: `exit-${untaken.length + 1}`, from: from.id, to, ...(x.label !== undefined ? { label: x.label } : {}), error: x.error, scenarios: [], line: '', main: false, taken: false });
+    }
+  }
+  const all = [...nodes.values()];
+  return { storyId, branches, lanes: usedLanes(flow, prd, [...all.map((n) => n.lane), ...ghosts.map((g) => g.lane)]), nodes: all, ghosts, edges: [...edges.values(), ...untaken], steps };
+}
+
+export interface SmLayout extends SfLayout {
+  /** Lines that go back up (a loop, or a branch that rejoins above): drawn on the side. */
+  back: Set<string>;
+}
+
+/**
+ * The story map in the storyboard's lane columns (layoutStoryFlow's arithmetic): the main path is
+ * the spine, one row per step, in the first column of each lane. A box only branches visit sits in
+ * a further column of its lane, in the row after the box it is reached from (lower when that slot
+ * is taken). A decision's faded boxes sit beside it, in the next free column.
+ */
+export function layoutStoryMap(map: StoryMap): SmLayout {
+  const cell = new Map<string, { lane: string; col: number; row: number; w: number; h: number }>();
+  const used = new Set<string>();
+  const slot = (lane: string, col: number, row: number) => `${lane}|${col}|${row}`;
+  const place = (id: string, lane: string, minCol: number, row: number, w: number, h: number, maxCol = 3) => {
+    for (let r = row; ; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        if (used.has(slot(lane, c, r))) continue;
+        used.add(slot(lane, c, r));
+        cell.set(id, { lane, col: c, row: r, w, h });
+        return;
+      }
+    }
+  };
+  const byId = new Map(map.nodes.map((n) => [n.id, n]));
+  const sizeOf = (n: SmNode) => stepSize(n);
+  const order = map.branches.branches.map((b) => b.scenarioId);
+  let row = 0;
+  for (const id of order) {
+    const ids = map.steps[id] ?? [];
+    ids.forEach((nid, i) => {
+      if (cell.has(nid)) return;
+      const n = byId.get(nid)!;
+      const { w, h } = sizeOf(n);
+      if (id === map.branches.mainId) place(nid, n.lane, 0, row++, w, h, 0);
+      else {
+        const prev = i > 0 ? cell.get(ids[i - 1]!) : undefined;
+        place(nid, n.lane, 1, prev ? prev.row + 1 : 0, w, h);
+      }
+    });
+  }
+  for (const g of map.ghosts) {
+    const from = cell.get(g.from);
+    place(g.id, g.lane, 1, from?.row ?? 0, SF.ghostW, SF.ghostH, 6);
+  }
+  // Column widths per lane, row heights.
+  const colW = new Map<string, number>();
+  const rowH = new Map<number, number>();
+  for (const c of cell.values()) {
+    const k = `${c.lane}|${c.col}`;
+    colW.set(k, Math.max(colW.get(k) ?? 0, c.w));
+    rowH.set(c.row, Math.max(rowH.get(c.row) ?? 0, c.h));
+  }
+  const lanes: SfLaidLane[] = [];
+  const colX = new Map<string, number>();
+  let x = 0;
+  for (const lane of map.lanes) {
+    const cols = [...colW.keys()].filter((k) => k.startsWith(`${lane.role}|`)).map((k) => Number(k.split('|').pop())).sort((a, b) => a - b);
+    let cx = x + SF.lanePad;
+    cols.forEach((c, i) => {
+      colX.set(`${lane.role}|${c}`, cx);
+      cx += colW.get(`${lane.role}|${c}`)! + (i < cols.length - 1 ? SF.ghostGap : 0);
+    });
+    const w = Math.max(cx - x + SF.lanePad, SF.lanePad * 2 + SF.stepW);
+    lanes.push({ ...lane, x, w });
+    x += w;
+  }
+  const rows = [...rowH.keys()].sort((a, b) => a - b);
+  const rowY = new Map<number, number>();
+  let y = SF.headerH + SF.top;
+  for (const r of rows) {
+    rowY.set(r, y);
+    y += rowH.get(r)! + SF.rowGap;
+  }
+  const nodes: Record<string, SfRect> = {};
+  for (const [id, c] of cell) {
+    const cw = colW.get(`${c.lane}|${c.col}`)!;
+    const rh = rowH.get(c.row)!;
+    nodes[id] = { x: colX.get(`${c.lane}|${c.col}`)! + (cw - c.w) / 2, y: rowY.get(c.row)! + (rh - c.h) / 2, w: c.w, h: c.h };
+  }
+  const back = new Set(map.edges.filter((e) => e.taken && (cell.get(e.to)?.row ?? 0) <= (cell.get(e.from)?.row ?? 0)).map((e) => e.id));
+  const height = (rows.length ? y - SF.rowGap : y) + SF.bottom;
+  return { width: Math.max(x, 1), height, lanes, nodes, back };
 }
