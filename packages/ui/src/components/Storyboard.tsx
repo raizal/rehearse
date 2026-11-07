@@ -9,18 +9,31 @@
 // shows its detail; Approve is on only after every step was seen. What was seen lives in the
 // browser only and is never sent.
 
-import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent, type RefObject } from 'react';
 import { layoutStoryFlow, notTaken, storyFlow, type StoryFlow } from '../model/storyflow.js';
 import { StoryFlowChart } from './StoryFlowChart.js';
 import type { Id } from '@rehearse/core';
 import { fetchAllProgress, type ScenarioView, type StoryProgress, type ThreadOutcome } from '../api.js';
-import type { ApproveOk, PostOutcome, ReviewEpicView } from '../contract.js';
+import type { ApprovalView, ApproveOk, PostOutcome, ReviewEpicView } from '../contract.js';
 import { boxAt, laneColor, roleName } from '../model/diagram.js';
 import { stepCount, stepView } from '../model/playback.js';
 import { seenSteps, allSeen as isAllSeen, type SeenState } from '../model/seen.js';
 import { contextLabel } from '../model/storythread.js';
 import { overviewText, overviewThread } from '../model/progress.js';
-import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue, type ApprovalKind } from '../model/storyboard.js';
+import {
+  approvalState,
+  criterionFor,
+  nextInStory,
+  nextStoryToApprove,
+  nextToApprove,
+  pathMap,
+  progress,
+  reviewQueue,
+  storyFinish,
+  type ApprovalKind,
+  type NextStory,
+  type StoryFinish,
+} from '../model/storyboard.js';
 import { queueRows, scenarioSummary, stepTitle, storyColor } from '../model/storypage.js';
 import { ApproveBar, type ApproveControls } from './Approve.js';
 import { DesignBeside } from './DesignBeside.js';
@@ -108,6 +121,8 @@ export function Storyboard(props: StoryboardProps) {
             onBigPicture={props.onBigPicture}
             onStories={props.onStories}
             back={props.back}
+            onPick={props.onPick}
+            onSignOff={props.onOpenStory}
           />
         </div>
       </main>
@@ -227,6 +242,9 @@ function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }
   const order = useMemo(() => reviewQueue(view.prd, view.scenarios).flatMap((g) => g.scenarios), [view]);
   const { done, total } = progress(view.scenarios, approve.approvals);
   const next = nextToApprove(order, scenarioId, approve.approvals);
+  // Say when "next" crosses into another story than the one open.
+  const nextStory = order.find((sv) => sv.scenario.id === next)?.scenario.story;
+  const crosses = next !== undefined && nextStory !== undefined && nextStory !== storyId;
   const items = useRef(new Map<Id, HTMLButtonElement>());
 
   // Up and down move through the stories and open the one they reach.
@@ -280,7 +298,7 @@ function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }
         </p>
         <progress max={Math.max(1, total)} value={done} aria-hidden="true" className="queue-bar" />
         <button type="button" className="action" data-testid="queue-next" disabled={next === undefined} onClick={() => next && onPick(next)}>
-          {next === undefined ? 'Nothing left to approve' : `Next to approve: ${next}`}
+          {next === undefined ? 'Nothing left to approve' : crosses ? `Next to approve: ${next}, in another story (${nextStory})` : `Next to approve: ${next}`}
         </button>
       </div>
     </nav>
@@ -289,8 +307,10 @@ function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }
 
 // ---------------------------------------------------------------- scenario cards (page 2, below the story)
 
-function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, session, busy, outcome }: StoryboardProps & { storyId: Id }) {
+function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, session, busy, outcome, onBigPicture }: StoryboardProps & { storyId: Id }) {
   const ofStory = view.scenarios.filter((sv) => sv.scenario.story === storyId);
+  // Every scenario approved: the next story to approve (S21). Signing off is on this page already.
+  const finish = storyFinish({ ...view, approvals: approve.approvals }, storyId);
   const canSelect = (sv: ScenarioView) => !approve.disabled && approve.reasonFor(sv) !== undefined && isAllSeen(seen, sv);
   const toAdd = ofStory.filter(canSelect).map((sv) => sv.scenario.id).filter((id) => !approve.selected.has(id));
   const approvable = ofStory.some((sv) => approve.reasonFor(sv) !== undefined);
@@ -315,6 +335,7 @@ function StoryScenarios({ view, storyId, seen, approve, onPick, onSelectMany, se
         )}
       </div>
       <ApproveBar session={session} selected={approve.selected} disabled={approve.disabled} busy={busy} outcome={outcome} onApprove={approve.onApprove} />
+      {finish && <StoryFinishPanel finish={finish} onPick={onPick} onEpic={onBigPicture} />}
       {ofStory.length === 0 ? (
         <p className="muted">This story has no scenarios yet.</p>
       ) : (
@@ -389,6 +410,10 @@ interface StoryCardProps {
   onBigPicture?: () => void;
   onStories?: () => void;
   back?: BackControl;
+  /** Open the storyboard of another scenario: the next one to approve (S21). */
+  onPick?: (id: Id) => void;
+  /** Open a story's page, where its sign-off is (S21). */
+  onSignOff?: (storyId: Id) => void;
 }
 
 /** How long Play shows each step before it moves on. */
@@ -404,7 +429,7 @@ function reveal(el: HTMLElement) {
   else if (a.bottom > b.bottom - 8) page.scrollTop += a.bottom - b.bottom + 8;
 }
 
-export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session, outcome, onBack, onBigPicture, onStories, back }: StoryCardProps) {
+export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session, outcome, onBack, onBigPicture, onStories, back, onPick, onSignOff }: StoryCardProps) {
   const { scenario } = sv;
   const { flow, prd } = view;
   const id = scenario.id;
@@ -423,6 +448,10 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   const [playing, setPlaying] = useState(false);
   const nodes = useRef(new Map<number, HTMLButtonElement>());
   const markRef = useRef((i: number) => onSeen(sv, i));
+  // An approval of this scenario that succeeded after the page opened (not one carried over
+  // from the scenario before): focus moves to the next action. A failed one never moves on.
+  const outcomeAtOpen = useRef(outcome);
+  const justApproved = outcome !== outcomeAtOpen.current && outcome?.kind === 'ok' && outcome.body.approved.includes(id);
   markRef.current = (i: number) => onSeen(sv, i);
 
   // A step counts as seen when the panel shows its detail (example, contract, branches): the
@@ -637,6 +666,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
                   See every step first: {seenSet.size} of {total} seen. Pick each step in the chart, or use “Next step” or “Play”.
                 </p>
               )}
+              <NextStep view={view} sv={sv} approvals={approve.approvals} focus={justApproved} onPick={onPick} onSignOff={onSignOff} onEpic={onBigPicture} />
             </div>
             {session && (
               <div className="card-approve-sign small muted">
@@ -686,6 +716,157 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
         </div>
       </details>
     </article>
+  );
+}
+
+// ---------------------------------------------------------------- next scenario, next story (S21)
+
+/** A key press that is not typing in a field and has no modifier. */
+function isPlainKey(e: globalThis.KeyboardEvent): boolean {
+  if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey) return false;
+  // Not while typing, and not behind an open dialog (the box drawer, the Present deck).
+  if (document.querySelector('[aria-modal="true"]')) return false;
+  return !(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable="true"]');
+}
+
+const storyName = (next: NextStory) => `${next.storyId}${next.story?.want ? `: ${next.story.want}` : ''}`;
+
+interface NextStepProps {
+  view: ReviewEpicView;
+  sv: ScenarioView;
+  approvals?: Record<Id, ApprovalView>;
+  /** An approval of this scenario just succeeded: focus moves to the primary next action. */
+  focus: boolean;
+  onPick?: (id: Id) => void;
+  onSignOff?: (storyId: Id) => void;
+  onEpic?: () => void;
+}
+
+/**
+ * Beside Approve on the storyboard page: "Next scenario →" to the next scenario of the story to
+ * approve (it never approves, and a failed approval does not move on), or, when the story has
+ * nothing left, what is left to do: sign off, the next story, or nothing in the EPIC. `N` follows
+ * the next scenario, else the next story, unless the owner is typing in a field.
+ */
+function NextStep({ view, sv, approvals, focus, onPick, onSignOff, onEpic }: NextStepProps) {
+  const id = sv.scenario.id;
+  const storyId = sv.scenario.story ?? '?';
+  const order = useMemo(() => reviewQueue(view.prd, view.scenarios).flatMap((g) => g.scenarios), [view]);
+  const next = nextInStory(order, id, approvals);
+  const finish = next ? undefined : storyFinish({ ...view, approvals }, storyId);
+  const otherStory = next || finish ? undefined : nextStoryToApprove(reviewQueue(view.prd, view.scenarios), storyId, approvals);
+  const go = next ? () => onPick?.(next.id) : finish?.next ? () => onPick?.(finish.next!.scenarioId) : otherStory ? () => onPick?.(otherStory.scenarioId) : undefined;
+  const primary = useRef<HTMLButtonElement>(null);
+  const mode = next ? `scenario ${next.id}` : finish ? `finish ${finish.next?.storyId ?? ''} ${finish.signOff ?? ''}` : 'last';
+
+  useEffect(() => {
+    // Only while the owner is still where they approved (the approve box, or nowhere once the
+    // button went away): a later reload never pulls focus from elsewhere on the page.
+    const at = document.activeElement;
+    if (focus && (!at || at === document.body || at.closest('.card-approve'))) primary.current?.focus();
+  }, [focus, mode]);
+  const goRef = useRef(go);
+  goRef.current = go;
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if ((e.key !== 'n' && e.key !== 'N') || !isPlainKey(e) || !goRef.current) return;
+      e.preventDefault();
+      goRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  if (next)
+    return (
+      <div className="card-next" data-testid="card-next-area">
+        <button
+          type="button"
+          ref={primary}
+          className="action card-next-scenario"
+          data-testid="card-next-scenario"
+          aria-keyshortcuts="N"
+          aria-label={`Next scenario: ${next.id}, ${next.title} (${next.index} of ${next.total} in ${next.storyId})`}
+          onClick={() => onPick?.(next.id)}
+        >
+          <span className="card-next-label">Next scenario →</span>
+          <span className="card-next-title" data-testid="card-next-title">{next.title}</span>
+          <span className="card-next-where" data-testid="card-next-where">
+            {next.index} of {next.total} in {next.storyId}
+          </span>
+        </button>
+      </div>
+    );
+  if (finish) return <StoryFinishPanel finish={finish} primary={primary} onPick={onPick} onSignOff={onSignOff} onEpic={onEpic} />;
+  return (
+    <div className="card-next" data-testid="card-next-area">
+      <p className="small muted" data-testid="card-next-last">
+        This is the last scenario of {storyId} left to approve.
+      </p>
+      {otherStory && (
+        <button type="button" ref={primary} className="action" data-testid="card-next-story" aria-keyshortcuts="N" onClick={() => onPick?.(otherStory.scenarioId)}>
+          Next story: {storyName(otherStory)} →
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface StoryFinishPanelProps {
+  finish: StoryFinish;
+  primary?: RefObject<HTMLButtonElement | null>;
+  onPick?: (id: Id) => void;
+  /** Open the story page where its sign-off is; without it the panel says the story needs one. */
+  onSignOff?: (storyId: Id) => void;
+  onEpic?: () => void;
+}
+
+/** Every scenario of the story is approved: sign it off, go to the next story, or the EPIC is done. */
+function StoryFinishPanel({ finish, primary, onPick, onSignOff, onEpic }: StoryFinishPanelProps) {
+  const { storyId, total, signOff, next } = finish;
+  // Focus goes to the next story, else to Sign off, else back to the EPIC.
+  const first = next ? 'next' : signOff && onSignOff ? 'sign' : 'epic';
+  return (
+    <div className="card-next story-finish" data-testid="story-finish">
+      <p className="story-finish-head" role="status" data-testid="story-finish-text">
+        <span aria-hidden="true">✓ </span>
+        {total === 1 ? `The scenario of ${storyId} is approved.` : `All ${total} scenarios of ${storyId} are approved.`}
+      </p>
+      {signOff &&
+        (onSignOff ? (
+          <button type="button" ref={first === 'sign' ? primary : undefined} className="action" data-testid="story-finish-signoff" onClick={() => onSignOff(storyId)}>
+            {signOff === 'stale' ? `Sign off ${storyId} again (its sign-off is stale)` : `Sign off ${storyId}`}
+          </button>
+        ) : (
+          <p className="small muted" data-testid="story-finish-signoff-note">
+            {signOff === 'stale' ? `${storyId} changed since its sign-off: sign it off again in the Sign off tab.` : `${storyId} is not signed off yet: sign it off in the Sign off tab.`}
+          </p>
+        ))}
+      {next ? (
+        <button
+          type="button"
+          ref={first === 'next' ? primary : undefined}
+          className="action primary"
+          data-testid="story-finish-next"
+          aria-keyshortcuts="N"
+          aria-label={`Next story: ${storyName(next)}; opens ${next.scenarioId}, ${next.left} left to approve`}
+          onClick={() => onPick?.(next.scenarioId)}
+        >
+          Next story: {storyName(next)} →
+        </button>
+      ) : (
+        <>
+          <p className="small" data-testid="story-finish-epic-done">
+            Every scenario of this EPIC is approved.
+          </p>
+          {onEpic && (
+            <button type="button" ref={first === 'epic' ? primary : undefined} className="action" data-testid="story-finish-epic" onClick={onEpic}>
+              Back to the EPIC
+            </button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

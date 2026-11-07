@@ -4,7 +4,7 @@
 
 import type { AcceptanceCriterion, Box, Diagram, EdgeKind, Flow, Id, Prd, Scenario, Story } from '@rehearse/core';
 import type { ScenarioView } from '../api.js';
-import type { ApprovalView } from '../contract.js';
+import type { ApprovalView, ReviewEpicView } from '../contract.js';
 import { boxAt, diagramAt } from './diagram.js';
 import { storiesOf } from './review.js';
 
@@ -67,6 +67,88 @@ export function nextToApprove(order: ScenarioView[], current: Id | undefined, ap
     if (sv.scenario.id !== current && !approvalState(sv, approvals).done) return sv.scenario.id;
   }
   return undefined;
+}
+
+// ---------------------------------------------------------------- next scenario, next story (S21)
+
+export interface NextScenario {
+  id: Id;
+  title: string;
+  storyId: Id;
+  /** 1-based place of the scenario among its story's scenarios, in queue order. */
+  index: number;
+  /** How many scenarios the story has. */
+  total: number;
+}
+
+/**
+ * The next scenario of the same story as `current`, in queue order, with no valid signed
+ * approval: the first after `current`, else the first before it (wrapping). Undefined when no
+ * other scenario of the story is left to approve.
+ */
+export function nextInStory(order: ScenarioView[], current: Id, approvals: Record<Id, ApprovalView> | undefined): NextScenario | undefined {
+  const storyId = order.find((sv) => sv.scenario.id === current)?.scenario.story;
+  if (storyId === undefined) return undefined;
+  const own = order.filter((sv) => sv.scenario.story === storyId);
+  const id = nextToApprove(own, current, approvals);
+  const at = own.findIndex((sv) => sv.scenario.id === id);
+  if (id === undefined || at < 0) return undefined;
+  return { id, title: own[at]!.scenario.title, storyId, index: at + 1, total: own.length };
+}
+
+export interface NextStory {
+  storyId: Id;
+  story?: Story;
+  /** Its first scenario in queue order with no valid signed approval. */
+  scenarioId: Id;
+  /** How many of its scenarios are left to approve. */
+  left: number;
+}
+
+/**
+ * The next story after `storyId` in queue order that still has scenarios to approve, wrapping
+ * round to the stories before it. Never `storyId` itself. Undefined when no other story has
+ * anything left to approve.
+ */
+export function nextStoryToApprove(groups: QueueGroup[], storyId: Id | undefined, approvals: Record<Id, ApprovalView> | undefined): NextStory | undefined {
+  const start = groups.findIndex((g) => g.storyId === storyId);
+  for (let k = 1; k <= groups.length; k++) {
+    const g = groups[(start + k + groups.length) % groups.length]!;
+    if (g.storyId === storyId) continue;
+    const left = g.scenarios.filter((sv) => !approvalState(sv, approvals).done);
+    if (left.length > 0) return { storyId: g.storyId, ...(g.story ? { story: g.story } : {}), scenarioId: left[0]!.scenario.id, left: left.length };
+  }
+  return undefined;
+}
+
+/** What the owner can do when every scenario of a story is approved with a valid signature. */
+export interface StoryFinish {
+  storyId: Id;
+  /** How many scenarios the story has, all approved. */
+  total: number;
+  /** The story still needs a sign-off: never signed, or signed but stale. Undefined when the sign-off is current. */
+  signOff?: 'unsigned' | 'stale';
+  /** The next story with scenarios to approve; undefined when every scenario of the EPIC is approved. */
+  next?: NextStory;
+}
+
+/**
+ * The finish of a story: undefined while the story has no scenarios or any of them is left to
+ * approve; else its sign-off need and the next story. The sign-off state is the readiness's
+ * (signed, stale, draft); a server without readiness counts as not signed.
+ */
+export function storyFinish(view: Pick<ReviewEpicView, 'prd' | 'scenarios' | 'approvals' | 'readiness'>, storyId: Id): StoryFinish | undefined {
+  const groups = reviewQueue(view.prd, view.scenarios);
+  const own = groups.find((g) => g.storyId === storyId)?.scenarios ?? [];
+  if (own.length === 0 || own.some((sv) => !approvalState(sv, view.approvals).done)) return undefined;
+  const status = view.readiness?.requirements.flatMap((r) => r.stories).find((s) => s.id === storyId)?.status;
+  const next = nextStoryToApprove(groups, storyId, view.approvals);
+  return {
+    storyId,
+    total: own.length,
+    ...(status === 'signed' ? {} : { signOff: status === 'stale' ? ('stale' as const) : ('unsigned' as const) }),
+    ...(next ? { next } : {}),
+  };
 }
 
 /** The story of a scenario and the acceptance criterion its `expect.criterion` names. */

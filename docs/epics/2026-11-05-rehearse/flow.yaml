@@ -967,6 +967,70 @@ root:
       # `--with-recordings <dir>` copies each linked video into <deck>-media/ next to the HTML
       # and points the links there. A video that cannot be found is named as missing.
 
+    # --- Next scenario, then next story, on the storyboard (S21, T55) ---
+    # New boxes only: the review and approve boxes stay as they are; root edges join them.
+    - id: next-scenario
+      kind: input
+      lane: builder
+      package: ui
+      title: Next scenario beside Approve
+      stories: [S21]
+      inputs:  { scenarioId: string }
+      outputs: { scenarioId: string, storyId: string, place: string }
+      reads:   [Scenario.status, Approval.sig]
+      errorExits: ["nothing left in the story"]
+      # "Next scenario →" (or N, not in a field): the next scenario of the same story in queue
+      # order with no valid signed approval, skipping approved ones and wrapping round. It names
+      # the scenario and its place ("3 of 8 in S16"). It never approves.
+
+    - id: after-approve
+      kind: process
+      lane: builder
+      package: ui
+      title: Move focus to Next after an approval
+      stories: [S21]
+      inputs:  { approvals: "list Approval?", outcome: "enum[ok, failed, cancelled]?" }   # outcome: the UI's answer to the approve call
+      outputs: { scenarioId: string, focus: string }
+      errorExits: ["approval failed or cancelled"]
+      # Only an approval of the open scenario that succeeded moves focus, once; Enter follows it.
+      # A failed or cancelled one stays on the scenario and says why.
+
+    - id: story-all-approved
+      kind: output
+      lane: builder
+      package: ui
+      title: All scenarios of the story are approved
+      stories: [S21]
+      inputs:  { storyId: "string?" }   # the storyboard's or story page's own story
+      outputs: { storyId: string, decision: "enum[sign-off, next-story]" }
+      reads:   [Story.status, Scenario.status, Approval.sig]
+      # "All 8 scenarios of S16 are approved"; "Sign off S16" when it is not signed off or the
+      # sign-off is stale (opens the story page, never signs); "Next story: <story> →". On the
+      # storyboard and on the story page.
+
+    - id: next-story
+      kind: input
+      lane: builder
+      package: ui
+      title: Next story with scenarios to approve
+      stories: [S21]
+      inputs:  { storyId: string }
+      outputs: { storyId: string, scenarioId: string }
+      reads:   [Scenario.status, Approval.sig]
+      errorExits: ["nothing left to approve"]
+      # The next story in queue order with any scenario left, wrapping round; it opens the
+      # storyboard of its first scenario to approve.
+
+    - id: epic-all-approved
+      kind: output
+      lane: builder
+      package: ui
+      title: Every scenario of this EPIC is approved
+      stories: [S21]
+      inputs:  { epic: string }
+      outputs: { epic: string }
+      # A link back to the EPIC; no Next story.
+
   edges:
     - { from: start,          to: new-epic }
     - { from: new-epic,       to: draft-record }
@@ -1114,3 +1178,15 @@ root:
     - { from: render-deck-html,         to: copy-recordings }
     - { from: copy-recordings,          to: deck-file }
     - { from: deck-file,                to: download-with-recordings }
+    - { from: review,             to: next-scenario }
+    - { from: approve,            to: after-approve }
+    - { from: after-approve,      to: next-scenario }
+    - { from: after-approve,      to: review,             label: "approval failed or cancelled", kind: error }
+    - { from: next-scenario,      to: review }
+    - { from: next-scenario,      to: story-all-approved, label: "nothing left in the story",    kind: error }
+    - { from: review,             to: story-all-approved }
+    - { from: story-all-approved, to: review }
+    - { from: story-all-approved, to: next-story }
+    - { from: next-story,         to: review }
+    - { from: next-story,         to: epic-all-approved,  label: "nothing left to approve",      kind: error }
+    - { from: epic-all-approved,  to: review }
