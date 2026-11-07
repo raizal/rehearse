@@ -265,6 +265,16 @@ button.crumb:hover { color: var(--accent); text-decoration: underline; }
 .card-approve-actions .action { min-height: 40px; padding: 0 var(--s-5); font-size: var(--fs-base); }
 .card-approve-actions .action.primary { min-width: 160px; }
 .card-approve-sign p { margin: var(--s-1) 0 0; }
+/* Next scenario, next story (S21): beside Approve, the way on to what is left to approve. */
+.card-next { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.card-next > p { margin: 0; }
+.card-next-scenario { display: grid; grid-template-columns: auto; justify-items: start; gap: 2px; min-height: 40px; padding: var(--s-2) var(--s-5); text-align: left; }
+.card-next-label { font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+.card-next-title { font-size: var(--fs-sm); color: var(--ink); overflow-wrap: anywhere; }
+.card-next-where { font-size: var(--fs-2xs); color: var(--muted); }
+.story-finish .action { min-height: 40px; padding: 0 var(--s-5); font-size: var(--fs-base); text-align: left; }
+.story-finish-head { font-weight: var(--fw-semibold); color: var(--ok); }
+.story-scenarios > .story-finish { margin: var(--s-3) 0; padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card); }
 .card-more { padding: var(--s-4) var(--s-6); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); }
 .card-more > summary { cursor: pointer; font-size: var(--fs-base); font-weight: var(--fw-semibold); }
 .card-more-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-6); margin-top: var(--s-4); }

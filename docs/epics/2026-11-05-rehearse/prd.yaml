@@ -275,6 +275,21 @@ requirements:
       zip. An evidence page says where each proof comes from, and a source that is missing says
       so instead of being left out. (T53)
 
+  - id: R32
+    kind: functional
+    text: >-
+      On a scenario's storyboard, beside Approve, a "Next scenario →" button (or the N key, unless
+      typing in a field) opens the next scenario of the same story that is not approved with a
+      valid signature yet, in review-queue order, skipping approved ones and wrapping to earlier
+      ones; it names that scenario and its place ("3 of 8 in S16"). It is always there, and right
+      after a successful approval focus moves to it. When the story has nothing left to approve,
+      the page says "All 8 scenarios of S16 are approved" and offers "Sign off S16" (when it is
+      not signed off, or its sign-off is stale) and "Next story: <story> →", which opens the first
+      scenario to approve of the next story with any left; with nothing left anywhere it says
+      "Every scenario of this EPIC is approved" and links back to the EPIC. The story page offers
+      the same "Next story →" when all its scenarios are approved. A failed or cancelled approval
+      never moves on by itself. Nothing approves or signs by itself. (T55)
+
 stories:
   - id: S1
     role: builder
@@ -1020,6 +1035,50 @@ stories:
         then: >-
           each missing source shows as missing on the story slides and on the evidence page, in
           plain words, and no story is called done without the proof that the rule asks for
+
+  - id: S21
+    role: builder
+    want: a Next button on the storyboard that takes me to the next scenario to approve, and to the next story when this one is done
+    soThat: I can approve a whole EPIC without hunting for what is left
+    requirements: [R32]
+    acceptance:
+      - id: S21-A1
+        given: a story with scenarios left to approve, and its storyboard open on one of them
+        when: the builder presses "Next scenario →" beside Approve, or N while not typing in a field
+        then: >-
+          the storyboard of the next scenario of the same story in review-queue order opens; the
+          button named it before, with its title and its place such as "3 of 8 in S16"
+      - id: S21-A2
+        given: a story where some scenarios are approved with a valid signature and the open one is not the first left
+        when: the builder presses "Next scenario →"
+        then: >-
+          approved scenarios are skipped, after the last scenario of the story it wraps to the
+          earlier ones not approved yet, and it never goes to another story; on the only scenario
+          of the story left, the page says it is the last one left to approve
+      - id: S21-A3
+        given: a scenario whose steps were all seen
+        when: the builder approves it and the approval succeeds
+        then: >-
+          focus moves to "Next scenario →" (or to the next action when the story is done), and
+          Enter follows it; nothing opens by itself
+      - id: S21-A4
+        given: a story whose scenarios are all approved with a valid signature
+        when: the builder approves the last one, or opens one of its storyboards or its story page
+        then: >-
+          the page says "All 8 scenarios of S16 are approved", offers "Sign off S16" when the story
+          is not signed off or its sign-off is stale (it opens the story page where the sign-off
+          is, it does not sign), and "Next story: <story> →", which names the next story in
+          review-queue order with scenarios to approve and opens its first one
+      - id: S21-A5
+        given: an EPIC where every scenario is approved with a valid signature
+        when: the builder is on a storyboard or a story page
+        then: the page says "Every scenario of this EPIC is approved" and offers a way back to the EPIC, and no Next story
+      - id: S21-A6
+        given: a scenario seen in full and no signing key in ssh-agent, or a signature the builder refuses
+        when: the builder presses Approve and it fails or is cancelled
+        then: >-
+          the storyboard stays on the same scenario, says why, and moves no focus; "Next scenario →"
+          still works
 
 resolvedQuestions:
   - question: Who is "the builder" in records?

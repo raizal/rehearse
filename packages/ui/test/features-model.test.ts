@@ -243,8 +243,14 @@ describe('big picture (S4-A4)', () => {
       { from: 'deck-file', to: 'present-view', back: true },
       // T53 (S19): the zip download asks the server for the deck's facts again, with the recordings.
       { from: 'download-with-recordings', to: 'gather-deck-facts', back: true },
+      // T55 (S21): Next scenario, Next story, both finish panels and a failed approval go back to review.
+      { from: 'after-approve', to: 'review', back: true },
+      { from: 'next-scenario', to: 'review', back: true },
+      { from: 'story-all-approved', to: 'review', back: true },
+      { from: 'next-story', to: 'review', back: true },
+      { from: 'epic-all-approved', to: 'review', back: true },
     ]);
-    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 19, processes: main.length });
+    expect(bigPictureStats(bp, view)).toMatchObject({ roles: 4, stories: 20, processes: main.length });
   });
 });
 

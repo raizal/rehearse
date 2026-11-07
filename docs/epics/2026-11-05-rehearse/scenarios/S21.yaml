@@ -1,0 +1,123 @@
+story: S21
+scenarios:
+
+  - id: S21-next-in-story
+    title: Next scenario opens the next scenario of the same story and says which one it is
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - name: next-scenario
+        example: { id: next, given: { scenarioId: S16-link-page }, then: { scenarioId: S16-link-frame, storyId: S16, place: "3 of 8 in S16" } }
+      - { name: review/swimlanes }
+      - name: review/playback
+        example: { id: opened, given: { scenarioId: S16-link-frame, step: 1 }, then: { highlighted: "S16-link-frame step 1" } }
+    expect: { criterion: S21-A1, state: { open: S16-link-frame, button: "Next scenario →", place: "3 of 8 in S16", key: N, approved: none } }
+
+  - id: S21-skip-and-wrap
+    title: Next skips approved scenarios and wraps to an earlier one of the same story
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - name: next-scenario
+        example: { id: wrap, given: { scenarioId: S16-last, approved: [ S16-first, S16-third ] }, then: { scenarioId: S16-second, storyId: S16, place: "2 of 8 in S16" } }
+      - { name: review/swimlanes }
+      - { name: review/playback }
+    expect: { criterion: S21-A2, state: { open: S16-second, skipped: [ S16-first, S16-third ], otherStory: false } }
+
+  - id: S21-focus-after-approve
+    title: After a successful approval focus moves to Next scenario, and Enter follows it
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: happy, branch: approve }
+      - { name: signing-key, branch: "yes" }
+      - name: approve
+        example: { id: approve-one, given: { scenarioIds: [ S16-link-page ] }, then: { approvals: [ { scenario: S16-link-page, sigStatus: valid } ] } }
+      - name: after-approve
+        example: { id: focus, given: { outcome: ok }, then: { scenarioId: S16-link-page, focus: "Next scenario →" } }
+      - name: next-scenario
+        example: { id: enter, given: { scenarioId: S16-link-page, key: Enter }, then: { scenarioId: S16-link-frame, storyId: S16, place: "3 of 8 in S16" } }
+      - { name: review/swimlanes }
+      - { name: review/playback }
+    expect: { criterion: S21-A3, state: { focus: "Next scenario →", openedByItself: false, open: S16-link-frame } }
+
+  - id: S21-story-done
+    title: After the last approval of a story, the page says all are approved and offers the next story
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: happy, branch: approve }
+      - { name: signing-key, branch: "yes" }
+      - name: approve
+        example: { id: approve-last, given: { scenarioIds: [ S16-last ] }, then: { approvals: [ { scenario: S16-last, sigStatus: valid } ] } }
+      - { name: after-approve }
+      - name: next-scenario
+        branch: "nothing left in the story"
+        example: { id: none-left, given: { scenarioId: S16-last }, then: { exit: nothing left in the story } }
+      - name: story-all-approved
+        example: { id: all, given: { storyId: S16 }, then: { storyId: S16, text: "All 8 scenarios of S16 are approved", offers: [ Sign off S16, "Next story: S17 →" ], decision: next-story } }
+      - name: next-story
+        example: { id: next-story, given: { storyId: S16 }, then: { storyId: S17, scenarioId: S17-first-left } }
+      - { name: review/swimlanes }
+      - { name: review/playback }
+    expect: { criterion: S21-A4, state: { text: "All 8 scenarios of S16 are approved", nextStory: S17, open: S17-first-left, skippedStories: done ones } }
+
+  - id: S21-sign-off
+    title: A story that is not signed off, or whose sign-off is stale, offers Sign off, which opens its story page
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - name: story-all-approved
+        example: { id: stale, given: { storyId: S16, signOff: stale }, then: { storyId: S16, offers: [ "Sign off S16 again (its sign-off is stale)", "Next story: S17 →" ], decision: sign-off } }
+      - { name: review/swimlanes }
+      - name: review/story-view
+        example: { id: story-page, given: { story: S16 }, then: { panels: [ what, how, output, "Sign-off: stale" ] } }
+    expect: { criterion: S21-A4, state: { opened: story page of S16, signed: false, signOffSent: false } }
+
+  - id: S21-story-page-next
+    title: The story page offers Next story when all of its scenarios are approved
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - name: story-all-approved
+        example: { id: page, given: { storyId: S16, page: story }, then: { storyId: S16, text: "All 8 scenarios of S16 are approved", decision: next-story } }
+      - name: next-story
+        example: { id: from-page, given: { storyId: S16 }, then: { storyId: S17, scenarioId: S17-first-left } }
+      - { name: review/swimlanes }
+      - { name: review/playback }
+    expect: { criterion: S21-A4, state: { page: story, nextStory: S17, open: S17-first-left } }
+
+  - id: S21-epic-done
+    title: With nothing left anywhere, the page says every scenario of the EPIC is approved and links back to it
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - name: next-scenario
+        branch: "nothing left in the story"
+        example: { id: story-done, given: { scenarioId: S21-epic-done }, then: { exit: nothing left in the story } }
+      - name: story-all-approved
+        example: { id: last-story, given: { storyId: S21 }, then: { storyId: S21, text: "All 8 scenarios of S21 are approved", decision: next-story } }
+      - name: next-story
+        branch: "nothing left to approve"
+        example: { id: nothing, given: { storyId: S21 }, then: { exit: nothing left to approve } }
+      - name: epic-all-approved
+        example: { id: epic-done, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, text: "Every scenario of this EPIC is approved", link: Back to the EPIC } }
+      - { name: review/swimlanes }
+      - { name: review/big-picture }
+    expect: { criterion: S21-A5, state: { text: "Every scenario of this EPIC is approved", nextStory: none, link: EPIC } }
+
+  - id: S21-failed-approval
+    title: A failed or cancelled approval stays on the scenario, and Next still works
+    status: draft
+    steps:
+      - { name: review/readiness }
+      - { name: happy, branch: approve }
+      - { name: signing-key, branch: "yes" }
+      - name: approve
+        example: { id: refused, given: { scenarioIds: [ S16-link-page ] }, then: { approvals: [], refused: "Signing is not available: ssh-agent has no key" } }
+      - name: after-approve
+        branch: "approval failed or cancelled"
+        example: { id: stays, given: { outcome: failed }, then: { exit: approval failed or cancelled } }
+      - { name: review/swimlanes }
+      - { name: review/playback }
+    expect: { criterion: S21-A6, state: { open: S16-link-page, focusMoved: false, said: "Signing is not available: ssh-agent has no key", nextWorks: true } }

@@ -399,6 +399,219 @@ describe('review queue', () => {
   });
 });
 
+/** The view after the server approved these scenarios: approved, with a valid signature. */
+function approved(view: ReviewEpicView, ids: string[]): ReviewEpicView {
+  const next = structuredClone(view);
+  for (const id of ids) {
+    const sv = next.scenarios.find((s) => s.scenario.id === id)!;
+    sv.status = 'approved';
+    next.approvals = { ...next.approvals, [id]: { by: 'b@x', at: 'now', signer: 'SHA256:k', sigStatus: 'valid' } };
+  }
+  return next;
+}
+
+/** The fixture with S1-buy back to draft: S1 has two scenarios to approve. */
+function twoToApprove(): ReviewEpicView {
+  const view = reviewEpic();
+  const buy = view.scenarios.find((s) => s.scenario.id === 'S1-buy')!;
+  buy.status = 'draft';
+  delete view.approvals!['S1-buy'];
+  return view;
+}
+
+/** A story's readiness status, as the server sends it. */
+function storyStatus(view: ReviewEpicView, storyId: string, status: 'signed' | 'stale' | 'draft'): ReviewEpicView {
+  for (const r of view.readiness!.requirements) for (const s of r.stories) if (s.id === storyId) s.status = status;
+  return view;
+}
+
+describe('Next scenario, then Next story (S21)', () => {
+  it('S21-A1: beside Approve, "Next scenario →" names the next scenario of the story to approve and its place, and opens it', async () => {
+    const { user, view } = await start();
+    await open(user, 'S1-buy');
+    const next = screen.getByTestId('card-next-scenario');
+    expect(next).toHaveTextContent('Next scenario →');
+    expect(screen.getByTestId('card-next-title')).toHaveTextContent(view.scenarios.find((s) => s.scenario.id === 'S1-empty')!.scenario.title);
+    expect(screen.getByTestId('card-next-where')).toHaveTextContent('2 of 2 in S1');
+    expect(next).toHaveAccessibleName(/^Next scenario: S1-empty, .+ \(2 of 2 in S1\)$/);
+    // It sits in the Approve card.
+    expect(next.closest('.card-approve')).not.toBeNull();
+    await user.click(next);
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
+  });
+
+  it('S21-A2: next skips approved scenarios and wraps to an earlier one of the same story, never another story', async () => {
+    const { user } = await start({}, twoToApprove());
+    // S1-empty is last in S1: next wraps to S1-buy, the first of the story.
+    await open(user, 'S1-empty');
+    expect(screen.getByTestId('card-next-where')).toHaveTextContent('1 of 2 in S1');
+    await user.click(screen.getByTestId('card-next-scenario'));
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-buy');
+    // The owner may skip without approving: Next is there on an unapproved scenario too.
+    expect(screen.getByTestId('card-approve')).toBeInTheDocument();
+    expect(screen.getByTestId('card-next-where')).toHaveTextContent('2 of 2 in S1');
+  });
+
+  it('S21-A2: on the only scenario of its story left, the page says so and offers the next story', async () => {
+    const { user } = await start();
+    await open(user, 'S1-empty');
+    expect(screen.queryByTestId('card-next-scenario')).not.toBeInTheDocument();
+    expect(screen.getByTestId('card-next-last')).toHaveTextContent('This is the last scenario of S1 left to approve.');
+    await user.click(screen.getByTestId('card-next-story'));
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S2-out-of-stock');
+  });
+
+  it('S21-A3: after a successful approval focus moves to Next scenario, and Enter follows it', async () => {
+    const view = twoToApprove();
+    seeAll(view, ['S1-buy']);
+    let current = view;
+    const { user } = await start({ epic: () => current, approve: (body) => {
+      current = approved(view, body.scenarioIds);
+      return { status: 200, body: { ok: true, approved: body.scenarioIds } };
+    } }, view);
+    await open(user, 'S1-buy');
+    expect(screen.getByTestId('card-next-scenario')).not.toHaveFocus();
+    await user.click(screen.getByTestId('card-approve'));
+    await waitFor(() => expect(screen.getByTestId('card-next-scenario')).toHaveFocus());
+    await waitFor(() => expect(screen.getByTestId('card-approval-state')).toHaveTextContent('approved, signature valid'));
+    expect(screen.getByTestId('card-next-scenario')).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
+    // The approval carried over does not move focus on the scenario opened next.
+    expect(screen.getByTestId('card-next-story')).not.toHaveFocus();
+  });
+
+  it('S21-A4: after the last approval of a story: "All 2 scenarios of S1 are approved", Sign off S1 and Next story', async () => {
+    const view = storyStatus(reviewEpic(), 'S1', 'draft');
+    seeAll(view, ['S1-empty']);
+    let current = view;
+    const { user, server } = await start({ epic: () => current, approve: (body) => {
+      current = approved(view, body.scenarioIds);
+      return { status: 200, body: { ok: true, approved: body.scenarioIds } };
+    } }, view);
+    await open(user, 'S1-empty');
+    await user.click(screen.getByTestId('card-approve'));
+    expect(server.posts('api/approve')[0]!.body).toEqual({ scenarioIds: ['S1-empty'] });
+    expect(await screen.findByTestId('story-finish-text')).toHaveTextContent('All 2 scenarios of S1 are approved.');
+    const next = screen.getByTestId('story-finish-next');
+    expect(next).toHaveTextContent(/^Next story: S2: .+ →$/);
+    expect(next).toHaveAccessibleName(/opens S2-out-of-stock, 1 left to approve$/);
+    await waitFor(() => expect(next).toHaveFocus());
+    expect(screen.getByTestId('story-finish-signoff')).toHaveTextContent('Sign off S1');
+    // Sign off opens the story page, where its sign-off is.
+    await user.click(screen.getByTestId('story-finish-signoff'));
+    expect(screen.queryByTestId('story-card')).not.toBeInTheDocument();
+    expect(screen.getByTestId('story-view')).toHaveTextContent('S1 ·');
+    expect(screen.getByTestId('story-signoff-state')).toHaveTextContent('Sign-off: none yet');
+    // No sign-off and no approval were sent by any of this.
+    expect(server.posts('api/sign-off')).toHaveLength(0);
+    expect(server.posts('api/approve')).toHaveLength(1);
+  });
+
+  it('S21-A4: a stale sign-off offers to sign off again; a current one offers none; Next story opens its first scenario to approve', () => {
+    const pick = vi.fn();
+    const signOff = vi.fn();
+    const done = approved(reviewEpic(), ['S1-empty']);
+    const card = (view: ReviewEpicView) =>
+      render(<StoryCard view={view} sv={view.scenarios.find((s) => s.scenario.id === 'S1-buy')!} seen={{}} onSeen={() => {}} approve={approveFor(view)} onPick={pick} onSignOff={signOff} onBigPicture={() => {}} />);
+    const stale = card(storyStatus(structuredClone(done), 'S1', 'stale'));
+    expect(screen.getByTestId('story-finish-signoff')).toHaveTextContent('Sign off S1 again (its sign-off is stale)');
+    fireEvent.click(screen.getByTestId('story-finish-signoff'));
+    expect(signOff).toHaveBeenCalledWith('S1');
+    fireEvent.click(screen.getByTestId('story-finish-next'));
+    expect(pick).toHaveBeenCalledWith('S2-out-of-stock');
+    stale.unmount();
+    card(storyStatus(structuredClone(done), 'S1', 'signed'));
+    expect(screen.getByTestId('story-finish-text')).toHaveTextContent('All 2 scenarios of S1 are approved.');
+    expect(screen.queryByTestId('story-finish-signoff')).not.toBeInTheDocument();
+    expect(screen.getByTestId('story-finish-next')).toBeInTheDocument();
+  });
+
+  it('S21-A5: nothing left anywhere: "Every scenario of this EPIC is approved" and a way back to the EPIC', async () => {
+    const view = storyStatus(approved(reviewEpic(), ['S1-empty', 'S2-out-of-stock']), 'S1', 'signed');
+    const { user } = await start({}, view);
+    await open(user, 'S1-buy');
+    expect(screen.getByTestId('story-finish-text')).toHaveTextContent('All 2 scenarios of S1 are approved.');
+    expect(screen.queryByTestId('story-finish-next')).not.toBeInTheDocument();
+    expect(screen.getByTestId('story-finish-epic-done')).toHaveTextContent('Every scenario of this EPIC is approved.');
+    expect(screen.queryByTestId('card-next-scenario')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('story-finish-epic'));
+    expect(await screen.findByTestId('big-picture')).toBeInTheDocument();
+  });
+
+  it('S21-A6: a failed approval (no signing key) stays on the scenario and moves no focus; Next still works', async () => {
+    const view = twoToApprove();
+    seeAll(view, ['S1-buy']);
+    const { user } = await start({ approve: () => ({ status: 503, body: { ok: false, reason: 'ssh-agent has no key' } }) }, view);
+    await open(user, 'S1-buy');
+    await user.click(screen.getByTestId('card-approve'));
+    await waitFor(() => expect(screen.getByTestId('approve-outcome')).toHaveTextContent('Signing is not available: ssh-agent has no key'));
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-buy');
+    expect(screen.getByTestId('card-approval-state')).toHaveTextContent('draft, not approved');
+    expect(screen.getByTestId('card-next-scenario')).not.toHaveFocus();
+    await user.click(screen.getByTestId('card-next-scenario'));
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
+  });
+
+  it('S21-A1: N follows Next scenario anywhere on the page, but not while typing in a field, with a modifier, held down, or behind a dialog', () => {
+    const pick = vi.fn();
+    const view = twoToApprove();
+    const { rerender } = render(
+      <>
+        <input data-testid="typing" />
+        <StoryCard view={view} sv={view.scenarios.find((s) => s.scenario.id === 'S1-buy')!} seen={{}} onSeen={() => {}} approve={approveFor(view)} onPick={pick} />
+      </>,
+    );
+    expect(screen.getByTestId('card-next-scenario')).toHaveAttribute('aria-keyshortcuts', 'N');
+    fireEvent.keyDown(screen.getByTestId('typing'), { key: 'n' });
+    fireEvent.keyDown(document.body, { key: 'n', ctrlKey: true });
+    expect(pick).not.toHaveBeenCalled();
+    fireEvent.keyDown(document.body, { key: 'n' });
+    expect(pick).toHaveBeenCalledWith('S1-empty');
+    fireEvent.keyDown(document.body, { key: 'N' });
+    expect(pick).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(document.body, { key: 'n', repeat: true });
+    expect(pick).toHaveBeenCalledTimes(2);
+    // An open dialog (the box drawer, the Present deck) keeps N for itself.
+    rerender(
+      <>
+        <div role="dialog" aria-modal="true" data-testid="drawer" />
+        <StoryCard view={view} sv={view.scenarios.find((s) => s.scenario.id === 'S1-buy')!} seen={{}} onSeen={() => {}} approve={approveFor(view)} onPick={pick} />
+      </>,
+    );
+    fireEvent.keyDown(screen.getByTestId('drawer'), { key: 'n' });
+    fireEvent.keyDown(document.body, { key: 'n' });
+    expect(pick).toHaveBeenCalledTimes(2);
+  });
+
+  it('S21-A4: the story page offers "Next story →" when every scenario of the story is approved', async () => {
+    const { user } = await start({}, approved(reviewEpic(), ['S1-empty']));
+    await user.click(screen.getByTestId('queue-story-S1'));
+    const finish = await screen.findByTestId('story-finish');
+    expect(finish.closest('[data-testid="story-scenarios"]')).not.toBeNull();
+    expect(screen.getByTestId('story-finish-text')).toHaveTextContent('All 2 scenarios of S1 are approved.');
+    expect(screen.getByTestId('story-finish-signoff-note')).toHaveTextContent('S1 is not signed off yet');
+    await user.click(screen.getByTestId('story-finish-next'));
+    expect(screen.getByTestId('story-card')).toHaveTextContent('S2-out-of-stock');
+    // A story with a scenario left shows no finish.
+    await user.click(screen.getByTestId('card-back'));
+    expect(screen.queryByTestId('story-finish')).not.toBeInTheDocument();
+  });
+
+  it('the queue\'s Next to approve says when it crosses into another story', async () => {
+    const { user } = await start();
+    expect(screen.getByTestId('queue-next')).toHaveTextContent('Next to approve: S2-out-of-stock, in another story (S2)');
+    await user.click(screen.getByTestId('queue-story-S2'));
+    await screen.findByTestId('story-scenario-S2-out-of-stock');
+    expect(screen.getByTestId('queue-next')).toHaveTextContent(/^Next to approve: S1-empty, in another story \(S1\)$/);
+  });
+
+  it('the queue\'s Next to approve names only the scenario while it stays in the story', async () => {
+    await start({}, twoToApprove());
+    expect(screen.getByTestId('queue-next')).toHaveTextContent(/^Next to approve: S1-empty$/);
+  });
+});
+
 describe('the real EPIC', () => {
   const real = realEpic();
 
@@ -429,10 +642,10 @@ describe('the real EPIC', () => {
     }
   });
 
-  it('S6-A1: the queue lists stories S1 to S19, and no real approval counts until it is signed', async () => {
+  it('S6-A1: the queue lists stories S1 to S19 and S21, and no real approval counts until it is signed', async () => {
     await start({}, realEpic());
     const groups = screen.getAllByTestId(/^queue-group-/).map((el) => el.dataset.testid!.replace('queue-group-', ''));
-    expect(groups).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19']);
+    expect(groups).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19', 'S21']);
     expect(screen.getByTestId('queue-progress')).toHaveTextContent(`0 / ${realEpic().scenarios.length} approved with a valid signature`);
   });
 });

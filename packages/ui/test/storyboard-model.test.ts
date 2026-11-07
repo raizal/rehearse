@@ -3,11 +3,11 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ScenarioView } from '../src/api.js';
-import type { ApprovalView } from '../src/contract.js';
+import type { ApprovalView, ReviewEpicView } from '../src/contract.js';
 import { laneColor, LANE_COLORS, roleName, UNKNOWN_LANE_COLOR } from '../src/model/diagram.js';
 import { proofWithSignatures, proofReasonText } from '../src/model/readiness.js';
 import { allSeen, loadSeen, markSeen, saveSeen, seenSteps, type SeenState } from '../src/model/seen.js';
-import { approvalState, criterionFor, nextToApprove, pathMap, progress, reviewQueue } from '../src/model/storyboard.js';
+import { approvalState, criterionFor, nextInStory, nextStoryToApprove, nextToApprove, pathMap, progress, reviewQueue, storyFinish } from '../src/model/storyboard.js';
 import { reviewEpic } from './fixture.js';
 
 const view = reviewEpic();
@@ -54,6 +54,81 @@ describe('review queue', () => {
     const all = Object.fromEntries(order.map((s) => [s.scenario.id, VALID]));
     for (const s of order) s.status = 'approved';
     expect(nextToApprove(order, 'S1-buy', all)).toBeUndefined();
+  });
+});
+
+describe('next scenario and next story (S21)', () => {
+  /** A queue of made-up scenarios: `S1-a`… with the story before the dash; `done` ones are approved and signed. */
+  const make = (ids: string[], done: string[] = []) => {
+    const base = sv('S1-buy');
+    const scenarios: ScenarioView[] = ids.map((id) => ({
+      ...structuredClone(base),
+      status: done.includes(id) ? 'approved' : 'draft',
+      scenario: { ...structuredClone(base.scenario), id, title: `Title of ${id}`, story: id.split('-')[0]! },
+    }));
+    const approvals = Object.fromEntries(done.map((id) => [id, VALID]));
+    const stories = [...new Set(ids.map((id) => id.split('-')[0]!))].map((id) => ({ ...prd.stories[0]!, id, want: `want of ${id}` }));
+    return { scenarios, approvals, prd: { ...prd, stories } };
+  };
+  const readinessOf = (status: Record<string, 'signed' | 'stale' | 'draft'>) =>
+    ({ requirements: [{ id: 'R1', stories: Object.entries(status).map(([id, s]) => ({ id, status: s, scenarios: [] })) }] }) as unknown as ReviewEpicView['readiness'];
+
+  it('S21-A1: next is the next unapproved scenario of the same story, in queue order, with its place in the story', () => {
+    const { scenarios, approvals } = make(['S1-a', 'S1-b', 'S1-c', 'S2-a']);
+    expect(nextInStory(scenarios, 'S1-a', approvals)).toEqual({ id: 'S1-b', title: 'Title of S1-b', storyId: 'S1', index: 2, total: 3 });
+    expect(nextInStory(scenarios, 'S1-b', approvals)?.id).toBe('S1-c');
+  });
+
+  it('S21-A2: approved scenarios are skipped, and next wraps to earlier unapproved ones of the story, never another story', () => {
+    const { scenarios, approvals } = make(['S1-a', 'S1-b', 'S1-c', 'S1-d', 'S2-a'], ['S1-b', 'S1-d']);
+    expect(nextInStory(scenarios, 'S1-a', approvals)?.id).toBe('S1-c');
+    expect(nextInStory(scenarios, 'S1-c', approvals)).toMatchObject({ id: 'S1-a', index: 1, total: 4 });
+    // On an approved scenario, next still finds the ones left.
+    expect(nextInStory(scenarios, 'S1-d', approvals)?.id).toBe('S1-a');
+  });
+
+  it('S21-A2: nothing left in the story: no next scenario (the open one does not count), and an unknown id has none', () => {
+    const { scenarios, approvals } = make(['S1-a', 'S1-b', 'S2-a'], ['S1-b']);
+    expect(nextInStory(scenarios, 'S1-a', approvals)).toBeUndefined();
+    const all = make(['S1-a', 'S1-b'], ['S1-a', 'S1-b']);
+    expect(nextInStory(all.scenarios, 'S1-a', all.approvals)).toBeUndefined();
+    expect(nextInStory(scenarios, 'nope', approvals)).toBeUndefined();
+  });
+
+  it('S21-A4: the next story skips stories with nothing to approve, opens its first unapproved scenario, and wraps round', () => {
+    const { scenarios, approvals, prd: p } = make(['S1-a', 'S2-a', 'S2-b', 'S3-a', 'S3-b', 'S4-a'], ['S1-a', 'S2-a', 'S2-b', 'S3-a']);
+    const groups = reviewQueue(p, scenarios);
+    expect(nextStoryToApprove(groups, 'S1', approvals)).toMatchObject({ storyId: 'S3', scenarioId: 'S3-b', left: 1, story: { want: 'want of S3' } });
+    expect(nextStoryToApprove(groups, 'S3', approvals)?.storyId).toBe('S4');
+    expect(nextStoryToApprove(groups, 'S4', approvals)?.storyId).toBe('S3');
+  });
+
+  it('S21-A5: the last story to approve has no next story, and neither has an EPIC with everything approved', () => {
+    const { scenarios, approvals, prd: p } = make(['S1-a', 'S2-a'], ['S1-a']);
+    expect(nextStoryToApprove(reviewQueue(p, scenarios), 'S2', approvals)).toBeUndefined();
+    const all = make(['S1-a', 'S2-a'], ['S1-a', 'S2-a']);
+    expect(nextStoryToApprove(reviewQueue(all.prd, all.scenarios), 'S1', all.approvals)).toBeUndefined();
+  });
+
+  it('S21-A4: a story with every scenario approved offers Sign off when unsigned or stale, not when signed, and the next story', () => {
+    const { scenarios, approvals, prd: p } = make(['S1-a', 'S1-b', 'S2-a', 'S3-a'], ['S1-a', 'S1-b', 'S3-a']);
+    const at = (status: Record<string, 'signed' | 'stale' | 'draft'>) => storyFinish({ prd: p, scenarios, approvals, readiness: readinessOf(status) }, 'S1');
+    expect(at({ S1: 'draft' })).toMatchObject({ storyId: 'S1', total: 2, signOff: 'unsigned', next: { storyId: 'S2', scenarioId: 'S2-a' } });
+    expect(at({ S1: 'stale' })?.signOff).toBe('stale');
+    expect(at({ S1: 'signed' })).not.toHaveProperty('signOff');
+    // A server without readiness: the story counts as not signed off.
+    expect(storyFinish({ prd: p, scenarios, approvals }, 'S1')?.signOff).toBe('unsigned');
+    // The last story: no next story.
+    const last = make(['S1-a', 'S1-b', 'S2-a', 'S3-a'], ['S1-a', 'S1-b', 'S2-a', 'S3-a']);
+    expect(storyFinish(last, 'S1')).not.toHaveProperty('next');
+  });
+
+  it('S21-A4: a story with a scenario left to approve, or with no scenarios, has no finish', () => {
+    const { scenarios, approvals, prd: p } = make(['S1-a', 'S1-b'], ['S1-a']);
+    expect(storyFinish({ prd: p, scenarios, approvals }, 'S1')).toBeUndefined();
+    expect(storyFinish({ prd: p, scenarios, approvals }, 'S9')).toBeUndefined();
+    // An approval whose signature is not valid is not done: still left to approve.
+    expect(storyFinish({ prd: p, scenarios, approvals: { ...approvals, 'S1-b': { ...VALID, sigStatus: 'missing' } } }, 'S1')).toBeUndefined();
   });
 });
 
