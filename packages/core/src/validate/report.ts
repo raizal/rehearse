@@ -39,9 +39,15 @@ export function reportToJson(report: Report): string {
 
 const findingLine = (f: Finding, kind: string): string => `${f.path === '' ? f.file : `${f.file}: ${f.path}`}: ${kind}: ${f.message}`;
 
+/** `info:` lines for the notes of a validate report (T62). They do not change OK. */
+function noteLines(report: Report): string {
+  const notes = (report as { notes?: { file: string; path: string; message: string }[] }).notes ?? [];
+  return notes.map((n) => `info: ${n.path === '' ? n.file : `${n.file}: ${n.path}`}: ${n.message}\n`).join('');
+}
+
 /**
  * Human text: one line per finding with the file, the path and the reason. Then one line per
- * information note (T60), and a count of the notes on the summary line.
+ * information note (T60), and a count of the notes on the summary line. Then the change notes (T62).
  */
 export function reportToText(report: Report): string {
   const info = report.information ?? [];
@@ -51,5 +57,5 @@ export function reportToText(report: Report): string {
   const summary = report.ok ? `${report.command}: OK, no findings` : `${report.command}: ${n} finding${n === 1 ? '' : 's'}`;
   const i = info.length;
   lines.push(i === 0 ? summary : `${summary} (${i} STE note${i === 1 ? '' : 's'} on draft text: information only)`);
-  return `${lines.join('\n')}\n`;
+  return `${lines.join('\n')}\n${noteLines(report)}`;
 }

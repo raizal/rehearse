@@ -15,7 +15,8 @@ import { asArray, isObject } from '../util.js';
 import { checkSignatures } from './evidence.js';
 import { gateItems, simulationFindings, type Simulate } from './gate.js';
 import { approvalPayload, defaultVerifier, signOffPayload, type SignedApproval, type SignedSignOff, type Signer, type Verifier } from './signature.js';
-import { storyHashV2 } from './story-hash.js';
+import { storyHash } from './story-hash.js';
+import { storyChanges } from '../change/load.js';
 import { allScenarios } from './stale.js';
 import { CURRENT_HASH_RULE, type Identity, type SignOffWithRule } from './types.js';
 
@@ -165,7 +166,7 @@ export function approveScenarios(dir: string, ids: Id[], identity: Identity, opt
 
 /**
  * Sign off stories (S9-A2). Appends one event to signoff.yaml with who, when, the hash rule,
- * a rule-2 hash for each story and an SSH signature over `signOffPayload` (D41). Fails and lists
+ * a hash under the current rule (rule 3: the story and its changes, T62) for each story and an SSH signature over `signOffPayload` (D41). Fails and lists
  * the findings when the gate does not pass for those stories (S9-A1), including an approval
  * without a valid signature. A finding that a new sign-off of one of the stories clears
  * (stale story, old hash rule, unsigned sign-off) does not block.
@@ -193,7 +194,9 @@ export function signOff(dir: string, storyIds: Id[], identity: Identity, opts: W
 
   const scenarios = allScenarios(record);
   const storyHashes: Record<Id, string> = {};
-  for (const story of stories) if (wanted.has(story.id)) storyHashes[story.id] = storyHashV2(story, record.prd!, record.flow, scenarios);
+  for (const story of stories) if (wanted.has(story.id)) {
+    storyHashes[story.id] = storyHash(CURRENT_HASH_RULE, story, record.prd!, record.flow, scenarios, storyChanges(record, story.id).map((c) => c.doc));
+  }
   const unsigned: SignOffWithRule = {
     by: identity.by,
     ...(identity.threadId ? { threadId: identity.threadId } : {}),

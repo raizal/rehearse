@@ -1,4 +1,4 @@
-// Shop fixtures in trust states: approved and signed under rule 2, with throwaway keys,
+// Shop fixtures in trust states: approved and signed under rule 3 (T62; rule 3 equals rule 2 for a story with no changes), with throwaway keys,
 // in a temp git repo whose .rehearse/allowed_signers lists the test key (D41).
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -23,7 +23,7 @@ export function approvedEpic(opts: FixtureOptions = {}): string {
   return dir;
 }
 
-/** Shop with every scenario approved and both stories signed under rule 2. */
+/** Shop with every scenario approved and both stories signed under rule 3. */
 export function signedEpic(): string {
   const dir = approvedEpic();
   const r = signOff(dir, ['S1', 'S2'], ME, { now: NOW, ...SIGNED });

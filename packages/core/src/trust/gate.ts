@@ -1,6 +1,7 @@
 // Box `gate`: traced → sim-clean → no-stale → signed-off → report (R14, S9-A1, D17).
 // Simulation findings come in as a parameter, so the gate does not depend on the simulator.
 
+import { changeNumber, isChangeFile } from '../change/load.js';
 import { indexBoxes } from '../flow-index.js';
 import { loadEpic } from '../loader.js';
 import { validateRecord } from '../validate/index.js';
@@ -10,7 +11,7 @@ import { asArray, isObject } from '../util.js';
 import { checkSignatures, gateSigners, signatureItems, type RecordSignatures, type SignedGateReport } from './evidence.js';
 import { defaultVerifier, type Verifier } from './signature.js';
 import { detectStale } from './stale.js';
-import { CURRENT_HASH_RULE, HASH_RULES } from './types.js';
+import { HASH_RULES, isTrustedRule } from './types.js';
 
 export type GateCheck = 'traced' | 'sim-clean' | 'no-stale' | 'signed-off';
 
@@ -94,9 +95,12 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[], sig
     let message: string | undefined;
     if (s.hashRule !== undefined && !(HASH_RULES as readonly number[]).includes(s.hashRule)) {
       message = `signed under unknown hash rule ${s.hashRule}; must be signed again`;
+    } else if (s.status === 'stale' && s.newChanges !== undefined) {
+      const n = s.newChanges.length;
+      message = `story has new change${n === 1 ? '' : 's'} ${s.newChanges.join(', ')} that no sign-off covers; the rest is as signed (hash rule ${s.hashRule}); the owner signs off the story again`;
     } else if (s.status === 'stale') {
       message = `story is stale: content changed since sign-off (hash rule ${s.hashRule}); must be signed again`;
-    } else if (s.status === 'signed' && s.hashRule !== CURRENT_HASH_RULE) {
+    } else if (s.status === 'signed' && !isTrustedRule(s.hashRule)) {
       message = `signed under hash rule ${s.hashRule}, which does not cover boxes and lane roles (C11); must be signed again`;
     }
     if (message === undefined) continue;
@@ -116,6 +120,17 @@ export function gateItems(record: EpicRecord, simulationFindings: Finding[], sig
       stories: [s.id],
       resignStory: s.id,
       finding: { kind: 'gate', file: RECORD_FILES.signoff, path: s.id, message: `${s.id} is not signed off; the owner signs it off in the UI`, refs: [s.id] },
+    });
+  }
+  // A draft scenario of a small change (T62) waits for the owner's approval. A sign-off does not
+  // clear it, so the story cannot be signed off before its change scenarios are approved.
+  for (const s of stale.scenarios) {
+    if (s.status !== 'draft' || !isChangeFile(s.file)) continue;
+    const change = changeNumber(s.file);
+    items.push({
+      check: 'signed-off',
+      stories: [s.story],
+      finding: { kind: 'gate', file: s.file, path: s.id, message: `scenario of change C${change} is a draft; the owner approves it`, refs: [s.story] },
     });
   }
   if (signatures) items.push(...signatureItems(record, signatures, stale));

@@ -9,6 +9,7 @@ import { boxAt, laneColor, roleName } from './diagram.js';
 import { servedStories } from './features.js';
 import { storiesOf } from './review.js';
 import { approvalState } from './storyboard.js';
+import { changeRef, storyChanges, type ChangeRef } from './changes.js';
 import type { StoryDetail } from './storyview.js';
 
 /** `text` cut to `max` characters, with "…" when it was cut. */
@@ -37,6 +38,8 @@ export interface QueueRow {
   done: number;
   /** The colour of the story's role lane. */
   color: string;
+  /** The small changes of the story (T62). */
+  changes: ChangeRef[];
 }
 
 /** One row per story: stories in prd.yaml order, then stories that only scenarios name. */
@@ -57,6 +60,7 @@ export function queueRows(view: ReviewEpicView): QueueRow[] {
       scenarios: r.scenarios.length,
       done,
       color: laneColor(view.flow, r.role),
+      changes: storyChanges(view, storyId),
     };
   });
 }
@@ -143,10 +147,13 @@ export interface ScenarioSummary {
   criterion?: Id;
   /** One dot per step, in the colour of the step's lane. */
   dots: { lane: string; color: string }[];
+  /** The small change that added the scenario (T62). */
+  change?: ChangeRef;
 }
 
 export function scenarioSummary(view: ReviewEpicView, sv: ScenarioView): ScenarioSummary {
   const { scenario } = sv;
+  const change = changeRef(view, scenario);
   const steps = Array.isArray(scenario.steps) ? scenario.steps : [];
   const dots = steps.map((step) => {
     const lane = typeof step?.name === 'string' ? boxAt(view.flow, step.name)?.lane : undefined;
@@ -158,6 +165,7 @@ export function scenarioSummary(view: ReviewEpicView, sv: ScenarioView): Scenari
     steps: steps.length,
     ...(scenario.expect?.criterion ? { criterion: scenario.expect.criterion } : {}),
     dots,
+    ...(change ? { change } : {}),
   };
 }
 

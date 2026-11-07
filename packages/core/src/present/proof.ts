@@ -188,7 +188,9 @@ export function missingItems(v: StoryView): MissingItem[] {
     }
     const problems = v.facts.simulation?.problems ?? 0;
     if (problems > 0) add(`the plan check finds ${plural(problems, 'problem')}`, `the plan check finds ${plural(problems, 'problem')}`, 'planning agent');
-    if (v.sign?.status === 'stale') add('changed after it was signed off: needs a new sign-off', 'changed since sign-off: sign off again', 'you');
+    const fresh = v.sign?.newChanges ?? [];
+    if (v.sign?.status === 'stale' && fresh.length > 0) add(`new in ${fresh.join(', ')} after the sign-off: needs a new sign-off`, `${fresh.join(', ')} is new: sign off again`, 'you');
+    else if (v.sign?.status === 'stale') add('changed after it was signed off: needs a new sign-off', 'changed since sign-off: sign off again', 'you');
     else if (v.sign?.status === 'signed' && !v.sign.buildable) add('signed off under an older rule: needs a new sign-off', 'signed under an older rule: sign off again', 'you');
     const waiting = v.scenarios.length - v.approved;
     if (v.scenarios.length === 0) add('no scenarios written yet', 'no scenarios written yet', 'planning agent');

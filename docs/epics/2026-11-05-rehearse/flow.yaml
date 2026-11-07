@@ -1409,6 +1409,84 @@ root:
       package: core
       title: Every reader gets one clear meaning
       stories: [S25]
+    # --- Small changes to a signed story (S27, T62) ---
+    # New boxes only; root edges join them, and start to change-new.
+    - id: change-new
+      kind: input
+      lane: agent
+      package: cli
+      title: rehearse change new <epic> <story> --title "..."
+      stories: [S27]
+      inputs:  { epic: string, story: string, title: string }
+      outputs: { epic: string, story: string, change: string }
+      errorExits: ["unknown story"]
+      # Writes the start file changes/C<n>.yaml with the next number, one criterion and one draft
+      # scenario (the steps of the first scenario of the story). An unknown story, a story with no
+      # scenario or an empty title writes no file.
+
+    - id: change-file
+      kind: process
+      lane: agent
+      package: core
+      title: Write the change - 1 to 3 criteria, 5 scenarios or fewer, new root boxes only
+      stories: [S27]
+      inputs:  { epic: string, story: string, change: string }
+      outputs: { epic: string, story: string, change: string, criteria: string, scenarios: string }
+      reads:   [Story.*, Scenario.*]
+      # The loader merges each change into its story: the criteria into the story, the scenarios as
+      # a scenario file, the boxes and edges into the root diagram. Each merged item has `change`.
+
+    - id: change-limits
+      kind: process
+      lane: rehearse
+      package: core
+      title: Check the limits - 5 scenarios or fewer, no edit of an existing item
+      stories: [S27]
+      inputs:  { epic: string, story: string, change: string, criteria: string, scenarios: string }
+      outputs: { epic: string, story: string, change: string }
+      errorExits: ["more than 5 scenarios", "the change edits an existing item"]
+      # Errors in the change file: more than 3 criteria, more than 5 scenarios, an id that exists
+      # already, a box with children, an edge that joins two old boxes. More than 8 scenarios with
+      # the changes of a story is information only ("think about a new story").
+
+    - id: change-signoff
+      kind: process
+      lane: builder
+      package: ui
+      title: Approve the change scenarios and sign off the story again - the preview shows only the change
+      stories: [S27]
+      inputs:  { epic: string, story: string, change: string }
+      outputs: { epic: string, story: string, change: string, hashRule: number }
+      reads:   [Scenario.*, SignOff.*]
+      errorExits: ["a change scenario is not approved"]
+      # Old approvals stay valid. The gate asks for the approvals of the change scenarios and a new
+      # sign-off; the sign-off uses story hash rule 3. Old sign-offs keep their rule. The preview
+      # shows "New in C<n>: <title>" and only the change items.
+
+    - id: change-shown
+      kind: output
+      lane: builder
+      package: ui
+      title: The tools mark the change items "New in C<n>"
+      stories: [S27]
+      inputs:  { epic: string, story: string, change: string, hashRule: number }
+      outputs: { epic: string, story: string, change: string }
+      # The story page, the story map, the storyboard, the review queue, the Status page,
+      # `rehearse brief` and the deck.
+
+    - id: change-done
+      kind: end
+      lane: builder
+      package: ui
+      title: The small change is part of the signed story
+      stories: [S27]
+
+    - id: change-stopped
+      kind: end
+      lane: agent
+      package: cli
+      title: No change - the agent reads the finding
+      stories: [S27]
 
   edges:
     - { from: start,          to: new-epic }
@@ -1625,3 +1703,14 @@ root:
     - { from: ste-draft,     to: ste-signed,    label: "no",  kind: branch }
     - { from: ste-validate,  to: ste-known }
     - { from: ste-signed,    to: ste-known }
+    # Small changes (S27, T62).
+    - { from: start,          to: change-new }
+    - { from: change-new,     to: change-file }
+    - { from: change-new,     to: change-stopped, label: "unknown story",                     kind: error }
+    - { from: change-file,    to: change-limits }
+    - { from: change-limits,  to: change-signoff }
+    - { from: change-limits,  to: change-stopped, label: "more than 5 scenarios",             kind: error }
+    - { from: change-limits,  to: change-stopped, label: "the change edits an existing item", kind: error }
+    - { from: change-signoff, to: change-shown }
+    - { from: change-signoff, to: change-stopped, label: "a change scenario is not approved", kind: error }
+    - { from: change-shown,   to: change-done }

@@ -193,6 +193,10 @@ p { margin: 0; }
 .status-stale { color: var(--warn); background: var(--warn-tint); }
 .status-unsigned { color: var(--note-ink); background: var(--note-tint); }
 .status-running { color: var(--agent); background: var(--agent-tint); }
+/* T62: an item that a small change added. */
+.change-mark { color: var(--note-ink); background: var(--note-tint); }
+.signoff-new { margin: var(--s-3) 0; padding: var(--s-3); border-left: 3px solid var(--note-ink); background: var(--note-tint); }
+.signoff-rest > summary { cursor: pointer; font-weight: var(--fw-semibold); }
 .signing-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
 /* Buttons: primary filled accent, secondary outline. */

@@ -97,6 +97,10 @@ The setup line comes from the lockfile of the repo. Work on the story like this:
 
 - Ask in the thread before you edit the record (`docs/epics/…`). A change to a story, its scenarios or its boxes makes the owner's approvals and sign-off stale. If the plan is wrong, say so and propose the change. Something found after the build goes in `corrections.md`.
 
+- If the owner asks for a small addition to a signed story, write a small change: `rehearse change new <epic> <story> --title "<one sentence>"`. This command makes `docs/epics/<slug>/changes/C<n>.yaml` with 1 to 3 new criteria and 5 scenarios or fewer. A change only adds items. It does not edit an item of the record, so the old approvals stay valid.
+
+  The scenarios of a change are drafts. Only the owner approves them and signs off the story again. Every tool marks the new items "New in C<n>".
+
 - Report in the thread in plain words: what is done per box, what is not, and the test results. Then stop: the owner merges.
 
 

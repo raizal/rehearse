@@ -4,7 +4,8 @@
 // - The record types mirror the YAML files. A field that a file can omit is
 //   optional here, even when entities.yaml lists it without `?`, because the
 //   value is derived (for example Story.status comes from sign-off events).
-// - The loader adds only `Box.path`, `Scenario.story` and `ScenarioFile.file`.
+// - The loader adds only `Box.path`, `Scenario.story` and `ScenarioFile.file`, and (T62) the
+//   `change` mark on a criterion, scenario or box that a change file adds.
 // - Change this file only through a correction in corrections.md.
 
 import type { ArchitectureChange, SystemRecord } from './architecture/types.js';
@@ -70,6 +71,8 @@ export interface AcceptanceCriterion {
   then: string;
   /** Machine-checkable end state for R7. */
   expectedState?: Record<string, unknown>;
+  /** Added by the loader (T62): the change that added the criterion, e.g. `C1`. */
+  change?: Id;
 }
 
 export interface Story {
@@ -173,6 +176,8 @@ export interface Box {
   package?: string;
   /** Decisions of brainstorm.md that the box rests on, e.g. `D41`. validate checks each id. */
   decisions?: Id[];
+  /** Added by the loader (T62): the change that added the box, e.g. `C1`. */
+  change?: Id;
 }
 
 export interface Edge {
@@ -232,6 +237,8 @@ export interface Scenario {
   status: ScenarioStatus;
   approval?: Approval;
   expect?: ScenarioExpect;
+  /** Added by the loader (T62): the change that added the scenario, e.g. `C1`. */
+  change?: Id;
 }
 
 /** One file in scenarios/. */
@@ -325,7 +332,7 @@ export interface EpicRecord {
   entities?: EntityModel;
   flow?: Flow;
   signoff?: SignOffLog;
-  /** Sorted by file name. */
+  /** Sorted by file name, then the scenarios of each change file (`changes/C1.yaml`, T62) in change number order. */
   scenarioFiles: ScenarioFile[];
   /** architecture.yaml: the EPIC's change to the system (D43). Optional. */
   architecture?: ArchitectureChange;

@@ -19,8 +19,9 @@ import { codeStartSection, MAX_CODE_SECTION_CHARS, type CodeStartOptions } from 
 import { DEFAULT_COMMANDS, howToWorkMarkdown, type RepoCommands } from './how-to-work.js';
 import { diffStoryContent, type ContentChange } from './signoff-preview.js';
 import { allScenarios, detectStale, scenarioTrust, signOffRule } from './stale.js';
-import { servingBoxes, storyContentV2, storyHashV2 } from './story-hash.js';
-import { CURRENT_HASH_RULE, type SignOffWithRule } from './types.js';
+import { servingBoxes, storyContentV2, storyHash } from './story-hash.js';
+import { CURRENT_HASH_RULE, isTrustedRule, type SignOffWithRule } from './types.js';
+import { changeOf, storyChanges } from '../change/load.js';
 
 /**
  * The most a build brief holds: about 6.5k tokens at four characters a token. T44 set 24_000; T49
@@ -60,8 +61,12 @@ export interface BriefSignState {
   hashRule?: number;
   /** The hash in the latest sign-off of the story. */
   signedHash?: Hash;
-  /** Story hash rule 2 of the content now: the plan hash a thread is started from. */
+  /** Story hash under the current rule of the content now: the plan hash a thread is started from. Same as rule 2 for a story without changes. */
   currentHash: Hash;
+  /** The changes of the story (T62), in change number order. */
+  changes?: Id[];
+  /** The changes that the latest sign-off does not cover (T62). */
+  newChanges?: Id[];
   /** Why an agent may not build from it, in plain words. */
   refusal?: string;
 }
@@ -71,7 +76,7 @@ export type BuildBrief =
       ok: true;
       storyId: Id;
       markdown: string;
-      /** Story hash rule 2 of the content the brief was made from. */
+      /** Story hash (current rule) of the content the brief was made from. */
       hash: Hash;
       /** That content (`storyContentV2`), for the change list later. */
       content: Record<string, unknown>;
@@ -97,12 +102,15 @@ function compact(v: unknown): string {
 export function briefSignState(record: EpicRecord, storyId: Id): BriefSignState | undefined {
   const story = asArray<Story>(record.prd?.stories).find((s) => isObject(s) && s.id === storyId);
   if (!story || !record.prd) return undefined;
-  const currentHash = storyHashV2(story, record.prd, record.flow, allScenarios(record));
+  const changes = storyChanges(record, storyId).map((c) => c.doc);
+  const currentHash = storyHash(CURRENT_HASH_RULE, story, record.prd, record.flow, allScenarios(record), changes);
   const trust = detectStale(record).stories.find((s) => s.id === storyId);
   const latest = [...asArray<SignOffWithRule>(record.signoff?.signOffs).filter(isObject)]
     .reverse()
     .find((s) => isObject(s.storyHashes) && typeof s.storyHashes[storyId] === 'string');
   const state: BriefSignState = { status: trust?.status ?? 'draft', buildable: false, currentHash };
+  if (changes.length > 0) state.changes = changes.map((c) => c.id);
+  if (trust?.newChanges) state.newChanges = trust.newChanges;
   if (latest) {
     state.by = str(latest.by);
     state.at = str(latest.at);
@@ -110,8 +118,9 @@ export function briefSignState(record: EpicRecord, storyId: Id): BriefSignState 
     state.signedHash = latest.storyHashes[storyId];
   }
   if (state.status === 'draft') state.refusal = `story ${storyId} is not signed off; the owner signs it off in the rehearse UI before an agent builds it`;
+  else if (state.status === 'stale' && state.newChanges) state.refusal = `story ${storyId} has new change ${state.newChanges.join(', ')}. The owner did not sign it off yet. The owner must sign off the story again before an agent builds it`;
   else if (state.status === 'stale') state.refusal = `story ${storyId} changed since it was signed off on ${state.at}; the owner must sign it off again before an agent builds it`;
-  else if (state.hashRule !== CURRENT_HASH_RULE) state.refusal = `story ${storyId} was signed under hash rule ${state.hashRule}, which does not cover its boxes; the owner must sign it off again`;
+  else if (!isTrustedRule(state.hashRule)) state.refusal = `story ${storyId} was signed under hash rule ${state.hashRule}, which does not cover its boxes; the owner must sign it off again`;
   else state.buildable = true;
   return state;
 }
@@ -129,7 +138,7 @@ export function storyBuildBrief(record: EpicRecord, storyId: Id, opts: BuildBrie
   const notApproved = named.filter((id) => !approved.includes(id));
   if (notApproved.length > 0) return { ok: false, storyId, reason: `no approved scenario ${notApproved.join(', ')} in story ${storyId}`, sign };
   const top = header(record, story, sign);
-  const storyText = storySection(record, story);
+  const storyText = [storySection(record, story), changeSection(record, story, sign)].filter((x) => x !== '').join('\n\n');
   const boxes = boxSection(record, story);
   const design = designSection(opts.design);
   const after = [decisionSection(record, story, opts.decisions ?? {}), entitySection(record, story), `## How to work in this repo\n\n${howToWorkMarkdown(opts.commands)}`];
@@ -163,13 +172,19 @@ function header(record: EpicRecord, story: Story, sign: BriefSignState): string 
   } else {
     lines.push('**The story is not signed off.** This brief shows a plan the owner has not agreed to: ask before you build.');
   }
-  lines.push(`Record: \`docs/epics/${record.slug}/\` (prd.yaml, flow.yaml, scenarios/${story.id}.yaml). Plan hash: ${shortHash(sign.currentHash)}.`);
+  const changeFiles = (sign.changes ?? []).map((c) => `changes/${c}.yaml`);
+  lines.push(`Record: \`docs/epics/${record.slug}/\` (prd.yaml, flow.yaml, scenarios/${story.id}.yaml${changeFiles.length > 0 ? `, ${changeFiles.join(', ')}` : ''}). Plan hash: ${shortHash(sign.currentHash)}.`);
   return lines.join('\n');
 }
 
 function roleName(record: EpicRecord, id: string): string {
   const role = asArray<Role>(record.prd?.roles).find((r) => isObject(r) && r.id === id);
   return role && typeof role.name === 'string' ? role.name : id;
+}
+
+/** The mark of an item that a change added (T62): the builder builds it on top of the story. */
+function changeMark(id: string): string {
+  return `New in ${id}`;
 }
 
 function storySection(record: EpicRecord, story: Story): string {
@@ -182,7 +197,28 @@ function storySection(record: EpicRecord, story: Story): string {
   const criteria = asArray<AcceptanceCriterion>(story.acceptance).filter(isObject);
   if (criteria.length > 0) {
     lines.push('', '### Acceptance criteria', '');
-    for (const c of criteria) lines.push(`- ${c.id}: given ${oneLine(str(c.given))}; when ${oneLine(str(c.when))}; then ${oneLine(str(c.then))}.`);
+    for (const c of criteria) lines.push(`- ${c.id}${changeOf(c) ? ` (${changeMark(changeOf(c)!)})` : ''}: given ${oneLine(str(c.given))}; when ${oneLine(str(c.when))}; then ${oneLine(str(c.then))}.`);
+  }
+  return lines.join('\n');
+}
+
+/** The small changes of the story (T62): what each one adds, and which ones are new since the last sign-off. */
+function changeSection(record: EpicRecord, story: Story, sign: BriefSignState): string {
+  const changes = storyChanges(record, story.id);
+  if (changes.length === 0) return '';
+  const lines = ['## Small changes', ''];
+  const fresh = sign.newChanges ?? [];
+  if (fresh.length > 0) lines.push(`New since the last sign-off: ${fresh.join(', ')}. The rest of the story is as the owner signed it.`);
+  else lines.push(sign.status === 'signed' ? 'The owner signed off the story with these changes.' : 'The changes are part of the plan above.');
+  lines.push('Build the items marked "New in C<n>" on top of the code of the story.');
+  for (const { file, doc } of changes) {
+    lines.push('', `### ${changeMark(doc.id)}: ${oneLine(str(doc.title))}`, '');
+    lines.push(`- File: \`docs/epics/${record.slug}/${file}\``);
+    if (typeof doc.why === 'string') lines.push(`- Why: ${oneLine(doc.why)}`);
+    const ids = (xs: unknown) => asArray<{ id?: unknown }>(xs).filter(isObject).map((x) => str(x.id)).join(', ');
+    lines.push(`- Criteria: ${ids(doc.criteria) || 'none'}`);
+    lines.push(`- Scenarios: ${ids(doc.scenarios) || 'none'}`);
+    if (asArray(doc.boxes).length > 0) lines.push(`- New boxes: ${ids(doc.boxes)}`);
   }
   return lines.join('\n');
 }
@@ -227,7 +263,7 @@ function scenarioSection(record: EpicRecord, story: Story, short?: ShortScenario
   else lines.push('Build to these. Write one e2e test per scenario, named after its id. Each step of the test starts with the box it walks.');
   if (short && full.length > 0) lines.push('Each one names the criterion it checks (see Acceptance criteria above); a step example shown before reads "as in" the first scenario that has it.');
   for (const s of full) {
-    lines.push('', `### ${s.id}: ${oneLine(str(s.title))}`, '');
+    lines.push('', `### ${s.id}${changeOf(s) ? ` (${changeMark(changeOf(s)!)})` : ''}: ${oneLine(str(s.title))}`, '');
     const c = s.expect?.criterion ? criteria.get(s.expect.criterion) : undefined;
     if (c && short) lines.push(`- Checks ${c.id}.`);
     else if (c) lines.push(`- Checks ${c.id}: given ${oneLine(str(c.given))}; when ${oneLine(str(c.when))}; then ${oneLine(str(c.then))}.`);

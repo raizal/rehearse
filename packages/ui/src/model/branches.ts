@@ -6,6 +6,8 @@ import type { Id } from '@rehearse/core';
 import { layoutStoryMap, storyBranches, storyMap, type ScenarioBranch, type StoryBranches, type StoryMap } from '@rehearse/core/layout';
 import type { ScenarioView } from '../api.js';
 import type { ReviewEpicView } from '../contract.js';
+import { changeRef, type ChangeRef } from './changes.js';
+import { boxAt } from './diagram.js';
 
 export { branchHeader, branchLabel, layoutStoryMap, type ScenarioBranch, type SmEdge, type SmGhost, type SmLayout, type SmNode, type StoryBranches, type StoryMap } from '@rehearse/core/layout';
 
@@ -59,4 +61,14 @@ export function sharedRowText(upTo: string, shared: number): string {
 export function sharedSeenText(unseen: number, allOnMain: boolean): string {
   if (unseen > 0) return `not seen yet on the main path — expand to see ${steps(unseen)}`;
   return allOnMain ? 'seen on the main path' : 'seen';
+}
+
+/** Box path → the small change that added the box (T62), for the boxes of the story map. */
+export function mapChanges(view: Pick<ReviewEpicView, 'flow' | 'changes'>, map: StoryMap): Map<string, ChangeRef> {
+  const out = new Map<string, ChangeRef>();
+  for (const n of map.nodes) {
+    const change = changeRef(view, boxAt(view.flow, n.path));
+    if (change) out.set(n.path, change);
+  }
+  return out;
 }

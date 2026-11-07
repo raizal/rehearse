@@ -2,7 +2,7 @@
 // and the sign-off preview (T39).
 
 export * from './types.js';
-export { boxContent, servingBoxes, storyContentV2, storyHash, storyHashV2 } from './story-hash.js';
+export { boxContent, changeContent, servingBoxes, storyContent, storyContentV2, storyContentV3, storyHash, storyHashV2, storyHashV3, withoutChanges } from './story-hash.js';
 export { allScenarios, detectStale, epicStatus, scenarioTrust, signOffRule } from './stale.js';
 export { findingStories, gateEpic, gateItems, gateRecord, simulationFindings, type GateCheck, type GateItem, type GateOptions, type Simulate } from './gate.js';
 export { approveScenarios, currentIdentity, signOff, type ApproveResult, type SignOffResult, type WriteOptions } from './write.js';
@@ -57,6 +57,7 @@ export {
 } from './evidence.js';
 export {
   diffStoryContent,
+  markChanges,
   previewContent,
   previewCounts,
   wordDiff,
@@ -64,6 +65,7 @@ export {
   type ContentChange,
   type PreviewBox,
   type PreviewBoxRelation,
+  type PreviewChange,
   type PreviewCounts,
   type PreviewScenario,
   type StoryPreviewContent,

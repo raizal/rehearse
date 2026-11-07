@@ -89,7 +89,7 @@ describe('approveScenarios', () => {
 });
 
 describe('signOff', () => {
-  it('S9-A2 when all gate checks pass, appends who, when and a rule-2 hash for each story', () => {
+  it('S9-A2 when all gate checks pass, appends who, when and a rule-3 hash for each story (T62)', () => {
     const dir = approvedEpic();
     writeFileSync(join(dir, 'signoff.yaml'), '# Append only.\nsignOffs:\n  - { by: old@b.c, at: "2026-11-01T00:00:00Z", storyHashes: {} }\n');
     const result = signOff(dir, ['S2', 'S1'], ME, { now: NOW, ...SIGNED });
@@ -103,7 +103,7 @@ describe('signOff', () => {
       by: 'a@b.c',
       threadId: 'thr_test',
       at: '2026-11-05T10:00:00Z',
-      hashRule: 2,
+      hashRule: 3,
       storyHashes: { S1: expect.stringMatching(/^sha256:[0-9a-f]{64}$/), S2: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) },
       sig: expect.stringMatching(SIG),
     });

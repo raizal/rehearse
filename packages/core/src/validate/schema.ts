@@ -5,8 +5,9 @@ import { readFileSync } from 'node:fs';
 import { Ajv, type ErrorObject, type ValidateFunction } from 'ajv';
 import { RECORD_FILES, type EpicRecord, type Finding } from '../types.js';
 import { asArray, isObject } from '../util.js';
+import { isChangeFile } from '../change/load.js';
 
-export type SchemaName = 'prd' | 'entities' | 'flow' | 'scenario' | 'signoff' | 'architecture' | 'system';
+export type SchemaName = 'prd' | 'entities' | 'flow' | 'scenario' | 'signoff' | 'architecture' | 'system' | 'change';
 
 /** Absolute URL of the JSON Schema file for one record file kind. */
 export function schemaUrl(name: SchemaName): URL {
@@ -20,7 +21,8 @@ function validator(name: SchemaName): ValidateFunction {
   if (!validators) {
     const ajv = new Ajv({ allErrors: true, strict: true, strictRequired: false });
     validators = new Map();
-    for (const n of ['prd', 'entities', 'flow', 'scenario', 'signoff', 'architecture', 'system'] as const) {
+    // `change` refers to the flow and scenario schemas, so it comes after them (T62).
+    for (const n of ['prd', 'entities', 'flow', 'scenario', 'signoff', 'architecture', 'system', 'change'] as const) {
       validators.set(n, ajv.compile(JSON.parse(readFileSync(schemaUrl(n), 'utf8'))));
     }
   }
@@ -35,6 +37,7 @@ export function schemaFor(file: string): SchemaName | undefined {
   if (file === RECORD_FILES.signoff) return 'signoff';
   if (file === RECORD_FILES.architecture) return 'architecture';
   if (file.startsWith(`${RECORD_FILES.scenariosDir}/`)) return 'scenario';
+  if (isChangeFile(file)) return 'change';
   return undefined;
 }
 
@@ -147,7 +150,7 @@ function idPathFor(name: SchemaName, doc: unknown, segments: string[]): string |
     }
     return ids.length > 0 ? ids.join('/') : undefined;
   }
-  if (name === 'scenario' && segments[0] === 'scenarios' && segments[1] !== undefined) {
+  if ((name === 'scenario' || name === 'change') && segments[0] === 'scenarios' && segments[1] !== undefined) {
     const idx = Number(segments[1]);
     const sc = isObject(doc) ? asArray(doc.scenarios)[idx] : undefined;
     const id = isObject(sc) && typeof sc.id === 'string' ? sc.id : `#${idx}`;

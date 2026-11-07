@@ -13,6 +13,7 @@
 .status-story { font-weight: var(--fw-regular); min-width: 14em; }
 .status-id { font-weight: var(--fw-bold); }
 .status-title { color: var(--ink-2); }
+.status-story .change-mark { margin-left: var(--s-1); }
 .status-missing { margin: 0; padding-left: var(--s-4); }
 .status-missing li.is-blocking { color: var(--ink); }
 .status-missing li:not(.is-blocking) { color: var(--muted); }

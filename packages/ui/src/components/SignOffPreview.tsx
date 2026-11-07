@@ -2,7 +2,8 @@
 // and what changed since the story's last sign-off. The server reads the content that story hash
 // rule 2 fingerprints (`GET api/sign-off/preview`); the scenario status and the approval with its
 // signature state come from `GET api/epic`. Read only: the Sign off tab puts the confirm button
-// under it, the story page shows it alone.
+// under it, the story page shows it alone. When small changes (T62) are new since the last
+// sign-off, the preview shows each new change and its items first, and folds the signed rest.
 
 import { useEffect, useState } from 'react';
 import type { ContentChange, Id, PreviewBox, StoryPreviewContent } from '@rehearse/core';
@@ -10,6 +11,7 @@ import { fetchSignOffPreview, type SignOffPreview as Preview, type SinceSignOff,
 import type { ReviewEpicView } from '../contract.js';
 import { SigBadge } from './Review.js';
 import { DesignBeside } from './DesignBeside.js';
+import { newChangesOf, splitNewChanges } from '../model/changes.js';
 
 /** What a sign-off is, in plain words. */
 export const SIGN_OFF_MEANING =
@@ -89,8 +91,10 @@ function SinceChip({ since }: { since: SinceSignOff }) {
 
 function StoryPreview({ view, s, content, me, onOpenBox }: { view: ReviewEpicView; s: StorySignOffPreview; content: StoryPreviewContent; me?: string; onOpenBox?: (path: string) => void }) {
   const roleName = (id: string) => content.roles.find((r) => r.id === id)?.name ?? id;
-  const role = roleName(content.story.role);
   const n = s.counts ?? { requirements: content.requirements.length, criteria: content.criteria.length, scenarios: content.scenarios.length, boxes: content.boxes.length };
+  // Small changes that no sign-off covers (T62): show them first, and the signed rest folded.
+  const fresh = newChangesOf(s.since);
+  const { added, rest } = splitNewChanges(content, fresh);
   return (
     <div className="signoff-story-body">
       <p className="signoff-summary" data-testid={`signoff-preview-summary-${s.id}`}>
@@ -98,9 +102,39 @@ function StoryPreview({ view, s, content, me, onOpenBox }: { view: ReviewEpicVie
       </p>
       {s.since && <Since id={s.id} since={s.since} me={me} />}
       <DesignBeside view={view} storyId={s.id} />
+      {fresh.length === 0 ? (
+        <StoryContent view={view} id={s.id} content={content} roleName={roleName} onOpenBox={onOpenBox} />
+      ) : (
+        <>
+          {added.map((c) => (
+            <section key={c.id} className="signoff-new" data-testid={`signoff-preview-new-${c.id}`}>
+              <h4>
+                New in {c.id}
+                {c.title ? `: ${c.title}` : ''}
+              </h4>
+              {c.why && <p className="small">{c.why}</p>}
+              {c.criteria.length > 0 && <CriteriaList criteria={c.criteria} testId={`signoff-preview-new-criteria-${c.id}`} />}
+              {c.scenarios.length > 0 && <ScenarioList view={view} scenarios={c.scenarios} testId={`signoff-preview-new-scenarios-${c.id}`} />}
+              {c.boxes.length > 0 && <BoxList boxes={c.boxes} roleName={roleName} onOpenBox={onOpenBox} testId={`signoff-preview-new-boxes-${c.id}`} />}
+            </section>
+          ))}
+          <details className="signoff-rest" data-testid={`signoff-preview-rest-${s.id}`}>
+            <summary>The rest of the story is as signed</summary>
+            <StoryContent view={view} id={s.id} content={rest} roleName={roleName} onOpenBox={onOpenBox} />
+          </details>
+        </>
+      )}
+    </div>
+  );
+}
 
+/** The story sentence, its requirements, criteria, scenarios and boxes. */
+function StoryContent({ view, id, content, roleName, onOpenBox }: { view: ReviewEpicView; id: Id; content: StoryPreviewContent; roleName: (id: string) => string; onOpenBox?: (path: string) => void }) {
+  const role = roleName(content.story.role);
+  return (
+    <>
       <h4>Story</h4>
-      <p className="signoff-sentence" data-testid={`signoff-preview-sentence-${s.id}`}>
+      <p className="signoff-sentence" data-testid={`signoff-preview-sentence-${id}`}>
         As {/^[aeiou]/i.test(role) ? 'an' : 'a'} {role}, I want {content.story.want}, so that {content.story.soThat}.
       </p>
 
@@ -108,7 +142,7 @@ function StoryPreview({ view, s, content, me, onOpenBox }: { view: ReviewEpicVie
       {content.requirements.length === 0 ? (
         <p className="muted small">None.</p>
       ) : (
-        <ul className="signoff-list" data-testid={`signoff-preview-requirements-${s.id}`}>
+        <ul className="signoff-list" data-testid={`signoff-preview-requirements-${id}`}>
           {content.requirements.map((r) => (
             <li key={r.id}>
               <span className="pill">{r.id}</span> {r.text}
@@ -118,63 +152,79 @@ function StoryPreview({ view, s, content, me, onOpenBox }: { view: ReviewEpicVie
       )}
 
       <h4>Acceptance criteria</h4>
-      {content.criteria.length === 0 ? (
-        <p className="muted small">None.</p>
-      ) : (
-        <ul className="signoff-list" data-testid={`signoff-preview-criteria-${s.id}`}>
-          {content.criteria.map((c) => (
-            <li key={c.id}>
-              <span className="pill">{c.id}</span>
-              <dl className="gwt-rows">
-                <dt>GIVEN</dt>
-                <dd>{c.given}</dd>
-                <dt>WHEN</dt>
-                <dd>{c.when}</dd>
-                <dt>THEN</dt>
-                <dd>{c.then}</dd>
-              </dl>
-            </li>
-          ))}
-        </ul>
-      )}
+      {content.criteria.length === 0 ? <p className="muted small">None.</p> : <CriteriaList criteria={content.criteria} testId={`signoff-preview-criteria-${id}`} />}
 
       <h4>Scenarios</h4>
-      {content.scenarios.length === 0 ? (
-        <p className="muted small">None.</p>
-      ) : (
-        <ul className="signoff-list" data-testid={`signoff-preview-scenarios-${s.id}`}>
-          {content.scenarios.map((sc) => {
-            const status = view.scenarios.find((v) => v.scenario.id === sc.id)?.status ?? 'draft';
-            const approval = view.approvals?.[sc.id];
-            return (
-              <li key={sc.id} data-testid={`signoff-preview-scenario-${sc.id}`}>
-                <span className="pill">{sc.id}</span> {sc.title} <span className={`badge status-${status}`}>{status}</span>{' '}
-                {approval ? (
-                  <span className="small">
-                    approved by {approval.by} on {formatAt(approval.at)} <SigBadge status={approval.sigStatus} signer={approval.signer} testId={`signoff-preview-sig-${sc.id}`} />
-                  </span>
-                ) : (
-                  <span className="muted small">not approved</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {content.scenarios.length === 0 ? <p className="muted small">None.</p> : <ScenarioList view={view} scenarios={content.scenarios} testId={`signoff-preview-scenarios-${id}`} />}
 
       <h4>Boxes</h4>
       {content.boxes.length === 0 ? (
         <p className="muted small">No box serves this story.</p>
       ) : (
-        <ul className="signoff-list signoff-boxes" data-testid={`signoff-preview-boxes-${s.id}`}>
-          {content.boxes.map((b) => (
-            <BoxItem key={b.path} box={b} lane={roleName(b.lane)} onOpenBox={onOpenBox} />
-          ))}
-        </ul>
+        <BoxList boxes={content.boxes} roleName={roleName} onOpenBox={onOpenBox} testId={`signoff-preview-boxes-${id}`} />
       )}
-    </div>
+    </>
   );
 }
+
+function CriteriaList({ criteria, testId }: { criteria: StoryPreviewContent['criteria']; testId: string }) {
+  return (
+    <ul className="signoff-list" data-testid={testId}>
+      {criteria.map((c) => (
+        <li key={c.id}>
+          <span className="pill">{c.id}</span>
+          <dl className="gwt-rows">
+            <dt>GIVEN</dt>
+            <dd>{c.given}</dd>
+            <dt>WHEN</dt>
+            <dd>{c.when}</dd>
+            <dt>THEN</dt>
+            <dd>{c.then}</dd>
+          </dl>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ScenarioList({ view, scenarios, testId }: { view: ReviewEpicView; scenarios: StoryPreviewContent['scenarios']; testId: string }) {
+  return (
+    <ul className="signoff-list" data-testid={testId}>
+      {scenarios.map((sc) => {
+        const status = view.scenarios.find((v) => v.scenario.id === sc.id)?.status ?? 'draft';
+        const approval = view.approvals?.[sc.id];
+        return (
+          <li key={sc.id} data-testid={`signoff-preview-scenario-${sc.id}`}>
+            <span className="pill">{sc.id}</span> {sc.title} <span className={`badge status-${status}`}>{status}</span>{' '}
+            {approval ? (
+              <span className="small">
+                approved by {approval.by} on {formatAt(approval.at)} <SigBadge status={approval.sigStatus} signer={approval.signer} testId={`signoff-preview-sig-${sc.id}`} />
+              </span>
+            ) : (
+              <span className="muted small">not approved</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function BoxList({ boxes, roleName, onOpenBox, testId }: { boxes: PreviewBox[]; roleName: (id: string) => string; onOpenBox?: (path: string) => void; testId: string }) {
+  return (
+    <ul className="signoff-list signoff-boxes" data-testid={testId}>
+      {boxes.map((b) => (
+        <BoxItem key={b.path} box={b} lane={roleName(b.lane)} onOpenBox={onOpenBox} />
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Rule 1 is the only story hash rule that does not cover the boxes. Rules 2 and 3 (T62) are
+ * trusted, as core's TRUSTED_HASH_RULES says.
+ */
+const UNTRUSTED_RULE = 1;
 
 const RELATION: Record<PreviewBox['relation'], string> = { serves: 'serves the story', parent: 'holds a box of the story', inside: 'inside a box of the story' };
 
@@ -204,6 +254,7 @@ function Since({ id, since, me }: { id: Id; since: SinceSignOff; me?: string }) 
       </p>
     );
   }
+  const fresh = newChangesOf(since);
   const whose = `${me !== undefined && since.by === me ? 'your sign-off' : `the sign-off by ${since.by}`} on ${formatAt(since.at)}`;
   if (since.kind === 'unchanged') {
     return (
@@ -226,9 +277,11 @@ function Since({ id, since, me }: { id: Id; since: SinceSignOff; me?: string }) 
       </p>
       {since.changes.length === 0 ? (
         <p className="small">
-          {since.hashRule < 2
+          {since.hashRule === UNTRUSTED_RULE
             ? 'The content is the same, but that sign-off used hash rule 1, which did not cover the boxes. Sign again so the fingerprint covers them.'
-            : 'No difference in the content was found against that commit.'}
+            : fresh.length > 0
+              ? `No sign-off covers ${fresh.join(', ')}. The rest of the story is as signed.`
+              : 'No difference in the content was found against that commit.'}
         </p>
       ) : (
         <ul className="change-list" data-testid={`signoff-preview-changes-${id}`}>

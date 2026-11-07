@@ -105,7 +105,7 @@ describe('stale detection (content-changed)', () => {
         kind: 'gate',
         file: 'signoff.yaml',
         path: 'S1',
-        message: 'story is stale: content changed since sign-off (hash rule 2); must be signed again',
+        message: 'story is stale: content changed since sign-off (hash rule 3); must be signed again',
         refs: ['S1'],
       },
     ]);

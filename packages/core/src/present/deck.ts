@@ -7,6 +7,7 @@ import { laneColor } from '../layout/diagram.js';
 import { layoutStoryFlow, storyFlow } from '../layout/storyflow.js';
 import { briefSignState } from '../trust/build-brief.js';
 import { scenarioTrust } from '../trust/stale.js';
+import { changeOf } from '../change/load.js';
 import { servingBoxes } from '../trust/story-hash.js';
 import type { AcceptanceCriterion, EpicRecord, Id, Requirement, Role, Scenario, Story } from '../types.js';
 import { asArray, isObject } from '../util.js';
@@ -379,10 +380,17 @@ function criterionMark(v: StoryView, c: AcceptanceCriterion): Mark {
   return 'not-yet';
 }
 
+/** The text with a lower-case first letter; names and ids keep their case. */
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
 function statusLine(v: StoryView): string {
   const parts: string[] = [];
   if (v.sign?.buildable) parts.push(`Signed off by ${person(v.sign.by)} on ${day(v.sign.at)}`);
-  else if (v.sign?.status === 'stale') parts.push(`Changed after ${person(v.sign.by)} signed it off on ${day(v.sign.at)}: it needs a new sign-off`);
+  else if (v.sign?.status === 'stale' && v.sign.newChanges && v.sign.newChanges.length > 0) {
+    parts.push(`Signed off by ${person(v.sign.by)} on ${day(v.sign.at)}; ${v.sign.newChanges.join(', ')} is new since then`);
+  } else if (v.sign?.status === 'stale') parts.push(`Changed after ${person(v.sign.by)} signed it off on ${day(v.sign.at)}: it needs a new sign-off`);
   else if (v.sign?.status === 'signed') parts.push('Signed off under an older rule: it needs a new sign-off');
   else parts.push('Not signed off yet');
   parts.push(v.boxes === 0 ? 'nothing planned to build' : `${v.facts.built} of ${plural(v.boxes, 'part')} built`);
@@ -406,7 +414,7 @@ function checkRow(v: StoryView, x: { s: Scenario; approved: boolean }, year: str
   const step = test === 'failed' ? plainStep(run?.failedStep) : '';
   return {
     id: x.s.id,
-    title: cap(plain(x.s.title)),
+    title: `${changeOf(x.s) ? `New in ${changeOf(x.s)}: ` : ''}${cap(plain(x.s.title))}`,
     ...(c ? { given: plain(c.given), when: plain(c.when), then: plain(c.then) } : {}),
     approval,
     approved: x.approved,
@@ -442,7 +450,7 @@ function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInput
   const lead = `As ${/^[aeiou]/i.test(role) ? 'an' : 'a'} ${role}, I want ${plain(v.story.want).replace(/^to\s+/i, 'to ')}, so that ${plain(v.story.soThat)}.`;
   const criteria: ListItem[] = asArray<AcceptanceCriterion>(v.story.acceptance)
     .filter(isObject)
-    .map((c) => ({ text: stop(cap(plain(c.then))), id: c.id, mark: criterionMark(v, c) }));
+    .map((c) => ({ text: `${changeOf(c) ? `New in ${changeOf(c)}: ` : ''}${stop(cap(plain(c.then)))}`, id: c.id, mark: criterionMark(v, c) }));
   // With a picture (the design, else the last screen of a test): the picture on the left, the story on the right.
   const picture = v.facts.design ?? newestPicture(v, ctx.year);
   const first: Block[] = picture ? [{ type: 'image', asset: picture.asset, caption: picture.caption }, { type: 'lead', text: lead }] : [{ type: 'lead', text: lead }];
@@ -455,7 +463,7 @@ function storySlides(record: EpicRecord, v: StoryView, inputs: PresentationInput
   });
   first.push({ type: 'list', title: 'It is done when', items: criteria, columns: criteria.length > 5 && !picture ? 2 : 1, legend: true });
   first.push({ type: 'proof', title: 'The proof', rows: proofRows(v, ctx) });
-  const made1 = `${v.title}. ${state === 'done' ? `This story is done (${levelWords(v)}): it is built and signed off, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing[0] ?? 'not proven yet'}; ${statusLine(v).split(' · ')[0]!.toLowerCase()}.`}`;
+  const made1 = `${v.title}. ${state === 'done' ? `This story is done (${levelWords(v)}): it is built and signed off, and no test of it fails.` : `${DONE_WORDS[state]}: ${missing[0] ?? 'not proven yet'}; ${lowerFirst(statusLine(v).split(' · ')[0]!)}.`}`;
   const slides: Slide[] = [{ key: id, title: v.title, narration: narrate(inputs, id, made1), ids: [id, ...asArray<string>(v.story.requirements)], ...(picture ? { layout: 'split' as const } : {}), blocks: first }];
 
   if (v.scenarios.length === 0) return slides;

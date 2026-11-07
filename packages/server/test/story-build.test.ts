@@ -7,10 +7,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadEpic, type GateItem } from '@rehearse/core';
+import { approveScenarios, loadEpic, signOff, type GateItem } from '@rehearse/core';
 import { coverageIndexOf, EMPTY_COVERAGE, Store, type CoverageIndex } from '@rehearse/graph';
 import { makeEpic } from '../../core/test/helpers.js';
-import { editYaml, signedEpic } from '../../core/test/trust/helpers.js';
+import { editYaml, ME, NOW, SIGNED, signedEpic } from '../../core/test/trust/helpers.js';
 import {
   newToken,
   parseBranchLog,
@@ -129,6 +129,29 @@ async function serve(epicDir: string, fake: Fake = {}, extra: { threadModel?: st
   return { get, post, headers, calls: f.calls, linkFile, links, slug: '2026-11-05-shop' };
 }
 
+/** A small change C1 to S1 (T62): one criterion and one draft scenario. */
+function writeChange(dir: string): void {
+  mkdirSync(join(dir, 'changes'));
+  writeFileSync(
+    join(dir, 'changes', 'C1.yaml'),
+    [
+      'id: C1',
+      'story: S1',
+      'title: The buyer pays with a gift card.',
+      'why: Buyers ask for gift cards.',
+      'criteria:',
+      '  - { id: S1-A2, given: a gift card, when: the buyer pays, then: the order is shipped }',
+      'scenarios:',
+      '  - id: S1-c1-gift',
+      '    title: Buyer pays with a gift card',
+      '    status: draft',
+      '    steps: [{ name: start }, { name: cart }, { name: pay }, { name: in-stock, branch: "yes" }, { name: ship/pack }, { name: ship/send }, { name: done }]',
+      '    expect: { criterion: S1-A2, state: { Order.status: shipped } }',
+      '',
+    ].join('\n'),
+  );
+}
+
 const spawnCall = (calls: Call[]) => calls.find((c) => c.command === 'bb' && c.args[1] === 'spawn');
 
 describe('T44 build with an agent (box start-build)', () => {
@@ -202,6 +225,25 @@ describe('T44 build with an agent (box start-build)', () => {
     const spawn = spawnCall(s.calls)!;
     expect(spawn.args).not.toContain('--new-environment');
     expect(spawn.input).toContain('Story thread for S1');
+  });
+
+  it('T62 the build brief of a story with a signed change says what is new; an unsigned change is refused', async () => {
+    const dir = signedEpic();
+    writeChange(dir);
+    const unsigned = await serve(dir);
+    const refused = await unsigned.post('build', { story: 'S1' });
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).error).toContain('C1');
+    await running?.close();
+    running = undefined;
+    expect(approveScenarios(dir, ['S1-c1-gift'], ME, { now: NOW, ...SIGNED }).ok).toBe(true);
+    expect(signOff(dir, ['S1'], ME, { now: NOW, ...SIGNED }).ok).toBe(true);
+    const s = await serve(dir);
+    expect((await s.post('build', { story: 'S1' })).status).toBe(200);
+    const spawn = spawnCall(s.calls)!;
+    expect(spawn.input).toContain('## Small changes');
+    expect(spawn.input).toContain('### New in C1: The buyer pays with a gift card.');
+    expect(spawn.input).toContain('- S1-A2 (New in C1): ');
   });
 
   it('every new route needs the session token and a same-origin Origin', async () => {

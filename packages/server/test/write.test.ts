@@ -181,7 +181,7 @@ describe('rehearse serve: approve and sign-off', () => {
     const res = await post(url, 'api/sign-off', { storyIds: ['S1', 'S2'] }, { 'x-rehearse-token': token });
     const body = await res.json();
     expect(res.status, JSON.stringify(body)).toBe(200);
-    expect(body.signOff).toMatchObject({ by: ME.by, threadId: ME.threadId, hashRule: 2 });
+    expect(body.signOff).toMatchObject({ by: ME.by, threadId: ME.threadId, hashRule: 3 });
     expect(Object.keys(body.signOff.storyHashes).sort()).toEqual(['S1', 'S2']);
     expect(body.signOff.sig).toContain('-----BEGIN SSH SIGNATURE-----');
 
