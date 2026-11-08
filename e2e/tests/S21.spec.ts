@@ -100,7 +100,7 @@ test('S21-focus-after-approve: After a successful approval focus moves to Next s
       await page.getByTestId('readiness-story-link-R1-S1').click();
       await expect(page.getByRole('heading', { level: 1 })).toContainText('S1');
       await expect(page.getByTestId('story-scenario-seen-S1-buy')).toContainText('0 of 7 seen');
-      await page.getByTestId('story-scenario-open-S1-buy').click();
+      await page.getByTestId('glance-branch-S1-buy').click(); // The path button on the story map. The "Open storyboard" button of S1-buy is under the next card.
       await expect(page.getByRole('heading', { name: /Buyer pays and the order ships/ }).first()).toBeVisible();
       await expect(approveButton).toBeDisabled();
       // Guess: the arrow keys play the storyboard step by step (S5-A1: "Prev, Next, Play or the arrow keys").
