@@ -83,7 +83,7 @@ function signingShop() {
   writeFileSync(join(repo, '.rehearse/allowed_signers'), `e2e@example.com namespaces="rehearse" ${readFileSync(`${key}.pub`, 'utf8')}`);
   writeFileSync(join(tmp, 'gitconfig'), `[user]\n\tname = e2e\n\temail = e2e@example.com\n\tsigningkey = ${key}\n[gpg]\n\tformat = ssh\n[commit]\n\tgpgsign = false\n`);
   fakeBb(tmp, repo);
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: join(tmp, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1', PATH: `${join(tmp, 'bin')}:${process.env.PATH}` };
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: join(tmp, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1', PATH: `${join(tmp, 'bin')}:${process.env.PATH}`, REHEARSE_BB_PROJECT: 'proj_e2e' };
   for (const k of Object.keys(env)) if (k.startsWith('BB_')) delete env[k];
   delete env.SSH_AUTH_SOCK;
   const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, env, encoding: 'utf8' });
@@ -143,7 +143,7 @@ async function openStory(page: Page): Promise<void> {
 
 /** Play every step of a scenario on its storyboard, then press Approve. */
 async function approve(page: Page, id: string): Promise<void> {
-  await page.getByTestId(`story-scenario-open-${id}`).click();
+  await page.getByTestId(`glance-branch-${id}`).click(); // The path button on the story map: the "Open storyboard" button of a card can be under the next card.
   const approveButton = page.getByTestId('card-approve');
   for (let i = 0; i < 12 && !(await approveButton.isEnabled()); i++) await page.getByTestId('card-next-step').click();
   await expect(approveButton).toBeEnabled();
@@ -172,9 +172,13 @@ test('S13-all: The summary line writes all K missing tests in one thread', async
       await openStory(page);
       await approve(page, 'S1-buy');
       await expect.poll(() => scenarioBlock(shop.epicDir, 'S1', 'S1-buy')).toMatch(/status: approved/);
+      // The storyboard has no review queue: start again from the first page.
+      await page.goto(url);
       await openStory(page);
       await approve(page, 'S1-empty');
       await expect.poll(() => scenarioBlock(shop.epicDir, 'S1', 'S1-empty')).toMatch(/status: approved/);
+      // The storyboard has no review queue: start again from the first page.
+      await page.goto(url);
       await openStory(page);
       // Guess: the Tests tab of the story has the test id story-tab-tests, as the Design tab has story-tab-design.
       await page.getByTestId('story-tab-tests').click();
