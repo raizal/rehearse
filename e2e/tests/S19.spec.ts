@@ -90,10 +90,12 @@ test('S19-recap: The slide after the title is a recap of every story, done or no
 
     await test.step('build-recap: Build the recap slide after the title', async () => {
       // Step 7 of 12.
-      // Example recap: given {}; then {"epic":"2026-11-05-rehearse","commit":"main @ a33f854, 2026-11-07","uncommitted":false,"facts":"19 stories, 5 designs, 40 tests","doneStates":"12 done, 4 in progress, 3 not started","recap":"12 of 19 stories are done"}.
-      // The slide right after the title is the recap: one sentence on top, then every story with its state.
+      // Example recap: given {}; then {"epic":"2026-11-05-rehearse","commit":"main @ a33f854, 2026-11-07","uncommitted":false,"facts":"19 stories, 5 designs, 40 tests","doneStates":"12 done, 4 in progress, 3 not started","recap":"slide 7, after the summary and the slide Details, story by story: 12 of 19 stories are done"}.
+      // The recap is slide 7: after the title, the summary of S20 and the slide "Details, story by story".
+      // It has one sentence on top, then every story with its state.
       expect(deck[0]!.key).toBe('title');
-      expect(deck[1]!.key).toBe('recap');
+      expect(deck[5]!.key).toBe('details');
+      expect(deck[6]!.key).toBe('recap');
       const recap = slide('recap');
       expect(recap.text).toMatch(/^What is done, what is not 0 of 2 stories are done\./);
       expect(recap.text).toMatch(/Pay for my cart[^○]*S1/);
@@ -114,8 +116,11 @@ test('S19-recap: The slide after the title is a recap of every story, done or no
 
     await test.step('build-deck: Build the slides in plain words', async () => {
       // Step 10 of 12.
-      // Example deck: given {}; then {"epic":"2026-11-05-rehearse","slides":43,"deck":"title; recap: 12 of 19 stories are done; why; big picture"}.
-      expect(deck.slice(0, 2).map((d) => d.key)).toEqual(['title', 'recap']);
+      // Example deck: given {}; then {"epic":"2026-11-05-rehearse","slides":43,"deck":"title; the summary: what's done, what's not done yet and why, how we know, what's next; with --full, then: details, story by story; recap: 12 of 19 stories are done; why; big picture"}.
+      // The title and the summary of S20 come first. With --full, the details, the recap, why it exists and the map of the roles follow.
+      expect(deck.slice(0, 5).map((d) => d.key)).toEqual(['title', 'done', 'not-done', 'how-we-know', 'next']);
+      expect(deck.slice(5, 8).map((d) => d.key)).toEqual(['details', 'recap', 'why']);
+      expect(deck.map((d) => d.key).indexOf('big-picture')).toBeGreaterThan(deck.map((d) => d.key).indexOf('why'));
     });
 
     await test.step('render-deck-html: Write the deck as one self-contained HTML file', async () => {
