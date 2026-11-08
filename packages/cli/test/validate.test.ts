@@ -96,7 +96,7 @@ describe('box draft-record (S2, C16): validate tells the agent how to fix the re
     const { record } = loadEpic(REAL_EPIC);
     const writes = indexBoxes(record.flow).get('draft-record')!.box.writes as string[];
     expect(AGENT_WRITES).toEqual(writes.map((w) => w.replace(':->', ': ')));
-    expect(AGENT_WRITES.some((f) => f.startsWith('Story.status') || f.startsWith('Story.signedHash') || f === 'Story.*')).toBe(false);
+    expect((AGENT_WRITES as readonly string[]).some((f) => f.startsWith('Story.status') || f.startsWith('Story.signedHash') || f === 'Story.*')).toBe(false);
   });
 });
 
