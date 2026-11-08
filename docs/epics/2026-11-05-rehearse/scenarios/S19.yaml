@@ -26,14 +26,14 @@ scenarios:
     expect: { criterion: S19-A1, state: { firstSlides: [ title, done, not-done, how-we-know, next ], recapSlide: 7, slideBeforeRecap: details, sentence: "12 of 19 stories are done", rows: 19, states: [ done, in progress, not started ] } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-07T15:00:03Z'
-      hash: 'sha256:ebc1d141772b630e8572df79114344350cea51c8a198c0fc50c6ecd17f80498b'
+      at: '2026-11-08T10:28:35Z'
+      hash: 'sha256:6ba50e8301efd41075ea639c73b6bbf3bdf526d1d55688cf4222e342a2ba1db4'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABArA7tri5mMk6xwx8PioxoFX8HG6uagLcUyaFHOj3DiQ/ryg5vTp1TRD29Ds
-        882rskF7UT393pNrNp6ha1KWsKCg==
+        MjU1MTkAAABAOrGuCEs6BuXs+FwdMpNQmxgEdSUSNnhWyJX0fUXLV3L4uwhS37L1xV8/hy
+        +s/ksQ7zkMmqNhPYUp72jmGmFUAw==
         -----END SSH SIGNATURE-----
 
   - id: S19-done-rule

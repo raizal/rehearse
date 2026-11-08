@@ -16,14 +16,14 @@ scenarios:
     expect: { criterion: S18-A1, state: { firstSlides: [ title, done, not-done, how-we-know, next ], fullSlides: [ details, recap, why, requirements, big-picture ], statusLine: "15 of 18 stories signed off · 3 waiting for review" } }
     approval:
       by: raizal.pregnanta@systemearth.com
-      at: '2026-11-07T11:16:49Z'
-      hash: 'sha256:7b1b8fa257872322ff30f2efcff9d5458164628af62766911f79728f9054edb5'
+      at: '2026-11-08T10:19:47Z'
+      hash: 'sha256:0018b1011aafdb4f1bcfe0572789c177d181b8883499b1ad975e42a2af991daa'
       sig: |
         -----BEGIN SSH SIGNATURE-----
         U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
         j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
-        MjU1MTkAAABAQ9JTqpZ+Ic9lPPx9cc7QouRr8VH7n/E4NpRYV6cNGdvXmwH4T8tcFsQsq+
-        7aYaI2kYDfYzba46JLz7rRhgY7BQ==
+        MjU1MTkAAABAQtO26o8dv7mmV3SANoTCQ1qgdCx5shDHg0YrFLQrV8FrmXomy8VMHffgFo
+        uNQpy60fjfB2PfJ3nvjZ3HgGe5Dg==
         -----END SSH SIGNATURE-----
 
   - id: S18-progress
