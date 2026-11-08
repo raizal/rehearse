@@ -78,7 +78,7 @@ test('S7-matrix: A buyer box writes Order.status', async ({ page }) => {
       // The buyer step of S1-buy writes Order.status.
       await page.getByTestId('nav-stories').click();
       await page.getByTestId('queue-story-S1').click();
-      await page.getByTestId('story-scenario-open-S1-buy').click();
+      await page.getByTestId('glance-branch-S1-buy').click();
       await page.getByTestId('card-next-step').click();
       await expect(page.getByTestId('card-step-count')).toHaveText('Step 2 of 7');
       const step = page.getByRole('region', { name: 'Step 2 of 7: Check out the cart' });
@@ -179,9 +179,12 @@ async function approve(page: Page, url: string, fingerprint: string, story: stri
   await page.goto(url);
   await page.getByTestId('nav-stories').click();
   await page.getByTestId(`queue-story-${story}`).click();
-  await page.getByTestId(`story-scenario-open-${id}`).click();
-  await expect(page.getByTestId('card-step-count')).toHaveText(`Step 1 of ${steps}`);
-  for (let n = 2; n <= steps; n++) {
+  // The path button on the story map opens the storyboard. The "Open storyboard" button of a card can be under the next card.
+  await page.getByTestId(`glance-branch-${id}`).click();
+  // A branch opens at its first own step: the shared opening counts as seen on the main path (S22).
+  await expect(page.getByTestId('card-step-count')).toHaveText(new RegExp(`^Step \\d+ of ${steps}$`));
+  const first = Number(/Step (\d+)/.exec((await page.getByTestId('card-step-count').textContent()) ?? '')![1]);
+  for (let n = first + 1; n <= steps; n++) {
     await page.getByTestId('card-next-step').click();
     await expect(page.getByTestId('card-step-count')).toHaveText(`Step ${n} of ${steps}`);
   }

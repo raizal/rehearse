@@ -86,6 +86,9 @@ test('S9-sign: Builder signs off a clean EPIC', async ({ page }) => {
       await page.getByRole('checkbox', { name: /^S2 / }).check();
       await expect(page.getByTestId('signoff-button')).toBeEnabled();
       await page.getByTestId('signoff-button').click();
+      // A dialog shows what the builder agrees to, with the stories S1 and S2. The builder confirms it.
+      await expect(page.getByTestId('signoff-confirm-stories')).toHaveText('S1, S2');
+      await page.getByTestId('signoff-confirm').click();
       // The record keeps who, when, and a hash for each story, with a signature.
       await expect.poll(() => (existsSync(signoff) ? readFileSync(signoff, 'utf8') : '')).toContain('a@b.c');
       const text = readFileSync(signoff, 'utf8');
@@ -182,9 +185,12 @@ async function approve(page: Page, url: string, fingerprint: string, story: stri
   await page.goto(url);
   await page.getByTestId('nav-stories').click();
   await page.getByTestId(`queue-story-${story}`).click();
-  await page.getByTestId(`story-scenario-open-${id}`).click();
-  await expect(page.getByTestId('card-step-count')).toHaveText(`Step 1 of ${steps}`);
-  for (let n = 2; n <= steps; n++) {
+  // The path button on the story map opens the storyboard. The "Open storyboard" button of a card can be under the next card.
+  await page.getByTestId(`glance-branch-${id}`).click();
+  // A branch opens at its first own step: the shared opening counts as seen on the main path (S22).
+  await expect(page.getByTestId('card-step-count')).toHaveText(new RegExp(`^Step \\d+ of ${steps}$`));
+  const first = Number(/Step (\d+)/.exec((await page.getByTestId('card-step-count').textContent()) ?? '')![1]);
+  for (let n = first + 1; n <= steps; n++) {
     await page.getByTestId('card-next-step').click();
     await expect(page.getByTestId('card-step-count')).toHaveText(`Step ${n} of ${steps}`);
   }

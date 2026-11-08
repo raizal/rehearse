@@ -4,7 +4,7 @@
 // Work only from the scenarios and the product that runs (the UI and the CLI), not from the code of the boxes.
 
 import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -77,13 +77,13 @@ function signingShop() {
   cpSync(SHOP, epicDir, { recursive: true });
   const flow = readFileSync(join(epicDir, 'flow.yaml'), 'utf8');
   writeFileSync(join(epicDir, 'flow.yaml'), flow.replace('      title: Check out the cart\n', '      title: Check out the cart\n      decisions: [D1]\n'));
-  writeFileSync(join(epicDir, 'brainstorm.md'), '# Brainstorm\n\n## Decisions\n\n- **D1 One cart per buyer**: A buyer has one open cart. The shop keeps no second cart.\n');
+  appendFileSync(join(epicDir, 'scenarios/S1.yaml'), '  - id: S1-retry\n    title: Buyer checks out the empty cart again\n    status: draft\n    steps:\n      - { name: start }\n      - { name: cart, branch: empty-cart }\n      - { name: failed }\n'); writeFileSync(join(epicDir, 'brainstorm.md'), '# Brainstorm\n\n## Decisions\n\n- **D1 One cart per buyer**: A buyer has one open cart. The shop keeps no second cart.\n');
   const key = join(tmp, 'key');
   execFileSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-C', 'e2e', '-f', key]);
   writeFileSync(join(repo, '.rehearse/allowed_signers'), `e2e@example.com namespaces="rehearse" ${readFileSync(`${key}.pub`, 'utf8')}`);
   writeFileSync(join(tmp, 'gitconfig'), `[user]\n\tname = e2e\n\temail = e2e@example.com\n\tsigningkey = ${key}\n[gpg]\n\tformat = ssh\n[commit]\n\tgpgsign = false\n`);
   fakeBb(tmp, repo);
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: join(tmp, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1', PATH: `${join(tmp, 'bin')}:${process.env.PATH}` };
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: join(tmp, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1', PATH: `${join(tmp, 'bin')}:${process.env.PATH}`, REHEARSE_BB_PROJECT: 'proj_e2e' };
   for (const k of Object.keys(env)) if (k.startsWith('BB_')) delete env[k];
   delete env.SSH_AUTH_SOCK;
   const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, env, encoding: 'utf8' });
@@ -134,16 +134,16 @@ function scenarioBlock(epicDir: string, story: string, id: string): string {
   return start < 0 ? '' : text.slice(start, next < 0 ? undefined : next);
 }
 
-/** Open story S1 from the Stories list. */
-async function openStory(page: Page): Promise<void> {
+/** Open a story (S1 by default) from the review queue on the story page. */
+async function openStory(page: Page, story = 'S1'): Promise<void> {
   await page.getByTestId('nav-stories').click();
-  await page.getByTestId('queue-story-S1').click();
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('to pay for my cart');
+  await page.getByTestId(`queue-story-${story}`).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(story === 'S1' ? 'to pay for my cart' : 'to ship paid orders');
 }
 
 /** Play every step of a scenario on its storyboard, then press Approve. */
 async function approve(page: Page, id: string): Promise<void> {
-  await page.getByTestId(`story-scenario-open-${id}`).click();
+  await page.getByTestId(`glance-branch-${id}`).click(); // The path button on the story map: the "Open storyboard" button of a card can be under the next card.
   const approveButton = page.getByTestId('card-approve');
   for (let i = 0; i < 12 && !(await approveButton.isEnabled()); i++) await page.getByTestId('card-next-step').click();
   await expect(approveButton).toBeEnabled();
@@ -153,7 +153,7 @@ async function approve(page: Page, id: string): Promise<void> {
 test('S11-brief: The brief of a signed story holds everything the agent builds to', async ({ page }) => {
   // The main path of S11: "done" needs this test passed on the real screens.
   // Checks S11-A1: given a signed story that is not stale; when rehearse makes its build brief; then the brief says who signed it, when, the rule-2 hash and that it matches; it holds the story, its requirements and criteria, the approved scenarios (drafts apart), the serving boxes with contracts, children and edges, the decisions, the entities, and how to work; it stays under about 6k tokens.
-  // The shop record: story S1 has S1-buy and S1-empty. The builder approves S1-buy and keeps S1-empty a draft.
+  // The shop record: story S1 has S1-buy, S1-empty and the extra draft S1-retry. S1-retry stays a draft.
   test.setTimeout(180_000);
   const shop = signingShop();
   const { child, url } = await serveIn(shop.repo, shop.env);
@@ -161,28 +161,32 @@ test('S11-brief: The brief of a signed story holds everything the agent builds t
   try {
     await test.step('sign-off: Sign off (UI button only)', async () => {
       // Step 1 of 5.
-      await page.goto(url);
-      await openStory(page);
-      await approve(page, 'S1-buy');
-      await expect.poll(() => scenarioBlock(shop.epicDir, 'S1', 'S1-buy')).toMatch(/status: approved/);
-      expect(scenarioBlock(shop.epicDir, 'S1', 'S1-empty')).toMatch(/status: draft/);
-      // Guess: the Sign-off page lists the stories with a check box each and a "Sign off" button.
+      // The gate lets the owner sign off S1 only when each branch on its path has an approved scenario.
+      // So the builder approves S1-buy, S1-empty and S2-out-of-stock, and keeps S1-retry a draft.
+      for (const [story, id] of [['S1', 'S1-buy'], ['S1', 'S1-empty'], ['S2', 'S2-out-of-stock']] as const) {
+        await page.goto(url);
+        await openStory(page, story);
+        await approve(page, id);
+        await expect.poll(() => scenarioBlock(shop.epicDir, story, id)).toMatch(/status: approved/);
+      }
+      expect(scenarioBlock(shop.epicDir, 'S1', 'S1-retry')).toMatch(/status: draft/);
       await page.getByTestId('nav-signoff').click();
-      const s1 = page.getByRole('checkbox', { name: /S1\b/ });
-      if ((await s1.count()) > 0) await s1.first().check();
-      await page.getByRole('button', { name: /^Sign off/ }).first().click();
+      await page.getByRole('checkbox', { name: /^S1 / }).check();
+      await page.getByTestId('signoff-button').click();
+      // A dialog shows what the owner agrees to. The owner confirms it.
+      await expect(page.getByTestId('signoff-confirm-stories')).toHaveText('S1');
+      await page.getByTestId('signoff-confirm').click();
       await expect.poll(() => (JSON.parse(shop.rehearse('brief', EPIC, 'S1', '--json').out || '{}') as { sign?: { status?: string } }).sign?.status).toBe('signed');
     });
 
     await test.step('watch-build: The story\'s build panel - Build button, plan-changed notice and progress', async () => {
       // Step 2 of 5.
       // Example signed-story: given {"storyId":"S1","signed":true,"stale":false}; then {"button":"Build with an agent"}.
+      await page.goto(url);
       await openStory(page);
-      // Guess: the build panel is on the story page, or on a story tab named after the thread or the build.
-      if (!(await buildButton.isVisible())) {
-        const tab = page.locator('[data-testid^="story-tab-"]').filter({ hasText: /thread|build/i });
-        if ((await tab.count()) > 0) await tab.first().click();
-      }
+      // The story thread rail, with the build panel, is on the Code tab of the story.
+      await page.getByTestId('story-tab-code').click();
+      await expect(page.getByTestId('story-thread-none')).toBeVisible();
       await expect(buildButton).toBeVisible();
       await expect(buildButton).toBeEnabled();
     });
@@ -204,8 +208,10 @@ test('S11-brief: The brief of a signed story holds everything the agent builds t
       const r = shop.rehearse('brief', EPIC, 'S1');
       expect(r.code, r.err).toBe(0);
       const brief = r.out;
-      // The header: who signed, when, the rule-2 hash, and that it matches.
-      expect(brief).toMatch(/Signed off by e2e@example\.com on \d{4}-\d\d-\d\dT[\d:]+Z, at story hash sha256:[0-9a-f]+… \(rule 2\)\./);
+      // The header: who signed, when, the story hash and its rule, and that it matches. A new sign-off
+      // uses story hash rule 3 (S27-A4, after rule 2 of S11), and the brief names the rule of the sign-off.
+      expect(readFileSync(join(shop.epicDir, 'signoff.yaml'), 'utf8')).toMatch(/\bhashRule: 3\b/);
+      expect(brief).toMatch(/Signed off by e2e@example\.com on \d{4}-\d\d-\d\dT[\d:]+Z, at story hash sha256:[0-9a-f]+… \(rule 3\)\./);
       expect(brief).toContain('This brief matches the signed story.');
       // The six sections, in this order.
       const sections = ['## Story', '## Approved scenarios', '## Boxes', '## Decisions', '## Entities', '## How to work in this repo'];
@@ -218,8 +224,8 @@ test('S11-brief: The brief of a signed story holds everything the agent builds t
       expect(brief).toContain('S1-A1');
       const approved = brief.slice(brief.indexOf('\n## Approved scenarios'), brief.indexOf('\n## Boxes'));
       expect(approved).toContain('S1-buy');
-      expect(approved).toMatch(/Not approved[\s\S]*S1-empty/);
-      expect(approved.slice(0, approved.search(/Not approved/))).not.toContain('S1-empty');
+      expect(approved).toMatch(/Not approved[\s\S]*S1-retry/);
+      expect(approved.slice(0, approved.search(/Not approved/))).not.toContain('S1-retry');
       // The boxes with their contracts and edges, the decision, and the entity.
       expect(brief).toMatch(/### `cart`[\s\S]*inputs: items: list string/);
       expect(brief).toMatch(/### Edges[\s\S]*`cart` → `pay`/);

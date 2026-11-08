@@ -16,7 +16,7 @@ const NO_STOCK = `  - id: S1-no-stock
     status: draft
     steps:
       - { name: start }
-      - { name: cart }
+      - { name: cart, example: { id: cart-ok, given: { items: [a] }, then: { orderId: o1 } } }
       - { name: pay }
       - { name: in-stock, branch: "no" }
       - { name: failed }
@@ -110,7 +110,7 @@ test('S22-collapsed-seen: The shared opening is one row; steps seen on the main 
     await test.step('main-path: Find the story\'s main path', async () => {
       // No review.yaml: S1-buy takes no error edge and walks the most boxes, so it is the main path.
       await page.getByTestId('readiness-story-link-R1-S1').click();
-      await page.getByTestId('story-scenario-open-S1-buy').click();
+      await page.getByTestId('glance-branch-S1-buy').click(); // The path button on the story map. The "Open storyboard" button of S1-buy is under the next card.
       // Guess: the storyboard header of the main path is the text "Main path".
       await expect(page.getByText('Main path', { exact: true }).first()).toBeVisible();
       // The owner sees each step of the main path in this browser. Guess: ArrowRight plays the next step.

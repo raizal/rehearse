@@ -84,7 +84,7 @@ test('S23-page-table: The Status page shows one row per story with its columns, 
   const { child, url } = await serveIn(epic.repo, epicDir, epic.env);
   // The CLI says the same as the page: the test uses it to know the rows that the page must show.
   const cli = spawnSync(process.execPath, [CLI, 'status', EPIC, '--birdview-data', epic.birdview], { cwd: epic.repo, env: epic.env, encoding: 'utf8' });
-  const row = (story: string) => page.getByRole('row').filter({ has: page.getByRole('cell', { name: story, exact: true }) });
+  const row = (story: string) => page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: new RegExp(`^${story} `) }) }); // The row header is the story id and its title.
   try {
     await test.step('status-view: Open the Status page', async () => {
       expect(cli.status, cli.stdout + cli.stderr).toBe(0);
@@ -133,8 +133,8 @@ test('S23-page-table: The Status page shows one row per story with its columns, 
       const commit = epic.git('rev-parse', '--short', 'HEAD').trim();
       const day = epic.git('log', '-1', '--format=%cs').trim();
       expect(cli.stdout).toContain(`commit: main @ ${commit}, ${day}`);
-      await expect(page.getByText(/commit:/).first()).toContainText(commit);
-      await expect(page.getByText(/commit:/).first()).toContainText(day);
+      await expect(page.getByTestId('status-source-commit')).toContainText(`Commit: main @ ${commit}`);
+      await expect(page.getByTestId('status-source-commit')).toContainText(day);
       await expect(page.getByText(/code graph not built yet/).first()).toBeVisible();
       await expect(page.getByText(/no unit report/).first()).toBeVisible();
       await expect(page.getByText(/real screens:/).first()).toBeVisible();
