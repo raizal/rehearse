@@ -2,7 +2,7 @@ story: S19
 scenarios:
 
   - id: S19-recap
-    title: The slide after the title is a recap of every story, done or not, with one sentence on top
+    title: With --full, the slide after the details slide is a recap of every story, done or not, with one sentence on top
     status: approved
     steps:
       - name: present-cli
@@ -23,7 +23,7 @@ scenarios:
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
-    expect: { criterion: S19-A1, state: { secondSlide: recap, sentence: "12 of 19 stories are done", rows: 19, states: [ done, in progress, not started ] } }
+    expect: { criterion: S19-A1, state: { firstSlides: [ title, done, not-done, how-we-know, next ], recapSlide: 7, slideBeforeRecap: details, sentence: "12 of 19 stories are done", rows: 19, states: [ done, in progress, not started ] } }
     approval:
       by: raizal.pregnanta@systemearth.com
       at: '2026-11-07T15:00:03Z'

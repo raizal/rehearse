@@ -24,9 +24,9 @@ function slides(html: string): Slide[] {
   }));
 }
 
-test('S18-opening: The deck opens with the title, why it exists and the map of who does what', async ({ page }) => {
+test('S18-opening: The deck opens with the title and the summary; with --full, why it exists and the map of who does what come after the recap', async ({ page }) => {
   // The main path of S18: "done" needs this test passed on the real screens.
-  // Checks S18-A1: given an EPIC with a goal, a brainstorm, roles and stories; when the builder makes its deck; then it opens with a title slide (the EPIC's title, its goal in one sentence, the owner, the date and one status line such as "15 of 17 stories signed off"), then why it exists and for whom with the requirements as a short plain list, then one map of the roles and what each of them can do.
+  // Checks S18-A1: given an EPIC with a goal, a brainstorm, roles and stories; when the builder makes its deck; then it opens with a title slide (the EPIC's title, its goal in one sentence, the owner, the date and one status line such as "15 of 17 stories signed off"), then the summary; with `--full`, the details come after the summary, and after the recap they give why it exists and for whom, then the requirements as a short plain list, then one map of the roles and what each of them can do.
 
   // The deck is made from the shop fixture in a new git repo: 2 stories, none signed off, no test run.
   // --full: the deck with every story slide.
@@ -104,5 +104,5 @@ test('S18-opening: The deck opens with the title, why it exists and the map of w
   } finally {
     remove();
   }
-  // Expect at the end: {"firstSlides":["title","why","big-picture"],"statusLine":"15 of 18 stories signed off · 3 waiting for review"}.
+  // Expect at the end: {"firstSlides":["title","done","not-done","how-we-know","next"],"fullSlides":["details","recap","why","requirements","big-picture"],"statusLine":"15 of 18 stories signed off · 3 waiting for review"}.
 });

@@ -24,9 +24,9 @@ function slides(html: string): Slide[] {
   }));
 }
 
-test('S19-recap: The slide after the title is a recap of every story, done or not, with one sentence on top', async ({ page }) => {
+test('S19-recap: With --full, the slide after the details slide is a recap of every story, done or not, with one sentence on top', async ({ page }) => {
   // The main path of S19: "done" needs this test passed on the real screens.
-  // Checks S19-A1: given an EPIC with stories that are done, in progress and not started; when the builder makes its deck; then the slide right after the title is a recap: one sentence on top such as "12 of 19 stories are done", then every story with its name and done, in progress or not started.
+  // Checks S19-A1: given an EPIC with stories that are done, in progress and not started; when the builder makes its deck; then the title and the summary come first; with `--full`, the slide right after "Details, story by story" is a recap: one sentence on top such as "12 of 19 stories are done", then every story with its name and done, in progress or not started.
 
   // The deck is made from the shop fixture in a new git repo: 2 stories, none signed off, no test run.
   // --full: the deck with every story slide.
@@ -143,5 +143,5 @@ test('S19-recap: The slide after the title is a recap of every story, done or no
   } finally {
     remove();
   }
-  // Expect at the end: {"secondSlide":"recap","sentence":"12 of 19 stories are done","rows":19,"states":["done","in progress","not started"]}.
+  // Expect at the end: {"firstSlides":["title","done","not-done","how-we-know","next"],"recapSlide":7,"slideBeforeRecap":"details","sentence":"12 of 19 stories are done","rows":19,"states":["done","in progress","not started"]}.
 });
