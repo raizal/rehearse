@@ -6,6 +6,7 @@
 import { createContext } from 'react';
 import type { BoxCodeQuery, BoxCodeView, CodeIndex } from '@rehearse/server';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
+import { at } from './base.js';
 
 export type { BoxCodeView, CodeIndex } from '@rehearse/server';
 
@@ -18,7 +19,7 @@ export interface CodeApi {
 
 /** The HTTP client. The session token comes from the session client. */
 export function httpCodeApi(client: SessionClient = sessionClient): CodeApi {
-  const get = (url: string): Promise<TokenReply> => client.withToken((token) => fetch(url, { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
+  const get = (url: string): Promise<TokenReply> => client.withToken((token) => fetch(at(url), { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
   const message = (url: string, r: TokenReply) =>
     tokenRejected(r) ? SERVER_RESTARTED : typeof r.body?.error === 'string' ? r.body.error : `GET ${url}: HTTP ${r.status}`;
   return {

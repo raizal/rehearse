@@ -10,9 +10,14 @@
 // click links (Change and Unlink after). An unlinked story shows the top 3 suggested pages and
 // frames with a one-click Link. A link that comes from a frame's name says so. "Refresh pictures"
 // asks a running FigCraft for fresh PNGs of the linked frames, and says what it wrote or why not.
+//
+// T67: through the relay of the bb plugin (a phone through bb connect), FigCraft cannot open. Its
+// web build loads its files by relative paths, and the relay is one exact route. The pictures
+// still show. A note tells the owner how to edit.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DesignPicture as PictureRef, Id } from '@rehearse/core';
+import { relayed } from '../base.js';
 import { HTTP_DESIGN_API, type DesignApi, type DesignInfo, type DesignLinkView, type DesignTarget, type LinkRequest } from '../design-api.js';
 import {
   baseName,
@@ -141,12 +146,13 @@ export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; a
   // A T50 server sends no index: then the tab offers no picker.
   const linkable = info?.index !== undefined;
   const linkedBy = sourceWords(info?.storySource);
+  const noEditor = relayed();
   return (
     <section className="story-design" data-testid="story-design" aria-labelledby="story-design-h">
       <header className="story-design-head">
         <h3 id="story-design-h">Design</h3>
         {link && info && (
-          <button type="button" className="action small primary" data-testid="design-edit" disabled={!info.figcraft.fetched || editing} onClick={() => setEditing(true)}>
+          <button type="button" className="action small primary" data-testid="design-edit" disabled={!info.figcraft.fetched || editing || noEditor} onClick={() => setEditing(true)}>
             Edit in FigCraft
           </button>
         )}
@@ -169,7 +175,13 @@ export function StoryDesign({ storyId, api = HTTP_DESIGN_API }: { storyId: Id; a
           {msg.text}
         </p>
       )}
-      {info && link && !info.figcraft.fetched && (
+      {info && link && noEditor && (
+        <p className="small story-design-notice" role="note" data-testid="design-relay-note">
+          FigCraft cannot open through the bb connect relay. To edit the design, open the panel in the bb app on the machine that has the repo. Or, on that machine, run{' '}
+          <code>bb connect expose &lt;port&gt;</code> with the port of rehearse serve.
+        </p>
+      )}
+      {info && link && !noEditor && !info.figcraft.fetched && (
         <div className="story-design-notice" role="note" data-testid="design-not-fetched">
           <p className="small">
             The FigCraft web build is not fetched, so the editor cannot open here. Run <code>{info.figcraft.command}</code> in the repo, or fetch it now.

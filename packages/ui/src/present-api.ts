@@ -5,6 +5,7 @@
 // content-disposition. No Chromium is a 503 with the server's plain words.
 
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient } from './session-client.js';
+import { at } from './base.js';
 
 export interface DeckFile<T> {
   data: T;
@@ -46,7 +47,7 @@ export function httpPresentApi(client: SessionClient = sessionClient): PresentAp
     try {
       // The deck is read before the session client reads the body as JSON (which then fails quietly).
       const r = await client.withToken(async (token) => {
-        const res = await fetch(url, { cache: 'no-store', headers: { [TOKEN_HEADER]: token } });
+        const res = await fetch(at(url), { cache: 'no-store', headers: { [TOKEN_HEADER]: token } });
         if (res.ok) body = await read(res);
         return res;
       });

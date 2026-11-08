@@ -1,5 +1,6 @@
 // `rehearse serve`: the built UI plus a JSON API, on 127.0.0.1 only (R12, R20).
-// Remote access goes through `bb connect expose <port>`, never through this server.
+// Remote access goes through `bb connect expose <port>`, or through the relay of the bb plugin
+// (packages/bb-plugin/src/relay.ts, T67), never through this server.
 // The only record writes are approve and sign-off, from the UI (R13, R14, D41). The story thread
 // panel (T12) writes local state only (.rehearse/story-threads.json) and runs `bb`. Each POST needs
 // the session token, a same-origin Origin (when sent) and a JSON body; the identity and the signing
@@ -915,15 +916,27 @@ function drain(req: IncomingMessage, error: PostError): PostError {
   return error;
 }
 
-/** An Origin header, when present, must name the host the request came to (the Host header). */
+/**
+ * An Origin header, when present, must name the host the request came to: the Host header, or
+ * one X-Forwarded-Host value (T67). The relay of the bb plugin sends the request to 127.0.0.1, so
+ * the Host is 127.0.0.1:<port>, and it sets X-Forwarded-Host to the host of the bb page.
+ *
+ * X-Forwarded-Host is safe here. A browser page cannot add this header to a request to another
+ * origin without a CORS preflight, and this server answers no preflight. So a foreign page cannot
+ * make its Origin match. Each POST also needs the session token.
+ */
 function sameOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
   if (origin === undefined) return true;
+  let host: string;
   try {
-    return new URL(origin).host === (req.headers.host ?? '').toLowerCase();
+    host = new URL(origin).host;
   } catch {
     return false;
   }
+  if (host === (req.headers.host ?? '').toLowerCase()) return true;
+  const forwarded = req.headers['x-forwarded-host'];
+  return typeof forwarded === 'string' && !forwarded.includes(',') && host === forwarded.trim().toLowerCase();
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {

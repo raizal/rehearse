@@ -11,6 +11,7 @@
 
 import type { DesignFileIndex, DesignLinkSource, DesignPicture, DesignSuggestion, Finding, Id } from '@rehearse/core';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
+import { at } from './base.js';
 
 /** One link: a page of a FigCraft file, and the PNG of that page (paths from the repo top). */
 export interface DesignLinkView {
@@ -90,7 +91,7 @@ export function httpDesignApi(client: SessionClient = sessionClient): DesignApi 
   const call = (url: string, body?: unknown): Promise<TokenReply> =>
     client.withToken((token) =>
       fetch(
-        url,
+        at(url),
         body === undefined
           ? { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }
           : { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json', [TOKEN_HEADER]: token }, body: JSON.stringify(body) },
@@ -113,7 +114,7 @@ export function httpDesignApi(client: SessionClient = sessionClient): DesignApi 
       try {
         // The bytes are read before the session client reads the body as JSON (which then fails quietly).
         const r = await client.withToken(async (token) => {
-          const res = await fetch(url, { cache: 'no-store', headers: { [TOKEN_HEADER]: token } });
+          const res = await fetch(at(url), { cache: 'no-store', headers: { [TOKEN_HEADER]: token } });
           if (res.ok) bytes = await res.arrayBuffer();
           return res;
         });

@@ -89,6 +89,34 @@ describe('rehearse serve: session and request checks', () => {
     expect(ok.status).toBe(200);
   });
 
+  it('T67: behind the relay of the bb plugin, an Origin that equals X-Forwarded-Host passes; a foreign Origin still gets 403', async () => {
+    const dir = inRepo(makeEpic());
+    const { url, token } = await serve(dir);
+    const before = scenarioFile(dir);
+    const body = { scenarioIds: ['S1-buy'] };
+    const bb = 'https://owner.getbb.app';
+    const h = { 'x-rehearse-token': token };
+    // A foreign page: its Origin matches neither the Host nor the X-Forwarded-Host.
+    expect((await post(url, 'api/approve', body, { ...h, origin: 'http://evil.example' })).status).toBe(403);
+    expect((await post(url, 'api/approve', body, { ...h, origin: 'http://evil.example', 'x-forwarded-host': 'owner.getbb.app' })).status).toBe(403);
+    // Only one X-Forwarded-Host value counts: a list does not pass.
+    expect((await post(url, 'api/approve', body, { ...h, origin: bb, 'x-forwarded-host': 'owner.getbb.app, evil.example' })).status).toBe(403);
+    expect((await post(url, 'api/approve', body, { ...h, origin: bb, 'x-forwarded-host': 'other.getbb.app' })).status).toBe(403);
+    // The relay still needs the token.
+    expect((await post(url, 'api/approve', body, { origin: bb, 'x-forwarded-host': 'owner.getbb.app' })).status).toBe(403);
+    expect(scenarioFile(dir)).toBe(before);
+    // The server answers no CORS preflight, so a foreign page cannot send X-Forwarded-Host.
+    const preflight = await fetch(new URL('api/approve', url), {
+      method: 'OPTIONS',
+      headers: { origin: 'http://evil.example', 'access-control-request-method': 'POST', 'access-control-request-headers': 'x-forwarded-host, x-rehearse-token' },
+    });
+    expect(preflight.status).toBe(405);
+    expect(preflight.headers.get('access-control-allow-origin')).toBeNull();
+    // The relay: the Origin of the bb page and X-Forwarded-Host with the same host.
+    const ok = await post(url, 'api/approve', body, { ...h, origin: bb, 'x-forwarded-host': 'owner.getbb.app' });
+    expect(ok.status).toBe(200);
+  });
+
   it('R13: JSON bodies only; wrong methods get 405 and unknown API paths 404', async () => {
     const dir = inRepo(makeEpic());
     const { url, token } = await serve(dir);

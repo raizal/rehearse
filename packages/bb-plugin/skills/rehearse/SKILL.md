@@ -211,6 +211,11 @@ The Status page tells this.
 - A browser on another machine sees the panel through bb connect
   (`https://<host>--<port>.<domain>/`).
 
+- The host can have no bb connect machine credential. Then, if the repo is on
+  the bb server's machine, the panel uses the relay route of the plugin
+  (`/api/v1/plugins/<id>/http/relay`). FigCraft does not open through the relay.
+  If no way works, the panel shows the command `bb connect expose <port>`.
+
 ## Settings
 
 - `rehearseCommand`: the rehearse command to run. Empty: the repo's

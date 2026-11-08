@@ -25,7 +25,15 @@ export const hostContract = defineRpcContract({
   open: {
     input: z.object({ repoPath: absPath, slug, command, projectId, threadModel: threadSetting, threadReasoning: threadSetting }).strict(),
     output: z
-      .object({ leaseId: z.string(), port: z.number().int(), url: z.string(), reused: z.boolean(), sshAgent })
+      .object({
+        leaseId: z.string(),
+        port: z.number().int(),
+        url: z.string(),
+        reused: z.boolean(),
+        sshAgent,
+        /** The machine of the serve process (src/machine.ts, T67). Equal to the plugin server's: the relay can reach it. */
+        machine: z.string().max(128).optional(),
+      })
       .strict(),
   },
   renew: {

@@ -250,6 +250,12 @@ The owner must approve them again.
   - Why: The deck matched a unit test to a story by the scenario id or the criterion id in the test name, in the full report. The two EPICs have the same story ids (S1 to Sn).
   - Fix (owner's choice, "by folder"): A test counts only for the plan of the code next to it. `pnpm test:report` already keeps the test file of each test, and the deck now reads it. `testPaths:` in `.rehearse/config.yaml` gives the code-graph EPIC the tests in `packages/graph/**`. An EPIC that is not in this list gets all tests that no listed EPIC gets. If a report does not show the test files, the ids alone decide, and the Status page, `rehearse status` and the deck tell this. No story, criterion, scenario or box changed, and no hash covers `.rehearse/config.yaml`.
 
-Count so far: 16 `caught-in-simulation` (C1–C16), 27 `caught-after-build` (C17–C43).
+- **C45** `caught-after-build` · R12, box `review`
+  - Status: DONE in T67
+  - What: The owner opened the rehearse panel on a phone through bb connect (`https://<handle>.getbb.app`). The panel showed "cannot share ports from host … no bb connect machine credential" and no UI.
+  - Why: For a viewer on another device, the plugin shared the serve port through the machine tunnel of bb connect. A port share needs a bb connect machine credential. The repo host was the bb server itself, and the bb server has no such credential. No supported plugin API shares a port through the tunnel of the bb server.
+  - Fix: The plugin keeps the machine tunnel when the host can share a port. If the tunnel fails and the serve process runs on the machine of the bb server, the panel goes through a relay route of the plugin on the bb server (`/api/v1/plugins/<id>/http/relay`, "local" auth). The relay goes only to 127.0.0.1 and only to the port of a lease of the plugin. The UI page gets `<meta name="rehearse-base">` and sends each request through the relay. The Origin check of `rehearse serve` now also accepts an Origin that equals the one X-Forwarded-Host value, which the relay sets. A foreign Origin still gets 403. FigCraft does not open through the relay; the Design tab says so. If no way works, the panel text gives the cause and the command `bb connect expose <port>`. No story, requirement, criterion, scenario or box changed.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 29 `caught-after-build` (C17–C45).
 
 After T19: `rehearse validate` gives no findings. `rehearse simulate` gives 13 findings: the new branches of `happy`, `signing-key` and `more-scenarios` and the criteria S4-A2, S4-A4, S4-A5, S4-A6, S6-A1, S6-A4, S6-A5 and S7-A1 have no approved scenario, and S4-drill, S6-approve and S7-matrix are stale. The builder approves S4-drill, S6-approve and the new drafts in the UI.
