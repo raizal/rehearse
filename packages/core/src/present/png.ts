@@ -6,7 +6,8 @@ import { deflateSync, inflateSync } from 'node:zlib';
 
 export const MAX_DECK_IMAGE_WIDTH = 1600;
 
-const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+// A Uint8Array, not a Buffer: the UI bundle loads this module, and a browser has no Buffer.
+const SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 4: 2, 6: 4 };
 
 const CRC_TABLE = (() => {
