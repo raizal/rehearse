@@ -159,18 +159,21 @@ test('S27-main: An agent adds a small change to a signed story, and the owner ap
       await page.getByTestId('story-scenario-open-S10-c1-main').click();
       // The owner sees each of the 4 steps. Guess: ArrowRight plays the next step, as on the other storyboards.
       for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+      // The board opens at the branch point, after the shared opening (S22). The owner sees the steps not seen yet there too.
+      while (await page.getByTestId('card-next-unseen').count()) await page.getByTestId('card-next-unseen').click();
       await approveButton(page).click();
       await expect.poll(() => readFileSync(join(story.repo, CHANGE), 'utf8'), { timeout: 15_000 }).toMatch(/status: approved/);
-      // Guess: the story page has a "Sign off" button, and a dialog with the preview confirms it.
-      await page.goto(`${served.url.replace(/#.*$/, '')}#/stories/S10/what`);
-      await page.getByRole('button', { name: /^Sign.off/i }).first().click();
-      const preview = page.getByRole('dialog');
-      if (await preview.count()) {
-        // The preview shows only the change.
-        await expect(preview).toContainText('S10-c1-main');
-        await expect(preview).not.toContainText('S10-warm-bench');
-        await preview.getByRole('button', { name: /Sign.off/i }).click();
-      }
+      // The owner signs off S10 on the Sign off page. The confirm dialog has the sign-off preview.
+      await page.getByTestId('nav-signoff').click();
+      await page.getByRole('checkbox', { name: /^S10 / }).check();
+      await page.getByTestId('signoff-button').click();
+      const preview = page.getByTestId('signoff-confirm-dialog');
+      await expect(page.getByTestId('signoff-confirm-stories')).toHaveText('S10');
+      // The preview shows only the change. The rest of the story is folded under "The rest of the story is as signed".
+      await expect(preview.getByText('S10-c1-main').first()).toBeVisible();
+      await expect(page.getByTestId('signoff-preview-rest-S10')).not.toHaveAttribute('open');
+      await expect(preview.getByText(/S10-warm-bench/)).toBeHidden();
+      await page.getByTestId('signoff-confirm').click();
       await expect.poll(signOffs, { timeout: 15_000 }).not.toBe(oldSignOffs);
       const added = signOffs().slice(oldSignOffs.length);
       expect(added).toContain('by: e2e@example.com');
@@ -180,8 +183,8 @@ test('S27-main: An agent adds a small change to a signed story, and the owner ap
 
     await test.step('change-shown: The tools mark the change items "New in C<n>"', async () => {
       // Step 6 of 7.
-      // Guess: the mark is the text "New in C1" on the scenario card or the criterion.
-      await page.reload();
+      // The story page marks the scenario card, the criterion and the map path of the change with "New in C1".
+      await page.goto(page.url().replace(/#.*$/, '#/stories/S10/what'));
       await expect(page.getByText('New in C1').first()).toBeVisible();
       expect(rehearse('progress', EPIC, 'S10').out).toMatch(/S10-c1-main/);
     });
