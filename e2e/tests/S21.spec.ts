@@ -154,8 +154,10 @@ test('S21-focus-after-approve: After a successful approval focus moves to Next s
 
     await test.step('review/playback: Play a scenario step by step', async () => {
       // Step 8 of 8.
-      // The storyboard of S1-empty starts at its first step, and the next scenario is not approved by itself.
-      await expect(page.getByText(/step 1 of 3/i).first()).toBeVisible();
+      // S1-empty shares its first step with the main path S1-buy. S22-A7: the shared opening is one row,
+      // and playback starts at the branch point, step 2 of 3. The next scenario is not approved by itself.
+      await expect(page.getByRole('button', { name: /Same as the main path up to .+ \(1 step\)/ })).toBeVisible();
+      await expect(page.getByText(/^Step 2 of 3$/).first()).toBeVisible();
       await expect(approveButton).toBeDisabled();
       expect(scenarioBlock(shop.epicDir, 'S1', 'S1-empty')).toContain('status: draft');
     });
