@@ -97,8 +97,8 @@ test('S26-main-path-done: The test thread writes the main path test, it passes o
     await test.step('write-tests: Click "Write tests" on a story', async () => {
       // Example click: given {"epic":"2026-11-05-rehearse","story":"S10"}; then {"storyId":"S10"}.
       await page.goto(`${url.replace(/#.*$/, '')}#/stories/S10/what`);
-      // Guess: the button has the text "Write tests". No bb is on the PATH, so no real thread starts.
-      await page.getByRole('button', { name: /Write tests/ }).first().click();
+      // The Tests tab has the button "Write the N missing tests with an agent". No bb is on the PATH, so no real thread starts.
+      await page.getByTestId('story-tab-tests').click(); await page.getByTestId('story-tests-write-all').click();
       await expect(page.getByText(/S10/).first()).toBeVisible();
     });
 
@@ -151,7 +151,7 @@ test('S26-main-path-done: The test thread writes the main path test, it passes o
       // The Status page shows the same row. The page reads the live player, and not this data folder,
       // so the page checks only the facts that do not need the run.
       await page.getByTestId('nav-status').click();
-      const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'S10', exact: true }) });
+      const row = page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /^S10 / }) }); // The row header is the story id and its title.
       await expect(row).toContainText('yes');
       await expect(row).toContainText('1 of 1 box');
     });
