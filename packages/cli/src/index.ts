@@ -20,6 +20,7 @@ import { runE2eStart } from './commands/e2e-start.js';
 import { runStatus } from './commands/status.js';
 import { runFigcraft } from './commands/figcraft.js';
 import { runDesign } from './commands/design.js';
+import { draftRecordHint } from './commands/draft-record.js';
 
 export interface Io {
   cwd: string;
@@ -183,6 +184,6 @@ export function run(argv: string[], io: Io): number {
     io.stderr(`rehearse validate: internal error: ${e instanceof Error ? e.message : String(e)}\n`);
     return EXIT.internal;
   }
-  io.stdout(json ? reportToJson(report) : reportToText(report));
+  io.stdout(json ? reportToJson(report) : reportToText(report) + draftRecordHint(report, positional[0]!));
   return report.ok ? EXIT.ok : EXIT.findings;
 }
