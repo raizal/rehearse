@@ -79,6 +79,8 @@ const HEADER = '0 of 11 stories done · 0 seen working on the real screens · 11
 test('S23-page-table: The Status page shows one row per story with its columns, the header and the sources', async ({ page }) => {
   // The main path of S23: "done" needs this test passed on the real screens.
   // Checks S23-A3: given an EPIC with signed, changed and unsigned stories; when the builder opens Status or runs `rehearse status <epic>`; then one row per story with Signed (yes / changed since sign-off / no), Built ("8 of 8 boxes" or "6 of 8 — 2 left"), Tests on the real screens ("3 of 5 passed", "none yet", "1 failing"), Automated tests (from the unit report), and Done (done · seen working, done · checked by automated tests, or not done), under a header such as "18 of 21 stories done · 2 seen working on the real screens · 3 not done", with the sources and their dates.
+  // Birdview waits before each action, and this test has about 35 actions: the same limit as S11.
+  test.setTimeout(180_000);
   const epic = mixedEpic();
   const epicDir = join(epic.repo, EPIC);
   const { child, url } = await serveIn(epic.repo, epicDir, epic.env);
