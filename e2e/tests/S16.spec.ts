@@ -131,12 +131,12 @@ test('S16-host: Serve hosts FigCraft web under /figcraft/ on its own origin, fra
     // Step 5 of 5.
     // "Edit in FigCraft" opens the hosted build in a frame of serve's own page, on the same origin.
     await page.getByRole('button', { name: /Edit in FigCraft/ }).click();
-    const frame = page.locator('iframe[src*="/figcraft/"]');
+    const frame = page.getByTestId('figcraft-frame'); // The src is relative to the page: the checks below resolve it.
     await expect(frame).toBeVisible();
     const src = new URL((await frame.getAttribute('src'))!, page.url());
     expect(src.origin).toBe(origin);
     expect(src.pathname.startsWith('/figcraft/')).toBe(true);
-    await expect(page.frameLocator('iframe[src*="/figcraft/"]').locator('#figcraft-test-build')).toHaveText('The FigCraft test build');
+    await expect(page.frameLocator('[data-testid="figcraft-frame"]').locator('#figcraft-test-build')).toHaveText('The FigCraft test build');
   });
 
   // Expect at the end: {"sameOrigin":true,"xFrameOptionsDeny":false}.
