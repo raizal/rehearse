@@ -69,9 +69,11 @@ test('S18-opening: The deck opens with the title, why it exists and the map of w
 
     await test.step('build-deck: Build the slides in plain words', async () => {
       // Step 3 of 5.
-      // Example deck: given {}; then {"epic":"2026-11-05-rehearse","slides":40,"deck":"title: rehearse v1, 15 of 18 stories signed off; why; big picture"}.
-      // The deck opens with the title, then why it exists, then the map of the roles.
-      expect(deck.slice(0, 3).map((d) => d.key)).toEqual(['title', 'why', 'big-picture']);
+      // Example deck: given {}; then {"epic":"2026-11-05-rehearse","slides":40,"deck":"title: rehearse v1, 15 of 18 stories signed off; the summary: what's done, what's not done yet and why, how we know, what's next; with --full, then: details, story by story; recap; why; requirements; big picture"}.
+      // The deck opens with the title and the summary of S20. The shop has no asks, so the summary has no asks slide.
+      expect(deck.slice(0, 5).map((d) => d.key)).toEqual(['title', 'done', 'not-done', 'how-we-know', 'next']);
+      // With --full, the details come next: the recap, why it exists, the requirements, then the map of the roles.
+      expect(deck.slice(5, 10).map((d) => d.key)).toEqual(['details', 'recap', 'why', 'requirements', 'big-picture']);
       const title = slide('title');
       expect(title.text).toContain('Shop checkout');
       expect(title.text).toContain('A buyer can pay for an order, and the shop ships it.');

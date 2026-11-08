@@ -9,7 +9,7 @@ scenarios:
       - name: gather-deck-facts
         example: { id: facts, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse, commit: "main @ 6cc5a4a, 2026-11-07", uncommitted: false, facts: "18 stories, 5 designs, 40 tests" } }
       - name: build-deck
-        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "title: rehearse v1, 15 of 18 stories signed off; why; big picture" } }
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 40, deck: "title: rehearse v1, 15 of 18 stories signed off; the summary: what's done, what's not done yet and why, how we know, what's next; with --full, then: details, story by story; recap; why; requirements; big picture" } }
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-6cc5a4a.html, bytes: 3900000 } }
       - { name: deck-file }

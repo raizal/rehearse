@@ -253,3 +253,13 @@ The owner must approve them again.
 Count so far: 16 `caught-in-simulation` (C1–C16), 27 `caught-after-build` (C17–C43).
 
 After T19: `rehearse validate` gives no findings. `rehearse simulate` gives 13 findings: the new branches of `happy`, `signing-key` and `more-scenarios` and the criteria S4-A2, S4-A4, S4-A5, S4-A6, S6-A1, S6-A4, S6-A5 and S7-A1 have no approved scenario, and S4-drill, S6-approve and S7-matrix are stale. The builder approves S4-drill, S6-approve and the new drafts in the UI.
+
+## 2026-11-08 — the deck order of S18 and S19 after S20 (T68, thread thr_prtjbarqpm)
+
+- **C44** `caught-after-build` · scenarios S18-opening, S19-recap, criteria S18-A1, S19-A1
+  - Status: DONE in T68 for the scenarios; OPEN for the criteria S18-A1 and S19-A1
+  - What: T65 wrote the main path tests of S18 and S19, and a run without the browser failed. S18-opening said that the deck opens with the title, why it exists and the big picture. S19-recap said that the recap is the slide after the title. Since S20, the deck opens with the title and the summary: what is done, what is not done yet and why, how we know, and what is next. With `--full`, the slide "Details, story by story" comes next, then the recap (slide 7), why (slide 8), the requirements and the big picture (slide 10).
+  - Why: The 3 stories are signed. S20 came last, and it gives the summary first (S20-A1, S20-A6).
+  - Fix (owner's choice, "S20 is correct"): The app did not change. In S18-opening, the example of the step `build-deck` gives the new order. In S19-recap, the examples of the steps `build-recap` and `build-deck` give the new order. The tests `S18-opening` and `S19-recap` check the new order. Their names and step titles did not change. The 2 scenarios are stale, and S18 and S19 must be signed off again. The scenario titles, the `expect` of the 2 scenarios and the criteria S18-A1 and S19-A1 still give the old order. They did not change, because the owner decides on them.
+
+Count so far: 16 `caught-in-simulation` (C1–C16), 28 `caught-after-build` (C17–C44).

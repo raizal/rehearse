@@ -15,11 +15,11 @@ scenarios:
       - name: story-done-state
         example: { id: states, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", doneStates: "12 done, 4 in progress, 3 not started" } }
       - name: build-recap
-        example: { id: recap, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", doneStates: "12 done, 4 in progress, 3 not started", recap: "12 of 19 stories are done" } }
+        example: { id: recap, then: { epic: 2026-11-05-rehearse, commit: "main @ a33f854, 2026-11-07", uncommitted: false, facts: "19 stories, 5 designs, 40 tests", doneStates: "12 done, 4 in progress, 3 not started", recap: "slide 7, after the summary and the slide Details, story by story: 12 of 19 stories are done" } }
       - { name: proof-lines }
       - { name: evidence-page }
       - name: build-deck
-        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "title; recap: 12 of 19 stories are done; why; big picture" } }
+        example: { id: deck, then: { epic: 2026-11-05-rehearse, slides: 43, deck: "title; the summary: what's done, what's not done yet and why, how we know, what's next; with --full, then: details, story by story; recap: 12 of 19 stories are done; why; big picture" } }
       - name: render-deck-html
         example: { id: html, then: { epic: 2026-11-05-rehearse, html: presentations/2026-11-05-rehearse-2026-11-07-a33f854.html, bytes: 4100000 } }
       - { name: deck-file }
