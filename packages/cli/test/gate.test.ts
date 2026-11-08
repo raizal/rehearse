@@ -81,6 +81,7 @@ describe('rehearse gate check', () => {
     expect(hashDir(PRESIGNOFF_EPIC)).toBe(frozen);
   });
 
+  // The live record runs the gate and validate on 26 signed stories: this takes more than 5 s.
   it('dogfood: the live first EPIC passes the gate with the key list; nothing is written and validate passes', () => {
     const before = hashDir(REAL_EPIC);
     const { code, out } = cli(['gate', 'check', '2026-11-05-rehearse']);
@@ -107,7 +108,7 @@ describe('rehearse gate check', () => {
       expect(findings.length).toBeGreaterThan(0);
       for (const f of findings) expect(f).toMatch(/sigStatus unknown-signer/);
     }
-  });
+  }, 30_000);
 });
 
 describe('story S6: the CLI cannot approve or sign off', () => {

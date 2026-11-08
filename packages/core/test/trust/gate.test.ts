@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { detectStale, gateEpic, gateRecord, loadEpic, reportToJson, signOff, type Finding } from '../../src/index.js';
 import { BOOTSTRAP_EPIC, CODE_GRAPH_SIGNED_EPIC, hashDir, liveAllowedSigners, makeEpic, PRESIGNOFF_EPIC, REAL_EPIC, unsignedApprovals, waitingStories } from '../helpers.js';
+import { isTrustedRule } from '../../src/trust/types.js';
 import { approvedEpic, ME, NOW, SHOP_SCENARIOS, SIGNED, signedEpic } from './helpers.js';
 import { KEY } from './keys.js';
 
@@ -132,14 +133,14 @@ describe('gate check', () => {
     const { record } = loadEpic(REAL_EPIC);
     const report = gateEpic(REAL_EPIC);
     expect(hashDir(REAL_EPIC)).toBe(before);
-    // True without the key list: nothing is stale, each story is signed under rule 2, each approval carries a signature.
+    // True without the key list: nothing is stale, each story is signed under a trusted rule (2, or 3 from T62), each approval carries a signature.
     // A new story that waits for the owner (never signed, drafts only) is the one exception, with only its own findings.
     const waiting = waitingStories(REAL_EPIC);
     const stale = detectStale(record);
     expect(stale).toMatchObject({ staleStories: [], staleScenarios: [], epicStatus: waiting.length > 0 ? 'draft' : 'signed' });
     const signedStories = stale.stories.filter((s) => !waiting.includes(s.id));
     expect(signedStories.length).toBeGreaterThan(0);
-    expect(signedStories.every((s) => s.status === 'signed' && s.hashRule === 2 && s.trusted)).toBe(true);
+    expect(signedStories.every((s) => s.status === 'signed' && isTrustedRule(s.hashRule) && s.trusted)).toBe(true);
     expect(unsignedApprovals(REAL_EPIC)).toEqual([]);
     const approved = stale.scenarios.filter((s) => s.status === 'approved').map((s) => s.id);
     expect(approved.length).toBeGreaterThan(0);

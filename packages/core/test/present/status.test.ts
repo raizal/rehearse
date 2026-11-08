@@ -37,7 +37,6 @@ function facts(over: Record<string, Partial<StoryFacts>> = {}, rest: Partial<Dec
 /** With no real-screen test, a story signed off and built is only checked (T61), whatever the owner signed last. */
 const table0 = statusTable(real, facts());
 const DONE = table0.rows.find((r) => r.done.state === 'checked')!.id;
-const NOT_SIGNED = table0.rows.find((r) => r.signed.state === 'no')!.id;
 const story = (id: string) => real.prd!.stories.find((s) => s.id === id)!;
 /** The main path scenario of DONE, and its other approved scenarios. */
 const MAIN = storyView(real, facts(), story(DONE)).mainPath!.id;
@@ -64,7 +63,7 @@ describe('statusTable', () => {
     expect(done + notDone).toBe(stories);
     expect([done, seen]).toEqual([0, 0]);
     expect(checked).toBeGreaterThan(0);
-    expect(table0.header).toBe(`0 of ${stories} stories done · 0 seen working on the real screens · ${notDone} not done (${checked} of them built, not seen working yet)`);
+    expect(table0.header).toBe(`0 of ${stories} stories done · 0 seen working on the real screens · ${notDone} not done (${checked === notDone ? 'all' : checked} of them built, not seen working yet)`);
   });
 
   it('the main path test passed: done; every approved test passed: seen working; the header counts them', () => {
