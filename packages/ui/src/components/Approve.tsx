@@ -5,6 +5,11 @@ import type { ScenarioView } from '../api.js';
 import type { ApprovalView, ApproveOk, PostOutcome } from '../contract.js';
 import { OutcomeMessage, SignerInfo, type SessionState } from './Review.js';
 
+/** The ids of the scenarios that an approval that succeeded approved. */
+export function approvedIds(ok: ApproveOk): Id[] {
+  return ok.approved.map((a) => a.id);
+}
+
 /** Approve controls on the storyboard (S6-A1). */
 export interface ApproveControls {
   /** Why the scenario can be approved (draft, stale, bad signature), or undefined. */
@@ -45,7 +50,7 @@ export function ApproveBar({ session, selected, disabled, busy, outcome, onAppro
       </button>
       <OutcomeMessage
         outcome={outcome}
-        okText={outcome?.kind === 'ok' ? `Approved ${outcome.body.approved.join(', ')}.` : ''}
+        okText={outcome?.kind === 'ok' ? `Approved ${approvedIds(outcome.body).join(', ')}.` : ''}
         testId="approve-outcome"
       />
     </section>

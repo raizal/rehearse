@@ -3,7 +3,7 @@
 // "code graph not built yet").
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -74,6 +74,22 @@ describe('GET /api/status', () => {
     expect(status.sources.commit).toMatch(/^main @ [0-9a-f]{7}, \d{4}-\d{2}-\d{2}$/);
     // Read-only: nothing in the repo changed, and no graph was made.
     expect(git(top, 'status', '--porcelain', '--ignored')).toBe(before);
+  });
+
+  it('T71: the reads of the Status page (status, coverage) make no graph.db; the sources then say "code graph not built yet"', async () => {
+    const { dir, top } = committedShop();
+    const { url, token, origin } = await serve(dir);
+    const headers = { 'x-rehearse-token': token, origin };
+    expect(existsSync(join(top, GRAPH_FILE))).toBe(false);
+    const coverage = await fetch(new URL('api/graph?verb=coverage', url), { headers });
+    expect(coverage.status).toBe(200);
+    expect(await coverage.json()).toEqual({ ok: false, indexed: false, error: 'code graph not built yet' });
+    const graphStatus = await fetch(new URL('api/graph?verb=status', url), { headers });
+    expect(await graphStatus.json()).toEqual({ ok: true, indexed: false, busy: false });
+    const res = await fetch(new URL('api/status?epic=2026-11-05-shop', url), { headers });
+    const { status } = (await res.json()) as { status: StatusTable };
+    expect(status.sources.graph).toBe(`code graph not built yet: "built" counts Flow-Box commits only (${NO_GRAPH})`);
+    expect(existsSync(join(top, GRAPH_FILE))).toBe(false);
   });
 
   it('another EPIC is a 404', async () => {

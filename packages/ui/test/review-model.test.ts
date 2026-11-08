@@ -5,7 +5,7 @@ import type { Finding } from '@rehearse/core';
 import { postApprove, postSignOff } from '../src/api.js';
 import { approveReason, blockingFindings, findingStories, groupByStory, matrixAxes, sigText } from '../src/model/review.js';
 import { reviewEpic } from './fixture.js';
-import { mockServer, SESSION } from './mock-server.js';
+import { approveOk, mockServer, SESSION } from './mock-server.js';
 
 const view = reviewEpic();
 const sv = (id: string) => view.scenarios.find((s) => s.scenario.id === id)!;
@@ -71,8 +71,8 @@ describe('POST outcomes (HTTP contract)', () => {
   const routes = (reply: { status: number; body: unknown }) => mockServer({ epic: () => view, approve: () => reply, signOff: () => reply });
 
   it('200, 409, 503 and 403 each map to their outcome', async () => {
-    routes({ status: 200, body: { ok: true, approved: ['S1-empty'] } });
-    expect(await postApprove(['S1-empty'])).toEqual({ kind: 'ok', body: { ok: true, approved: ['S1-empty'] } });
+    routes({ status: 200, body: approveOk(['S1-empty']) });
+    expect(await postApprove(['S1-empty'])).toEqual({ kind: 'ok', body: approveOk(['S1-empty']) });
     const finding = f('prd.yaml', 'S2', ['S2']);
     routes({ status: 409, body: { ok: false, findings: [finding] } });
     expect(await postSignOff(['S2'])).toEqual({ kind: 'findings', findings: [finding] });

@@ -38,7 +38,7 @@ import {
   type StoryFinish,
 } from '../model/storyboard.js';
 import { queueRows, scenarioSummary, stepTitle, storyColor } from '../model/storypage.js';
-import { ApproveBar, type ApproveControls } from './Approve.js';
+import { ApproveBar, approvedIds, type ApproveControls } from './Approve.js';
 import { DesignBeside } from './DesignBeside.js';
 import { PathMap } from './PathMap.js';
 import { StoryThread } from './StoryThread.js';
@@ -536,7 +536,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
   // An approval of this scenario that succeeded after the page opened (not one carried over
   // from the scenario before): focus moves to the next action. A failed one never moves on.
   const outcomeAtOpen = useRef(outcome);
-  const justApproved = outcome !== outcomeAtOpen.current && outcome?.kind === 'ok' && outcome.body.approved.includes(id);
+  const justApproved = outcome !== outcomeAtOpen.current && outcome?.kind === 'ok' && approvedIds(outcome.body).includes(id);
   markRef.current = (i: number) => onSeen(sv, i);
 
   // A step counts as seen when the panel shows its detail (example, contract, branches): the
@@ -795,7 +795,7 @@ export function StoryCard({ view, sv, seen, onSeen, approve, onOpenBox, session,
               </div>
             )}
           </div>
-          {session && <OutcomeMessage outcome={outcome} okText={outcome?.kind === 'ok' ? `Approved ${outcome.body.approved.join(', ')}.` : ''} testId="approve-outcome" />}
+          {session && <OutcomeMessage outcome={outcome} okText={outcome?.kind === 'ok' ? `Approved ${approvedIds(outcome.body).join(', ')}.` : ''} testId="approve-outcome" />}
         </section>
       </div>
 

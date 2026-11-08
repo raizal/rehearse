@@ -12,7 +12,7 @@ import { StoryTests } from '../src/components/StoryTests.js';
 import { createSessionClient, SERVER_RESTARTED, TOKEN_ERROR } from '../src/session-client.js';
 import { shortKey } from '../src/model/text.js';
 import { FIXTURE_KEY, reviewEpic, seeAll } from './fixture.js';
-import { mockServer, SESSION } from './mock-server.js';
+import { approveOk, mockServer, SESSION } from './mock-server.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -43,7 +43,7 @@ function fakeServer(opts: { origin?: boolean; restartOnRead?: boolean; reply?: (
       if (url === 'api/session') return json(200, { ...SESSION, token: `tok-${opts.restartOnRead ? n++ : n}` });
       if (opts.origin) return json(403, { error: 'Origin does not match Host' });
       if (token !== `tok-${n}`) return json(403, { error: TOKEN_ERROR });
-      return json(200, opts.reply?.(url) ?? { ok: true, approved: ['S1-empty'] });
+      return json(200, opts.reply?.(url) ?? approveOk(['S1-empty']));
     }),
   );
   return {
@@ -99,7 +99,7 @@ describe('T24 session client', () => {
     const client = createSessionClient();
     await client.session();
     server.restart();
-    expect(await postApprove(['S1-empty'], client)).toEqual({ kind: 'ok', body: { ok: true, approved: ['S1-empty'] } });
+    expect(await postApprove(['S1-empty'], client)).toEqual({ kind: 'ok', body: approveOk(['S1-empty']) });
     const posts = server.to('api/approve');
     expect(posts.map((p) => [p.method, p.token])).toEqual([
       ['POST', 'tok-1'],
@@ -120,7 +120,7 @@ describe('T24 in the app', () => {
       epic: () => view,
       session: () => ({ status: 200, body: current }),
       approve: (body) =>
-        server.calls.at(-1)!.headers['x-rehearse-token'] === current.token ? { status: 200, body: { ok: true, approved: body.scenarioIds } } : { status: 403, body: { error: TOKEN_ERROR } },
+        server.calls.at(-1)!.headers['x-rehearse-token'] === current.token ? { status: 200, body: approveOk(body.scenarioIds) } : { status: 403, body: { error: TOKEN_ERROR } },
     });
     const user = userEvent.setup();
     render(<App />);

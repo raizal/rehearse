@@ -144,9 +144,10 @@ test('S23-page-table: The Status page shows one row per story with its columns, 
       // Guess: a filter button "Not done" and a click on the story id open the story's progress.
       await page.getByRole('button', { name: /not done/i }).first().click();
       await expect(row('S10')).toHaveCount(1);
-      await row('S10').getByRole('cell', { name: 'S10', exact: true }).click();
-      await expect(page.getByText(/S10/).first()).toBeVisible();
-      await expect(page).toHaveURL(/S10/);
+      // The story id is in the row header ("S10 <title>"), not in a cell. A click on the row opens the
+      // story's progress under it (S23-A5): its boxes and its scenarios.
+      await row('S10').getByRole('rowheader').click();
+      await expect(page.getByText('1 of 1 box built · 0 of 3 scenarios tested')).toBeVisible();
     });
 
     await test.step('status-known: The builder knows what is not done and who acts', async () => {

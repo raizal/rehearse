@@ -157,6 +157,9 @@ const ROUTES: Record<string, string> = {
   ...Object.fromEntries(PLAYER_ACTIONS.map((a) => [`/api/birdview/${a}`, 'POST'])),
 };
 
+/** What a status or coverage read says when there is no code graph (T71). */
+const NO_GRAPH_YET = 'code graph not built yet';
+
 const STORY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 /** A Birdview test key: a file relative to the test project, and a line. */
 const TEST_KEY = /^[A-Za-z0-9_][\w./-]{0,250}:\d{1,6}$/;
@@ -254,6 +257,14 @@ export function createHandler(opts: HandlerOptions & { defaultGraph?: boolean })
       const refused = checkRequest(req, session);
       if (refused) {
         sendJson(res, refused.status, { ok: false, error: refused.error });
+        return;
+      }
+      // The Status page and every page with box badges read status and coverage when they open:
+      // with no graph, these reads answer "not built" and do not make graph.db (T71). The Code map's
+      // map, find and path, and the drill-down's show and near, still index on first use (T40).
+      const verb = query.get('verb');
+      if ((verb === 'status' || verb === 'coverage') && noGraphYet()) {
+        sendJson(res, 200, verb === 'status' ? { ok: true, indexed: false, busy: false } : { ok: false, indexed: false, error: NO_GRAPH_YET });
         return;
       }
       void readGraph(query, graph, opts.epicDir, git).then(
