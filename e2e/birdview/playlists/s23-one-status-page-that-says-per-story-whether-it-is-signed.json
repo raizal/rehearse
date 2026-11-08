@@ -1,0 +1,20 @@
+{
+  "name": "S23 · one Status page that says per story whether it is signed, built, tested on the real screens and done, and what is missing and who acts",
+  "tests": [
+    {
+      "file": "tests/S23.spec.ts",
+      "line": 79,
+      "name": "S23-page-table",
+      "about": "The Status page shows one row per story with its columns, the header and the sources",
+      "steps": {
+        "status-view: Open the Status page": "status-view",
+        "box-evidence: Decide per box built, no code of its own, or not built, with the evidence": "box-evidence",
+        "status-table: One row per story - signed, built, real screens, automated tests, done": "status-table",
+        "whats-missing: Say what is missing per story and who acts": "whats-missing",
+        "status-sources: Say where the facts come from, and when": "status-sources",
+        "status-page: The Status page - table, filters, a row opens the story's progress": "status-page",
+        "status-known: The builder knows what is not done and who acts": "status-known"
+      }
+    }
+  ]
+}

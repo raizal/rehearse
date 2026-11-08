@@ -1,0 +1,16 @@
+{
+  "name": "S12 · to play a story's e2e tests in Birdview with one button",
+  "tests": [
+    {
+      "file": "tests/S12.spec.ts",
+      "line": 153,
+      "name": "S12-switch",
+      "about": "Birdview on another project - the notice, Play switches it, Switch back returns it",
+      "steps": {
+        "story-playlist: Story playlist and Play in Birdview": "story-playlist",
+        "play-story: Play the story in Birdview": "play-story",
+        "use-project: Switch Birdview back": "use-project"
+      }
+    }
+  ]
+}

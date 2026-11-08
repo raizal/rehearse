@@ -1,0 +1,24 @@
+{
+  "name": "S6 · to approve the scenarios that agents drafted",
+  "tests": [
+    {
+      "file": "tests/S6.spec.ts",
+      "line": 20,
+      "name": "S6-approve",
+      "about": "Builder approves a draft scenario, gate still fails",
+      "steps": {
+        "review/readiness: Readiness chain and correction counts": "review/readiness",
+        "happy: Design correct?": "happy",
+        "signing-key: Signing key?": "signing-key",
+        "approve: Approve scenarios (UI button only)": "approve",
+        "more-scenarios: More scenarios to approve?": "more-scenarios",
+        "gate/traced: Every requirement has a story, and every story has an approved scenario": "gate/traced",
+        "gate/sim-clean: Simulation has no findings": "gate/sim-clean",
+        "gate/no-stale: No stale scenario": "gate/no-stale",
+        "gate/report: Gate report": "gate/report",
+        "gate-ok: Gate passes?": "gate-ok",
+        "review/swimlanes: Swimlanes": "review/swimlanes"
+      }
+    }
+  ]
+}

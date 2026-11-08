@@ -1,0 +1,20 @@
+{
+  "name": "S27 · to add a small change to a signed story, with 5 scenarios or fewer, and approve only the new scenarios",
+  "tests": [
+    {
+      "file": "tests/S27.spec.ts",
+      "line": 87,
+      "name": "S27-main",
+      "about": "An agent adds a small change to a signed story, and the owner approves it and signs off again",
+      "steps": {
+        "start: Builder has an idea": "start",
+        "change-new: rehearse change new <epic> <story> --title \"...\"": "change-new",
+        "change-file: Write the change - 1 to 3 criteria, 5 scenarios or fewer, new root boxes only": "change-file",
+        "change-limits: Check the limits - 5 scenarios or fewer, no edit of an existing item": "change-limits",
+        "change-signoff: Approve the change scenarios and sign off the story again - the preview shows only the change": "change-signoff",
+        "change-shown: The tools mark the change items \"New in C<n>\"": "change-shown",
+        "change-done: The small change is part of the signed story": "change-done"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "S8 · to see why the EPIC is ready or not ready",
+  "tests": [
+    {
+      "file": "tests/S8.spec.ts",
+      "line": 17,
+      "name": "S8-no-proof",
+      "about": "A requirement has no story",
+      "steps": {
+        "review/readiness: Readiness chain and correction counts": "review/readiness"
+      }
+    }
+  ]
+}

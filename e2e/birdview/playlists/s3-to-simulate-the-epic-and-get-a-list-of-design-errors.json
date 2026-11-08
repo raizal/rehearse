@@ -1,0 +1,21 @@
+{
+  "name": "S3 · to simulate the EPIC and get a list of design errors",
+  "tests": [
+    {
+      "file": "tests/S3.spec.ts",
+      "line": 18,
+      "name": "S3-uncovered-branch",
+      "about": "A decision branch that no approved scenario reaches",
+      "steps": {
+        "simulate/load: Load approved scenarios (skip stale and draft)": "simulate/load",
+        "simulate/contracts: Chain examples and check data shapes": "simulate/contracts",
+        "simulate/coverage: Find branches and error exits that no scenario reaches": "simulate/coverage",
+        "simulate/lifecycles: Check transitions and reachable states": "simulate/lifecycles",
+        "simulate/acceptance: Compare end states with acceptance criteria": "simulate/acceptance",
+        "simulate/permissions: Build permission matrix": "simulate/permissions",
+        "simulate/report: Write sorted, deterministic report": "simulate/report",
+        "design-errors: Design errors found?": "design-errors"
+      }
+    }
+  ]
+}

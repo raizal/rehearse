@@ -1,0 +1,20 @@
+{
+  "name": "S26 · a real-screen test of each story's main path, written from its scenarios by a separate thread, and 'done' to need it",
+  "tests": [
+    {
+      "file": "tests/S26.spec.ts",
+      "line": 86,
+      "name": "S26-main-path-done",
+      "about": "The test thread writes the main path test, it passes on the real screens, and the story is done",
+      "steps": {
+        "write-tests: Click \"Write tests\" on a story": "write-tests",
+        "test-thread: Start a separate test thread, the main path first": "test-thread",
+        "e2e-start: rehearse e2e-start <epic> <story> [--scenario <id>] [--main-path]": "e2e-start",
+        "main-path-test: Write the main path test and run it on the real screens": "main-path-test",
+        "done-seen: Done needs the main path test passed on the real screens": "done-seen",
+        "done-shown: Show done, the level and what is missing": "done-shown",
+        "seen-known: The builder knows the story works on the real screens, or what is missing": "seen-known"
+      }
+    }
+  ]
+}

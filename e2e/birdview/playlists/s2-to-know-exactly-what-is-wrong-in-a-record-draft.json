@@ -1,0 +1,19 @@
+{
+  "name": "S2 · to know exactly what is wrong in a record draft",
+  "tests": [
+    {
+      "file": "tests/S2.spec.ts",
+      "line": 15,
+      "name": "S2-unknown-story",
+      "about": "A box points to a story that does not exist",
+      "steps": {
+        "validate/parse: Parse YAML files": "validate/parse",
+        "validate/schema: Check JSON Schema": "validate/schema",
+        "validate/refs: Check cross-file references": "validate/refs",
+        "validate/report: Write validation report": "validate/report",
+        "valid: Record valid?": "valid",
+        "draft-record: Draft or fix record files": "draft-record"
+      }
+    }
+  ]
+}

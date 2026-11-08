@@ -1,0 +1,17 @@
+{
+  "name": "S16 · to see and edit a story's design from inside rehearse",
+  "tests": [
+    {
+      "file": "tests/S16.spec.ts",
+      "line": 87,
+      "name": "S16-host",
+      "about": "Serve hosts FigCraft web under /figcraft/ on its own origin, framed by its own pages only",
+      "steps": {
+        "review/readiness: Readiness chain and correction counts": "review/readiness",
+        "design-links: Read and check design/links.yaml": "design-links",
+        "design-tab: The story's Design tab, and Edit in FigCraft": "design-tab",
+        "host-figcraft: Serve hosts FigCraft web under /figcraft/, same origin": "host-figcraft"
+      }
+    }
+  ]
+}

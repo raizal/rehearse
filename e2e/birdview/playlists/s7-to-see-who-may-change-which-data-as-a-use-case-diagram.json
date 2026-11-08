@@ -1,0 +1,19 @@
+{
+  "name": "S7 · to see who may change which data, as a use case diagram",
+  "tests": [
+    {
+      "file": "tests/S7.spec.ts",
+      "line": 19,
+      "name": "S7-matrix",
+      "about": "A buyer box writes Order.status",
+      "steps": {
+        "simulate/permissions: Build permission matrix": "simulate/permissions",
+        "simulate/report: Write sorted, deterministic report": "simulate/report",
+        "design-errors: Design errors found?": "design-errors",
+        "review/swimlanes: Swimlanes": "review/swimlanes",
+        "review/playback: Play a scenario step by step": "review/playback",
+        "review/matrix: Use case diagram (permissions)": "review/matrix"
+      }
+    }
+  ]
+}

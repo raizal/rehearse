@@ -1,0 +1,17 @@
+{
+  "name": "S15 · the brief an agent gets to say which code already builds each box of the story",
+  "tests": [
+    {
+      "file": "tests/S15.spec.ts",
+      "line": 25,
+      "name": "S15-code",
+      "about": "Each box of the story gets its code with path:line and coverage, in the boxes' order",
+      "steps": {
+        "start-build: Start a build thread, or send it the change": "start-build",
+        "gather-box-code: Gather the code of the boxes from the code graph": "gather-box-code",
+        "code-start-section: Write \"Code you start from\"": "code-start-section",
+        "build-brief: Make the build brief of a signed story": "build-brief"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "S13 · to hand a scenario that has no e2e test to an agent from the Tests tab",
+  "tests": [
+    {
+      "file": "tests/S13.spec.ts",
+      "line": 153,
+      "name": "S13-all",
+      "about": "The summary line writes all K missing tests in one thread",
+      "steps": {
+        "test-rows: No-test rows and the story's test thread on the Tests tab": "test-rows",
+        "start-test-thread: Start the story's test thread, or send it more scenarios": "start-test-thread",
+        "test-brief: Make the test brief of approved scenarios": "test-brief"
+      }
+    }
+  ]
+}

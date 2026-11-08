@@ -1,0 +1,20 @@
+{
+  "name": "S25 · the product text and new plan text in Simplified Technical English, with a checker",
+  "tests": [
+    {
+      "file": "tests/S25.spec.ts",
+      "line": 30,
+      "name": "S25-checker-rules",
+      "about": "The checker gives one finding for each STE rule, with a suggestion",
+      "steps": {
+        "start: Builder has an idea": "start",
+        "ste-text: A builder writes product text or new plan text": "ste-text",
+        "ste-words: Find the words that STE does not approve, with the approved word": "ste-words",
+        "ste-check: Check the sentences, the paragraphs, the verbs and the nouns": "ste-check",
+        "ste-source: Product text or plan text?": "ste-source",
+        "ste-repo-test: The repo test checks every product text source": "ste-repo-test",
+        "ste-known: Every reader gets one clear meaning": "ste-known"
+      }
+    }
+  ]
+}

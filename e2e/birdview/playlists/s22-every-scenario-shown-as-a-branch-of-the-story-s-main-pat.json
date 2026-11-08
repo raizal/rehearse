@@ -1,0 +1,21 @@
+{
+  "name": "S22 · every scenario shown as a branch of the story's main path on one map, with the active one highlighted and only its different part to play",
+  "tests": [
+    {
+      "file": "tests/S22.spec.ts",
+      "line": 95,
+      "name": "S22-collapsed-seen",
+      "about": "The shared opening is one row; steps seen on the main path count, and Approve turns on after the different part",
+      "steps": {
+        "review/readiness: Readiness chain and correction counts": "review/readiness",
+        "main-path: Find the story's main path": "main-path",
+        "branch-point: Find where each scenario leaves the main path": "branch-point",
+        "review-order: Order the scenarios along the map": "review-order",
+        "story-map: The story at a glance, one map per story": "story-map",
+        "highlight-scenario: Highlight the open scenario on the map": "highlight-scenario",
+        "collapse-shared: Collapse the opening shared with the main path": "collapse-shared",
+        "approve: Approve scenarios (UI button only)": "approve"
+      }
+    }
+  ]
+}

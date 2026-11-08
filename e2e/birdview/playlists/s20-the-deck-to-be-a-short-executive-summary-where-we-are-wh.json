@@ -1,0 +1,25 @@
+{
+  "name": "S20 · the deck to be a short executive summary — where we are, what is done, what is not and why, and the proof",
+  "tests": [
+    {
+      "file": "tests/S20.spec.ts",
+      "line": 27,
+      "name": "S20-summary",
+      "about": "The deck is a short summary by default: where we are, done, not done and why, how we know, next",
+      "steps": {
+        "present-cli: Make a deck with rehearse present": "present-cli",
+        "gather-deck-facts: Gather what the deck shows from the record and the repo": "gather-deck-facts",
+        "read-saved-test-results: Read the e2e results Birdview knows or saved": "read-saved-test-results",
+        "read-unit-report: Read the unit tests from a vitest report": "read-unit-report",
+        "last-screen-picture: Take a still of the last screen of each recording": "last-screen-picture",
+        "done-rule: Decide if each story is done, and how strong its proof is": "done-rule",
+        "group-done-by-area: Group the done stories by area": "group-done-by-area",
+        "group-not-done-by-reason: Group the stories not done by reason": "group-not-done-by-reason",
+        "how-we-know: Show how we know, with pictures of passed tests": "how-we-know",
+        "summary-deck: Build the executive summary slides": "summary-deck",
+        "render-deck-html: Write the deck as one self-contained HTML file": "render-deck-html",
+        "deck-file: The deck the owner sends": "deck-file"
+      }
+    }
+  ]
+}

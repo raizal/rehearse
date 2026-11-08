@@ -1,0 +1,16 @@
+{
+  "name": "S14 · to merge the work of an agent thread into my branch with one button, after seeing what it brings",
+  "tests": [
+    {
+      "file": "tests/S14.spec.ts",
+      "line": 155,
+      "name": "S14-merge",
+      "about": "Merge into main merges the idle thread's branch with --no-ff and the thread's title",
+      "steps": {
+        "merge-panel: The merge summary, Merge into <current branch>, and play after a test merge": "merge-panel",
+        "thread-branch: What the thread's branch has that the current branch has not": "thread-branch",
+        "merge-thread: Merge the thread's branch into serve's checkout": "merge-thread"
+      }
+    }
+  ]
+}

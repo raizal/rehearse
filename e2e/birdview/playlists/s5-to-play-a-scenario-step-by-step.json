@@ -1,0 +1,19 @@
+{
+  "name": "S5 · to play a scenario step by step",
+  "tests": [
+    {
+      "file": "tests/S5.spec.ts",
+      "line": 30,
+      "name": "S5-playback",
+      "about": "Builder steps through a 3-step scenario",
+      "steps": {
+        "review/swimlanes: Swimlanes": "review/swimlanes",
+        "review/playback: Play a scenario step by step": "review/playback",
+        "review/matrix: Use case diagram (permissions)": "review/matrix",
+        "review/readiness: Readiness chain and correction counts": "review/readiness",
+        "happy: Design correct?": "happy",
+        "draft-record: Draft or fix record files": "draft-record"
+      }
+    }
+  ]
+}

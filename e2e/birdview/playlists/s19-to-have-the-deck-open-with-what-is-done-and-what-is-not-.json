@@ -1,0 +1,25 @@
+{
+  "name": "S19 · to have the deck open with what is done and what is not, each with its proof",
+  "tests": [
+    {
+      "file": "tests/S19.spec.ts",
+      "line": 27,
+      "name": "S19-recap",
+      "about": "With --full, the slide after the details slide is a recap of every story, done or not, with one sentence on top",
+      "steps": {
+        "present-cli: Make a deck with rehearse present": "present-cli",
+        "gather-deck-facts: Gather what the deck shows from the record and the repo": "gather-deck-facts",
+        "read-saved-test-results: Read the e2e results Birdview knows or saved": "read-saved-test-results",
+        "read-unit-report: Read the unit tests from a vitest report": "read-unit-report",
+        "last-screen-picture: Take a still of the last screen of each recording": "last-screen-picture",
+        "story-done-state: Decide if each story is done, in progress or not started": "story-done-state",
+        "build-recap: Build the recap slide after the title": "build-recap",
+        "proof-lines: Write a proof line per source on every story slide": "proof-lines",
+        "evidence-page: Say where each proof comes from": "evidence-page",
+        "build-deck: Build the slides in plain words": "build-deck",
+        "render-deck-html: Write the deck as one self-contained HTML file": "render-deck-html",
+        "deck-file: The deck the owner sends": "deck-file"
+      }
+    }
+  ]
+}

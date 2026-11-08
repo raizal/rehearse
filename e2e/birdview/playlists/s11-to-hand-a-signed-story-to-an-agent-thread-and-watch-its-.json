@@ -1,0 +1,17 @@
+{
+  "name": "S11 · to hand a signed story to an agent thread and watch its work in rehearse",
+  "tests": [
+    {
+      "file": "tests/S11.spec.ts",
+      "line": 153,
+      "name": "S11-brief",
+      "about": "The brief of a signed story holds everything the agent builds to",
+      "steps": {
+        "sign-off: Sign off (UI button only)": "sign-off",
+        "watch-build: The story's build panel - Build button, plan-changed notice and progress": "watch-build",
+        "start-build: Start a build thread, or send it the change": "start-build",
+        "build-brief: Make the build brief of a signed story": "build-brief"
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "S17 · to link a story to its design by picking it, not by editing YAML",
+  "tests": [
+    {
+      "file": "tests/S17.spec.ts",
+      "line": 98,
+      "name": "S17-suggest",
+      "about": "An unlinked story shows the top 3 suggested pages and frames with their reason",
+      "steps": {
+        "design-tab: The story's Design tab, and Edit in FigCraft": "design-tab",
+        "design-index: Index the design files under design/": "design-index",
+        "suggest-design: Suggest pages and frames for an unlinked story or box": "suggest-design",
+        "link-design: Link, change or unlink a design in one click": "link-design"
+      }
+    }
+  ]
+}

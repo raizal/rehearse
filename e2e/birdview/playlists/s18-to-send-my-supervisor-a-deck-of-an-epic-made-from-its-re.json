@@ -1,0 +1,18 @@
+{
+  "name": "S18 · to send my supervisor a deck of an EPIC made from its record",
+  "tests": [
+    {
+      "file": "tests/S18.spec.ts",
+      "line": 27,
+      "name": "S18-opening",
+      "about": "The deck opens with the title and the summary; with --full, why it exists and the map of who does what come after the recap",
+      "steps": {
+        "present-cli: Make a deck with rehearse present": "present-cli",
+        "gather-deck-facts: Gather what the deck shows from the record and the repo": "gather-deck-facts",
+        "build-deck: Build the slides in plain words": "build-deck",
+        "render-deck-html: Write the deck as one self-contained HTML file": "render-deck-html",
+        "deck-file: The deck the owner sends": "deck-file"
+      }
+    }
+  ]
+}

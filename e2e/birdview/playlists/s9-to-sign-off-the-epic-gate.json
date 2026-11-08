@@ -1,0 +1,20 @@
+{
+  "name": "S9 · to sign off the EPIC gate",
+  "tests": [
+    {
+      "file": "tests/S9.spec.ts",
+      "line": 21,
+      "name": "S9-sign",
+      "about": "Builder signs off a clean EPIC",
+      "steps": {
+        "gate/traced: Every requirement has a story, and every story has an approved scenario": "gate/traced",
+        "gate/sim-clean: Simulation has no findings": "gate/sim-clean",
+        "gate/no-stale: No stale scenario": "gate/no-stale",
+        "gate/report: Gate report": "gate/report",
+        "gate-ok: Gate passes?": "gate-ok",
+        "sign-off: Sign off (UI button only)": "sign-off",
+        "signed: EPIC signed — build may start": "signed"
+      }
+    }
+  ]
+}

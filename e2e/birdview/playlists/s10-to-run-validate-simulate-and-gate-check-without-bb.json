@@ -1,0 +1,17 @@
+{
+  "name": "S10 · to run validate, simulate and gate check without bb",
+  "tests": [
+    {
+      "file": "tests/S10.spec.ts",
+      "line": 17,
+      "name": "S10-fail",
+      "about": "CI finds a simulator error",
+      "steps": {
+        "pr-opened: PR opened or updated": "pr-opened",
+        "ci-run: CI runs validate, simulate, gate --json": "ci-run",
+        "ci-ok: Exit code 0?": "ci-ok",
+        "ci-fail: PR blocked, report attached": "ci-fail"
+      }
+    }
+  ]
+}

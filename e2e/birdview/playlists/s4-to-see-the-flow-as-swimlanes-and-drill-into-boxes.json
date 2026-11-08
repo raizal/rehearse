@@ -1,0 +1,54 @@
+{
+  "name": "S4 · to see the flow as swimlanes and drill into boxes",
+  "tests": [
+    {
+      "file": "tests/S4.spec.ts",
+      "line": 7,
+      "name": "S4-swimlanes",
+      "about": "Builder opens a clean design in the panel",
+      "steps": {
+        "simulate/report: the server reads the record and validates it": "simulate/report",
+        "design-errors: no errors, so the design is shown": "design-errors",
+        "review/swimlanes: one lane per role, each box in its lane": "review/swimlanes"
+      }
+    },
+    {
+      "file": "tests/S4.spec.ts",
+      "line": 29,
+      "name": "S4-drill",
+      "about": "Builder drills into a box with children",
+      "steps": {
+        "review/drill: the builder opens a box with children in the drawer": "review/drill",
+        "review/drill: a step opens in the same drawer, and the breadcrumb goes back up": "review/drill"
+      }
+    },
+    {
+      "file": "tests/S4.spec.ts",
+      "line": 52,
+      "name": "S4-browser",
+      "about": "Builder opens the served UI in a browser",
+      "steps": {
+        "review/swimlanes: the served UI fills a browser tab": "review/swimlanes"
+      }
+    },
+    {
+      "file": "tests/S4.spec.ts",
+      "line": 62,
+      "name": "S4-big-picture",
+      "about": "Builder sees the whole EPIC and the processes that features share",
+      "steps": {
+        "review/swimlanes: every role, and one line per story": "review/swimlanes"
+      }
+    },
+    {
+      "file": "tests/S4.spec.ts",
+      "line": 74,
+      "name": "S4-story-view",
+      "about": "Builder opens one story and sees what, how and output",
+      "steps": {
+        "review/swimlanes: one story shows what, how and output": "review/swimlanes",
+        "review/swimlanes: the Tests tab lists the story scenarios": "review/swimlanes"
+      }
+    }
+  ]
+}

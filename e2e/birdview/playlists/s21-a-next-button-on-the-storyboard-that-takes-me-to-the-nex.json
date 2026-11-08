@@ -1,0 +1,21 @@
+{
+  "name": "S21 · a Next button on the storyboard that takes me to the next scenario to approve, and to the next story when this one is done",
+  "tests": [
+    {
+      "file": "tests/S21.spec.ts",
+      "line": 78,
+      "name": "S21-focus-after-approve",
+      "about": "After a successful approval focus moves to Next scenario, and Enter follows it",
+      "steps": {
+        "review/readiness: Readiness chain and correction counts": "review/readiness",
+        "happy: Design correct?": "happy",
+        "signing-key: Signing key?": "signing-key",
+        "approve: Approve scenarios (UI button only)": "approve",
+        "after-approve: Move focus to Next after an approval": "after-approve",
+        "next-scenario: Next scenario beside Approve": "next-scenario",
+        "review/swimlanes: Swimlanes": "review/swimlanes",
+        "review/playback: Play a scenario step by step": "review/playback"
+      }
+    }
+  ]
+}
