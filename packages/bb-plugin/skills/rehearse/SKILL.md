@@ -110,6 +110,23 @@ A links.yaml entry still wins over the frame name. To see which design pages and
 stories without a design, run `rehearse design suggest <epic> [--json]`. This command only reads: the
 owner links in the rehearse UI.
 
+## Draft or fix the record
+
+An agent drafts the record files of an EPIC, or fixes them after `rehearse validate` (box
+`draft-record`, S2). Do this:
+
+- Run `rehearse validate <epic>`. Each finding names the file, the path in the file and what is wrong.
+  A YAML syntax error names the line.
+
+- Edit the file at that path. Then run `rehearse validate <epic>` again, until it says OK.
+
+- Write only `Requirement.*`, the story text, `Box.*`, `Example.*` and a scenario status of `draft`
+  (C16). The story text is `role`, `want`, `soThat`, `requirements` and `acceptance`. If the report
+  of `validate` has findings, its text gives this list again.
+
+- Do not write `Story.status`, `Story.signedHash` or the approval of a scenario. The owner and
+  rehearse write them.
+
 ## Write the e2e tests of a story
 
 A thread started from the story Tests tab gets the test brief of the approved scenarios that have

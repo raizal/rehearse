@@ -2,9 +2,11 @@
 // plus the dogfood run on the real record (D24) and the determinism check (R18).
 
 import { fileURLToPath } from 'node:url';
+import { indexBoxes, loadEpic } from '@rehearse/core';
 import { describe, expect, it } from 'vitest';
 import { box, makeEpic, REAL_EPIC, scenario } from '../../core/test/helpers.js';
 import { run, USAGE } from '../src/index.js';
+import { AGENT_WRITES, draftRecordHint } from '../src/commands/draft-record.js';
 
 const REPO = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -64,6 +66,37 @@ describe('story S2: validate tells the agent exactly what is wrong', () => {
     expect(code).toBe(1);
     expect(err).toBe('');
     expect(out).toMatch(/^flow\.yaml: line \d+: schema: yaml-syntax: /m);
+  });
+});
+
+describe('box draft-record (S2, C16): validate tells the agent how to fix the record', () => {
+  it('a report with findings ends with the fix lines: run validate again, and the fields an agent writes', () => {
+    const dir = makeEpic({ edit: (d) => (box(d, 'pay').stories = ['S9']) });
+    const { code, out } = cli(['validate', dir]);
+    expect(code).toBe(1);
+    expect(out).toContain(`To fix the record: edit each file at the path that a finding names, then run \`rehearse validate ${dir}\` again.`);
+    expect(out).toContain('An agent writes only these fields: Requirement.*, Story.role, Story.want, Story.soThat, Story.requirements, Story.acceptance, Box.*, Example.*, Scenario.status: draft (C16).');
+    expect(out).toContain('Do not write Story.status, Story.signedHash, Scenario.approval: the owner and rehearse write them.');
+    // The findings come first, the fix lines after the summary.
+    expect(out.indexOf('validate: 1 finding')).toBeLessThan(out.indexOf('To fix the record'));
+  });
+
+  it('the fix lines use the EPIC name that the agent gave', () => {
+    expect(draftRecordHint({ ok: false }, '2026-11-05-shop')).toContain('`rehearse validate 2026-11-05-shop` again');
+  });
+
+  it('an OK report and the --json report get no fix lines', () => {
+    expect(draftRecordHint({ ok: true }, 'x')).toBe('');
+    expect(cli(['validate', makeEpic()]).out).not.toContain('To fix the record');
+    const dir = makeEpic({ edit: (d) => (box(d, 'pay').stories = ['S9']) });
+    expect(() => JSON.parse(cli(['validate', dir, '--json']).out)).not.toThrow();
+  });
+
+  it('the agent fields are the writes of box draft-record in the record, so an agent never writes a status or a hash of a story', () => {
+    const { record } = loadEpic(REAL_EPIC);
+    const writes = indexBoxes(record.flow).get('draft-record')!.box.writes as string[];
+    expect(AGENT_WRITES).toEqual(writes.map((w) => w.replace(':->', ': ')));
+    expect((AGENT_WRITES as readonly string[]).some((f) => f.startsWith('Story.status') || f.startsWith('Story.signedHash') || f === 'Story.*')).toBe(false);
   });
 });
 
