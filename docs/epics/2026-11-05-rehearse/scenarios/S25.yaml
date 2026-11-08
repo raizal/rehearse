@@ -3,7 +3,7 @@ scenarios:
 
   - id: S25-checker-rules
     title: The checker gives one finding for each STE rule, with a suggestion
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: ste-text
@@ -17,10 +17,21 @@ scenarios:
       - { name: ste-repo-test }
       - { name: ste-known }
     expect: { criterion: S25-A1, state: { rules: "sentence-length, paragraph-length, passive-instruction, ing-form, noun-cluster, word", notRead: "code spans, ids, box ids, paths, commands, quoted labels" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:24:05Z'
+      hash: 'sha256:7ce2b6d0eb032ca145c919a65f695f95aeacc4393bcfe8c19df38831a6c0d1a4'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAu9oFFVQjlkhwgqRW5eZtQUOC2yHvUfIXCE4SyERC2dgEr+qHf2DL4nVSq5
+        GVVZDJQTYRCRy7ES5CCAQRGv09Ag==
+        -----END SSH SIGNATURE-----
 
   - id: S25-product-passes
     title: The product text has no STE finding that is not on the allow list
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: ste-text
@@ -33,10 +44,21 @@ scenarios:
         example: { id: product-ok, given: { sources: "the list of files and the string tables" }, then: { findings: "none that is not on the allow list" } }
       - { name: ste-known }
     expect: { criterion: S25-A2, state: { findings: "none that is not on the allow list", terms: "plan terms stay as technical names" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:24:21Z'
+      hash: 'sha256:4afa7610c990b107f43e9d374999023a5b5eb067d57f6dfb810ad2dd90bf10e7'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABACpfgACB/xL3HYlwIllxENbhxHuZoMHqipCvmF4zE3nl5LJKp407gvKNcro
+        SBu1VlmEB3IcUlM07xR16+q7QBAA==
+        -----END SSH SIGNATURE-----
 
   - id: S25-new-finding
     title: A new STE finding fails the repo test, and the builder writes the text again
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: ste-text
@@ -57,10 +79,21 @@ scenarios:
       - { name: ste-repo-test }
       - { name: ste-known }
     expect: { criterion: S25-A3, state: { failure: "names the file, the line, the rule and the suggestion", after: "the test passes" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:25:01Z'
+      hash: 'sha256:4292af509d942342822cd7603f6e83ea8df525aaeccd1838890d0bd31f84623a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA6vo+a5qtHo1T/9fjlRuC6BHg0DP89md+EccVWPsq/gUCBmxEbgucurh40m
+        nHaCNrxZOUJXVehFdaZLoZtpb+Cw==
+        -----END SSH SIGNATURE-----
 
   - id: S25-no-ste-word
     title: A word with no STE word goes on the allow list with a reason
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: ste-text }
@@ -75,10 +108,21 @@ scenarios:
         example: { id: allow-entry, given: { findings: "ing-form: running" }, then: { allowList: "the signed plan quotes this label (S13)" } }
       - { name: ste-known }
     expect: { criterion: S25-A3, state: { allowList: "an entry with a reason", unused: "an entry that matches no finding fails the test" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:25:12Z'
+      hash: 'sha256:f0658aee0fec7bea6d532d203a35652507be8233df5dedf41455ff25faa30b08'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAhboasq8kedTbXNR8kzWzUDqD6/aGSzdakbdmJTayoejKH6RIxxFJ91xbpN
+        hlGtgidn8EKVV8VYp3/T2WXQuuDA==
+        -----END SSH SIGNATURE-----
 
   - id: S25-draft-information
     title: validate gives STE notes on draft text as information, and the report stays OK
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: ste-text
@@ -93,10 +137,21 @@ scenarios:
         example: { id: draft-notes, given: { text: "Buyer is paying for the cart" }, then: { information: "scenarios/S1.yaml: S1-buy: title: information: STE ing-form: \"paying\" is an -ing form." } }
       - { name: ste-known }
     expect: { criterion: S25-A4, state: { report: "OK", exit: 0, gate: "no STE item" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:24:30Z'
+      hash: 'sha256:68c594d12015bc1ae732b58d0bd7475dec142147b4e36e8f191d946270cc5ed1'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABABlqD/9OJbTPYODgp9nCiZvgrBvSbsRNqTBmhTjXq/vhg99sSvjmvvLqq53
+        ZYZyaIJDvB7JHbrDLq0xwfsfjBCA==
+        -----END SSH SIGNATURE-----
 
   - id: S25-signed-not-checked
     title: validate gives no STE note on a signed story or an approved scenario
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: ste-text
@@ -111,3 +166,14 @@ scenarios:
         example: { id: signed-none, given: { text: "the text of a signed story" }, then: { information: "no STE note" } }
       - { name: ste-known }
     expect: { criterion: S25-A5, state: { notes: none, approvals: "not stale" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:24:39Z'
+      hash: 'sha256:89fb9f21c775c5b64146a9dd237a3e933b390300dc705c3928cb850352f46f44'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA0Kh1Dba2K/SI+Wpwkj4lf9VeRLOEaWAQ/CH56X0IJouCGQfrme0vdciAhZ
+        YQi2dOEXRqy7eUfKjA6qLGAIZ+AA==
+        -----END SSH SIGNATURE-----

@@ -3,11 +3,11 @@ scenarios:
 
   - id: S27-main
     title: An agent adds a small change to a signed story, and the owner approves it and signs off again
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: change-new
-        example: { id: start-file, given: { epic: 2026-11-05-rehearse, story: S21, title: "The Next button shows a count of scenarios left." }, then: { file: changes/C1.yaml, criteria: [S21-A7], scenarios: [S21-c1-main] } }
+        example: { id: start-file, given: { epic: 2026-11-05-rehearse, story: S21, title: "The Next button shows a count of scenarios left." }, then: { file: changes/C1.yaml, criteria: [ S21-A7 ], scenarios: [ S21-c1-main ] } }
       - name: change-file
         example: { id: write, given: { change: C1 }, then: { criteria: "S21-A7", scenarios: "S21-c1-main, S21-c1-last, S21-c1-none" } }
       - { name: change-limits }
@@ -15,38 +15,71 @@ scenarios:
       - { name: change-shown }
       - { name: change-done }
     expect: { criterion: S27-A1, state: { change: C1, merged: "into story S21", marks: "New in C1" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:25:30Z'
+      hash: 'sha256:bda2b0e70c7d094cdfaf266902ab050d004ab5d9bfdd732d6705c04967237648'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABArPzV7sZ0NZnay0UwATrksnDWbhHi9YSRu2sOrhLjuaduGVfbbd7/gqJ01V
+        CB/qUujZeEMKoIXzun0I5K1FwlDA==
+        -----END SSH SIGNATURE-----
 
   - id: S27-old-approvals
     title: The old approvals of the story stay valid, and only the change scenarios wait for the owner
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: change-new }
       - { name: change-file }
       - { name: change-limits }
       - name: change-signoff
-        example: { id: approvals, given: { story: S21, oldApproved: 8, change: C1 }, then: { oldApproved: 8, stale: 0, drafts: [S21-c1-main, S21-c1-last, S21-c1-none] } }
+        example: { id: approvals, given: { story: S21, oldApproved: 8, change: C1 }, then: { oldApproved: 8, stale: 0, drafts: [ S21-c1-main, S21-c1-last, S21-c1-none ] } }
       - { name: change-shown }
       - { name: change-done }
     expect: { criterion: S27-A3, state: { oldApprovals: valid, drafts: "the change scenarios only" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:25:45Z'
+      hash: 'sha256:0cb8134338353d2cffafb631993a96b6db7da96f2048f5ce7cbe0db82f03976a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAlEqOxfu1NeRfWJxdYg3X14RQK16YubZvmX1RiB744x72rwoTI2idVOsyHY
+        w4CTWRKAdVPhlaqjS3sSMb9/YIBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S27-preview
     title: The sign-off preview shows only the change
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: change-new }
       - { name: change-file }
       - { name: change-limits }
       - name: change-signoff
-        example: { id: preview, given: { story: S21, newChanges: [C1] }, then: { heading: "New in C1: The Next button shows a count of scenarios left.", shown: "the C1 criterion and scenarios", rest: "as signed, folded" } }
+        example: { id: preview, given: { story: S21, newChanges: [ C1 ] }, then: { heading: "New in C1: The Next button shows a count of scenarios left.", shown: "the C1 criterion and scenarios", rest: "as signed, folded" } }
       - { name: change-shown }
       - { name: change-done }
     expect: { criterion: S27-A5, state: { preview: "only the change", rest: "as signed" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:26:00Z'
+      hash: 'sha256:c236838da0c2b8672c3dfaaebee8716e0b679c9754719fff5c4f7f072ef526cf'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAV+VkmRvjSd4rt3PxukVoDOev4uZ3D75qSf+ugWCFb58O312Nkc5OkI195Q
+        ZbLziFHW3VRWqGpqOxEB6GVH2VDA==
+        -----END SSH SIGNATURE-----
 
   - id: S27-tools
     title: Each tool shows the change in its story with the mark New in C1
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: change-new }
@@ -54,13 +87,24 @@ scenarios:
       - { name: change-limits }
       - { name: change-signoff }
       - name: change-shown
-        example: { id: marks, given: { story: S21, change: C1 }, then: { tools: [story page, story map, storyboard, review queue, Status page, rehearse brief, deck], mark: "New in C1" } }
+        example: { id: marks, given: { story: S21, change: C1 }, then: { tools: [ story page, story map, storyboard, review queue, Status page, rehearse brief, deck ], mark: "New in C1" } }
       - { name: change-done }
     expect: { criterion: S27-A6, state: { mark: "New in C1", tools: 7 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:26:12Z'
+      hash: 'sha256:fa6cbbcd7dac670d097d2b67af652762cae64c3eda67b519edd700469fa30129'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAdNLJExiLam7S1depLWeZL5GgeQ5xYpKw0pxMoySyQWzsiEuwEvr0Ul2mYT
+        mg4hDtVn5SUL1rbRydjCfAWfLRBg==
+        -----END SSH SIGNATURE-----
 
   - id: S27-unknown-story
     title: A start file for an unknown story writes no file
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - name: change-new
@@ -68,10 +112,21 @@ scenarios:
         example: { id: unknown, given: { story: S99 }, then: { exit: 1, message: "unknown-story: story S99 unknown in prd.yaml; no file changed" } }
       - { name: change-stopped }
     expect: { criterion: S27-A7, state: { files: none, exit: 1 } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:26:23Z'
+      hash: 'sha256:191ec38b8708113a5ec4abf6007a70053bf8cf2d6d3b8bfeb430b439d7d957ad'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAv7vDcwYVy19cbw+ZYzVV4PajIcL5Bhi9g+efBN0O+di/vUnEFxD2LflHod
+        fe6GOlXj0gNq9IIny6VXLiPgyICg==
+        -----END SSH SIGNATURE-----
 
   - id: S27-too-many
     title: A change with more than 5 scenarios is an error
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: change-new }
@@ -81,10 +136,21 @@ scenarios:
         example: { id: six, given: { scenarios: 6 }, then: { finding: "changes/C1.yaml: structure: the change has 6 scenarios. A change has 5 scenarios or fewer" } }
       - { name: change-stopped }
     expect: { criterion: S27-A2, state: { validate: fails, file: changes/C1.yaml } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:26:38Z'
+      hash: 'sha256:66c3d53b0293a3998943abe6eba22deba0725a7c6237b408dc194e7c0efa40d3'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABANjsFmrQuVfGE/sP5a7cpu/HR2PwwJzKihuEw5wDL6sDVPw2rXI4j5imXlL
+        ndWDTD0vNsRxhUjmERSXrd8ozuCg==
+        -----END SSH SIGNATURE-----
 
   - id: S27-edits-existing
     title: A change that edits an existing item is an error
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: change-new }
@@ -94,10 +160,21 @@ scenarios:
         example: { id: edit, given: { criterion: S21-A1 }, then: { finding: "changes/C1.yaml: reference: the change edits an item of the record: criterion S21-A1 is in prd.yaml" } }
       - { name: change-stopped }
     expect: { criterion: S27-A2, state: { validate: fails, edits: none } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:26:49Z'
+      hash: 'sha256:b4037d874ec9fae6f7fc10cc981951d05109b62a0120da0ccee3ae961cfb43c9'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABADlhfsGGjAfQ/akxZMP1NQbuy/l5o2qhQ8whtas7KE4IRQbMc6Em2sWfgNR
+        llrBr9z5acH9pPjRcd8DAeju8CCg==
+        -----END SSH SIGNATURE-----
 
   - id: S27-unsigned-change
     title: A change that nobody signed off fails the gate
-    status: draft
+    status: approved
     steps:
       - { name: start }
       - { name: change-new }
@@ -108,3 +185,14 @@ scenarios:
         example: { id: gate, given: { story: S21, change: C1 }, then: { gate: fails, asks: "the C1 approvals and a new S21 sign-off" } }
       - { name: change-stopped }
     expect: { criterion: S27-A4, state: { gate: fails, oldSignOffs: valid } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:26:59Z'
+      hash: 'sha256:ce0625fb0b9daa37e05bfc96a0bd43bda69313733abea54f97aaf1cb4dedb2d9'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAxVkLrcl0UqzpdNvXTblnneO/QpbKT4+Q1M0KiLihnF4l0bAHbyZGp06jMs
+        Y1XJupuNBYgDYGzMaabiSzGLbMBg==
+        -----END SSH SIGNATURE-----

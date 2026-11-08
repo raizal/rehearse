@@ -3,7 +3,7 @@ scenarios:
 
   - id: S26-main-path-done
     title: The test thread writes the main path test, it passes on the real screens, and the story is done
-    status: draft
+    status: approved
     steps:
       - name: write-tests
         example: { id: click, given: { epic: 2026-11-05-rehearse, story: S10 }, then: { storyId: S10 } }
@@ -16,10 +16,21 @@ scenarios:
       - { name: done-shown }
       - { name: seen-known }
     expect: { criterion: S26-A6, state: { S10: done, rule: "signed, not stale, built, main path passed in its last run, no test fails" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:27:23Z'
+      hash: 'sha256:ffa86af23d7b9a088e56705f48aa7bd4a543aa37a23dd5f98cf87a2090fc2584'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA+33xxXt9y91zWTueOZ+0gT/coycPFd3+W2Wal9bjLc544czRbyZw3RbYEB
+        /a6j3HRKCaZ5wAzlzsc+uEh0jRBQ==
+        -----END SSH SIGNATURE-----
 
   - id: S26-start-file
     title: e2e-start writes one test for each approved scenario and one step for each step
-    status: draft
+    status: approved
     steps:
       - name: e2e-start
         example: { id: file, given: { epic: 2026-11-05-rehearse, story: S10 }, then: { specFile: e2e/tests/S10.spec.ts, tests: "test('S10-pass: ...') with one test.step('<box path>: <box title>') for each step" } }
@@ -28,10 +39,21 @@ scenarios:
       - { name: done-shown }
       - { name: seen-known }
     expect: { criterion: S26-A1, state: { tests: "one for each approved scenario", steps: "one for each scenario step, with the example as a comment" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:27:57Z'
+      hash: 'sha256:8dd3025f18b6d9cd3b8c28786ac7573b8fdd6cc91008270deebb3c4dee4331e6'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAzgs2D3yy1db8ELiCI05f0MTB/eUPe1EMC3PEyrO2kBlfeiLnCVMc8tKnSC
+        LVr1ufJMFb6Tbz4pUl/qFvbSgcDw==
+        -----END SSH SIGNATURE-----
 
   - id: S26-never-silent
     title: A start file that nobody wrote fails with "not written" and never passes
-    status: draft
+    status: approved
     steps:
       - { name: e2e-start }
       - name: main-path-test
@@ -41,10 +63,21 @@ scenarios:
       - { name: done-shown }
       - { name: seen-known }
     expect: { criterion: S26-A2, state: { run: failed, seenWorking: no } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:53:45Z'
+      hash: 'sha256:d06174e2dd3b00984495d59770c30e74b8ce41c063294cb0c33fa9cc7001ca3b'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA8XfHRuNq+8GQoSJfBP2fETLvJThhLxDFsQMIDfkEMRX0R1nxtrltbwBlK6
+        gR+nDmmCpPjwWI2dKc6AbphIsIDg==
+        -----END SSH SIGNATURE-----
 
   - id: S26-main-path-first
     title: --main-path picks the owner's main path, and the brief says to write it first
-    status: draft
+    status: approved
     steps:
       - name: e2e-start
         example: { id: pick, given: { story: S1, mainPath: true, reviewPick: S1-happy }, then: { tests: "only S1-happy", brief: "Write the main path test first." } }
@@ -53,24 +86,46 @@ scenarios:
       - { name: done-shown }
       - { name: seen-known }
     expect: { criterion: S26-A3, state: { tests: "the main path only", brief: "main path first" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:53:53Z'
+      hash: 'sha256:c8451b5d3d5dc56ac223772ae26370af33b063431fab2c5040330315845f8568'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAAgPR0sLh+iAM7PsLPdcGKnaw20nvbxIgKfsQJdzxm6uX55ZxRTxK5KmwvO
+        pMCphHAtDOdGU+cUkysenbNFCECQ==
+        -----END SSH SIGNATURE-----
 
   - id: S26-file-exists
     title: e2e-start never writes over a test file; --append adds only the missing tests
-    status: draft
+    status: approved
     steps:
       - name: e2e-start
         branch: "the test file exists already"
         example: { id: exists, given: { specFile: e2e/tests/S1.spec.ts, append: false }, then: { error: "the test file exists already" } }
       - name: main-path-test
-        example: { id: append, given: { append: true, existing: [S1-happy] }, then: { added: [S1-other], kept: [S1-happy] } }
+        example: { id: append, given: { append: true, existing: [ S1-happy ] }, then: { added: [ S1-other ], kept: [ S1-happy ] } }
       - { name: done-seen }
       - { name: done-shown }
       - { name: seen-known }
     expect: { criterion: S26-A4, state: { overwritten: no, appended: "the missing tests only" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:54:08Z'
+      hash: 'sha256:24983cbee459072179dccb7ee8e3e31150474e63d3b8eebf788d01014019ba6a'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA8AGGhSjD/4NZJwFjmGDhHO5IaYKGAAdMr2XqDqdjv8n7pKsIwauzTP1lPv
+        2he5aYmeOLlbPwgnIIV1XZvVdPCw==
+        -----END SSH SIGNATURE-----
 
   - id: S26-separate-thread
     title: The "Write tests" action starts a separate test thread that works from the scenarios, not the code
-    status: draft
+    status: approved
     steps:
       - { name: write-tests }
       - name: test-thread
@@ -81,10 +136,21 @@ scenarios:
       - { name: done-shown }
       - { name: seen-known }
     expect: { criterion: S26-A5, state: { thread: separate, brief: "no code of the story's boxes", firstTask: "--main-path" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:27:37Z'
+      hash: 'sha256:ecaf74d4047a08dece44f269cd878c63d870172b311e406033ead13243b78e07'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAvLNpjnSdy3sz+ueOELGKDX0DoSje5BxACKdiIyNF0Xh3SO+c5oXP+UmO/h
+        /uPJtgJiDDBw1GwYkHDUcRjQgCDg==
+        -----END SSH SIGNATURE-----
 
   - id: S26-not-seen-yet
     title: A built story without a passed main path test is not done yet
-    status: draft
+    status: approved
     steps:
       - name: read-done
         example: { id: status, given: { epic: 2026-11-05-rehearse }, then: { epic: 2026-11-05-rehearse } }
@@ -95,10 +161,21 @@ scenarios:
         example: { id: missing, given: { story: S3 }, then: { missing: "main path test not written: test thread" } }
       - { name: seen-known }
     expect: { criterion: S26-A7, state: { level: "built, checked by automated tests · not seen working yet", done: no } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:54:19Z'
+      hash: 'sha256:5425063a1add44d66fb17d4e9aad1a382934511daefd282581ebaa14b8832c94'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABA0BAOMmIE2sBcB4/LuKifIe0/aE383Djr7RiWndgWAWL0hU72EQFFmnQ5kS
+        N26MqZkifb3wt10xfYhSWbnL0fAA==
+        -----END SSH SIGNATURE-----
 
   - id: S26-main-path-failed
     title: A failed main path test says the step and who acts
-    status: draft
+    status: approved
     steps:
       - { name: e2e-start }
       - name: main-path-test
@@ -108,3 +185,14 @@ scenarios:
       - { name: done-shown }
       - { name: seen-known }
     expect: { criterion: S26-A8, state: { done: no, missing: "main path test failed: <step>: builders" } }
+    approval:
+      by: raizal.pregnanta@systemearth.com
+      at: '2026-11-08T03:54:27Z'
+      hash: 'sha256:372e89f2d664a01004ac0c864a466cd21731c1fe50e9835141a5b3f1e96650a0'
+      sig: |
+        -----BEGIN SSH SIGNATURE-----
+        U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg1MPJouVIt2JUVE9BT0opc0Ji3b
+        j3EDqvCto7oe8WMEEAAAAIcmVoZWFyc2UAAAAAAAAABnNoYTUxMgAAAFMAAAALc3NoLWVk
+        MjU1MTkAAABAg5R98FE2EBxHa3zsHEumzA76MZ8FtIx9h6pbDQZAbH87QUjVf/4lDJKIX9
+        bVowA8WbtKt0MPl/K2kcxyvyPEAA==
+        -----END SSH SIGNATURE-----
