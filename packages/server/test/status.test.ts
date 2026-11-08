@@ -63,7 +63,7 @@ describe('GET /api/status', () => {
     expect(ok).toBe(true);
     expect(status.slug).toBe('2026-11-05-shop');
     expect(status.rows.map((r) => r.id).sort()).toEqual(['S1', 'S2']);
-    expect(status.header).toMatch(/^\d+ of 2 stories done · \d+ seen working on the real screens · \d+ not done$/);
+    expect(status.header).toMatch(/^\d+ of 2 stories done on the main path · \d+ of \d+ scenarios? seen on the real screens · \d+ not done$/);
     const s1 = status.rows.find((r) => r.id === 'S1')!;
     expect(s1.built.evidence.find((e) => e.path === 'cart')).toMatchObject({ state: 'built', text: 'built: 1 Flow-Box commit' });
     expect(s1.built.evidence.find((e) => e.path === 'pay')?.state).toBe('not-built');

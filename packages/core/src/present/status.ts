@@ -42,10 +42,14 @@ export interface StatusSources {
 export interface StatusTable {
   slug: string;
   title: string;
-  /** "2 of 21 stories done · 1 seen working on the real screens · 19 not done (16 of them built, not seen working yet)" */
+  /**
+   * "2 of 21 stories done on the main path · 5 of 90 scenarios seen on the real screens · 19 not done (16 of them built, not seen
+   * working yet)". With every story done, the header has no "not done" part (C45).
+   */
   header: string;
   /** `notDone` counts the checked stories too; `checked`: built, not seen working yet (T61). */
-  counts: { stories: number; done: number; seen: number; notDone: number; doneNotSeen: number; checked: number };
+  /** `scenarios`: the approved scenarios; `scenariosSeen`: those whose real-screen test passed (C45). */
+  counts: { stories: number; done: number; seen: number; notDone: number; doneNotSeen: number; checked: number; scenarios: number; scenariosSeen: number };
   /** Not done first, then built but not seen working, then done but not every check seen, then seen working; in record order within each. */
   rows: StatusRow[];
   sources: StatusSources;
@@ -150,12 +154,15 @@ export function statusTable(record: EpicRecord, facts: DeckFacts): StatusTable {
   const order = new Map(rows.map((r, i) => [r.id, i]));
   rows.sort((a, b) => rank(a) - rank(b) || order.get(a.id)! - order.get(b.id)!);
   const notDone = st.total - st.done;
+  // The scenario count shows how much of "done" the real screens saw: "done" needs the main path only (C45).
+  const scenarios = rows.reduce((n, r) => n + r.e2e.approved, 0);
+  const scenariosSeen = rows.reduce((n, r) => n + r.e2e.passed, 0);
   const checked = st.checked === 0 ? '' : ` (${st.checked === notDone ? (notDone === 1 ? 'it is' : 'all of them') : `${st.checked} of them`} built, ${NOT_SEEN_YET})`;
   return {
     slug: record.slug,
     title: plain(record.prd?.epic?.title) || record.slug,
-    header: `${st.done} of ${plural(st.total, 'story', 'stories')} done · ${st.seen} seen working on the real screens · ${notDone} not done${checked}`,
-    counts: { stories: st.total, done: st.done, seen: st.seen, notDone, doneNotSeen: st.checked + st.done - st.seen, checked: st.checked },
+    header: `${st.done} of ${plural(st.total, 'story', 'stories')} done on the main path · ${scenariosSeen} of ${plural(scenarios, 'scenario')} seen on the real screens${notDone === 0 ? '' : ` · ${notDone} not done${checked}`}`,
+    counts: { stories: st.total, done: st.done, seen: st.seen, notDone, doneNotSeen: st.checked + st.done - st.seen, checked: st.checked, scenarios, scenariosSeen },
     rows,
     sources: statusSources(facts),
   };

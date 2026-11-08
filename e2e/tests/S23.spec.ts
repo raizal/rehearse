@@ -74,7 +74,8 @@ function serveIn(repo: string, epicDir: string, env: NodeJS.ProcessEnv): Promise
   });
 }
 
-const HEADER = '0 of 11 stories done · 0 seen working on the real screens · 11 not done';
+// The header counts the stories done on the main path and the scenarios seen on the real screens (C45).
+const HEADER = '0 of 11 stories done on the main path · 0 of 29 scenarios seen on the real screens · 11 not done';
 
 test('S23-page-table: The Status page shows one row per story with its columns, the header and the sources', async ({ page }) => {
   // The main path of S23: "done" needs this test passed on the real screens.

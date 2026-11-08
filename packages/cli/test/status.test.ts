@@ -48,7 +48,7 @@ describe('rehearse status', () => {
     const { out, io: o } = io(top);
     expect(await runStatus([dir], o, deps)).toBe(0);
     const text = out.stdout;
-    expect(text).toMatch(/^.+ \(2026-11-05-shop\)\n0 of 2 stories done · 0 seen working on the real screens · 2 not done\n/);
+    expect(text).toMatch(/^.+ \(2026-11-05-shop\)\n0 of 2 stories done on the main path · 0 of \d+ scenarios? seen on the real screens · 2 not done\n/);
     expect(text).toMatch(/Story\s+Signed\s+Built\s+Real screens\s+Automated\s+Done\s+What's missing — who acts/);
     expect(text).toMatch(/^S1\s+no\s+/m);
     expect(text).toMatch(/^S2\s+no\s+/m);

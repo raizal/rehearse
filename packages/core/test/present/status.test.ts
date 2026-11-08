@@ -63,7 +63,10 @@ describe('statusTable', () => {
     expect(done + notDone).toBe(stories);
     expect([done, seen]).toEqual([0, 0]);
     expect(checked).toBeGreaterThan(0);
-    expect(table0.header).toBe(`0 of ${stories} stories done · 0 seen working on the real screens · ${notDone} not done (${checked === notDone ? 'all' : checked} of them built, not seen working yet)`);
+    const { scenarios, scenariosSeen } = table0.counts;
+    expect(scenarios).toBeGreaterThan(0);
+    expect(scenariosSeen).toBe(0);
+    expect(table0.header).toBe(`0 of ${stories} stories done on the main path · 0 of ${scenarios} scenarios seen on the real screens · ${notDone} not done (${checked === notDone ? 'all' : checked} of them built, not seen working yet)`);
   });
 
   it('the main path test passed: done; every approved test passed: seen working; the header counts them', () => {
@@ -72,10 +75,10 @@ describe('statusTable', () => {
     expect(row.done.state).toBe('done');
     expect(row.done.text).toBe(OTHERS.length === 0 ? 'done · seen working' : `done · main path seen working (1 of ${OTHERS.length + 1})`);
     expect(main.counts).toMatchObject({ done: 1, checked: table0.counts.checked - 1 });
-    expect(main.header).toMatch(/^1 of \d+ stories done · /);
+    expect(main.header).toMatch(/^1 of \d+ stories done on the main path · 1 of \d+ scenarios seen on the real screens · /);
     const all = statusTable(real, facts({ [DONE]: { tests: Object.fromEntries(approvedOf(DONE).map((id) => [id, 'passed'])) } }));
     expect(all.rows.find((r) => r.id === DONE)!).toMatchObject({ done: { state: 'done', text: 'done · seen working' }, seenWorking: true });
-    expect(all.header).toMatch(/^1 of \d+ stories done · 1 seen working on the real screens · /);
+    expect(all.header).toMatch(/^1 of \d+ stories done on the main path · \d+ of \d+ scenarios seen on the real screens · /);
   });
 
   it('another test passed but not the main path: still not done', () => {
