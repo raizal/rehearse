@@ -123,8 +123,8 @@ test('S5-playback: Builder steps through a 3-step scenario', async ({ page }) =>
       await page.getByTestId('nav-readiness').click();
       await expect(page.getByTestId('readiness-scenario-R2-shop-2')).toBeVisible();
       // The approved scenario does not change, so it stays approved.
-      await page.getByTestId('nav-stories').click();
-      await page.getByTestId('queue-story-S1').click();
+      await page.getByTestId('nav-bigpicture').click();
+      await page.getByTestId('bp-story-S1').click();
       await expect(page.getByTestId('story-scenario-status-shop-1')).not.toContainText(/draft|stale/);
     });
 
