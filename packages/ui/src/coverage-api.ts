@@ -6,6 +6,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { BoxesCoverage } from '@rehearse/server';
 import { sessionClient, TOKEN_HEADER, type SessionClient } from './session-client.js';
+import { at } from './base.js';
 
 export type { BoxesCoverage } from '@rehearse/server';
 
@@ -18,7 +19,7 @@ export function httpCoverageApi(client: SessionClient = sessionClient): Coverage
   return {
     boxes: async () => {
       try {
-        const r = await client.withToken((token) => fetch('api/graph?verb=coverage', { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
+        const r = await client.withToken((token) => fetch(at('api/graph?verb=coverage'), { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
         return r.status === 200 && r.body?.ok === true ? (r.body as unknown as BoxesCoverage) : undefined;
       } catch {
         return undefined;

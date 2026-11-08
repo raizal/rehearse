@@ -5,6 +5,7 @@
 import type { DesignPicture, DesignSuggestion } from '@rehearse/core';
 import type { TestRow } from './tests.js';
 import { testSummary } from './tests.js';
+import { at } from '../base.js';
 
 type Page = number | string;
 
@@ -22,8 +23,8 @@ export function designCaption(link: { file: string; page: Page; frame?: string }
 
 /** The address of a picture: a PNG under design/ (`?v=` after a refresh, so the browser reads it again), or the file's thumbnail. */
 export function pictureSrc(picture: DesignPicture, version = 0): string {
-  if (picture.kind === 'file thumbnail') return `design-thumbnail?file=${encodeURIComponent(picture.file)}`;
-  return version > 0 ? `${picture.png}?v=${version}` : picture.png;
+  if (picture.kind === 'file thumbnail') return at(`design-thumbnail?file=${encodeURIComponent(picture.file)}`);
+  return at(version > 0 ? `${picture.png}?v=${version}` : picture.png);
 }
 
 /** "Page 3 “Cart”", or "Frame “Pay form” on page 2 “Pay”", for a suggestion. */

@@ -8,6 +8,7 @@
 // anything (`checkRequest`, first step of `readJsonPost` in packages/server/src/http.ts).
 
 import type { Session } from './contract.js';
+import { at } from './base.js';
 
 export const TOKEN_HEADER = 'x-rehearse-token';
 /** The server's error for a missing or old token. */
@@ -28,7 +29,7 @@ export function tokenRejected(r: TokenReply): boolean {
 }
 
 export async function fetchSession(): Promise<Session> {
-  const res = await fetch('api/session', { cache: 'no-store' });
+  const res = await fetch(at('api/session'), { cache: 'no-store' });
   if (!res.ok) throw new Error(`GET api/session: HTTP ${res.status}`);
   return (await res.json()) as Session;
 }

@@ -10,11 +10,12 @@ import type { ApproveOk, PostOutcome, ReviewEpicView, SignOffOk } from './contra
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient, type TokenReply } from './session-client.js';
 
 import type { BirdviewInfo } from '@rehearse/server';
+import { at } from './base.js';
 
 export type { BirdviewInfo, EpicView, ScenarioView } from '@rehearse/server';
 
 export async function fetchEpic(): Promise<ReviewEpicView> {
-  const res = await fetch('api/epic', { cache: 'no-store' });
+  const res = await fetch(at('api/epic'), { cache: 'no-store' });
   if (!res.ok) throw new Error(`GET api/epic: HTTP ${res.status}`);
   return (await res.json()) as ReviewEpicView;
 }
@@ -25,7 +26,7 @@ export { fetchSession } from './session-client.js';
 function tokenCall(client: SessionClient, url: string, body?: unknown): Promise<TokenReply> {
   return client.withToken((token) =>
     fetch(
-      url,
+      at(url),
       body === undefined
         ? { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }
         : { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json', [TOKEN_HEADER]: token }, body: JSON.stringify(body) },

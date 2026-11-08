@@ -3,6 +3,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { listEpics } from './epics.js';
+import { machineFingerprint } from './machine.js';
 import { findFreePort } from './port.js';
 import { resolveRehearse } from './resolve-bin.js';
 import { runCli, type CliResult } from './run-cli.js';
@@ -31,7 +32,7 @@ export type ServeSettings = Pick<ServeTarget, 'projectId' | 'threadModel' | 'thr
 
 export interface HostService {
   listEpics(repoPath: string): string[];
-  open(repoPath: string, slug: string, command: string, settings?: ServeSettings): Promise<Opened & { sshAgent: { available: boolean; source: SshAgent['source'] } }>;
+  open(repoPath: string, slug: string, command: string, settings?: ServeSettings): Promise<Opened & { sshAgent: { available: boolean; source: SshAgent['source'] }; machine: string }>;
   renew(leaseId: string): boolean;
   release(leaseId: string): Promise<boolean>;
   runCli(cwd: string, args: string[], command: string): Promise<CliResult>;
@@ -62,7 +63,7 @@ export function createHostService(opts: HostServiceOptions = {}): HostService {
         throw new Error(`no EPIC folder docs/epics/${slug} in ${repoPath}`);
       }
       const opened = await manager.open({ repoPath, slug, command, ...settings });
-      return { ...opened, sshAgent: agentInfo(agent()) };
+      return { ...opened, sshAgent: agentInfo(agent()), machine: machineFingerprint() };
     },
     renew: (leaseId) => manager.renew(leaseId),
     release: (leaseId) => manager.release(leaseId),

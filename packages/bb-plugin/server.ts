@@ -5,11 +5,17 @@
 //   panel shows its URL in an iframe: the same UI as a browser tab (R12, D31).
 // - `bb rehearse` opens the panel; `bb rehearse validate|simulate|gate check|new`
 //   run the rehearse CLI. No approve and no sign-off command (R13, R14, D41).
+// - A viewer on another device (a phone through bb connect) gets the machine tunnel. If the host
+//   cannot share a port and the serve process runs on the bb server's machine, the viewer gets
+//   the relay route of this plugin (src/remote.ts, src/relay.ts, T67).
 
 import { defineRpcContract, type BbPluginApi } from '@get-bb/plugin-sdk';
 import { z } from 'zod';
 import { hostContract } from './contract.js';
 import { parseBbRehearse, USAGE } from './src/cli-args.js';
+import { machineFingerprint } from './src/machine.js';
+import { relay, relayRoute, relayTarget, relayUrl, RELAY_METHODS, RELAY_PATH } from './src/relay.js';
+import { remoteView } from './src/remote.js';
 import { cliTarget, projectRepo, sharedPortUrl, type HostPath } from './src/targets.js';
 
 const slug = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/).max(200);
@@ -70,8 +76,30 @@ export default async function plugin(bb: BbPluginApi) {
   });
   const host = bb.hosts.experimental_client({ contract: hostContract });
 
-  /** leaseId → where its process runs. Drives the bb connect port declarations. */
-  const leases = new Map<string, { hostId: string; port: number }>();
+  /** leaseId → where its process runs. Drives the bb connect port declarations and the relay. */
+  const leases = new Map<string, { hostId: string; port: number; relay: boolean }>();
+  /** This machine, once. Null if it cannot be read: then there is no relay. */
+  let here: string | null | undefined;
+  const thisMachine = (): string | null => {
+    if (here === undefined) {
+      try {
+        here = machineFingerprint();
+      } catch {
+        here = null;
+      }
+    }
+    return here;
+  };
+  const route = relayRoute(bb.pluginId);
+  /** The port of the bb server itself. The relay never goes to it, also if a lease names it. */
+  const bbPort = (): number | null => {
+    try {
+      const url = new URL(bb.server.loopbackBaseUrl);
+      return Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+    } catch {
+      return null;
+    }
+  };
   const portsOn = (hostId: string): number[] => [...new Set([...leases.values()].filter((l) => l.hostId === hostId).map((l) => l.port))];
   const declarePorts = (hostId: string): void => {
     try {
@@ -123,18 +151,23 @@ export default async function plugin(bb: BbPluginApi) {
         },
         { hostId: repo.hostId, timeoutMs: 30_000 },
       );
-      leases.set(opened.leaseId, { hostId: repo.hostId, port: opened.port });
+      // The relay can reach the process only if it runs on this machine (the bb server's).
+      const sameMachine = opened.machine !== undefined && opened.machine === thisMachine();
+      leases.set(opened.leaseId, { hostId: repo.hostId, port: opened.port, relay: sameMachine });
       let url: string | null = opened.url;
       let remoteError: string | null = null;
       if (remote) {
-        try {
-          const tunnel = await bb.hosts.ensureSharedPortTunnel(repo.hostId);
-          bb.hosts.declareSharedPorts(repo.hostId, portsOn(repo.hostId));
-          url = sharedPortUrl(tunnel, opened.port);
-        } catch (e) {
-          url = null;
-          remoteError = `${e instanceof Error ? e.message : String(e)}. Open the panel in the bb app on the machine that has the repo.`;
-        }
+        const view = await remoteView({
+          port: opened.port,
+          tunnel: async () => {
+            const tunnel = await bb.hosts.ensureSharedPortTunnel(repo.hostId);
+            bb.hosts.declareSharedPorts(repo.hostId, portsOn(repo.hostId));
+            return sharedPortUrl(tunnel, opened.port);
+          },
+          relay: sameMachine ? relayUrl(route, opened.leaseId) : null,
+        });
+        url = view.url;
+        remoteError = view.remoteError;
       }
       return { leaseId: opened.leaseId, url, localUrl: opened.url, remoteError, sshAgent: opened.sshAgent.available };
     },
@@ -152,6 +185,24 @@ export default async function plugin(bb: BbPluginApi) {
       return host.call('release', { leaseId }, { hostId: lease.hostId });
     },
   });
+
+  // The relay (T67): "local" auth, so bb refuses a request from a page that is not a bb app page.
+  for (const method of RELAY_METHODS) {
+    bb.http.route(
+      method,
+      RELAY_PATH,
+      async (c) => {
+        const request = c.req.raw;
+        const target = relayTarget(new URL(request.url), (leaseId) => {
+          const lease = leases.get(leaseId);
+          return lease?.relay && lease.port !== bbPort() ? { port: lease.port } : undefined;
+        });
+        if (!target.ok) return new Response(`${target.error}\n`, { status: target.status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+        return relay(request, target, { route });
+      },
+      { auth: 'local' },
+    );
+  }
 
   /** The checkout a CLI call works in: the thread's environment, else the project's repo. */
   async function checkoutOf(ctx: { threadId?: string; projectId?: string }): Promise<HostPath | undefined> {

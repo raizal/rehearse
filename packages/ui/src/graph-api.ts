@@ -6,6 +6,7 @@
 import { createContext } from 'react';
 import type { PanelAnswer } from '@rehearse/server';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient } from './session-client.js';
+import { at } from './base.js';
 
 export type { PanelAnswer } from '@rehearse/server';
 
@@ -22,7 +23,7 @@ export function httpGraphApi(client: SessionClient = sessionClient): GraphApi {
   const get = async (params: URLSearchParams): Promise<GraphOutcome> => {
     const url = `api/graph?${params.toString()}`;
     try {
-      const r = await client.withToken((token) => fetch(url, { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
+      const r = await client.withToken((token) => fetch(at(url), { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
       if (r.status === 200 && r.body?.ok === true) return { ok: true, answer: r.body as unknown as PanelAnswer };
       if (r.status === 404 && r.body?.ok === false) return { ok: false, notFound: true, error: 'not found' };
       const error = tokenRejected(r) ? SERVER_RESTARTED : typeof r.body?.error === 'string' ? r.body.error : `GET ${url}: HTTP ${r.status}`;

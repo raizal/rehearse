@@ -5,6 +5,7 @@
 import { createContext } from 'react';
 import type { CodeMap, FindAnswer, GraphStatus, MapLevel, QueryAnswer } from '@rehearse/server';
 import { SERVER_RESTARTED, sessionClient, TOKEN_HEADER, tokenRejected, type SessionClient } from './session-client.js';
+import { at } from './base.js';
 
 export type { CodeMap, FindAnswer, GraphStatus, MapBox, MapEdge, MapLevel, MapMember, MapNode, MapPlace, MapTotals } from '@rehearse/server';
 
@@ -45,7 +46,7 @@ export function httpCodeMapApi(client: SessionClient = sessionClient): CodeMapAp
   const get = async <T,>(params: URLSearchParams, accept: (status: number, body: Record<string, unknown>) => boolean = (s, b) => s === 200 && b.ok === true): Promise<MapOutcome<T>> => {
     const url = `api/graph?${params.toString()}`;
     try {
-      const r = await client.withToken((token) => fetch(url, { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
+      const r = await client.withToken((token) => fetch(at(url), { cache: 'no-store', headers: { [TOKEN_HEADER]: token } }));
       const body = (r.body ?? {}) as Record<string, unknown>;
       if (accept(r.status, body)) return { ok: true, value: body as unknown as T };
       if (r.status === 404 && body.ok === false) return { ok: false, notFound: true, error: 'not found' };
