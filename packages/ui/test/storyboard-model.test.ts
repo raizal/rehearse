@@ -7,7 +7,7 @@ import type { ApprovalView, ReviewEpicView } from '../src/contract.js';
 import { laneColor, LANE_COLORS, roleName, UNKNOWN_LANE_COLOR } from '../src/model/diagram.js';
 import { proofWithSignatures, proofReasonText } from '../src/model/readiness.js';
 import { allSeen, loadSeen, markSeen, saveSeen, seenSteps, type SeenState } from '../src/model/seen.js';
-import { approvalState, criterionFor, nextInStory, nextStoryToApprove, nextToApprove, pathMap, progress, reviewQueue, storyFinish } from '../src/model/storyboard.js';
+import { approvalState, criterionFor, moreScenarios, nextInStory, nextStoryToApprove, nextToApprove, pathMap, progress, reviewQueue, storyFinish } from '../src/model/storyboard.js';
 import { reviewEpic } from './fixture.js';
 
 const view = reviewEpic();
@@ -54,6 +54,20 @@ describe('review queue', () => {
     const all = Object.fromEntries(order.map((s) => [s.scenario.id, VALID]));
     for (const s of order) s.status = 'approved';
     expect(nextToApprove(order, 'S1-buy', all)).toBeUndefined();
+  });
+
+  it('box more-scenarios (S6-A5): "yes" while another scenario waits for approval, "no" when none is left', () => {
+    const order = reviewQueue(prd, structuredClone(view.scenarios)).flatMap((g) => g.scenarios);
+    // Two drafts are left after the builder approves S1-buy: back to the review.
+    expect(moreScenarios(order, 'S1-buy', { 'S1-buy': VALID })).toBe(true);
+    // The open scenario is not "more": with only S1-empty left and open, nothing else waits.
+    for (const s of order) if (s.scenario.id !== 'S1-empty') s.status = 'approved';
+    expect(moreScenarios(order, 'S1-empty', { 'S1-buy': VALID, 'S2-out-of-stock': VALID })).toBe(false);
+    // Every scenario approved with a valid signature: no, and the gate decides.
+    const all = Object.fromEntries(order.map((s) => [s.scenario.id, VALID]));
+    for (const s of order) s.status = 'approved';
+    expect(moreScenarios(order, 'S1-buy', all)).toBe(false);
+    expect(moreScenarios(order, undefined, all)).toBe(false);
   });
 });
 

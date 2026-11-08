@@ -26,6 +26,7 @@ import { overviewText, overviewThread } from '../model/progress.js';
 import {
   approvalState,
   criterionFor,
+  moreScenarios,
   nextInStory,
   nextStoryToApprove,
   nextToApprove,
@@ -245,7 +246,9 @@ function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }
   const rows = useMemo(() => queueRows(view), [view]);
   const order = useMemo(() => queueOf(view).flatMap((g) => g.scenarios), [view]);
   const { done, total } = progress(view.scenarios, approve.approvals);
-  const next = nextToApprove(order, scenarioId, approve.approvals);
+  // Box more-scenarios: "yes" gives the next scenario to approve; "no" says that nothing is left.
+  const more = moreScenarios(order, scenarioId, approve.approvals);
+  const next = more ? nextToApprove(order, scenarioId, approve.approvals) : undefined;
   // Say when "next" crosses into another story than the one open.
   const nextStory = order.find((sv) => sv.scenario.id === next)?.scenario.story;
   const crosses = next !== undefined && nextStory !== undefined && nextStory !== storyId;
@@ -308,8 +311,8 @@ function ReviewQueue({ view, scenarioId, onPick, approve, storyId, onPickStory }
           approved with a valid signature
         </p>
         <progress max={Math.max(1, total)} value={done} aria-hidden="true" className="queue-bar" />
-        <button type="button" className="action" data-testid="queue-next" disabled={next === undefined} onClick={() => next && onPick(next)}>
-          {next === undefined ? 'Nothing left to approve' : crosses ? `Next to approve: ${next}, in another story (${nextStory})` : `Next to approve: ${next}`}
+        <button type="button" className="action" data-testid="queue-next" disabled={!more} onClick={() => next && onPick(next)}>
+          {!more ? 'Nothing left to approve' : crosses ? `Next to approve: ${next}, in another story (${nextStory})` : `Next to approve: ${next}`}
         </button>
       </div>
     </nav>

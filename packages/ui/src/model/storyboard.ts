@@ -92,6 +92,15 @@ export function nextToApprove(order: ScenarioView[], current: Id | undefined, ap
   return undefined;
 }
 
+/**
+ * Box `more-scenarios` (S6-A5): after an approval, does a scenario other than `current` wait for
+ * approval? "yes": the panel goes back to the review, on the next one to approve. "no": nothing is
+ * left to approve, and the gate decides.
+ */
+export function moreScenarios(order: ScenarioView[], current: Id | undefined, approvals: Record<Id, ApprovalView> | undefined): boolean {
+  return nextToApprove(order, current, approvals) !== undefined;
+}
+
 // ---------------------------------------------------------------- next scenario, next story (S21)
 
 export interface NextScenario {
