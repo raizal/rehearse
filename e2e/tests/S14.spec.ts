@@ -83,7 +83,7 @@ function signingShop() {
   writeFileSync(join(repo, '.rehearse/allowed_signers'), `e2e@example.com namespaces="rehearse" ${readFileSync(`${key}.pub`, 'utf8')}`);
   writeFileSync(join(tmp, 'gitconfig'), `[user]\n\tname = e2e\n\temail = e2e@example.com\n\tsigningkey = ${key}\n[gpg]\n\tformat = ssh\n[commit]\n\tgpgsign = false\n`);
   fakeBb(tmp, repo);
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: join(tmp, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1', PATH: `${join(tmp, 'bin')}:${process.env.PATH}` };
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: join(tmp, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1', PATH: `${join(tmp, 'bin')}:${process.env.PATH}`, REHEARSE_BB_PROJECT: 'proj_e2e' };
   for (const k of Object.keys(env)) if (k.startsWith('BB_')) delete env[k];
   delete env.SSH_AUTH_SOCK;
   const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, env, encoding: 'utf8' });
@@ -134,16 +134,16 @@ function scenarioBlock(epicDir: string, story: string, id: string): string {
   return start < 0 ? '' : text.slice(start, next < 0 ? undefined : next);
 }
 
-/** Open story S1 from the Stories list. */
-async function openStory(page: Page): Promise<void> {
+/** Open a story (S1 by default) from the review queue on the story page. */
+async function openStory(page: Page, story = 'S1'): Promise<void> {
   await page.getByTestId('nav-stories').click();
-  await page.getByTestId('queue-story-S1').click();
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('to pay for my cart');
+  await page.getByTestId(`queue-story-${story}`).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(story === 'S1' ? 'to pay for my cart' : 'to ship paid orders');
 }
 
 /** Play every step of a scenario on its storyboard, then press Approve. */
 async function approve(page: Page, id: string): Promise<void> {
-  await page.getByTestId(`story-scenario-open-${id}`).click();
+  await page.getByTestId(`glance-branch-${id}`).click(); // The path button on the story map: the "Open storyboard" button of a card can be under the next card.
   const approveButton = page.getByTestId('card-approve');
   for (let i = 0; i < 12 && !(await approveButton.isEnabled()); i++) await page.getByTestId('card-next-step').click();
   await expect(approveButton).toBeEnabled();
@@ -171,25 +171,27 @@ test('S14-merge: Merge into main merges the idle thread\'s branch with --no-ff a
   let title = '';
   page.on('dialog', (d) => void d.accept());
   try {
-    await page.goto(url);
-    await openStory(page);
-    await approve(page, 'S1-buy');
-    await expect.poll(() => scenarioBlock(shop.epicDir, 'S1', 'S1-buy')).toMatch(/status: approved/);
-    // Guess: the Sign-off page lists the stories with a check box each and a "Sign off" button.
+    // The gate lets the owner sign off S1 only when each branch on its path has an approved scenario.
+    for (const [story, id] of [['S1', 'S1-buy'], ['S1', 'S1-empty'], ['S2', 'S2-out-of-stock']] as const) {
+      await page.goto(url);
+      await openStory(page, story);
+      await approve(page, id);
+      await expect.poll(() => scenarioBlock(shop.epicDir, story, id)).toMatch(/status: approved/);
+    }
     await page.getByTestId('nav-signoff').click();
-    const s1 = page.getByRole('checkbox', { name: /S1\b/ });
-    if ((await s1.count()) > 0) await s1.first().check();
-    await page.getByRole('button', { name: /^Sign off/ }).first().click();
+    await page.getByRole('checkbox', { name: /^S1 / }).check();
+    await page.getByTestId('signoff-button').click();
+    // A dialog shows what the owner agrees to. The owner confirms it.
+    await expect(page.getByTestId('signoff-confirm-stories')).toHaveText('S1');
+    await page.getByTestId('signoff-confirm').click();
     await expect.poll(() => (JSON.parse(shop.rehearse('brief', EPIC, 'S1', '--json').out || '{}') as { sign?: { status?: string } }).sign?.status).toBe('signed');
     git(shop.repo, 'add', '-A');
-    git(shop.repo, 'commit', '-q', '-m', 'Approve S1-buy and sign off S1', '-m', TRAILER);
+    git(shop.repo, 'commit', '-q', '-m', 'Approve the scenarios and sign off S1', '-m', TRAILER);
+    await page.goto(url);
     await openStory(page);
     const buildButton = page.getByRole('button', { name: /Build with an agent/ });
-    // Guess: the build panel is on the story page, or on a story tab named after the thread or the build.
-    if (!(await buildButton.isVisible())) {
-      const tab = page.locator('[data-testid^="story-tab-"]').filter({ hasText: /thread|build/i });
-      if ((await tab.count()) > 0) await tab.first().click();
-    }
+    // The story thread rail, with the build panel, is on the Code tab of the story.
+    await page.getByTestId('story-tab-code').click();
     await buildButton.click();
     await expect.poll(() => shop.bbCalls().filter((a) => a[0] === 'thread' && a[1] === 'spawn').length).toBe(1);
     // The build thread works in its own worktree, on its own branch, and makes 2 commits.
@@ -215,12 +217,9 @@ test('S14-merge: Merge into main merges the idle thread\'s branch with --no-ff a
     await test.step('merge-panel: The merge summary, Merge into <current branch>, and play after a test merge', async () => {
       // Step 1 of 5.
       // The builder opens the story's thread panel again: it shows the build thread.
-      await page.reload();
+      await page.goto(url);
       await openStory(page);
-      if (!(await page.getByText('thr_e2e1').first().isVisible())) {
-        const tab = page.locator('[data-testid^="story-tab-"]').filter({ hasText: /thread|build/i });
-        if ((await tab.count()) > 0) await tab.first().click();
-      }
+      await page.getByTestId('story-tab-code').click();
       await expect(page.getByText('thr_e2e1').first()).toBeVisible();
     });
 
@@ -231,6 +230,8 @@ test('S14-merge: Merge into main merges the idle thread\'s branch with --no-ff a
       await expect(page.getByText('2 commits in the thread, not in main yet').first()).toBeVisible();
       await expect(page.getByText('T1: check out the cart').first()).toBeVisible();
       await expect(page.getByText('T1: test the cart').first()).toBeVisible();
+      // The file list is folded under "2 files": the builder opens it.
+      await page.getByTestId('merge-build-files').getByText('2 files').click();
       await expect(page.getByText('src/cart.ts').first()).toBeVisible();
       await expect(page.getByText('test/cart.test.ts').first()).toBeVisible();
     });
@@ -247,9 +248,10 @@ test('S14-merge: Merge into main merges the idle thread\'s branch with --no-ff a
       // Example merge-no-ff: given {"storyId":"S4","kind":"build","thread":{"status":"idle","title":"Build S4"}}; then {"git":"git merge --no-ff bb/build-s4","message":"Merge Build S4","trailer":"Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"}.
       const before = git(shop.repo, 'rev-parse', 'HEAD').trim();
       await mergeButton.click();
-      // Guess: the builder confirms the summary with a second "Merge" or "Confirm" button, or a browser dialog.
-      const confirm = page.getByRole('button', { name: /^(Confirm|Merge)\b/ }).filter({ hasNotText: /^Merge into/ });
-      if (await confirm.first().isVisible().catch(() => false)) await confirm.first().click();
+      // The builder confirms the summary: 2 commits of the branch, with git merge --no-ff and the title.
+      await expect(page.getByTestId('merge-build-confirm')).toContainText(`Merge 2 commits of ${branch} into main with git merge --no-ff`);
+      await expect(page.getByTestId('merge-build-confirm')).toContainText(`The commit says “Merge ${title}”`);
+      await page.getByTestId('merge-build-yes').click();
       await expect.poll(() => git(shop.repo, 'rev-parse', 'HEAD').trim()).not.toBe(before);
       // A merge commit (--no-ff): 2 parents, the old HEAD and the thread's branch.
       const parents = git(shop.repo, 'log', '-1', '--format=%P').trim().split(' ');
