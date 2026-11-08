@@ -2,7 +2,7 @@
 // Each route can be replaced per test; every call is recorded.
 
 import { vi } from 'vitest';
-import type { ReviewEpicView, Session } from '../src/contract.js';
+import type { ApproveOk, ReviewEpicView, Session } from '../src/contract.js';
 import { FIXTURE_KEY } from './fixture.js';
 
 export interface Reply {
@@ -61,6 +61,14 @@ export const SESSION: Session = {
   signing: { ok: true, keyFingerprint: FIXTURE_KEY },
 };
 
+/** The body of a 200 from `POST /api/approve`, in the shape of the real server: one approval for each id. */
+export function approveOk(ids: string[]): ApproveOk {
+  return {
+    ok: true,
+    approved: ids.map((id) => ({ id, file: `scenarios/${id}.yaml`, approval: { by: SESSION.identity.by, at: '2026-11-08T10:00:00Z', hash: 'sha256:0000' } })),
+  };
+}
+
 export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: string) => Call[]; gets: (url: string) => Call[] } {
   const calls: Call[] = [];
   const respond = ({ status, body }: Reply) => ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
@@ -73,7 +81,7 @@ export function mockServer(routes: MockRoutes): { calls: Call[]; posts: (url: st
     if (url === 'api/epic' && method === 'GET') return respond({ status: 200, body: routes.epic() });
     if (url === 'api/session' && method === 'GET') return respond(routes.session?.() ?? { status: 200, body: SESSION });
     if (url === 'api/approve' && method === 'POST') {
-      return respond(routes.approve?.(body) ?? { status: 200, body: { ok: true, approved: body.scenarioIds } });
+      return respond(routes.approve?.(body) ?? { status: 200, body: approveOk(body.scenarioIds) });
     }
     if (url.startsWith('api/birdview?story=') && method === 'GET') {
       return respond(routes.birdview?.(decodeURIComponent(url.slice('api/birdview?story='.length))) ?? { status: 404, body: { error: 'no route' } });

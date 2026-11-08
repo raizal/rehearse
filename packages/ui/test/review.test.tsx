@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.js';
 import type { ReviewEpicView, SignOffView } from '../src/contract.js';
 import { FIXTURE_KEY, reviewEpic, seeAll } from './fixture.js';
-import { mockServer, SESSION, type MockRoutes } from './mock-server.js';
+import { approveOk, mockServer, SESSION, type MockRoutes } from './mock-server.js';
 import { shortKey } from '../src/model/text.js';
 
 afterEach(() => {
@@ -96,7 +96,7 @@ describe('approve (S6-A1)', () => {
     const approve = (body: { scenarioIds: string[] }) => {
       view.scenarios.find((s) => s.scenario.id === 'S1-empty')!.status = 'approved';
       view.approvals!['S1-empty'] = { by: 'builder@example.com', at: '2026-11-05T01:00:00Z', signer: FIXTURE_KEY, sigStatus: 'valid' };
-      return { status: 200, body: { ok: true, approved: body.scenarioIds } };
+      return { status: 200, body: approveOk(body.scenarioIds) };
     };
     const { server, user } = await start({ approve }, view);
     await screen.findByTestId('approve-signer-key');

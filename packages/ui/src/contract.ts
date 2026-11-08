@@ -2,7 +2,7 @@
 // The server builds these; the UI only reads them. Fields the server adds to
 // `GET /api/epic` are optional here, so the UI also works with an older server.
 
-import type { Finding, GateReport, Id, Identity, PermissionBoxes, PermissionMatrix, SignedReadiness, SignOffWithRule } from '@rehearse/core';
+import type { Approval, Finding, GateReport, Id, Identity, PermissionBoxes, PermissionMatrix, SignedReadiness, SignOffWithRule } from '@rehearse/core';
 import type { EpicView } from '@rehearse/server';
 
 /** Result of the SSH signature check of an approval or a sign-off (D41). */
@@ -48,10 +48,17 @@ export interface ReviewFields {
 /** `GET /api/epic`: the record view plus the review fields. */
 export type ReviewEpicView = EpicView & Partial<ReviewFields>;
 
+/** One scenario that `POST /api/approve` approved: the scenario id, its file and the new approval. */
+export interface ApprovedScenario {
+  id: Id;
+  file: string;
+  approval: Approval;
+}
+
 /** `POST /api/approve` 200. */
 export interface ApproveOk {
   ok: true;
-  approved: Id[];
+  approved: ApprovedScenario[];
 }
 
 /** `POST /api/sign-off` 200. */

@@ -13,7 +13,7 @@ import type { ReviewEpicView } from '../src/contract.js';
 import { boxAt } from '../src/model/diagram.js';
 import { approveReason } from '../src/model/review.js';
 import { realEpic, reviewEpic, seeAll } from './fixture.js';
-import { mockServer, type MockRoutes } from './mock-server.js';
+import { approveOk, mockServer, type MockRoutes } from './mock-server.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -469,7 +469,7 @@ describe('Next scenario, then Next story (S21)', () => {
     let current = view;
     const { user } = await start({ epic: () => current, approve: (body) => {
       current = approved(view, body.scenarioIds);
-      return { status: 200, body: { ok: true, approved: body.scenarioIds } };
+      return { status: 200, body: approveOk(body.scenarioIds) };
     } }, view);
     await open(user, 'S1-buy');
     expect(screen.getByTestId('card-next-scenario')).not.toHaveFocus();
@@ -477,6 +477,8 @@ describe('Next scenario, then Next story (S21)', () => {
     await waitFor(() => expect(screen.getByTestId('card-next-scenario')).toHaveFocus());
     await waitFor(() => expect(screen.getByTestId('card-approval-state')).toHaveTextContent('approved, signature valid'));
     expect(screen.getByTestId('card-next-scenario')).toHaveFocus();
+    // The server sends approval objects, not ids (T71): the text names the scenario.
+    expect(screen.getByTestId('approve-outcome')).toHaveTextContent('Approved S1-buy.');
     await user.keyboard('{Enter}');
     expect(screen.getByTestId('story-card')).toHaveTextContent('S1-empty');
     // The approval carried over does not move focus on the scenario opened next.
@@ -489,7 +491,7 @@ describe('Next scenario, then Next story (S21)', () => {
     let current = view;
     const { user, server } = await start({ epic: () => current, approve: (body) => {
       current = approved(view, body.scenarioIds);
-      return { status: 200, body: { ok: true, approved: body.scenarioIds } };
+      return { status: 200, body: approveOk(body.scenarioIds) };
     } }, view);
     await open(user, 'S1-empty');
     await user.click(screen.getByTestId('card-approve'));
